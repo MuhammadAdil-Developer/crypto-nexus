@@ -66,15 +66,15 @@ const getStatusIcon = (status: string) => {
 const getStatusColor = (statusType: string) => {
   switch (statusType) {
     case "success":
-      return "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400";
+      return "text-green-400 bg-green-900/20";
     case "warning":
-      return "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400";
+      return "text-yellow-400 bg-yellow-900/20";
     case "accent":
-      return "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400";
+      return "text-blue-400 bg-blue-900/20";
     case "danger":
-      return "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400";
+      return "text-red-400 bg-red-900/20";
     default:
-      return "text-gray-600 bg-gray-50 dark:bg-gray-900/20 dark:text-gray-400";
+      return "text-gray-400 bg-gray-900/20";
   }
 };
 
@@ -86,10 +86,10 @@ export function OrdersTable({ compact = false }: OrdersTableProps) {
   const displayOrders = compact ? orders.slice(0, 3) : orders;
 
   return (
-    <Card className="border-0 shadow-lg">
+    <Card className="border border-gray-700 bg-gray-900">
       {!compact && (
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900 dark:text-white">
+          <CardTitle className="text-xl font-bold text-white">
             Your Orders
           </CardTitle>
         </CardHeader>
@@ -99,7 +99,7 @@ export function OrdersTable({ compact = false }: OrdersTableProps) {
           {displayOrders.map((order) => (
             <div 
               key={order.id}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+              className="flex items-center justify-between p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors duration-200"
             >
               <div className="flex items-center space-x-4 flex-1">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(order.statusType)}`}>
@@ -107,10 +107,10 @@ export function OrdersTable({ compact = false }: OrdersTableProps) {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-gray-900 dark:text-white truncate">
+                  <h4 className="font-medium text-white truncate">
                     {order.product}
                   </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-400">
                     {order.vendor} • {order.date}
                   </p>
                 </div>
@@ -118,7 +118,7 @@ export function OrdersTable({ compact = false }: OrdersTableProps) {
 
               <div className="flex items-center space-x-4">
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">
+                  <p className="font-semibold text-white">
                     {order.price}
                   </p>
                   <Badge 

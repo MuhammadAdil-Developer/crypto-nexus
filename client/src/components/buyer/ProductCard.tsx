@@ -23,7 +23,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
-    <Card className="group overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-0 shadow-lg">
+    <Card className="group overflow-hidden transition-all duration-300 hover:-translate-y-2 border border-gray-700 bg-gray-900">
       <div className="relative">
         {/* Product Image */}
         <div className="relative h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
@@ -47,7 +47,7 @@ export function ProductCard({ product }: ProductCardProps) {
           className={`absolute top-3 right-3 w-8 h-8 rounded-full backdrop-blur-sm transition-all duration-200 ${
             isWishlisted 
               ? 'bg-red-500 text-white hover:bg-red-600' 
-              : 'bg-white/80 text-gray-600 hover:bg-white hover:text-red-500'
+              : 'bg-gray-800/80 text-gray-300 hover:bg-gray-700 hover:text-red-500'
           }`}
           onClick={() => setIsWishlisted(!isWishlisted)}
         >
@@ -67,28 +67,28 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <CardContent className="p-6">
         {/* Vendor */}
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{product.vendor}</p>
+        <p className="text-sm text-gray-400 mb-2">{product.vendor}</p>
         
         {/* Title */}
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-3 line-clamp-2 leading-snug">
+        <h3 className="font-semibold text-white mb-3 line-clamp-2 leading-snug">
           {product.title}
         </h3>
 
         {/* Rating */}
         <div className="flex items-center space-x-1 mb-4">
           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-gray-300">
             {product.rating}
           </span>
-          <span className="text-sm text-gray-500 dark:text-gray-400">(127 reviews)</span>
+          <span className="text-sm text-gray-400">(127 reviews)</span>
         </div>
 
         {/* Price */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <span className="text-2xl font-bold text-blue-400">
             {product.price}
           </span>
-          <span className="text-sm text-gray-500 dark:text-gray-400">≈ $45.60</span>
+          <span className="text-sm text-gray-400">≈ $45.60</span>
         </div>
 
         {/* Action Buttons */}

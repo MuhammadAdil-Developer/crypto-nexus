@@ -88,13 +88,13 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
 
   if (compact) {
     return (
-      <Card className="border-0 shadow-lg">
+      <Card className="border border-gray-700 bg-gray-900">
         <CardContent className="p-0">
           <div className="space-y-3">
             {conversations.slice(0, 3).map((conv) => (
               <div 
                 key={conv.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer"
+                className="flex items-center justify-between p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors duration-200 cursor-pointer"
                 onClick={() => window.location.href = '/buyer/messages'}
               >
                 <div className="flex items-center space-x-3 flex-1">
@@ -106,12 +106,12 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
+                      <h4 className="font-medium text-white">
                         {conv.vendor}
                       </h4>
-                      <span className="text-xs text-gray-500">{conv.time}</span>
+                      <span className="text-xs text-gray-400">{conv.time}</span>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                    <p className="text-sm text-gray-400 truncate">
                       {conv.lastMessage}
                     </p>
                   </div>
@@ -133,7 +133,7 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Conversations List */}
-      <Card className="lg:col-span-1 border-0 shadow-lg">
+      <Card className="lg:col-span-1 border border-gray-700 bg-gray-900">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="w-5 h-5" />
@@ -147,8 +147,8 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
                 key={conv.id}
                 className={`p-4 cursor-pointer transition-colors duration-200 ${
                   selectedConversation?.id === conv.id 
-                    ? 'bg-blue-50 dark:bg-blue-900/20 border-r-2 border-blue-500' 
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                    ? 'bg-blue-900/20 border-r-2 border-blue-500' 
+                    : 'hover:bg-gray-800'
                 }`}
                 onClick={() => setSelectedConversation(conv)}
               >
@@ -170,7 +170,7 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                    <p className="text-sm text-gray-400 truncate">
                       {conv.lastMessage}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">{conv.time}</p>
@@ -183,7 +183,7 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
       </Card>
 
       {/* Chat Window */}
-      <Card className="lg:col-span-2 border-0 shadow-lg">
+      <Card className="lg:col-span-2 border border-gray-700 bg-gray-900">
         {selectedConversation ? (
           <>
             {/* Chat Header */}
@@ -196,10 +196,10 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-white">
                       {selectedConversation.vendor}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-gray-400">
                       Re: {selectedConversation.product}
                     </p>
                   </div>
@@ -231,11 +231,11 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
                     <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
                       message.sender === 'buyer' 
                         ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                        : 'bg-gray-700 text-white'
                     }`}>
                       <p className="text-sm">{message.content}</p>
                       <p className={`text-xs mt-1 ${
-                        message.sender === 'buyer' ? 'text-blue-100' : 'text-gray-500'
+                        message.sender === 'buyer' ? 'text-blue-100' : 'text-gray-400'
                       }`}>
                         {message.time}
                       </p>
@@ -272,10 +272,10 @@ export function MessagesPanel({ compact = false }: MessagesPanelProps) {
           <CardContent className="flex items-center justify-center h-96">
             <div className="text-center">
               <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              <h3 className="text-lg font-medium text-white mb-2">
                 Select a conversation
               </h3>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-400">
                 Choose a vendor to start chatting
               </p>
             </div>

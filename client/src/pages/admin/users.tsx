@@ -1,13 +1,66 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, Plus, Phone, Mail, Calendar, User } from "lucide-react";
 import { SAMPLE_USERS } from "@/lib/constants";
 
 export default function AdminUsers() {
+  const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+  const [userDetailsModalOpen, setUserDetailsModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  
+  const form = useForm({
+    defaultValues: {
+      fullName: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "Viewer / Normal User",
+      status: "Active",
+      phoneNumber: "",
+      profilePicture: null
+    }
+  });
+  
+  const handleCreateUser = (data: any) => {
+    console.log("Creating user:", data);
+    setAddUserModalOpen(false);
+    form.reset();
+  };
+  
+  const handleViewUser = (user: any) => {
+    setSelectedUser(user);
+    setUserDetailsModalOpen(true);
+  };
+  
+  const handleBanUser = (userId: number) => {
+    console.log("Banning user:", userId);
+  };
+  
+  const handleUnbanUser = (userId: number) => {
+    console.log("Unbanning user:", userId);
+  };
+  
+  const handleLoginAsUser = (userId: number) => {
+    console.log("Login as user:", userId);
+  };
+  
+  const handleEditUser = (userId: number) => {
+    console.log("Editing user:", userId);
+  };
+  
+  const handleDeleteUser = (userId: number) => {
+    console.log("Deleting user:", userId);
+  };
 
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
@@ -17,9 +70,217 @@ export default function AdminUsers() {
             <h1 className="text-2xl font-bold text-white">User Management</h1>
             <p className="text-gray-300 mt-1">Manage platform users, vendors, and administrators</p>
           </div>
-          <Button className="bg-accent text-bg hover:bg-accent-2">
-            Add New User
-          </Button>
+          <Dialog open={addUserModalOpen} onOpenChange={setAddUserModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-bg hover:bg-accent-2" data-testid="add-new-user-btn">
+                <Plus className="w-4 h-4 mr-2" />
+                Add New User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] bg-surface border-border">
+              <DialogHeader>
+                <DialogTitle className="text-white">Add New User</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleCreateUser)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Full Name</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Enter full name" 
+                              className="bg-surface-2 border-border text-white"
+                              data-testid="input-full-name"
+                              {...field} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Username</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Enter username" 
+                              className="bg-surface-2 border-border text-white"
+                              data-testid="input-username"
+                              {...field} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Email Address</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            placeholder="Enter email address" 
+                            className="bg-surface-2 border-border text-white"
+                            data-testid="input-email"
+                            {...field} 
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Password</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="password" 
+                              placeholder="Enter password" 
+                              className="bg-surface-2 border-border text-white"
+                              data-testid="input-password"
+                              {...field} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Confirm Password</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="password" 
+                              placeholder="Confirm password" 
+                              className="bg-surface-2 border-border text-white"
+                              data-testid="input-confirm-password"
+                              {...field} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Role / User Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="select-role">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Admin">Admin</SelectItem>
+                              <SelectItem value="Editor / Manager">Editor / Manager</SelectItem>
+                              <SelectItem value="Viewer / Normal User">Viewer / Normal User</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="select-status">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Active">Active</SelectItem>
+                              <SelectItem value="Inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Phone Number (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter phone number" 
+                            className="bg-surface-2 border-border text-white"
+                            data-testid="input-phone"
+                            {...field} 
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="profilePicture"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Profile Picture (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="file" 
+                            accept="image/*"
+                            className="bg-surface-2 border-border text-white"
+                            data-testid="input-profile-picture"
+                            onChange={(e) => field.onChange(e.target.files?.[0] || null)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setAddUserModalOpen(false)}
+                      className="border-border text-gray-300 hover:bg-surface-2"
+                      data-testid="btn-cancel"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="bg-accent text-bg hover:bg-accent-2"
+                      data-testid="btn-create-user"
+                    >
+                      Create User
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Cards */}
@@ -173,23 +434,62 @@ export default function AdminUsers() {
                       <td className="p-4 text-gray-300">{user.orders}</td>
                       <td className="p-4">
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`view-user-${user.id}`}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-gray-400 hover:text-white" 
+                            onClick={() => handleViewUser(user)}
+                            data-testid={`view-user-${user.id}`}
+                          >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`login-as-${user.id}`}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-gray-400 hover:text-white" 
+                            onClick={() => handleEditUser(user.id)}
+                            data-testid={`edit-user-${user.id}`}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-gray-400 hover:text-white" 
+                            onClick={() => handleLoginAsUser(user.id)}
+                            data-testid={`login-as-${user.id}`}
+                          >
                             <LogIn className="w-4 h-4" />
                           </Button>
                           {user.status === "Active" ? (
-                            <Button variant="ghost" size="sm" className="text-danger hover:text-red-400" data-testid={`ban-user-${user.id}`}>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-danger hover:text-red-400" 
+                              onClick={() => handleBanUser(user.id)}
+                              data-testid={`ban-user-${user.id}`}
+                            >
                               <Ban className="w-4 h-4" />
                             </Button>
                           ) : (
-                            <Button variant="ghost" size="sm" className="text-success hover:text-green-400" data-testid={`unban-user-${user.id}`}>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-success hover:text-green-400" 
+                              onClick={() => handleUnbanUser(user.id)}
+                              data-testid={`unban-user-${user.id}`}
+                            >
                               <Unlock className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                            <MoreHorizontal className="w-4 h-4" />
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-danger hover:text-red-400"
+                            onClick={() => handleDeleteUser(user.id)}
+                            data-testid={`delete-user-${user.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </td>
@@ -200,6 +500,137 @@ export default function AdminUsers() {
             </div>
           </CardContent>
         </Card>
+        
+        {/* User Details Modal */}
+        <Dialog open={userDetailsModalOpen} onOpenChange={setUserDetailsModalOpen}>
+          <DialogContent className="sm:max-w-[500px] bg-surface border-border">
+            <DialogHeader>
+              <DialogTitle className="text-white">User Details</DialogTitle>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-6">
+                {/* Profile Section */}
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center">
+                    <span className="text-accent text-xl font-semibold">
+                      {selectedUser.username[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{selectedUser.username}</h3>
+                    <p className="text-gray-400">{selectedUser.email}</p>
+                    <StatusBadge status={selectedUser.status} type={selectedUser.statusType} className="mt-1" />
+                  </div>
+                </div>
+                
+                {/* Details Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-gray-400 text-sm">Role</Label>
+                      <div className="flex items-center mt-1">
+                        <User className="w-4 h-4 text-accent mr-2" />
+                        <span className="text-white">{selectedUser.role}</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-400 text-sm">Join Date</Label>
+                      <div className="flex items-center mt-1">
+                        <Calendar className="w-4 h-4 text-accent mr-2" />
+                        <span className="text-white">{selectedUser.joinDate}</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-400 text-sm">Total Orders</Label>
+                      <div className="flex items-center mt-1">
+                        <span className="text-white text-lg font-semibold">{selectedUser.orders}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-gray-400 text-sm">Email</Label>
+                      <div className="flex items-center mt-1">
+                        <Mail className="w-4 h-4 text-accent mr-2" />
+                        <span className="text-white text-sm">{selectedUser.email}</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-400 text-sm">Last Login</Label>
+                      <div className="flex items-center mt-1">
+                        <span className="text-white">{selectedUser.lastLogin}</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-400 text-sm">Total Spent</Label>
+                      <div className="flex items-center mt-1">
+                        <span className="text-accent font-mono font-semibold">{selectedUser.totalSpent}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-border">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-border text-gray-300 hover:bg-surface-2"
+                    onClick={() => handleEditUser(selectedUser.id)}
+                    data-testid="btn-edit-user-details"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit User
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-border text-gray-300 hover:bg-surface-2"
+                    onClick={() => handleLoginAsUser(selectedUser.id)}
+                    data-testid="btn-login-as-user-details"
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Login As User
+                  </Button>
+                  {selectedUser.status === "Active" ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-danger text-danger hover:bg-danger/10"
+                      onClick={() => {
+                        handleBanUser(selectedUser.id);
+                        setUserDetailsModalOpen(false);
+                      }}
+                      data-testid="btn-ban-user-details"
+                    >
+                      <Ban className="w-4 h-4 mr-2" />
+                      Ban User
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-success text-success hover:bg-success/10"
+                      onClick={() => {
+                        handleUnbanUser(selectedUser.id);
+                        setUserDetailsModalOpen(false);
+                      }}
+                      data-testid="btn-unban-user-details"
+                    >
+                      <Unlock className="w-4 h-4 mr-2" />
+                      Unban User
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
   );
 }

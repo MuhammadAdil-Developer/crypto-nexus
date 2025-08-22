@@ -77,7 +77,7 @@ export default function AdminUsers() {
                 Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-surface border-border">
+            <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl">
               <DialogHeader>
                 <DialogTitle className="text-white">Add New User</DialogTitle>
               </DialogHeader>
@@ -503,7 +503,7 @@ export default function AdminUsers() {
         
         {/* User Details Modal */}
         <Dialog open={userDetailsModalOpen} onOpenChange={setUserDetailsModalOpen}>
-          <DialogContent className="sm:max-w-[500px] bg-surface border-border">
+          <DialogContent className="sm:max-w-[500px] bg-card border border-border shadow-xl">
             <DialogHeader>
               <DialogTitle className="text-white">User Details</DialogTitle>
             </DialogHeader>

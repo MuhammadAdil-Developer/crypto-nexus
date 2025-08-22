@@ -16,7 +16,9 @@ import {
   Bell,
   Shield,
   Lock,
-  Palette
+  Palette,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 
 export const ADMIN_NAV_ITEMS = [
@@ -127,6 +129,153 @@ export const ADMIN_NAV_ITEMS = [
     icon: Palette,
     href: "/admin/branding",
     badge: null
+  }
+];
+
+export const ADMIN_GROUPED_NAV = [
+  {
+    category: "Core Management",
+    icon: BarChart3,
+    items: [
+      {
+        title: "Overview",
+        icon: BarChart3,
+        href: "/admin",
+        badge: null
+      },
+      {
+        title: "Users",
+        icon: Users,
+        href: "/admin/users",
+        badge: { text: "2,847", type: "accent" }
+      },
+      {
+        title: "Vendors",
+        icon: Store,
+        href: "/admin/vendors",
+        badge: { text: "7", type: "warning" }
+      }
+    ]
+  },
+  {
+    category: "Commerce",
+    icon: ShoppingCart,
+    items: [
+      {
+        title: "Listings",
+        icon: List,
+        href: "/admin/listings",
+        badge: { text: "1,432", type: "success" }
+      },
+      {
+        title: "Orders",
+        icon: ShoppingCart,
+        href: "/admin/orders",
+        badge: { text: "89", type: "accent" }
+      },
+      {
+        title: "Disputes",
+        icon: Gavel,
+        href: "/admin/disputes",
+        badge: { text: "3", type: "danger" }
+      }
+    ]
+  },
+  {
+    category: "Communications",
+    icon: MessageSquare,
+    items: [
+      {
+        title: "Messages",
+        icon: MessageSquare,
+        href: "/admin/messages",
+        badge: { text: "24", type: "accent" }
+      },
+      {
+        title: "Tickets",
+        icon: Ticket,
+        href: "/admin/tickets",
+        badge: { text: "12", type: "warning" }
+      }
+    ]
+  },
+  {
+    category: "Financial",
+    icon: Bitcoin,
+    items: [
+      {
+        title: "Crypto",
+        icon: Bitcoin,
+        href: "/admin/crypto",
+        badge: null
+      },
+      {
+        title: "Payouts & Refunds",
+        icon: Wallet,
+        href: "/admin/payouts",
+        badge: { text: "23", type: "warning" }
+      },
+      {
+        title: "Commissions",
+        icon: Percent,
+        href: "/admin/commissions",
+        badge: null
+      }
+    ]
+  },
+  {
+    category: "Content & Marketing",
+    icon: Megaphone,
+    items: [
+      {
+        title: "Ads",
+        icon: Megaphone,
+        href: "/admin/ads",
+        badge: { text: "8", type: "success" }
+      },
+      {
+        title: "Categories",
+        icon: Tags,
+        href: "/admin/categories",
+        badge: null
+      },
+      {
+        title: "Gift Cards",
+        icon: Gift,
+        href: "/admin/gift-cards",
+        badge: { text: "45", type: "accent" }
+      }
+    ]
+  },
+  {
+    category: "System & Security",
+    icon: Shield,
+    items: [
+      {
+        title: "Alerts",
+        icon: Bell,
+        href: "/admin/alerts",
+        badge: { text: "5", type: "danger" }
+      },
+      {
+        title: "Roles & Permissions",
+        icon: Shield,
+        href: "/admin/roles",
+        badge: null
+      },
+      {
+        title: "Security",
+        icon: Lock,
+        href: "/admin/security",
+        badge: null
+      },
+      {
+        title: "Branding",
+        icon: Palette,
+        href: "/admin/branding",
+        badge: null
+      }
+    ]
   }
 ];
 

@@ -1,11 +1,29 @@
-import { Shield, User } from "lucide-react";
+import { useState } from "react";
+import { Shield, User, ChevronDown, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { ADMIN_NAV_ITEMS } from "@/lib/constants";
+import { ADMIN_GROUPED_NAV } from "@/lib/constants";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const [location] = useLocation();
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+  
+  const isCategoryExpanded = (category: string) => expandedCategories.includes(category);
+  
+  const isCategoryActive = (items: any[]) => {
+    return items.some(item => 
+      location === item.href || (item.href !== "/admin" && location.startsWith(item.href))
+    );
+  };
 
   return (
     <div className="hidden md:flex md:w-64 md:flex-col">
@@ -25,30 +43,65 @@ export function Sidebar() {
         
         {/* Navigation */}
         <nav className="mt-8 flex-1 px-2 space-y-1">
-          {ADMIN_NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
+          {ADMIN_GROUPED_NAV.map((group) => {
+            const CategoryIcon = group.icon;
+            const isExpanded = isCategoryExpanded(group.category);
+            const isCatActive = isCategoryActive(group.items);
             
             return (
-              <Link key={item.href} href={item.href}>
-                <span 
+              <div key={group.category} className="space-y-1">
+                {/* Category Header */}
+                <button
+                  onClick={() => toggleCategory(group.category)}
                   className={cn(
-                    "nav-item cursor-pointer",
-                    isActive ? "nav-item-active" : "nav-item-inactive"
+                    "w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                    isCatActive
+                      ? "bg-accent/10 text-accent border border-accent/20"
+                      : "text-gray-300 hover:bg-surface-2 hover:text-white"
                   )}
-                  data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  data-testid={`category-${group.category.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <Icon className="w-4 h-4 mr-3" />
-                  {item.title}
-                  {item.badge && (
-                    <StatusBadge
-                      status={item.badge.text}
-                      type={item.badge.type as any}
-                      className="ml-auto"
-                    />
+                  <CategoryIcon className="w-4 h-4 mr-3 flex-shrink-0" />
+                  <span className="flex-1 text-left">{group.category}</span>
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 ml-2 flex-shrink-0" />
                   )}
-                </span>
-              </Link>
+                </button>
+                
+                {/* Category Items */}
+                {isExpanded && (
+                  <div className="ml-4 space-y-1 border-l border-border pl-4">
+                    {group.items.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
+                      
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <span 
+                            className={cn(
+                              "nav-item cursor-pointer text-sm",
+                              isActive ? "nav-item-active" : "nav-item-inactive"
+                            )}
+                            data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            <ItemIcon className="w-3.5 h-3.5 mr-2" />
+                            {item.title}
+                            {item.badge && (
+                              <StatusBadge
+                                status={item.badge.text}
+                                type={item.badge.type as any}
+                                className="ml-auto text-xs"
+                              />
+                            )}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

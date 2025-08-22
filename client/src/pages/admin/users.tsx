@@ -139,7 +139,7 @@ export default function AdminUsers() {
                           <FormControl>
                             <Input 
                               placeholder="Enter full name" 
-                              className="bg-surface-2 border-border text-white"
+                              className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                               data-testid="input-full-name"
                               {...field} 
                             />
@@ -156,7 +156,7 @@ export default function AdminUsers() {
                           <FormControl>
                             <Input 
                               placeholder="Enter username" 
-                              className="bg-surface-2 border-border text-white"
+                              className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                               data-testid="input-username"
                               {...field} 
                             />
@@ -176,7 +176,7 @@ export default function AdminUsers() {
                           <Input 
                             type="email" 
                             placeholder="Enter email address" 
-                            className="bg-surface-2 border-border text-white"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                             data-testid="input-email"
                             {...field} 
                           />
@@ -196,7 +196,7 @@ export default function AdminUsers() {
                             <Input 
                               type="password" 
                               placeholder="Enter password" 
-                              className="bg-surface-2 border-border text-white"
+                              className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                               data-testid="input-password"
                               {...field} 
                             />
@@ -214,7 +214,7 @@ export default function AdminUsers() {
                             <Input 
                               type="password" 
                               placeholder="Confirm password" 
-                              className="bg-surface-2 border-border text-white"
+                              className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                               data-testid="input-confirm-password"
                               {...field} 
                             />
@@ -233,7 +233,7 @@ export default function AdminUsers() {
                           <FormLabel className="text-gray-300">Role / User Type</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="select-role">
+                              <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800" data-testid="select-role">
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
@@ -254,7 +254,7 @@ export default function AdminUsers() {
                           <FormLabel className="text-gray-300">Status</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="select-status">
+                              <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800" data-testid="select-status">
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
@@ -277,7 +277,7 @@ export default function AdminUsers() {
                         <FormControl>
                           <Input 
                             placeholder="Enter phone number" 
-                            className="bg-surface-2 border-border text-white"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                             data-testid="input-phone"
                             {...field} 
                           />
@@ -296,7 +296,7 @@ export default function AdminUsers() {
                           <Input 
                             type="file" 
                             accept="image/*"
-                            className="bg-surface-2 border-border text-white"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                             data-testid="input-profile-picture"
                             onChange={(e) => field.onChange(e.target.files?.[0] || null)}
                           />
@@ -397,13 +397,13 @@ export default function AdminUsers() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input 
                     placeholder="Search users by username or email..." 
-                    className="pl-10 bg-surface-2 border-border text-white"
+                    className="pl-10 !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                     data-testid="search-users"
                   />
                 </div>
               </div>
               <Select>
-                <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                <SelectTrigger className="w-40 !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -414,7 +414,7 @@ export default function AdminUsers() {
                 </SelectContent>
               </Select>
               <Select>
-                <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                <SelectTrigger className="w-40 !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800">
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -733,7 +733,7 @@ export default function AdminUsers() {
                         <FormControl>
                           <Input 
                             placeholder="Enter full name" 
-                            className="bg-surface-2 border-border text-white"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                             data-testid="edit-input-full-name"
                             {...field} 
                           />
@@ -750,7 +750,7 @@ export default function AdminUsers() {
                         <FormControl>
                           <Input 
                             placeholder="Enter username" 
-                            className="bg-surface-2 border-border text-white"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                             data-testid="edit-input-username"
                             {...field} 
                           />
@@ -770,7 +770,7 @@ export default function AdminUsers() {
                         <Input 
                           type="email" 
                           placeholder="Enter email address" 
-                          className="bg-surface-2 border-border text-white"
+                          className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                           data-testid="edit-input-email"
                           {...field} 
                         />
@@ -788,7 +788,7 @@ export default function AdminUsers() {
                         <FormLabel className="text-gray-300">Role / User Type</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-role">
+                            <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800" data-testid="edit-select-role">
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>
@@ -811,7 +811,7 @@ export default function AdminUsers() {
                         <FormLabel className="text-gray-300">Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-status">
+                            <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800" data-testid="edit-select-status">
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>
@@ -835,7 +835,7 @@ export default function AdminUsers() {
                       <FormControl>
                         <Input 
                           placeholder="Enter phone number" 
-                          className="bg-surface-2 border-border text-white"
+                          className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                           data-testid="edit-input-phone"
                           {...field} 
                         />

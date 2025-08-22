@@ -495,7 +495,7 @@ export default function AdminListings() {
                       <FormControl>
                         <Input 
                           placeholder="Enter product title" 
-                          className="bg-surface-2 border-border text-white placeholder:text-gray-400 focus:bg-surface-2"
+                          className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                           data-testid="edit-input-title"
                           {...field} 
                         />
@@ -513,7 +513,7 @@ export default function AdminListings() {
                       <FormControl>
                         <Textarea 
                           placeholder="Enter product description" 
-                          className="bg-surface-2 border-border text-white placeholder:text-gray-400 min-h-[100px] resize-none focus:bg-surface-2"
+                          className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 min-h-[100px] resize-none focus:!bg-gray-800"
                           data-testid="edit-textarea-description"
                           {...field} 
                         />
@@ -532,7 +532,7 @@ export default function AdminListings() {
                         <FormControl>
                           <Input 
                             placeholder="Vendor name" 
-                            className="bg-surface-2 border-border text-white placeholder:text-gray-400 focus:bg-surface-2"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                             data-testid="edit-input-vendor"
                             {...field} 
                           />
@@ -548,7 +548,7 @@ export default function AdminListings() {
                         <FormLabel className="text-gray-300">Category</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white focus:bg-surface-2" data-testid="edit-select-category">
+                            <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white focus:!bg-gray-800" data-testid="edit-select-category">
                               <SelectValue placeholder="Select category" />
                             </SelectTrigger>
                           </FormControl>
@@ -574,7 +574,7 @@ export default function AdminListings() {
                         <FormControl>
                           <Input 
                             placeholder="0.0000" 
-                            className="bg-surface-2 border-border text-white placeholder:text-gray-400 font-mono focus:bg-surface-2"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 font-mono focus:!bg-gray-800"
                             data-testid="edit-input-btc-price"
                             {...field} 
                           />
@@ -591,7 +591,7 @@ export default function AdminListings() {
                         <FormControl>
                           <Input 
                             placeholder="0.00" 
-                            className="bg-surface-2 border-border text-white placeholder:text-gray-400 font-mono focus:bg-surface-2"
+                            className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 font-mono focus:!bg-gray-800"
                             data-testid="edit-input-xmr-price"
                             {...field} 
                           />
@@ -610,7 +610,7 @@ export default function AdminListings() {
                         <FormLabel className="text-gray-300">Delivery Method</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white focus:bg-surface-2" data-testid="edit-select-delivery">
+                            <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white focus:!bg-gray-800" data-testid="edit-select-delivery">
                               <SelectValue placeholder="Select delivery method" />
                             </SelectTrigger>
                           </FormControl>
@@ -631,7 +631,7 @@ export default function AdminListings() {
                         <FormLabel className="text-gray-300">Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white focus:bg-surface-2" data-testid="edit-select-status">
+                            <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white focus:!bg-gray-800" data-testid="edit-select-status">
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                           </FormControl>

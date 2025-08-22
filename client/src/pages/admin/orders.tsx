@@ -296,12 +296,12 @@ export default function AdminOrders() {
         
         {/* View Order Modal */}
         <Dialog open={viewOrderModalOpen} onOpenChange={setViewOrderModalOpen}>
-          <DialogContent className="sm:max-w-[700px] bg-card border border-border shadow-xl">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[700px] bg-card border border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-white">Order Details</DialogTitle>
             </DialogHeader>
             {selectedOrder && (
-              <div className="space-y-6">
+              <div className="space-y-6 overflow-y-auto flex-1 pr-2">
                 {/* Order Header */}
                 <div className="flex items-start justify-between">
                   <div>
@@ -442,7 +442,7 @@ export default function AdminOrders() {
                 </div>
                 
                 {/* Actions */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-border">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-border mt-6 flex-shrink-0">
                   <Button 
                     variant="outline" 
                     onClick={() => setViewOrderModalOpen(false)}

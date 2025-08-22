@@ -366,12 +366,12 @@ export default function AdminListings() {
         
         {/* View Listing Modal */}
         <Dialog open={viewListingModalOpen} onOpenChange={setViewListingModalOpen}>
-          <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-white">Listing Details</DialogTitle>
             </DialogHeader>
             {selectedListing && (
-              <div className="space-y-6">
+              <div className="space-y-6 overflow-y-auto flex-1 pr-2">
                 {/* Listing Header */}
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-16 bg-accent/20 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -480,12 +480,12 @@ export default function AdminListings() {
         
         {/* Edit Listing Modal */}
         <Dialog open={editListingModalOpen} onOpenChange={setEditListingModalOpen}>
-          <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-white">Edit Listing</DialogTitle>
             </DialogHeader>
             <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(handleUpdateListing)} className="space-y-4">
+              <form onSubmit={editForm.handleSubmit(handleUpdateListing)} className="space-y-4 overflow-y-auto flex-1 pr-2">
                 <FormField
                   control={editForm.control}
                   name="title"
@@ -495,7 +495,7 @@ export default function AdminListings() {
                       <FormControl>
                         <Input 
                           placeholder="Enter product title" 
-                          className="bg-surface-2 border-border text-white"
+                          className="bg-surface border-border text-white placeholder:text-gray-400"
                           data-testid="edit-input-title"
                           {...field} 
                         />
@@ -513,7 +513,7 @@ export default function AdminListings() {
                       <FormControl>
                         <Textarea 
                           placeholder="Enter product description" 
-                          className="bg-surface-2 border-border text-white min-h-[100px]"
+                          className="bg-surface border-border text-white placeholder:text-gray-400 min-h-[100px] resize-none"
                           data-testid="edit-textarea-description"
                           {...field} 
                         />
@@ -532,7 +532,7 @@ export default function AdminListings() {
                         <FormControl>
                           <Input 
                             placeholder="Vendor name" 
-                            className="bg-surface-2 border-border text-white"
+                            className="bg-surface border-border text-white placeholder:text-gray-400"
                             data-testid="edit-input-vendor"
                             {...field} 
                           />
@@ -548,8 +548,8 @@ export default function AdminListings() {
                         <FormLabel className="text-gray-300">Category</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-category">
-                              <SelectValue />
+                            <SelectTrigger className="bg-surface border-border text-white" data-testid="edit-select-category">
+                              <SelectValue placeholder="Select category" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -574,7 +574,7 @@ export default function AdminListings() {
                         <FormControl>
                           <Input 
                             placeholder="0.0000" 
-                            className="bg-surface-2 border-border text-white font-mono"
+                            className="bg-surface border-border text-white placeholder:text-gray-400 font-mono"
                             data-testid="edit-input-btc-price"
                             {...field} 
                           />
@@ -591,7 +591,7 @@ export default function AdminListings() {
                         <FormControl>
                           <Input 
                             placeholder="0.00" 
-                            className="bg-surface-2 border-border text-white font-mono"
+                            className="bg-surface border-border text-white placeholder:text-gray-400 font-mono"
                             data-testid="edit-input-xmr-price"
                             {...field} 
                           />
@@ -610,8 +610,8 @@ export default function AdminListings() {
                         <FormLabel className="text-gray-300">Delivery Method</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-delivery">
-                              <SelectValue />
+                            <SelectTrigger className="bg-surface border-border text-white" data-testid="edit-select-delivery">
+                              <SelectValue placeholder="Select delivery method" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -631,8 +631,8 @@ export default function AdminListings() {
                         <FormLabel className="text-gray-300">Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-status">
-                              <SelectValue />
+                            <SelectTrigger className="bg-surface border-border text-white" data-testid="edit-select-status">
+                              <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -646,7 +646,7 @@ export default function AdminListings() {
                   />
                 </div>
                 
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex justify-end space-x-3 pt-4 border-t border-border mt-6 flex-shrink-0">
                   <Button 
                     type="button" 
                     variant="outline" 

@@ -1,0 +1,324 @@
+# Master Prompt for AI Designer — Dark Minimal Multi‑Vendor Crypto Marketplace (Static UI Only)
+
+> **Goal**: Design a complete, static, server‑rendered UI for a **multi‑vendor marketplace for trading accounts** with **BTC/XMR** payments, **optional escrow**, **anonymous users**, and a **powerful admin panel**. Start with the **Admin Panel** first, then the **Buyer/Vendor (marketplace) side**.
+>
+> **important**: Produce **static designs and/or static  (Tailwind preferred)**. **No live data,no API calls**. Use realistic placeholder text/data and clear component states so a backend engineer can wire it later.
+
+---
+
+## 1) Creative Direction & UX Principles
+
+* **Visual theme**: Dark, modern, minimal, restrained. Avoid bright, kitschy, or e‑commerce‑busy patterns (eBay/Amazon look = ❌). Think elegant, editorial, and spacious. Reference vibe akin to curated dark UI shots on Pinterest.
+* **Tone**: Professional, privacy‑first, trustworthy, understated.
+* **Accessibility**: Meet WCAG AA for color contrast in dark mode. Provide focus states, keyboard navigable controls, readable sizes.
+* **Server‑rendered mindset**: Pages must work without client JS. Progressive enhancement only. Any third‑party widget (e.g., FunCaptcha) appears in a **sandboxed iframe placeholder**.
+* **Anonymity & safety**: Avoid collecting PII in UI. Username+password, optional recovery phrase, optional TOTP 2FA. Minimal logs visuals.
+* **White‑label**: Prepare a **theming system** (tokens) so instances can swap logo/name/colors.
+
+---
+
+## 2) Design System (Foundations)
+
+**Color tokens (dark, subtle):**
+
+* `--bg`: #0B0F14 (page), `--surface`: #11161C, `--surface-2`: #141A22
+* `--text`: #E6E9EF, `--muted`: #9AA4B2, `--border`: #1E2630
+* `--accent`: #22D3EE (reserved, sparing), `--accent-2`: #7DD3FC
+* `--success`: #22C55E, `--warning`: #F59E0B, `--danger`: #EF4444
+
+**Typography**
+
+* Primary: Inter/IBM Plex Sans/SF Pro (system stack acceptable)
+* Numeric/mono data: Geist Mono/IBM Plex Mono/JetBrains Mono
+* Base sizes: 14–16px body, 24–32px section titles, 18px form labels
+
+**Layout**
+
+* 12‑column grid, 1440px max container, generous spacing (16–24px).
+* Cards with subtle radius (16–20px) and soft shadows, low elevation.
+
+**Components** (deliver as reusable atoms):
+
+* Buttons (primary, secondary, quiet, destructive, icon‑only)
+* Inputs (text, password, textarea, select, combobox, date), with help/error text
+* Toggles, checkboxes, radios, segmented controls
+* Tables (dense & comfy), pagination, sticky headers
+* Badges/Chips (status: Draft, Pending, Live, Banned, Disputed, Escrowed, Released)
+* Tabs, accordions, modals, drawers, toasts, empty‑states, skeletons
+* Breadcrumbs, topbar, sidebar, filters panel, command palette (static)
+* Code/secret blocks with masked state + “reveal” placeholder icon
+
+**States**
+
+* Loading skeletons (static), empty, error, success, disabled, readonly
+
+---
+
+## 3) Information Architecture (Start with Admin)
+
+### Admin Panel (primary navigation)
+
+1. **Overview** (instance health & KPIs)
+2. **Users**
+3. **Vendors** (applications, approvals)
+4. **Listings** (products)
+5. **Orders**
+6. **Disputes**
+7. **Messages** (buyer↔vendor, abuse controls)
+8. **Tickets** (support)
+9. **Crypto** (BTC/XMR nodes, addresses, escrow releases)
+10. **Payouts & Refunds**
+11. **Commissions & Fees**
+12. **Ads** (placements, clicks)
+13. **Categories & Tags**
+14. **Gift Cards**
+15. **Alerts & Notifications**
+16. **Roles & Permissions**
+17. **Security** (2FA, sessions, access logs)
+18. **Branding** (white‑label)
+
+### Marketplace (buyer/vendor) side
+
+1. **Home/Explore**
+2. **Search & Filters**
+3. **Category pages**
+4. **Listing detail** (account product)
+5. **Cart/Checkout (crypto)**
+6. **Order confirmation**
+7. **Escrow status**
+8. **Messages**
+9. **Reviews**
+10. **Auth (login, signup, recovery phrase, 2FA)**
+11. **Vendor application**
+12. **Vendor dashboard** (listings, sales, payouts)
+
+---
+
+## 4) Admin Panel — Page‑by‑Page Specs (Static)
+
+### 4.1 Overview
+
+* **Cards**: Total users, active vendors, live listings, orders today, disputes open, escrow balance (masked), node status (BTC/XMR: Connected/Syncing/Down), last 24h volume (placeholder).
+* **Graphs**: Static sparkline images (orders, GMV, disputes) — no real data.
+* **Alerts panel**: "X flagged messages", "Y vendor applications pending".
+
+### 4.2 Users
+
+* **Table**: Username, status (Active/Banned/Recoverable), created, last login, roles.
+* Row actions: *Ban/Unban, Recover, Log in as user* (show modal with warning text), *View account*.
+* **Filters**: status, role, date range, search.
+* **User detail**: minimal PII, roles, sessions, security (2FA on/off), notes.
+
+### 4.3 Vendors
+
+* Subtabs: **Applications (Pending/Rejected)**, **Approved**.
+* **Application card**: shop name, summary, date, flags, attached proofs (thumbnails).
+* Actions: *Approve, Reject (with reason modal), Request changes*.
+* **Vendor detail**: shop profile, rating (aggregate), listings count, disputes, payouts, commission override.
+
+### 4.4 Listings
+
+* **Table**: Title, vendor, category, price (BTC/XMR), status (Draft/Pending/Live/Rejected), last updated.
+* Bulk actions: *Approve, Reject, Move to Draft*.
+* **Detail**: description, media placeholders, compliance checklist, revision history.
+
+### 4.5 Orders
+
+* **Table**: Order ID, buyer, vendor, listing, amount, currency, payment status (Unpaid/Paid/Confirming/Confirmed), escrow status (Held/Released/Refunded), created.
+* **Order detail**: timeline (Placed → Address issued → Confirmations → Delivered → Escrow Released), on the side: actions (*Release to vendor, Refund to buyer, Open dispute*), transaction refs (masked), minimal logs.
+
+### 4.6 Disputes
+
+* **Board**: columns for *New, Investigating, Awaiting Evidence, Resolved*.
+* **Dispute card**: order ref, parties, claim summary, attachments, internal notes, decision dropdown (*Refund, Release, Split*), assign to admin.
+
+### 4.7 Messages
+
+* **Inbox**: conversations with filters; preview pane shows message stream.
+* **Moderation**: keyword blacklist manager, *Block user messages*, *Lock conversation*, flags.
+
+### 4.8 Tickets (Support)
+
+* **Table** with status, priority, subject, user, assignee.
+* Ticket view: thread, canned replies (static), status controls.
+
+### 4.9 Crypto (Nodes & Transactions)
+
+* **Nodes**: BTC, XMR cards -> status (Connected/Syncing/Down), height, last block time (placeholder), buttons: *Edit node*, *Rotate keys* (static modal warnings).
+* **Addresses/Invoices**: table (Order ID, currency, address, confirmations, status). CTA: *Force rescan* (static).
+* **Escrow actions**: release/refund modals with confirmation checkboxes.
+
+### 4.10 Payouts & Refunds
+
+* **Table**: Vendor, amount, currency, destination (masked), status.
+* Approve/Reject/On hold actions.
+
+### 4.11 Commissions & Fees
+
+* Global commission %, vendor overrides, network fee hints, automatic vendor discount slider (as per requirements). Save as static form.
+
+### 4.12 Ads
+
+* Placements (Home hero, Category banner, Sidebar card). Create/edit ad: title, image, target URL, schedule, click counter (static).
+
+### 4.13 Categories & Tags
+
+* Hierarchical list (Category → Subcategories). CRUD screens.
+* **Policy flag** per category: *Allowed, Restricted, Prohibited* + notes for compliance.
+
+### 4.14 Gift Cards
+
+* CRUD screens for gift card products. Balance check (static form).
+
+### 4.15 Alerts & Notifications
+
+* Broadcast alert composer (title, body, audience filters). Preview modal.
+
+### 4.16 Roles & Permissions
+
+* Matrix table: Role × Permission toggles (view/create/update/delete for each module). Presets: Admin, Moderator, Vendor, Support.
+
+### 4.17 Security
+
+* 2FA enforcement, session timeout, content security policy text blocks, allowlist of sandboxed subdomains for widgets.
+
+### 4.18 Branding (White‑label)
+
+* Upload logo, wordmark, set instance name, accent color token (single), footer links.
+
+---
+
+## 5) Marketplace (Buyer/Vendor) — Page‑by‑Page Specs (Static)
+
+### 5.1 Auth
+
+* **Signup**: Username, Password, (optional) Recovery phrase; legal copy stressing anonymity.
+* **Login**: Username, Password, (optional) 2FA code.
+* **Forgot**: Recovery phrase flow (static hints; no email).
+
+### 5.2 Home/Explore
+
+* Hero with restrained copy, search bar.
+* Featured categories (cards), featured vendors, latest listings grid.
+* Ad placements (from Ads module) as subtle banners.
+
+### 5.3 Category & Search
+
+* Left filter panel: Category, Subcategory, Price range (BTC/XMR), Rating, Status (Instant delivery, Escrow only), Sort.
+* Results grid (cards) and table toggle.
+
+### 5.4 Listing Detail (Account product)
+
+* Title, vendor chip (rating), price (BTC/XMR), status badges.
+* Gallery (static images), description, *What you receive* bullets, *Delivery method* (instant/manual), *Refund/Dispute policy* snippet.
+* **Buy with BTC / Buy with XMR** buttons (show modal explaining *order‑specific address* generation; static address placeholder and QR image placeholder).
+* Tabs: Details, Vendor profile, Reviews (anonymous), FAQ.
+
+### 5.5 Checkout → Order Confirmation (Static)
+
+* Order summary; upon “Pay”, show generated **payment address (placeholder)**, QR placeholder, and *Waiting for N confirmations* copy with a static progress bar.
+* Post‑payment confirmation page: *Paid & in Escrow*, delivery instructions.
+
+### 5.6 Escrow Status & Orders
+
+* Orders list: Status (Unpaid, Paid, Confirming, Delivered, Disputed, Released, Refunded) as badges.
+* Order detail timeline with actions: *Confirm delivery*, *Open dispute*, *Message vendor*.
+
+### 5.7 Messages
+
+* Simple secure chat UI (no avatars): timestamp, sender role badge, attachment chip placeholders. Notice about moderation/blacklist.
+
+### 5.8 Reviews
+
+* Anonymous star + short text; moderation note.
+
+### 5.9 Vendor Application (from normal user)
+
+* Form: Shop name, Description, Category focus, Terms checkbox, optional proofs.
+* Submission success screen; “Pending review”.
+
+### 5.10 Vendor Dashboard (after approval)
+
+* **Overview**: Sales (static sparkline), active listings, pending orders, disputes.
+* **Listings**: table + *New Listing* button.
+* **Create/Edit Listing** form (see fields below).
+* **Orders**: statuses, actions (Deliver, Add note).
+* **Payouts**: pending, history (masked destinations).
+* **Settings**: profile, commission note, security (2FA), API keys placeholder (future).
+
+---
+
+## 6) Listing Schema (Static Form Fields)
+
+* Title, Category, Subcategory
+* Price (numeric) + Currency switch (BTC/XMR)
+* Delivery: *Instant (auto)* / *Manual (after chat)*
+* What’s included (multi‑bullet editor)
+* Proof/Media upload placeholders
+* Compliance checklist (no PII, ownership, ToS compliance)
+* Save as Draft / Submit for Review
+
+---
+
+## 7) Special UI Elements per Requirements
+
+* **Sandboxed widget placeholders** for FunCaptcha, rendered as iframe blocks with note: “3rd‑party widget (sandboxed.subdomain.tld) — CSP restricted”.
+* **Minimal transaction logs**: In admin order detail, show only needed refs; mask addresses/tx ids by default with a Reveal icon (static only).
+* **Automatic vendor discount**: In Admin → Commissions, provide a slider and input (%), with preview of how vendor’s price displays on listing cards (strike‑through + final price).
+* **Keyword blacklist**: In Admin → Messages, show list manager UI (add/remove terms), with a static info callout about alerting.
+
+---
+
+## 8) Copy Blocks (Use as placeholders)
+
+* **Privacy note**: “We do not collect unnecessary personal data. Accounts are anonymous. Use recovery phrase to regain access.”
+* **Escrow explainer**: “Your payment is held securely and released only after you confirm delivery or an admin resolves a dispute.”
+* **Dispute CTA**: “Can’t access the account you purchased? Open a dispute within 48 hours.”
+* **Crypto safety**: “Always send to the order‑specific address shown on your confirmation page.”
+
+---
+
+## 9) Deliverables & Output Format (from AI)
+
+* **Primary**: High‑fidelity mockups (desktop first, responsive down to 360px) covering every screen above, **Admin first**.
+* **Option A**: Export **static HTML + Tailwind CSS** pages for all screens (no JS needed beyond minor interactions simulated with CSS where possible).
+* **Option B**: Figma file with components, variants, and page flows.
+* Provide **component library** (buttons, inputs, tables, badges, modals, tabs, skeletons) with states.
+* Provide **empty/error/success** states and sample data for tables/lists.
+* Include **style guide page** with tokens, type scale, spacing, grid.
+
+---
+
+## 10) Constraints & Non‑Goals
+
+* **Static only** (no dynamic data). Backend wiring will be done later.
+* Avoid bright colors, gradients overload, and stock‑ecommerce clutter.
+* Keep copy minimal; let whitespace and structure convey clarity.
+* No analytics, no tracking scripts, no social sign‑ins.
+
+---
+
+## 11) Acceptance Checklist (what “done” looks like)
+
+* All Admin sections have a designed screen (index + detail where relevant).
+* Vendor lifecycle is fully represented: Apply → Pending → Approved → Create listing → Order → Deliver → Payout.
+* Buyer lifecycle is fully represented: Browse → Listing → Pay (BTC/XMR) → Escrow → Confirm/Dispute → Review.
+* Crypto & Escrow screens clearly explain states with badges and timelines.
+* Security & Privacy settings present (2FA, CSP text, sessions, access control).
+* White‑label page present and functional (static controls).
+
+---
+
+## 12) Quick Starter Prompts (if the AI needs smaller tasks)
+
+* “Design the **Admin → Vendors → Applications** page with cards, filters, and Approve/Reject modals, dark minimal theme.”
+* “Create the **Order detail with escrow timeline**: show order‑specific address, confirmations (static), and admin actions to Release/Refund.”
+* “Design **Vendor Dashboard** with Overview, Listings table, New Listing form, Payouts tab — all static.”
+* “Produce the **Listing Detail page** for a trading account with Buy in BTC/XMR buttons and a payment modal with QR placeholder.”
+* “Build the **Roles & Permissions matrix** with role presets and per‑permission toggles.”
+
+---
+
+### Final Note to AI
+
+Assume **all data is placeholder**. Focus on **clarity, restraint, and security cues**. The backend engineer will connect forms, tables, and actions later. Keep everything **dark, modern, minimal** with strong typographic hierarchy and consistent spacing.

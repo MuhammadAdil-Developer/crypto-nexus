@@ -63,16 +63,24 @@ export function Sidebar() {
                 >
                   <CategoryIcon className="w-4 h-4 mr-3 flex-shrink-0" />
                   <span className="flex-1 text-left">{group.category}</span>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 ml-2 flex-shrink-0" />
-                  )}
+                  <ChevronRight 
+                    className={cn(
+                      "w-4 h-4 ml-2 flex-shrink-0 transition-transform duration-300 ease-in-out",
+                      isExpanded ? "transform rotate-90" : "transform rotate-0"
+                    )}
+                  />
                 </button>
                 
                 {/* Category Items */}
-                {isExpanded && (
-                  <div className="ml-4 space-y-1 border-l border-border pl-4">
+                <div 
+                  className={cn(
+                    "ml-4 border-l border-border pl-4 overflow-hidden transition-all duration-500 ease-in-out",
+                    isExpanded 
+                      ? "max-h-96 opacity-100 transform translate-y-0" 
+                      : "max-h-0 opacity-0 transform -translate-y-2"
+                  )}
+                >
+                  <div className="space-y-1 py-1">
                     {group.items.map((item) => {
                       const ItemIcon = item.icon;
                       const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
@@ -81,7 +89,7 @@ export function Sidebar() {
                         <Link key={item.href} href={item.href}>
                           <span 
                             className={cn(
-                              "nav-item cursor-pointer text-sm",
+                              "nav-item cursor-pointer text-sm transition-all duration-300 ease-in-out",
                               isActive ? "nav-item-active" : "nav-item-inactive"
                             )}
                             data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
@@ -100,7 +108,7 @@ export function Sidebar() {
                       );
                     })}
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

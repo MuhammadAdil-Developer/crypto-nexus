@@ -7,15 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, Plus, Phone, Mail, Calendar, User } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, Plus, Phone, Mail, Calendar, User, UserCheck, Shield, Settings } from "lucide-react";
 import { SAMPLE_USERS } from "@/lib/constants";
 
 export default function AdminUsers() {
   const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+  const [editUserModalOpen, setEditUserModalOpen] = useState(false);
   const [userDetailsModalOpen, setUserDetailsModalOpen] = useState(false);
+  const [banConfirmOpen, setBanConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [actionUser, setActionUser] = useState<any>(null);
   
   const form = useForm({
     defaultValues: {
@@ -31,6 +37,17 @@ export default function AdminUsers() {
     }
   });
   
+  const editForm = useForm({
+    defaultValues: {
+      fullName: "",
+      username: "",
+      email: "",
+      role: "Viewer / Normal User",
+      status: "Active",
+      phoneNumber: ""
+    }
+  });
+  
   const handleCreateUser = (data: any) => {
     console.log("Creating user:", data);
     setAddUserModalOpen(false);
@@ -42,24 +59,53 @@ export default function AdminUsers() {
     setUserDetailsModalOpen(true);
   };
   
-  const handleBanUser = (userId: number) => {
-    console.log("Banning user:", userId);
-  };
-  
-  const handleUnbanUser = (userId: number) => {
-    console.log("Unbanning user:", userId);
-  };
-  
   const handleLoginAsUser = (userId: number) => {
     console.log("Login as user:", userId);
   };
   
-  const handleEditUser = (userId: number) => {
-    console.log("Editing user:", userId);
+  const handleEditUser = (user: any) => {
+    setSelectedUser(user);
+    editForm.reset({
+      fullName: user.username, // Using username as fullName since we don't have fullName in sample data
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      phoneNumber: ""
+    });
+    setEditUserModalOpen(true);
   };
   
-  const handleDeleteUser = (userId: number) => {
-    console.log("Deleting user:", userId);
+  const handleUpdateUser = (data: any) => {
+    console.log("Updating user:", selectedUser?.id, data);
+    setEditUserModalOpen(false);
+  };
+  
+  const handleBanUser = (user: any) => {
+    setActionUser(user);
+    setBanConfirmOpen(true);
+  };
+  
+  const handleUnbanUser = (user: any) => {
+    setActionUser(user);
+    console.log("Unbanning user:", user.id);
+  };
+  
+  const handleDeleteUser = (user: any) => {
+    setActionUser(user);
+    setDeleteConfirmOpen(true);
+  };
+  
+  const confirmBanUser = () => {
+    console.log("Confirmed banning user:", actionUser?.id);
+    setBanConfirmOpen(false);
+    setActionUser(null);
+  };
+  
+  const confirmDeleteUser = () => {
+    console.log("Confirmed deleting user:", actionUser?.id);
+    setDeleteConfirmOpen(false);
+    setActionUser(null);
   };
 
   return (
@@ -447,7 +493,7 @@ export default function AdminUsers() {
                             variant="ghost" 
                             size="sm" 
                             className="text-gray-400 hover:text-white" 
-                            onClick={() => handleEditUser(user.id)}
+                            onClick={() => handleEditUser(user)}
                             data-testid={`edit-user-${user.id}`}
                           >
                             <Edit className="w-4 h-4" />
@@ -466,7 +512,7 @@ export default function AdminUsers() {
                               variant="ghost" 
                               size="sm" 
                               className="text-danger hover:text-red-400" 
-                              onClick={() => handleBanUser(user.id)}
+                              onClick={() => handleBanUser(user)}
                               data-testid={`ban-user-${user.id}`}
                             >
                               <Ban className="w-4 h-4" />
@@ -476,21 +522,55 @@ export default function AdminUsers() {
                               variant="ghost" 
                               size="sm" 
                               className="text-success hover:text-green-400" 
-                              onClick={() => handleUnbanUser(user.id)}
+                              onClick={() => handleUnbanUser(user)}
                               data-testid={`unban-user-${user.id}`}
                             >
                               <Unlock className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-danger hover:text-red-400"
-                            onClick={() => handleDeleteUser(user.id)}
-                            data-testid={`delete-user-${user.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-gray-400 hover:text-white"
+                                data-testid={`more-actions-${user.id}`}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-card border-border">
+                              <DropdownMenuItem 
+                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                onClick={() => console.log('View activity:', user.id)}
+                              >
+                                <UserCheck className="w-4 h-4 mr-2" />
+                                View Activity
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                onClick={() => console.log('Reset password:', user.id)}
+                              >
+                                <Shield className="w-4 h-4 mr-2" />
+                                Reset Password
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-border" />
+                              <DropdownMenuItem 
+                                className="text-danger hover:bg-danger/10 hover:text-red-400 cursor-pointer"
+                                onClick={() => handleDeleteUser(user)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -581,7 +661,10 @@ export default function AdminUsers() {
                     variant="outline" 
                     size="sm"
                     className="border-border text-gray-300 hover:bg-surface-2"
-                    onClick={() => handleEditUser(selectedUser.id)}
+                    onClick={() => {
+                      setUserDetailsModalOpen(false);
+                      handleEditUser(selectedUser);
+                    }}
                     data-testid="btn-edit-user-details"
                   >
                     <Edit className="w-4 h-4 mr-2" />
@@ -603,8 +686,8 @@ export default function AdminUsers() {
                       size="sm"
                       className="border-danger text-danger hover:bg-danger/10"
                       onClick={() => {
-                        handleBanUser(selectedUser.id);
                         setUserDetailsModalOpen(false);
+                        handleBanUser(selectedUser);
                       }}
                       data-testid="btn-ban-user-details"
                     >
@@ -617,8 +700,8 @@ export default function AdminUsers() {
                       size="sm"
                       className="border-success text-success hover:bg-success/10"
                       onClick={() => {
-                        handleUnbanUser(selectedUser.id);
                         setUserDetailsModalOpen(false);
+                        handleUnbanUser(selectedUser);
                       }}
                       data-testid="btn-unban-user-details"
                     >
@@ -631,6 +714,214 @@ export default function AdminUsers() {
             )}
           </DialogContent>
         </Dialog>
+        
+        {/* Edit User Modal */}
+        <Dialog open={editUserModalOpen} onOpenChange={setEditUserModalOpen}>
+          <DialogContent className="sm:max-w-[500px] bg-card border border-border shadow-xl">
+            <DialogHeader>
+              <DialogTitle className="text-white">Edit User</DialogTitle>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleUpdateUser)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Full Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter full name" 
+                            className="bg-surface-2 border-border text-white"
+                            data-testid="edit-input-full-name"
+                            {...field} 
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Username</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter username" 
+                            className="bg-surface-2 border-border text-white"
+                            data-testid="edit-input-username"
+                            {...field} 
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Email Address</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          placeholder="Enter email address" 
+                          className="bg-surface-2 border-border text-white"
+                          data-testid="edit-input-email"
+                          {...field} 
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Role / User Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-role">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Admin">Admin</SelectItem>
+                            <SelectItem value="Editor / Manager">Editor / Manager</SelectItem>
+                            <SelectItem value="Viewer / Normal User">Viewer / Normal User</SelectItem>
+                            <SelectItem value="Customer">Customer</SelectItem>
+                            <SelectItem value="Vendor">Vendor</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="bg-surface-2 border-border text-white" data-testid="edit-select-status">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Active">Active</SelectItem>
+                            <SelectItem value="Banned">Banned</SelectItem>
+                            <SelectItem value="Inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={editForm.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Phone Number</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Enter phone number" 
+                          className="bg-surface-2 border-border text-white"
+                          data-testid="edit-input-phone"
+                          {...field} 
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setEditUserModalOpen(false)}
+                    className="border-border text-gray-300 hover:bg-surface-2"
+                    data-testid="btn-cancel-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="bg-accent text-bg hover:bg-accent-2"
+                    data-testid="btn-update-user"
+                  >
+                    Update User
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Ban Confirmation Dialog */}
+        <AlertDialog open={banConfirmOpen} onOpenChange={setBanConfirmOpen}>
+          <AlertDialogContent className="bg-card border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">Ban User</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-300">
+                Are you sure you want to ban user <strong className="text-white">{actionUser?.username}</strong>? 
+                This action will prevent them from accessing the platform.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                className="border-border text-gray-300 hover:bg-surface-2"
+                data-testid="btn-cancel-ban"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmBanUser}
+                className="bg-danger text-white hover:bg-red-600"
+                data-testid="btn-confirm-ban"
+              >
+                Ban User
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent className="bg-card border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">Delete User</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-300">
+                Are you sure you want to permanently delete user <strong className="text-white">{actionUser?.username}</strong>? 
+                This action cannot be undone and will remove all user data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel 
+                className="border-border text-gray-300 hover:bg-surface-2"
+                data-testid="btn-cancel-delete"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmDeleteUser}
+                className="bg-danger text-white hover:bg-red-600"
+                data-testid="btn-confirm-delete"
+              >
+                Delete User
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
   );
 }

@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Crypto Marketplace Color Tokens */
+  --bg: 210 47% 4%;
+  --surface: 210 44% 8%;
+  --surface-2: 210 41% 11%;
+  --text: 215 20% 91%;
+  --muted: 215 14% 63%;
+  --border: 210 29% 15%;
+  --accent: 186 84% 55%;
+  --accent-2: 190 75% 73%;
+  --success: 142 76% 46%;
+  --warning: 38 92% 50%;
+  --danger: 0 85% 60%;
+  
+  /* Override shadcn variables for dark theme */
+  --background: hsl(210, 47%, 4%);
+  --foreground: hsl(215, 20%, 91%);
+  --card: hsl(210, 44%, 8%);
+  --card-foreground: hsl(215, 20%, 91%);
+  --popover: hsl(210, 44%, 8%);
+  --popover-foreground: hsl(215, 20%, 91%);
+  --primary: hsl(186, 84%, 55%);
+  --primary-foreground: hsl(210, 47%, 4%);
+  --secondary: hsl(210, 41%, 11%);
+  --secondary-foreground: hsl(215, 20%, 91%);
+  --muted: hsl(210, 29%, 15%);
+  --muted-foreground: hsl(215, 14%, 63%);
+  --accent: hsl(186, 84%, 55%);
+  --accent-foreground: hsl(210, 47%, 4%);
+  --destructive: hsl(0, 85%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 29%, 15%);
+  --input: hsl(210, 29%, 15%);
+  --ring: hsl(186, 84%, 55%);
+  
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  
+  /* Radius */
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: hsl(210, 47%, 4%);
+  --foreground: hsl(215, 20%, 91%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" 32;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--surface));
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer components {
+  .crypto-card {
+    @apply bg-card border border-border rounded-2xl p-6 transition-all duration-200;
+  }
+  
+  .crypto-card:hover {
+    border-color: hsl(186 84% 55% / 0.3);
+  }
+  
+  .nav-item {
+    @apply flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors;
+  }
+  
+  .nav-item-active {
+    @apply bg-secondary text-accent;
+  }
+  
+  .nav-item-inactive {
+    @apply text-muted-foreground hover:text-foreground;
+  }
+  
+  .nav-item-inactive:hover {
+    background-color: hsl(var(--secondary) / 0.5);
+  }
+}

@@ -29,7 +29,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
                   {index > 0 && <span className="text-muted mx-2">/</span>}
                   {crumb.href ? (
                     <Link href={crumb.href}>
-                      <a className="text-muted hover:text-text">{crumb.label}</a>
+                      <span className="text-muted hover:text-text cursor-pointer">{crumb.label}</span>
                     </Link>
                   ) : (
                     <span className="text-accent font-medium">{crumb.label}</span>
@@ -43,10 +43,10 @@ export function Header({ breadcrumbs }: HeaderProps) {
         <div className="flex items-center space-x-4">
           {/* View Marketplace Button */}
           <Link href="/">
-            <a className="inline-flex items-center px-3 py-1.5 border border-border text-sm font-medium rounded-md text-muted hover:text-text hover:bg-surface-2">
+            <span className="inline-flex items-center px-3 py-1.5 border border-border text-sm font-medium rounded-md text-muted hover:text-text hover:bg-surface-2 cursor-pointer">
               <ExternalLink className="w-4 h-4 mr-2" />
               View Marketplace
-            </a>
+            </span>
           </Link>
           
           {/* Notifications */}

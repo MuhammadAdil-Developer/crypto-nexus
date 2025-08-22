@@ -24,32 +24,31 @@ export const ADMIN_NAV_ITEMS = [
     title: "Overview",
     icon: BarChart3,
     href: "/admin",
-    badge: null,
-    active: true
+    badge: null
   },
   {
     title: "Users",
     icon: Users,
     href: "/admin/users",
-    badge: { text: "23", type: "warning" }
+    badge: { text: "2,847", type: "accent" }
   },
   {
     title: "Vendors",
     icon: Store,
     href: "/admin/vendors",
-    badge: { text: "7", type: "accent" }
+    badge: { text: "7", type: "warning" }
   },
   {
     title: "Listings",
     icon: List,
     href: "/admin/listings",
-    badge: null
+    badge: { text: "1,432", type: "success" }
   },
   {
     title: "Orders",
     icon: ShoppingCart,
     href: "/admin/orders",
-    badge: { text: "156", type: "success" }
+    badge: { text: "89", type: "accent" }
   },
   {
     title: "Disputes",
@@ -61,7 +60,7 @@ export const ADMIN_NAV_ITEMS = [
     title: "Messages",
     icon: MessageSquare,
     href: "/admin/messages",
-    badge: null
+    badge: { text: "24", type: "accent" }
   },
   {
     title: "Tickets",
@@ -79,7 +78,7 @@ export const ADMIN_NAV_ITEMS = [
     title: "Payouts & Refunds",
     icon: Wallet,
     href: "/admin/payouts",
-    badge: null
+    badge: { text: "23", type: "warning" }
   },
   {
     title: "Commissions",
@@ -91,7 +90,7 @@ export const ADMIN_NAV_ITEMS = [
     title: "Ads",
     icon: Megaphone,
     href: "/admin/ads",
-    badge: null
+    badge: { text: "8", type: "success" }
   },
   {
     title: "Categories",
@@ -103,13 +102,13 @@ export const ADMIN_NAV_ITEMS = [
     title: "Gift Cards",
     icon: Gift,
     href: "/admin/gift-cards",
-    badge: null
+    badge: { text: "45", type: "accent" }
   },
   {
     title: "Alerts",
     icon: Bell,
     href: "/admin/alerts",
-    badge: null
+    badge: { text: "5", type: "danger" }
   },
   {
     title: "Roles & Permissions",
@@ -274,5 +273,182 @@ export const SAMPLE_LISTINGS = [
     xmrPrice: "2.47", 
     delivery: "Manual Delivery",
     deliveryType: "accent" as const
+  }
+];
+
+export const SAMPLE_USERS = [
+  {
+    id: 1,
+    username: "crypto_buyer_89",
+    email: "•••@••••.com",
+    role: "Customer",
+    status: "Active",
+    statusType: "success" as const,
+    joinDate: "2024-01-15",
+    lastLogin: "2 hours ago",
+    orders: 24,
+    totalSpent: "2.4 BTC"
+  },
+  {
+    id: 2,
+    username: "anon_user_423", 
+    email: "•••@••••.com",
+    role: "Vendor",
+    status: "Active",
+    statusType: "success" as const,
+    joinDate: "2023-11-08",
+    lastLogin: "1 day ago",
+    orders: 156,
+    totalSpent: "0.8 BTC"
+  },
+  {
+    id: 3,
+    username: "privacy_first",
+    email: "•••@••••.com", 
+    role: "Customer",
+    status: "Banned",
+    statusType: "danger" as const,
+    joinDate: "2024-02-20",
+    lastLogin: "1 week ago",
+    orders: 3,
+    totalSpent: "0.2 BTC"
+  },
+  {
+    id: 4,
+    username: "user_7824",
+    email: "•••@••••.com",
+    role: "Customer", 
+    status: "Active",
+    statusType: "success" as const,
+    joinDate: "2024-03-10",
+    lastLogin: "30 min ago",
+    orders: 8,
+    totalSpent: "1.1 BTC"
+  }
+];
+
+export const SAMPLE_VENDORS = [
+  {
+    id: 1,
+    shopName: "CryptoAccountsPlus",
+    owner: "vendor_alpha",
+    status: "Approved",
+    statusType: "success" as const,
+    category: "Streaming Services",
+    joinDate: "2023-08-15",
+    listings: 47,
+    totalSales: "12.8 BTC",
+    rating: 4.9,
+    reviews: 234,
+    commission: "5%",
+    lastActivity: "2 hours ago"
+  },
+  {
+    id: 2,
+    shopName: "DigitalVault",
+    owner: "secure_vendor",
+    status: "Pending",
+    statusType: "warning" as const,
+    category: "Software & Tools",
+    joinDate: "2024-03-22",
+    listings: 0,
+    totalSales: "0 BTC",
+    rating: 0,
+    reviews: 0,
+    commission: "5%",
+    lastActivity: "1 day ago"
+  },
+  {
+    id: 3,
+    shopName: "PremiumSoft",
+    owner: "software_expert",
+    status: "Approved",
+    statusType: "success" as const,
+    category: "Software & Tools", 
+    joinDate: "2023-12-03",
+    listings: 23,
+    totalSales: "8.4 BTC",
+    rating: 4.8,
+    reviews: 156,
+    commission: "4%",
+    lastActivity: "6 hours ago"
+  }
+];
+
+export const SAMPLE_DISPUTES = [
+  {
+    id: 1,
+    orderId: "ORD-2844",
+    buyer: "privacy_first",
+    vendor: "PremiumDigital",
+    reason: "Account credentials not working",
+    status: "Open",
+    statusType: "danger" as const,
+    created: "2 hours ago",
+    amount: "0.0015 BTC",
+    priority: "High"
+  },
+  {
+    id: 2,
+    orderId: "ORD-2831",
+    buyer: "crypto_buyer_89", 
+    vendor: "StreamAccounts",
+    reason: "Wrong account type delivered",
+    status: "In Review",
+    statusType: "warning" as const,
+    created: "1 day ago",
+    amount: "0.0008 BTC",
+    priority: "Medium"
+  },
+  {
+    id: 3,
+    orderId: "ORD-2823",
+    buyer: "anon_user_423",
+    vendor: "DigitalServices",
+    reason: "Account suspended by provider",
+    status: "Resolved",
+    statusType: "success" as const,
+    created: "3 days ago",
+    amount: "0.0012 BTC",
+    priority: "Low"
+  }
+];
+
+export const SAMPLE_TICKETS = [
+  {
+    id: 1,
+    ticketId: "TK-2024-001",
+    user: "crypto_buyer_89",
+    subject: "Unable to access purchased Netflix account",
+    status: "Open",
+    statusType: "danger" as const,
+    priority: "High",
+    created: "1 hour ago",
+    lastReply: "1 hour ago",
+    assignedTo: "support_agent_1"
+  },
+  {
+    id: 2,
+    ticketId: "TK-2024-002",
+    user: "vendor_alpha",
+    subject: "Commission rate change request",
+    status: "In Progress", 
+    statusType: "warning" as const,
+    priority: "Medium",
+    created: "6 hours ago",
+    lastReply: "2 hours ago",
+    assignedTo: "support_agent_2"
+  },
+  {
+    id: 3,
+    ticketId: "TK-2024-003",
+    user: "privacy_first",
+    subject: "Account recovery assistance needed",
+    status: "Closed",
+    statusType: "muted" as const,
+    priority: "Low",
+    created: "2 days ago",
+    lastReply: "1 day ago",
+    assignedTo: "support_agent_1"
   }
 ];

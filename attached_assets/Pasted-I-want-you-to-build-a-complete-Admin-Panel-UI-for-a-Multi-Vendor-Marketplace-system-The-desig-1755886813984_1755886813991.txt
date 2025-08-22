@@ -1,0 +1,130 @@
+I want you to build a **complete Admin Panel UI** for a Multi-Vendor Marketplace system.  
+The design theme must be **dark, modern, and minimalistic** with TailwindCSS / ShadCN style.  
+
+⚠️ Important: In dark mode, do NOT use very light grey or faint colors for text.  
+All text must have **proper contrast** (use white or near-white for readability).  
+Headings should be slightly bolder/brighter than body text.  
+
+All pages should be **static placeholders** (no backend logic), but with realistic data tables, forms, and dashboards.  
+Navigation should be via a **sidebar menu**. Each sidebar item must open its own dedicated page with the relevant UI.
+
+---
+
+### Sidebar Sections & Pages:
+
+1. **Overview (Dashboard)**
+   - Quick stats: Total Users, Active Vendors, Live Listings, Orders Today.
+   - Graph/Chart for Order Volume (7d, 30d, 90d).
+   - Crypto Nodes Status (BTC, XMR).
+   - Escrow Overview (funds in escrow, pending releases, disputed orders).
+   - Recent Activity feed.
+
+2. **Users**
+   - Table: List of users (username, email/ID, role, status, join date).
+   - Actions: View Profile, Ban/Unban, Reset Password, Log in as user.
+   - Filters: Active, Banned, Vendors, Customers.
+
+3. **Vendors**
+   - Vendor applications list (pending/approved/rejected).
+   - Vendor profile page (Shop name, status, listings, sales, commission earned).
+   - Admin actions: Approve / Reject with reason.
+   - Vendor settings (Commission %, Escrow enabled/disabled).
+
+4. **Listings**
+   - Product listings table (title, category, vendor, price, status).
+   - Admin actions: Approve, Reject, Edit, Delete.
+   - Filters: Approved, Pending, Rejected.
+   - Bulk actions option.
+
+5. **Orders**
+   - Orders table (order ID, buyer, vendor, amount, payment status, delivery status).
+   - Order detail page (products, timestamps, transaction info).
+   - Admin actions: Update status, Refund, Release escrow.
+   - Filters: Pending, Completed, Refunded, Disputed.
+
+6. **Disputes**
+   - List of disputes (order ID, buyer, vendor, reason, status).
+   - Dispute detail view (chat/messages between buyer & vendor).
+   - Admin actions: Decide winner (release to buyer or vendor).
+   - Statuses: Open, In Review, Resolved.
+
+7. **Messages**
+   - System-wide messages between users/vendors.
+   - Option to block keywords (blacklist).
+   - Search + Filters.
+
+8. **Tickets (Support)**
+   - Support tickets list (user/vendor, subject, status).
+   - Ticket detail page (conversation thread).
+   - Admin actions: Reply, Close, Reopen.
+   - Statuses: Open, In Progress, Closed.
+
+9. **Crypto**
+   - Dashboard of crypto payments.
+   - BTC Node + Monero Node status (synced or disconnected).
+   - Transaction logs (tx id, amount, status).
+   - Escrow wallet balances.
+
+10. **Payouts & Refunds**
+    - Vendor payout requests (vendor, amount, method, status).
+    - Refund requests (buyer, order ID, amount).
+    - Admin actions: Approve, Reject, Process.
+
+11. **Commissions**
+    - Global + per-vendor commission settings.
+    - History of commissions earned.
+    - Editable values (text inputs, save button).
+
+12. **Ads**
+    - Create/Edit/Delete advertisements.
+    - Track clicks/impressions.
+    - Active/inactive toggle.
+
+13. **Categories**
+    - Manage categories & subcategories.
+    - Add/Edit/Delete categories.
+    - Assign tags.
+
+14. **Gift Cards**
+    - List of gift cards (type, value, vendor).
+    - Approve/Reject listings.
+    - Track sales.
+
+15. **Alerts**
+    - System alerts & notifications (new vendor pending, crypto node down, dispute opened).
+    - Create new alerts (form).
+
+16. **Roles & Permissions**
+    - Manage system roles (Super Admin, Moderator, Vendor, Customer).
+    - Assign permissions (checkbox list).
+    - Add/Edit/Delete roles.
+
+17. **Security**
+    - 2FA settings.
+    - Admin activity logs (logins, IP, time).
+    - Failed login attempts list.
+    - Force logout option.
+
+18. **Branding**
+    - White-label settings.
+    - Upload logo, change site name.
+    - Color theme options (dark mode default).
+    - Save button.
+
+---
+
+### Requirements:
+- Sidebar navigation must work: each item opens its own page.
+- Each page must include **realistic placeholder data** (tables, forms, charts).
+- Proper text contrast in dark mode (no faint grey).
+- Consistent layout: Sidebar left, topbar with profile/settings/logout.
+- Clean, modern, responsive design.
+- Reusable UI components (cards, tables, buttons, modals).
+
+---
+
+### Deliverables:
+- Full React (or Next.js) project.
+- Sidebar + routing.
+- Dedicated page for each sidebar item.
+- Sample data for each page.

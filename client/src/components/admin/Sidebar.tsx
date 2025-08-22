@@ -31,9 +31,9 @@ export function Sidebar() {
             
             return (
               <Link key={item.href} href={item.href}>
-                <a 
+                <span 
                   className={cn(
-                    "nav-item",
+                    "nav-item cursor-pointer",
                     isActive ? "nav-item-active" : "nav-item-inactive"
                   )}
                   data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
@@ -47,7 +47,7 @@ export function Sidebar() {
                       className="ml-auto"
                     />
                   )}
-                </a>
+                </span>
               </Link>
             );
           })}

@@ -19,16 +19,16 @@ export function MarketplaceHeader() {
             
             <nav className="hidden md:flex space-x-6">
               <Link href="/">
-                <a className="text-text hover:text-accent" data-testid="nav-browse">Browse</a>
+                <span className="text-text hover:text-accent cursor-pointer" data-testid="nav-browse">Browse</span>
               </Link>
               <Link href="/categories">
-                <a className="text-muted hover:text-text" data-testid="nav-categories">Categories</a>
+                <span className="text-muted hover:text-text cursor-pointer" data-testid="nav-categories">Categories</span>
               </Link>
               <Link href="/vendors">
-                <a className="text-muted hover:text-text" data-testid="nav-vendors">Vendors</a>
+                <span className="text-muted hover:text-text cursor-pointer" data-testid="nav-vendors">Vendors</span>
               </Link>
               <Link href="/support">
-                <a className="text-muted hover:text-text" data-testid="nav-support">Support</a>
+                <span className="text-muted hover:text-text cursor-pointer" data-testid="nav-support">Support</span>
               </Link>
             </nav>
           </div>

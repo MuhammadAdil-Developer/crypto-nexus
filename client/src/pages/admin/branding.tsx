@@ -1,4 +1,4 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Palette, Upload, Save, RotateCcw, Eye, Download } from "lucide-react";
 
 export default function AdminBranding() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Branding" }
-  ];
 
   const colorThemes = [
     { name: "Default Blue", primary: "#22D3EE", secondary: "#0B0F14", accent: "#1E40AF" },
@@ -23,7 +19,7 @@ export default function AdminBranding() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
+    
       <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -560,6 +556,6 @@ export default function AdminBranding() {
           </TabsContent>
         </Tabs>
       </main>
-    </AdminLayout>
+    
   );
 }

@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +9,6 @@ import { Search, Filter, Check, X, Edit, Trash2, Eye } from "lucide-react";
 import { SAMPLE_LISTINGS } from "@/lib/constants";
 
 export default function AdminListings() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Listings" }
-  ];
 
   const extendedListings = [
     ...SAMPLE_LISTINGS.map(listing => ({
@@ -61,8 +56,7 @@ export default function AdminListings() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
-      <main className="flex-1 overflow-y-auto bg-bg p-6">
+    <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -272,6 +266,5 @@ export default function AdminListings() {
           </CardContent>
         </Card>
       </main>
-    </AdminLayout>
   );
 }

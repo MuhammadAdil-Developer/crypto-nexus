@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,14 +9,9 @@ import { Search, Filter, Eye, MessageSquare, Clock, AlertTriangle, CheckCircle }
 import { SAMPLE_DISPUTES } from "@/lib/constants";
 
 export default function AdminDisputes() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Disputes" }
-  ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
-      <main className="flex-1 overflow-y-auto bg-bg p-6">
+    <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -216,6 +210,5 @@ export default function AdminDisputes() {
           ))}
         </div>
       </main>
-    </AdminLayout>
   );
 }

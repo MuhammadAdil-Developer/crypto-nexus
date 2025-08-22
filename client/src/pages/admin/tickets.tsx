@@ -1,4 +1,4 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,9 @@ import { Search, Filter, Eye, MessageSquare, Clock, User, Ticket as TicketIcon }
 import { SAMPLE_TICKETS } from "@/lib/constants";
 
 export default function AdminTickets() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Tickets" }
-  ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
+    
       <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -259,6 +255,6 @@ export default function AdminTickets() {
           </CardContent>
         </Card>
       </main>
-    </AdminLayout>
+    
   );
 }

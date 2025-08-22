@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, MessageSquare, Ban, Lock, Flag, Plus, Trash2 } from "lucide-react";
 
 export default function AdminMessages() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Messages" }
-  ];
 
   const sampleMessages = [
     {
@@ -52,8 +47,7 @@ export default function AdminMessages() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
-      <main className="flex-1 overflow-y-auto bg-bg p-6">
+    <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -330,6 +324,5 @@ export default function AdminMessages() {
           </TabsContent>
         </Tabs>
       </main>
-    </AdminLayout>
   );
 }

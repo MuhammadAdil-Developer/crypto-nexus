@@ -1,4 +1,4 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, DollarSign, Wallet, RefreshCw, Check, X, Clock, Download } from "lucide-react";
 
 export default function AdminPayouts() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Payouts & Refunds" }
-  ];
 
   const samplePayouts = [
     {
@@ -96,7 +92,7 @@ export default function AdminPayouts() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
+    
       <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -371,6 +367,6 @@ export default function AdminPayouts() {
           </TabsContent>
         </Tabs>
       </main>
-    </AdminLayout>
+    
   );
 }

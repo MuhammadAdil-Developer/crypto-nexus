@@ -1,4 +1,4 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit, Trash2, Folder, Tag, Move3D, GripVertical } from "lucide-react";
 
 export default function AdminCategories() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Categories" }
-  ];
 
   const categories = [
     {
@@ -91,7 +87,7 @@ export default function AdminCategories() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
+    
       <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -429,6 +425,6 @@ export default function AdminCategories() {
           </TabsContent>
         </Tabs>
       </main>
-    </AdminLayout>
+    
   );
 }

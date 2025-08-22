@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +8,9 @@ import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn } from "lucide-
 import { SAMPLE_USERS } from "@/lib/constants";
 
 export default function AdminUsers() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Users" }
-  ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
-      <main className="flex-1 overflow-y-auto bg-bg p-6">
+    <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -207,6 +201,5 @@ export default function AdminUsers() {
           </CardContent>
         </Card>
       </main>
-    </AdminLayout>
   );
 }

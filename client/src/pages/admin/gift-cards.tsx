@@ -1,4 +1,4 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Gift, Plus, Check, X, Eye, Edit } from "lucide-react";
 
 export default function AdminGiftCards() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Gift Cards" }
-  ];
 
   const sampleGiftCards = [
     {
@@ -73,7 +69,7 @@ export default function AdminGiftCards() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
+    
       <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -339,6 +335,6 @@ export default function AdminGiftCards() {
           </Card>
         </div>
       </main>
-    </AdminLayout>
+    
   );
 }

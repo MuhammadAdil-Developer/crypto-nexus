@@ -1,4 +1,4 @@
-import { AdminLayout } from "@/components/admin/AdminLayout";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bell, AlertTriangle, Info, CheckCircle, X, Plus, Settings } from "lucide-react";
 
 export default function AdminAlerts() {
-  const breadcrumbs = [
-    { label: "Admin", href: "/admin" },
-    { label: "Alerts" }
-  ];
 
   const systemAlerts = [
     {
@@ -128,7 +124,7 @@ export default function AdminAlerts() {
   ];
 
   return (
-    <AdminLayout breadcrumbs={breadcrumbs}>
+    
       <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -473,6 +469,6 @@ export default function AdminAlerts() {
           </TabsContent>
         </Tabs>
       </main>
-    </AdminLayout>
+    
   );
 }

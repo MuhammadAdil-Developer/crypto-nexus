@@ -25,7 +25,7 @@ export function BuyerHeader() {
   const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
-    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+    <header className="bg-gray-950 border-b border-gray-800 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Search Bar */}
         <div className="flex-1 max-w-2xl">
@@ -35,7 +35,7 @@ export function BuyerHeader() {
               placeholder="Search products, vendors, or orders..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="pl-10 pr-4 py-2 w-full bg-gray-800 border-gray-700 text-white placeholder-gray-400 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -56,8 +56,8 @@ export function BuyerHeader() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
               <div className="p-3 border-b">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{unreadCount} unread</p>
+                <h3 className="font-semibold text-white">Notifications</h3>
+                <p className="text-sm text-gray-400">{unreadCount} unread</p>
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {notifications.map((notification) => (
@@ -65,8 +65,8 @@ export function BuyerHeader() {
                     <div className="flex items-start space-x-3 w-full">
                       <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${notification.unread ? 'bg-blue-500' : 'bg-gray-300'}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 dark:text-white">{notification.title}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{notification.message}</p>
+                        <p className="font-medium text-sm text-white">{notification.title}</p>
+                        <p className="text-sm text-gray-400 truncate">{notification.message}</p>
                         <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
                       </div>
                     </div>
@@ -83,14 +83,14 @@ export function BuyerHeader() {
                 <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                   <User className="text-white w-4 h-4" />
                 </div>
-                <span className="hidden md:block font-medium text-gray-700 dark:text-gray-300">crypto_buyer</span>
+                <span className="hidden md:block font-medium text-gray-300">crypto_buyer</span>
                 <ChevronDown className="w-4 h-4 text-gray-400" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="p-3 border-b">
-                <p className="font-medium text-gray-900 dark:text-white">crypto_buyer</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">crypto_buyer@example.com</p>
+                <p className="font-medium text-white">crypto_buyer</p>
+                <p className="text-sm text-gray-400">crypto_buyer@example.com</p>
               </div>
               <Link href="/buyer/settings">
                 <DropdownMenuItem>
@@ -105,7 +105,7 @@ export function BuyerHeader() {
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 dark:text-red-400">
+              <DropdownMenuItem className="text-red-400">
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </DropdownMenuItem>

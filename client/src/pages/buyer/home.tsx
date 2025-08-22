@@ -41,9 +41,9 @@ export default function BuyerHome() {
     <BuyerLayout>
       <div className="space-y-8">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-8 text-white">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-8 text-white border border-gray-700">
           <h1 className="text-3xl font-bold mb-2">Welcome back, crypto_buyer!</h1>
-          <p className="text-blue-100">Discover amazing deals from trusted vendors in our marketplace</p>
+          <p className="text-gray-300">Discover amazing deals from trusted vendors in our marketplace</p>
         </div>
 
         {/* Overview Cards */}
@@ -52,8 +52,8 @@ export default function BuyerHome() {
         {/* Featured Listings */}
         <section>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Featured Listings</h2>
-            <a href="/buyer/listings" className="text-blue-600 hover:text-blue-700 font-medium">
+            <h2 className="text-2xl font-bold text-white">Featured Listings</h2>
+            <a href="/buyer/listings" className="text-blue-400 hover:text-blue-300 font-medium">
               View all →
             </a>
           </div>
@@ -67,8 +67,8 @@ export default function BuyerHome() {
         {/* Recent Orders */}
         <section>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recent Orders</h2>
-            <a href="/buyer/orders" className="text-blue-600 hover:text-blue-700 font-medium">
+            <h2 className="text-2xl font-bold text-white">Recent Orders</h2>
+            <a href="/buyer/orders" className="text-blue-400 hover:text-blue-300 font-medium">
               View all →
             </a>
           </div>
@@ -78,8 +78,8 @@ export default function BuyerHome() {
         {/* Messages */}
         <section>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recent Messages</h2>
-            <a href="/buyer/messages" className="text-blue-600 hover:text-blue-700 font-medium">
+            <h2 className="text-2xl font-bold text-white">Recent Messages</h2>
+            <a href="/buyer/messages" className="text-blue-400 hover:text-blue-300 font-medium">
               View all →
             </a>
           </div>

@@ -92,13 +92,13 @@ export default function BuyerListings() {
     <BuyerLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-6 text-white">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <h1 className="text-2xl font-bold mb-2">Browse Listings</h1>
-          <p className="text-blue-100">Discover products from trusted vendors</p>
+          <p className="text-gray-300">Discover products from trusted vendors</p>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             {/* Search */}
             <div className="flex-1 relative">
@@ -160,8 +160,8 @@ export default function BuyerListings() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Categories Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg sticky top-6">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Categories</h3>
+            <div className="bg-gray-900 rounded-xl p-6 border border-gray-700 sticky top-6">
+              <h3 className="font-semibold text-white mb-4">Categories</h3>
               <div className="space-y-2">
                 {categories.map((category) => (
                   <button
@@ -169,8 +169,8 @@ export default function BuyerListings() {
                     onClick={() => setSelectedCategory(category.id)}
                     className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors text-left ${
                       selectedCategory === category.id
-                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                        ? "bg-blue-900/30 text-blue-400"
+                        : "hover:bg-gray-800 text-gray-300"
                     }`}
                   >
                     <span className="font-medium">{category.name}</span>
@@ -186,7 +186,7 @@ export default function BuyerListings() {
           {/* Listings Grid */}
           <div className="lg:col-span-3">
             <div className="flex items-center justify-between mb-6">
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-400">
                 Showing {filteredListings.length} of {listings.length} results
               </p>
             </div>
@@ -200,17 +200,17 @@ export default function BuyerListings() {
             ) : (
               <div className="space-y-4">
                 {filteredListings.map((listing) => (
-                  <div key={listing.id} className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg flex items-center space-x-6">
+                  <div key={listing.id} className="bg-gray-900 rounded-xl p-6 border border-gray-700 flex items-center space-x-6">
                     <img
                       src={listing.image}
                       alt={listing.title}
                       className="w-20 h-20 rounded-lg object-cover"
                     />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">{listing.title}</h3>
-                      <p className="text-gray-500 dark:text-gray-400">{listing.vendor}</p>
+                      <h3 className="font-semibold text-white">{listing.title}</h3>
+                      <p className="text-gray-400">{listing.vendor}</p>
                       <div className="flex items-center space-x-2 mt-2">
-                        <span className="text-lg font-bold text-blue-600">{listing.price}</span>
+                        <span className="text-lg font-bold text-blue-400">{listing.price}</span>
                         <Badge variant={listing.inStock ? "default" : "destructive"}>
                           {listing.inStock ? "In Stock" : "Out of Stock"}
                         </Badge>

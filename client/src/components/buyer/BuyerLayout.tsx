@@ -10,7 +10,7 @@ export function BuyerLayout({ children }: BuyerLayoutProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   return (
-    <div className="h-screen bg-bg overflow-hidden">
+    <div className="h-screen bg-gray-950 overflow-hidden">
       <div className="flex h-full">
         <BuyerSidebar 
           expanded={sidebarExpanded}
@@ -18,7 +18,7 @@ export function BuyerLayout({ children }: BuyerLayoutProps) {
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           <BuyerHeader />
-          <main className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-gray-900/50">
+          <main className="flex-1 overflow-y-auto bg-gray-900">
             <div className="p-6">
               {children}
             </div>

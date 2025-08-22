@@ -80,16 +80,16 @@ export default function BuyerWishlist() {
     <BuyerLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-pink-600 to-purple-700 rounded-2xl p-6 text-white">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Heart className="w-8 h-8" />
               <div>
                 <h1 className="text-2xl font-bold">Your Wishlist</h1>
-                <p className="text-pink-100">{wishlistItems.length} items saved for later</p>
+                <p className="text-gray-300">{wishlistItems.length} items saved for later</p>
               </div>
             </div>
-            <Button variant="outline" className="text-white border-white hover:bg-white hover:text-pink-600">
+            <Button variant="outline" className="text-white border-gray-500 hover:bg-gray-600">
               <Share2 className="w-4 h-4 mr-2" />
               Share Wishlist
             </Button>
@@ -98,53 +98,53 @@ export default function BuyerWishlist() {
 
         {/* Wishlist Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Items</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{wishlistItems.length}</p>
+                <p className="text-sm text-gray-400 mb-1">Total Items</p>
+                <p className="text-2xl font-bold text-white">{wishlistItems.length}</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
                 <Heart className="w-6 h-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">In Stock</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-sm text-gray-400 mb-1">In Stock</p>
+                <p className="text-2xl font-bold text-white">
                   {wishlistItems.filter(item => item.inStock).length}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
                 <ShoppingCart className="w-6 h-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Price Drops</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-sm text-gray-400 mb-1">Price Drops</p>
+                <p className="text-2xl font-bold text-white">
                   {wishlistItems.filter(item => item.priceChange === "down").length}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">↓</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Value</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">0.0063 BTC</p>
+                <p className="text-sm text-gray-400 mb-1">Total Value</p>
+                <p className="text-2xl font-bold text-white">0.0063 BTC</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">₿</span>
               </div>
             </div>
@@ -152,10 +152,10 @@ export default function BuyerWishlist() {
         </div>
 
         {/* Bulk Actions */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center space-x-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white">Manage Wishlist</h3>
+              <h3 className="font-semibold text-white">Manage Wishlist</h3>
               {selectedItems.length > 0 && (
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                   {selectedItems.length} selected
@@ -221,7 +221,7 @@ export default function BuyerWishlist() {
 
               {/* Added Date */}
               <div className="mt-2 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-400">
                   Added on {new Date(item.addedDate).toLocaleDateString()}
                 </p>
               </div>
@@ -231,15 +231,15 @@ export default function BuyerWishlist() {
 
         {/* Empty State */}
         {wishlistItems.length === 0 && (
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-12 shadow-lg text-center">
+          <div className="bg-gray-900 rounded-xl p-12 border border-gray-700 text-center">
             <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-xl font-semibold text-white mb-2">
               Your wishlist is empty
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-gray-400 mb-6">
               Start browsing and add items you'd like to purchase later
             </p>
-            <Button className="bg-gradient-to-r from-pink-500 to-purple-600">
+            <Button className="bg-gray-700">
               Browse Products
             </Button>
           </div>

@@ -74,40 +74,40 @@ export default function BuyerSupport() {
     <BuyerLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-blue-700 rounded-2xl p-6 text-white">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center space-x-3">
             <HelpCircle className="w-8 h-8" />
             <div>
               <h1 className="text-2xl font-bold">Help & Support</h1>
-              <p className="text-green-100">Get help with your account and orders</p>
+              <p className="text-gray-300">Get help with your account and orders</p>
             </div>
           </div>
         </div>
 
         {/* Quick Contact Options */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+          <Card className="border border-gray-700 bg-gray-900 hover:shadow-xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <MessageSquare className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Live Chat</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <h3 className="font-semibold text-white mb-2">Live Chat</h3>
+              <p className="text-sm text-gray-400 mb-4">
                 Get instant help from our support team
               </p>
-              <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600">
+              <Button className="w-full bg-gray-700">
                 Start Chat
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+          <Card className="border border-gray-700 bg-gray-900 hover:shadow-xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Mail className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Email Support</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <h3 className="font-semibold text-white mb-2">Email Support</h3>
+              <p className="text-sm text-gray-400 mb-4">
                 Send us an email and we'll respond within 24h
               </p>
               <Button variant="outline" className="w-full">
@@ -116,13 +116,13 @@ export default function BuyerSupport() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+          <Card className="border border-gray-700 bg-gray-900 hover:shadow-xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <FileText className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Submit Ticket</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <h3 className="font-semibold text-white mb-2">Submit Ticket</h3>
+              <p className="text-sm text-gray-400 mb-4">
                 Create a detailed support request
               </p>
               <Button variant="outline" className="w-full">
@@ -135,7 +135,7 @@ export default function BuyerSupport() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* FAQ Section */}
           <div>
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <HelpCircle className="w-5 h-5" />
@@ -174,7 +174,7 @@ export default function BuyerSupport() {
 
           {/* Support Ticket Form */}
           <div>
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <FileText className="w-5 h-5" />
@@ -240,7 +240,7 @@ export default function BuyerSupport() {
                     />
                   </div>
 
-                  <Button type="submit" className="w-full bg-gradient-to-r from-green-500 to-blue-600">
+                  <Button type="submit" className="w-full bg-gray-700">
                     Submit Ticket
                   </Button>
                 </form>
@@ -250,30 +250,30 @@ export default function BuyerSupport() {
         </div>
 
         {/* Support Resources */}
-        <Card className="border-0 shadow-lg">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
             <CardTitle>Additional Resources</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-center p-4 bg-gray-800 rounded-lg">
                 <FileText className="w-8 h-8 text-blue-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">User Guide</h4>
-                <p className="text-sm text-gray-500 mb-3">Complete guide to using our platform</p>
+                <p className="text-sm text-gray-400 mb-3">Complete guide to using our platform</p>
                 <Button variant="outline" size="sm">Read Guide</Button>
               </div>
 
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-center p-4 bg-gray-800 rounded-lg">
                 <MessageSquare className="w-8 h-8 text-green-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Community Forum</h4>
-                <p className="text-sm text-gray-500 mb-3">Connect with other users and get tips</p>
+                <p className="text-sm text-gray-400 mb-3">Connect with other users and get tips</p>
                 <Button variant="outline" size="sm">Visit Forum</Button>
               </div>
 
-              <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-center p-4 bg-gray-800 rounded-lg">
                 <HelpCircle className="w-8 h-8 text-purple-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Video Tutorials</h4>
-                <p className="text-sm text-gray-500 mb-3">Step-by-step video guides</p>
+                <p className="text-sm text-gray-400 mb-3">Step-by-step video guides</p>
                 <Button variant="outline" size="sm">Watch Videos</Button>
               </div>
             </div>

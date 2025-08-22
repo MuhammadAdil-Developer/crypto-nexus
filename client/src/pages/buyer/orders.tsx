@@ -26,12 +26,12 @@ export default function BuyerOrders() {
     <BuyerLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-6 text-white">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center space-x-3">
             <Package className="w-8 h-8" />
             <div>
               <h1 className="text-2xl font-bold">Your Orders</h1>
-              <p className="text-blue-100">Track and manage your purchases</p>
+              <p className="text-gray-300">Track and manage your purchases</p>
             </div>
           </div>
         </div>
@@ -41,12 +41,12 @@ export default function BuyerOrders() {
           {orderStats.map((stat, index) => (
             <div 
               key={stat.label}
-              className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow"
+              className="bg-gray-900 rounded-xl p-6 border border-gray-700 hover:shadow-xl transition-shadow"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                  <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
+                  <p className="text-2xl font-bold text-white">{stat.value}</p>
                 </div>
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                   <Package className="w-6 h-6 text-white" />
@@ -57,9 +57,9 @@ export default function BuyerOrders() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
           <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Filter Orders</h3>
+            <h3 className="font-semibold text-white">Filter Orders</h3>
             
             <div className="flex flex-wrap gap-3">
               {/* Status Filter */}
@@ -123,32 +123,32 @@ export default function BuyerOrders() {
         <OrdersTable />
 
         {/* Order Summary */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-lg">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h3>
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
+          <h3 className="font-semibold text-white mb-4">Recent Activity</h3>
           <div className="space-y-4">
-            <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <div className="flex-1">
-                <p className="font-medium text-gray-900 dark:text-white">Order delivered</p>
-                <p className="text-sm text-gray-500">Netflix Premium Account • 2 hours ago</p>
+                <p className="font-medium text-white">Order delivered</p>
+                <p className="text-sm text-gray-400">Netflix Premium Account • 2 hours ago</p>
               </div>
               <Badge className="bg-green-100 text-green-800">Completed</Badge>
             </div>
             
-            <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               <div className="flex-1">
-                <p className="font-medium text-gray-900 dark:text-white">Order confirmed</p>
-                <p className="text-sm text-gray-500">Spotify Premium • 4 hours ago</p>
+                <p className="font-medium text-white">Order confirmed</p>
+                <p className="text-sm text-gray-400">Spotify Premium • 4 hours ago</p>
               </div>
               <Badge className="bg-blue-100 text-blue-800">Processing</Badge>
             </div>
             
-            <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">
               <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
               <div className="flex-1">
-                <p className="font-medium text-gray-900 dark:text-white">Payment verified</p>
-                <p className="text-sm text-gray-500">Adobe Creative Cloud • 6 hours ago</p>
+                <p className="font-medium text-white">Payment verified</p>
+                <p className="text-sm text-gray-400">Adobe Creative Cloud • 6 hours ago</p>
               </div>
               <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
             </div>

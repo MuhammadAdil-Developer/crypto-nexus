@@ -35,19 +35,19 @@ export default function BuyerSettings() {
     <BuyerLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-2xl p-6 text-white">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center space-x-3">
             <SettingsIcon className="w-8 h-8" />
             <div>
               <h1 className="text-2xl font-bold">Account Settings</h1>
-              <p className="text-blue-100">Manage your account preferences and security</p>
+              <p className="text-gray-300">Manage your account preferences and security</p>
             </div>
           </div>
         </div>
 
         {/* Settings Tabs */}
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 bg-white dark:bg-gray-900 rounded-xl p-1 shadow-lg">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 bg-gray-900 rounded-xl p-1 border border-gray-700">
             <TabsTrigger value="profile" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">Profile</span>
@@ -76,7 +76,7 @@ export default function BuyerSettings() {
 
           {/* Profile Settings */}
           <TabsContent value="profile">
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <User className="w-5 h-5" />
@@ -86,12 +86,12 @@ export default function BuyerSettings() {
               <CardContent className="space-y-6">
                 {/* Avatar Section */}
                 <div className="flex items-center space-x-6">
-                  <Avatar className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600">
+                  <Avatar className="w-20 h-20 bg-gray-700">
                     <AvatarFallback className="text-white font-bold text-lg">CB</AvatarFallback>
                   </Avatar>
                   <div>
                     <Button variant="outline">Change Avatar</Button>
-                    <p className="text-sm text-gray-500 mt-2">JPG, PNG up to 2MB</p>
+                    <p className="text-sm text-gray-400 mt-2">JPG, PNG up to 2MB</p>
                   </div>
                 </div>
 
@@ -146,7 +146,7 @@ export default function BuyerSettings() {
           {/* Security Settings */}
           <TabsContent value="security">
             <div className="space-y-6">
-              <Card className="border-0 shadow-lg">
+              <Card className="border border-gray-700 bg-gray-900">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Lock className="w-5 h-5" />
@@ -155,18 +155,18 @@ export default function BuyerSettings() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                       <div>
                         <h4 className="font-medium">Change Password</h4>
-                        <p className="text-sm text-gray-500">Update your account password</p>
+                        <p className="text-sm text-gray-400">Update your account password</p>
                       </div>
                       <Button variant="outline">Change</Button>
                     </div>
                     
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                       <div>
                         <h4 className="font-medium">Two-Factor Authentication</h4>
-                        <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                        <p className="text-sm text-gray-400">Add an extra layer of security</p>
                       </div>
                       <Switch
                         checked={security.twoFactorEnabled}
@@ -174,10 +174,10 @@ export default function BuyerSettings() {
                       />
                     </div>
                     
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                       <div>
                         <h4 className="font-medium">Login Alerts</h4>
-                        <p className="text-sm text-gray-500">Get notified of new login attempts</p>
+                        <p className="text-sm text-gray-400">Get notified of new login attempts</p>
                       </div>
                       <Switch
                         checked={security.loginAlerts}
@@ -188,7 +188,7 @@ export default function BuyerSettings() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg">
+              <Card className="border border-gray-700 bg-gray-900">
                 <CardHeader>
                   <CardTitle>Active Sessions</CardTitle>
                 </CardHeader>
@@ -202,10 +202,10 @@ export default function BuyerSettings() {
                       <span className="text-xs text-green-600 dark:text-green-400 font-medium">Active</span>
                     </div>
                     
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                       <div>
                         <h4 className="font-medium">Mobile App</h4>
-                        <p className="text-sm text-gray-500">iPhone • Last active 2 hours ago</p>
+                        <p className="text-sm text-gray-400">iPhone • Last active 2 hours ago</p>
                       </div>
                       <Button variant="outline" size="sm">End Session</Button>
                     </div>
@@ -217,7 +217,7 @@ export default function BuyerSettings() {
 
           {/* Notification Settings */}
           <TabsContent value="notifications">
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Bell className="w-5 h-5" />
@@ -226,10 +226,10 @@ export default function BuyerSettings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
                       <h4 className="font-medium">Order Updates</h4>
-                      <p className="text-sm text-gray-500">Notifications about order status changes</p>
+                      <p className="text-sm text-gray-400">Notifications about order status changes</p>
                     </div>
                     <Switch
                       checked={notifications.orderUpdates}
@@ -237,10 +237,10 @@ export default function BuyerSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
                       <h4 className="font-medium">Price Alerts</h4>
-                      <p className="text-sm text-gray-500">Get notified when wishlist items go on sale</p>
+                      <p className="text-sm text-gray-400">Get notified when wishlist items go on sale</p>
                     </div>
                     <Switch
                       checked={notifications.priceAlerts}
@@ -248,10 +248,10 @@ export default function BuyerSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
                       <h4 className="font-medium">Vendor Messages</h4>
-                      <p className="text-sm text-gray-500">Notifications for new vendor messages</p>
+                      <p className="text-sm text-gray-400">Notifications for new vendor messages</p>
                     </div>
                     <Switch
                       checked={notifications.vendorMessages}
@@ -259,10 +259,10 @@ export default function BuyerSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
                       <h4 className="font-medium">Security Alerts</h4>
-                      <p className="text-sm text-gray-500">Important security notifications</p>
+                      <p className="text-sm text-gray-400">Important security notifications</p>
                     </div>
                     <Switch
                       checked={notifications.securityAlerts}
@@ -270,10 +270,10 @@ export default function BuyerSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
                       <h4 className="font-medium">Marketing Emails</h4>
-                      <p className="text-sm text-gray-500">Promotional offers and product updates</p>
+                      <p className="text-sm text-gray-400">Promotional offers and product updates</p>
                     </div>
                     <Switch
                       checked={notifications.marketingEmails}
@@ -291,7 +291,7 @@ export default function BuyerSettings() {
 
           {/* Payment Settings */}
           <TabsContent value="payments">
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <CreditCard className="w-5 h-5" />
@@ -300,15 +300,15 @@ export default function BuyerSettings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-4 bg-gray-800 rounded-lg">
                     <h4 className="font-medium mb-2">Bitcoin (BTC)</h4>
-                    <p className="text-sm text-gray-500 mb-3">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</p>
+                    <p className="text-sm text-gray-400 mb-3">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</p>
                     <Button variant="outline" size="sm">Update Address</Button>
                   </div>
                   
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-4 bg-gray-800 rounded-lg">
                     <h4 className="font-medium mb-2">Monero (XMR)</h4>
-                    <p className="text-sm text-gray-500 mb-3">Not configured</p>
+                    <p className="text-sm text-gray-400 mb-3">Not configured</p>
                     <Button variant="outline" size="sm">Add Address</Button>
                   </div>
                 </div>
@@ -316,18 +316,18 @@ export default function BuyerSettings() {
                 <div className="border-t pt-6">
                   <h4 className="font-medium mb-4">Transaction History</h4>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                       <div>
                         <p className="font-medium">Payment sent</p>
-                        <p className="text-sm text-gray-500">Order #ORD-2847 • 2 hours ago</p>
+                        <p className="text-sm text-gray-400">Order #ORD-2847 • 2 hours ago</p>
                       </div>
                       <span className="text-green-600 font-medium">0.0012 BTC</span>
                     </div>
                     
-                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
                       <div>
                         <p className="font-medium">Payment sent</p>
-                        <p className="text-sm text-gray-500">Order #ORD-2846 • 1 day ago</p>
+                        <p className="text-sm text-gray-400">Order #ORD-2846 • 1 day ago</p>
                       </div>
                       <span className="text-green-600 font-medium">0.0008 BTC</span>
                     </div>
@@ -339,7 +339,7 @@ export default function BuyerSettings() {
 
           {/* Privacy Settings */}
           <TabsContent value="privacy">
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Shield className="w-5 h-5" />
@@ -356,9 +356,9 @@ export default function BuyerSettings() {
                     <Button variant="outline" size="sm">View Privacy Policy</Button>
                   </div>
                   
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-4 bg-gray-800 rounded-lg">
                     <h4 className="font-medium mb-2">Download Your Data</h4>
-                    <p className="text-sm text-gray-500 mb-3">Export your account data and transaction history</p>
+                    <p className="text-sm text-gray-400 mb-3">Export your account data and transaction history</p>
                     <Button variant="outline" size="sm">Request Export</Button>
                   </div>
                   
@@ -376,7 +376,7 @@ export default function BuyerSettings() {
 
           {/* Appearance Settings */}
           <TabsContent value="appearance">
-            <Card className="border-0 shadow-lg">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Palette className="w-5 h-5" />
@@ -398,7 +398,7 @@ export default function BuyerSettings() {
                         <span className="text-sm font-medium text-white">Dark</span>
                       </button>
                       
-                      <button className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 border-2 border-gray-300 rounded-lg text-center">
+                      <button className="p-4 bg-gray-700 border-2 border-gray-300 rounded-lg text-center">
                         <div className="w-full h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded mb-2"></div>
                         <span className="text-sm font-medium text-white">Auto</span>
                       </button>

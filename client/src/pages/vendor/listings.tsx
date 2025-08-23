@@ -80,7 +80,7 @@ const getStatusColor = (status: string) => {
     case "Under Review":
       return "bg-yellow-100 text-yellow-800 border-yellow-200";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
   }
 };
 
@@ -102,8 +102,8 @@ export default function VendorListings() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Product Listings</h1>
-            <p className="text-gray-600">Manage your products and inventory</p>
+            <h1 className="text-3xl font-bold text-white">Product Listings</h1>
+            <p className="text-gray-400">Manage your products and inventory</p>
           </div>
           <Button className="bg-blue-500 hover:bg-blue-600">
             <Plus className="w-4 h-4 mr-2" />
@@ -113,34 +113,34 @@ export default function VendorListings() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-gray-900">24</div>
-              <p className="text-sm text-gray-600">Total Products</p>
+              <div className="text-2xl font-bold text-white">24</div>
+              <p className="text-sm text-gray-400">Total Products</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-green-600">19</div>
-              <p className="text-sm text-gray-600">Active Listings</p>
+              <p className="text-sm text-gray-400">Active Listings</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-red-600">3</div>
-              <p className="text-sm text-gray-600">Out of Stock</p>
+              <p className="text-sm text-gray-400">Out of Stock</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-yellow-600">2</div>
-              <p className="text-sm text-gray-600">Under Review</p>
+              <p className="text-sm text-gray-400">Under Review</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -182,16 +182,16 @@ export default function VendorListings() {
         </Card>
 
         {/* Products Table */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">
+            <CardTitle className="text-xl font-bold text-white">
               Products ({filteredProducts.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {filteredProducts.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={product.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
                   <div className="flex items-center space-x-4">
                     <img
                       src={product.image}
@@ -199,11 +199,11 @@ export default function VendorListings() {
                       className="w-16 h-16 rounded-lg object-cover"
                     />
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                      <p className="text-sm text-gray-600">{product.category}</p>
+                      <h3 className="font-semibold text-white">{product.name}</h3>
+                      <p className="text-sm text-gray-400">{product.category}</p>
                       <div className="flex items-center space-x-4 mt-1">
-                        <span className="text-sm text-gray-500">Created: {product.created}</span>
-                        <span className="text-sm text-gray-500">Sales: {product.sales}</span>
+                        <span className="text-sm text-gray-400">Created: {product.created}</span>
+                        <span className="text-sm text-gray-400">Sales: {product.sales}</span>
                       </div>
                     </div>
                   </div>
@@ -211,7 +211,7 @@ export default function VendorListings() {
                   <div className="flex items-center space-x-6">
                     <div className="text-right">
                       <div className="font-semibold text-blue-600">{product.price}</div>
-                      <div className="text-sm text-gray-600">Stock: {product.stock}</div>
+                      <div className="text-sm text-gray-400">Stock: {product.stock}</div>
                     </div>
 
                     <Badge className={`border ${getStatusColor(product.status)}`}>
@@ -253,8 +253,8 @@ export default function VendorListings() {
                 <div className="text-gray-400 mb-4">
                   <Filter className="w-12 h-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-                <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+                <h3 className="text-lg font-medium text-white mb-2">No products found</h3>
+                <p className="text-gray-400">Try adjusting your search or filter criteria.</p>
               </div>
             )}
           </CardContent>

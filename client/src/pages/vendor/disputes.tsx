@@ -66,9 +66,9 @@ const getStatusColor = (status: string) => {
     case "Resolved":
       return "bg-green-100 text-green-800 border-green-200";
     case "Closed":
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
   }
 };
 
@@ -81,7 +81,7 @@ const getPriorityColor = (priority: string) => {
     case "Low":
       return "bg-green-500";
     default:
-      return "bg-gray-500";
+      return "bg-gray-8000";
   }
 };
 
@@ -120,8 +120,8 @@ export default function VendorDisputes() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Disputes & Resolution</h1>
-            <p className="text-gray-600">Manage customer disputes and resolve issues</p>
+            <h1 className="text-3xl font-bold text-white">Disputes & Resolution</h1>
+            <p className="text-gray-400">Manage customer disputes and resolve issues</p>
           </div>
           <div className="flex items-center space-x-4">
             {openDisputes > 0 && (
@@ -134,50 +134,50 @@ export default function VendorDisputes() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{totalDisputes}</div>
-                  <p className="text-sm text-gray-600">Total Disputes</p>
+                  <div className="text-2xl font-bold text-white">{totalDisputes}</div>
+                  <p className="text-sm text-gray-400">Total Disputes</p>
                 </div>
                 <AlertTriangle className="w-8 h-8 text-gray-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-red-600">{openDisputes}</div>
-                  <p className="text-sm text-gray-600">Open Cases</p>
+                  <p className="text-sm text-gray-400">Open Cases</p>
                 </div>
                 <Clock className="w-8 h-8 text-red-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-green-600">
                     {disputes.filter(d => d.status === "Resolved").length}
                   </div>
-                  <p className="text-sm text-gray-600">Resolved</p>
+                  <p className="text-sm text-gray-400">Resolved</p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-green-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-blue-600">{escrowAmount.toFixed(4)} BTC</div>
-                  <p className="text-sm text-gray-600">Escrow Held</p>
+                  <p className="text-sm text-gray-400">Escrow Held</p>
                 </div>
                 <XCircle className="w-8 h-8 text-blue-400" />
               </div>
@@ -186,7 +186,7 @@ export default function VendorDisputes() {
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -217,26 +217,26 @@ export default function VendorDisputes() {
         </Card>
 
         {/* Disputes List */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">
+            <CardTitle className="text-xl font-bold text-white">
               Disputes ({filteredDisputes.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               {filteredDisputes.map((dispute) => (
-                <div key={dispute.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div key={dispute.id} className="border border-gray-700 bg-gray-900 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-4">
                       <div className="flex flex-col items-center">
                         <div className={`w-3 h-3 rounded-full ${getPriorityColor(dispute.priority)} mb-1`}></div>
-                        <span className="text-xs text-gray-500 uppercase">{dispute.priority}</span>
+                        <span className="text-xs text-gray-400 uppercase">{dispute.priority}</span>
                       </div>
                       
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="font-semibold text-gray-900">{dispute.id}</h3>
+                          <h3 className="font-semibold text-white">{dispute.id}</h3>
                           <Badge className={`border ${getStatusColor(dispute.status)}`}>
                             {dispute.status}
                           </Badge>
@@ -246,29 +246,29 @@ export default function VendorDisputes() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">
+                        <p className="text-sm text-gray-400 mb-1">
                           Order: {dispute.orderId} • {dispute.product}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-400">
                           Buyer: {dispute.buyer} • Amount: {dispute.amount}
                         </p>
                       </div>
                     </div>
                     
-                    <div className="text-right text-sm text-gray-500">
+                    <div className="text-right text-sm text-gray-400">
                       <p>Opened: {dispute.openedDate}</p>
                       <p>Last activity: {dispute.lastActivity}</p>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Issue: {dispute.issue}</h4>
-                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{dispute.description}</p>
+                    <h4 className="font-medium text-white mb-2">Issue: {dispute.issue}</h4>
+                    <p className="text-gray-700 bg-gray-800 p-3 rounded-lg">{dispute.description}</p>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="flex items-center text-sm text-gray-500">
+                      <div className="flex items-center text-sm text-gray-400">
                         <MessageSquare className="w-4 h-4 mr-1" />
                         {dispute.responses} responses
                       </div>
@@ -289,25 +289,25 @@ export default function VendorDisputes() {
                           <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                               <div>
-                                <label className="text-sm font-medium text-gray-600">Order ID</label>
-                                <p className="text-gray-900">{dispute.orderId}</p>
+                                <label className="text-sm font-medium text-gray-400">Order ID</label>
+                                <p className="text-white">{dispute.orderId}</p>
                               </div>
                               <div>
-                                <label className="text-sm font-medium text-gray-600">Buyer</label>
-                                <p className="text-gray-900">{dispute.buyer}</p>
+                                <label className="text-sm font-medium text-gray-400">Buyer</label>
+                                <p className="text-white">{dispute.buyer}</p>
                               </div>
                               <div>
-                                <label className="text-sm font-medium text-gray-600">Product</label>
-                                <p className="text-gray-900">{dispute.product}</p>
+                                <label className="text-sm font-medium text-gray-400">Product</label>
+                                <p className="text-white">{dispute.product}</p>
                               </div>
                               <div>
-                                <label className="text-sm font-medium text-gray-600">Amount</label>
-                                <p className="text-gray-900">{dispute.amount}</p>
+                                <label className="text-sm font-medium text-gray-400">Amount</label>
+                                <p className="text-white">{dispute.amount}</p>
                               </div>
                             </div>
                             <div>
-                              <label className="text-sm font-medium text-gray-600">Issue Description</label>
-                              <p className="text-gray-900 bg-gray-50 p-3 rounded mt-1">{dispute.description}</p>
+                              <label className="text-sm font-medium text-gray-400">Issue Description</label>
+                              <p className="text-white bg-gray-800 p-3 rounded mt-1">{dispute.description}</p>
                             </div>
                           </div>
                         </DialogContent>
@@ -326,8 +326,8 @@ export default function VendorDisputes() {
                               <DialogTitle>Respond to Dispute</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-medium text-gray-900 mb-2">{dispute.issue}</h4>
+                              <div className="bg-gray-800 p-4 rounded-lg">
+                                <h4 className="font-medium text-white mb-2">{dispute.issue}</h4>
                                 <p className="text-gray-700">{dispute.description}</p>
                               </div>
                               <Textarea
@@ -366,23 +366,23 @@ export default function VendorDisputes() {
                 <div className="text-gray-400 mb-4">
                   <CheckCircle className="w-12 h-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No disputes found</h3>
-                <p className="text-gray-600">Great! No active disputes to resolve.</p>
+                <h3 className="text-lg font-medium text-white mb-2">No disputes found</h3>
+                <p className="text-gray-400">Great! No active disputes to resolve.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Resolution Guidelines */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Resolution Guidelines</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Resolution Guidelines</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Best Practices</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
+                <h4 className="font-semibold text-white mb-3">Best Practices</h4>
+                <ul className="space-y-2 text-sm text-gray-400">
                   <li>• Respond to disputes within 24 hours</li>
                   <li>• Provide clear evidence and documentation</li>
                   <li>• Maintain professional communication</li>
@@ -392,8 +392,8 @@ export default function VendorDisputes() {
               </div>
               
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Common Resolutions</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
+                <h4 className="font-semibold text-white mb-3">Common Resolutions</h4>
+                <ul className="space-y-2 text-sm text-gray-400">
                   <li>• Replacement account/product</li>
                   <li>• Partial or full refund</li>
                   <li>• Additional warranty/support</li>

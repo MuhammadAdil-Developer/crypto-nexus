@@ -119,9 +119,9 @@ const getStatusColor = (status: string) => {
     case "Resolved":
       return "bg-green-100 text-green-800 border-green-200";
     case "Closed":
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
   }
 };
 
@@ -134,7 +134,7 @@ const getPriorityColor = (priority: string) => {
     case "Low":
       return "bg-green-500";
     default:
-      return "bg-gray-500";
+      return "bg-gray-8000";
   }
 };
 
@@ -178,8 +178,8 @@ export default function VendorSupport() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Support & Help</h1>
-            <p className="text-gray-600">Get help with your vendor account and marketplace features</p>
+            <h1 className="text-3xl font-bold text-white">Support & Help</h1>
+            <p className="text-gray-400">Get help with your vendor account and marketplace features</p>
           </div>
           <Dialog>
             <DialogTrigger asChild>
@@ -253,50 +253,50 @@ export default function VendorSupport() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-gray-900">{totalTickets}</div>
-                  <p className="text-sm text-gray-600">Total Tickets</p>
+                  <div className="text-2xl font-bold text-white">{totalTickets}</div>
+                  <p className="text-sm text-gray-400">Total Tickets</p>
                 </div>
                 <HelpCircle className="w-8 h-8 text-gray-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-yellow-600">{openTickets}</div>
-                  <p className="text-sm text-gray-600">Open Tickets</p>
+                  <p className="text-sm text-gray-400">Open Tickets</p>
                 </div>
                 <Clock className="w-8 h-8 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-purple-600">{waitingResponse}</div>
-                  <p className="text-sm text-gray-600">Waiting Response</p>
+                  <p className="text-sm text-gray-400">Waiting Response</p>
                 </div>
                 <AlertCircle className="w-8 h-8 text-purple-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-green-600">
                     {tickets.filter(t => t.status === "Resolved").length}
                   </div>
-                  <p className="text-sm text-gray-600">Resolved</p>
+                  <p className="text-sm text-gray-400">Resolved</p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-green-400" />
               </div>
@@ -305,10 +305,10 @@ export default function VendorSupport() {
         </div>
 
         {/* Support Tickets */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-gray-900">Support Tickets</CardTitle>
+              <CardTitle className="text-xl font-bold text-white">Support Tickets</CardTitle>
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -337,16 +337,16 @@ export default function VendorSupport() {
           <CardContent>
             <div className="space-y-4">
               {filteredTickets.map((ticket) => (
-                <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
                   <div className="flex items-center space-x-4">
                     <div className="flex flex-col items-center">
                       <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
-                      <span className="text-xs text-gray-500 uppercase">{ticket.priority}</span>
+                      <span className="text-xs text-gray-400 uppercase">{ticket.priority}</span>
                     </div>
                     
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-1">
-                        <h3 className="font-semibold text-gray-900">{ticket.id}</h3>
+                        <h3 className="font-semibold text-white">{ticket.id}</h3>
                         <Badge className={`border ${getStatusColor(ticket.status)}`}>
                           {ticket.status}
                         </Badge>
@@ -354,8 +354,8 @@ export default function VendorSupport() {
                           {ticket.category}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{ticket.subject}</p>
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                      <p className="text-sm text-gray-400 mb-1">{ticket.subject}</p>
+                      <div className="flex items-center space-x-4 text-xs text-gray-400">
                         <span>Created: {ticket.created}</span>
                         <span>Last update: {ticket.lastUpdate}</span>
                         <span>{ticket.responses} responses</span>
@@ -398,28 +398,28 @@ export default function VendorSupport() {
                 <div className="text-gray-400 mb-4">
                   <HelpCircle className="w-12 h-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tickets found</h3>
-                <p className="text-gray-600">Try adjusting your search criteria or create a new ticket.</p>
+                <h3 className="text-lg font-medium text-white mb-2">No tickets found</h3>
+                <p className="text-gray-400">Try adjusting your search criteria or create a new ticket.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* FAQ Section */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Frequently Asked Questions</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Frequently Asked Questions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               {faqData.map((category, categoryIndex) => (
                 <div key={categoryIndex}>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{category.category}</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">{category.category}</h3>
                   <div className="space-y-4">
                     {category.questions.map((faq, faqIndex) => (
-                      <div key={faqIndex} className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">{faq.question}</h4>
-                        <p className="text-gray-600 text-sm">{faq.answer}</p>
+                      <div key={faqIndex} className="border border-gray-700 bg-gray-900 rounded-lg p-4">
+                        <h4 className="font-medium text-white mb-2">{faq.question}</h4>
+                        <p className="text-gray-400 text-sm">{faq.answer}</p>
                       </div>
                     ))}
                   </div>
@@ -430,30 +430,30 @@ export default function VendorSupport() {
         </Card>
 
         {/* Contact Information */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Contact Support</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Contact Support</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <MessageSquare className="w-8 h-8 text-blue-600 mx-auto mb-3" />
-                <h4 className="font-semibold text-gray-900 mb-2">Live Chat</h4>
-                <p className="text-sm text-gray-600 mb-3">Chat with our support team</p>
+                <h4 className="font-semibold text-white mb-2">Live Chat</h4>
+                <p className="text-sm text-gray-400 mb-3">Chat with our support team</p>
                 <p className="text-xs text-blue-600">Available 24/7</p>
               </div>
               
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <FileText className="w-8 h-8 text-green-600 mx-auto mb-3" />
-                <h4 className="font-semibold text-gray-900 mb-2">Email Support</h4>
-                <p className="text-sm text-gray-600 mb-3">vendor-support@cryptomarket.com</p>
+                <h4 className="font-semibold text-white mb-2">Email Support</h4>
+                <p className="text-sm text-gray-400 mb-3">vendor-support@cryptomarket.com</p>
                 <p className="text-xs text-green-600">Response within 24h</p>
               </div>
               
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <HelpCircle className="w-8 h-8 text-purple-600 mx-auto mb-3" />
-                <h4 className="font-semibold text-gray-900 mb-2">Help Center</h4>
-                <p className="text-sm text-gray-600 mb-3">Browse our documentation</p>
+                <h4 className="font-semibold text-white mb-2">Help Center</h4>
+                <p className="text-sm text-gray-400 mb-3">Browse our documentation</p>
                 <p className="text-xs text-purple-600">Self-service guides</p>
               </div>
             </div>

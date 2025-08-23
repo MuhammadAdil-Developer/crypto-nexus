@@ -72,8 +72,8 @@ export default function VendorSettings() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600">Manage your vendor profile and preferences</p>
+            <h1 className="text-3xl font-bold text-white">Settings</h1>
+            <p className="text-gray-400">Manage your vendor profile and preferences</p>
           </div>
           <Badge className="bg-green-100 text-green-800">
             Verified Vendor
@@ -103,7 +103,7 @@ export default function VendorSettings() {
 
           {/* Profile Settings */}
           <TabsContent value="profile" className="space-y-6">
-            <Card className="border border-gray-200">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Store className="w-5 h-5" />
@@ -209,7 +209,7 @@ export default function VendorSettings() {
 
           {/* Payment Settings */}
           <TabsContent value="payments" className="space-y-6">
-            <Card className="border border-gray-200">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <CreditCard className="w-5 h-5" />
@@ -226,7 +226,7 @@ export default function VendorSettings() {
                       onChange={(e) => setPaymentData({...paymentData, btcAddress: e.target.value})}
                       className="font-mono text-sm"
                     />
-                    <p className="text-xs text-gray-500">For receiving BTC payments</p>
+                    <p className="text-xs text-gray-400">For receiving BTC payments</p>
                   </div>
                   
                   <div className="space-y-2">
@@ -237,7 +237,7 @@ export default function VendorSettings() {
                       onChange={(e) => setPaymentData({...paymentData, xmrAddress: e.target.value})}
                       className="font-mono text-sm"
                     />
-                    <p className="text-xs text-gray-500">For receiving XMR payments</p>
+                    <p className="text-xs text-gray-400">For receiving XMR payments</p>
                   </div>
                   
                   <div className="space-y-2">
@@ -261,16 +261,16 @@ export default function VendorSettings() {
                       id="commissionRate"
                       value={paymentData.commissionRate}
                       disabled
-                      className="bg-gray-100"
+                      className="bg-gray-700"
                     />
-                    <p className="text-xs text-gray-500">Set by marketplace</p>
+                    <p className="text-xs text-gray-400">Set by marketplace</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                   <div>
-                    <h4 className="font-medium text-gray-900">Escrow Protection</h4>
-                    <p className="text-sm text-gray-600">Enable escrow for buyer protection</p>
+                    <h4 className="font-medium text-white">Escrow Protection</h4>
+                    <p className="text-sm text-gray-400">Enable escrow for buyer protection</p>
                   </div>
                   <Switch
                     checked={paymentData.escrowEnabled}
@@ -288,7 +288,7 @@ export default function VendorSettings() {
 
           {/* Notification Settings */}
           <TabsContent value="notifications" className="space-y-6">
-            <Card className="border border-gray-200">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Bell className="w-5 h-5" />
@@ -297,10 +297,10 @@ export default function VendorSettings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">New Orders</h4>
-                      <p className="text-sm text-gray-600">Get notified when you receive new orders</p>
+                      <h4 className="font-medium text-white">New Orders</h4>
+                      <p className="text-sm text-gray-400">Get notified when you receive new orders</p>
                     </div>
                     <Switch
                       checked={notificationSettings.newOrders}
@@ -308,10 +308,10 @@ export default function VendorSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Messages</h4>
-                      <p className="text-sm text-gray-600">Get notified when customers send messages</p>
+                      <h4 className="font-medium text-white">Messages</h4>
+                      <p className="text-sm text-gray-400">Get notified when customers send messages</p>
                     </div>
                     <Switch
                       checked={notificationSettings.messages}
@@ -319,10 +319,10 @@ export default function VendorSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Disputes</h4>
-                      <p className="text-sm text-gray-600">Get notified about dispute activities</p>
+                      <h4 className="font-medium text-white">Disputes</h4>
+                      <p className="text-sm text-gray-400">Get notified about dispute activities</p>
                     </div>
                     <Switch
                       checked={notificationSettings.disputes}
@@ -330,10 +330,10 @@ export default function VendorSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Payouts</h4>
-                      <p className="text-sm text-gray-600">Get notified about payout status</p>
+                      <h4 className="font-medium text-white">Payouts</h4>
+                      <p className="text-sm text-gray-400">Get notified about payout status</p>
                     </div>
                     <Switch
                       checked={notificationSettings.payouts}
@@ -341,10 +341,10 @@ export default function VendorSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Reviews</h4>
-                      <p className="text-sm text-gray-600">Get notified about new reviews</p>
+                      <h4 className="font-medium text-white">Reviews</h4>
+                      <p className="text-sm text-gray-400">Get notified about new reviews</p>
                     </div>
                     <Switch
                       checked={notificationSettings.reviews}
@@ -352,10 +352,10 @@ export default function VendorSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Marketing Updates</h4>
-                      <p className="text-sm text-gray-600">Receive marketing and promotional emails</p>
+                      <h4 className="font-medium text-white">Marketing Updates</h4>
+                      <p className="text-sm text-gray-400">Receive marketing and promotional emails</p>
                     </div>
                     <Switch
                       checked={notificationSettings.marketing}
@@ -374,7 +374,7 @@ export default function VendorSettings() {
 
           {/* Security Settings */}
           <TabsContent value="security" className="space-y-6">
-            <Card className="border border-gray-200">
+            <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Shield className="w-5 h-5" />
@@ -383,10 +383,10 @@ export default function VendorSettings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Two-Factor Authentication</h4>
-                      <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
+                      <h4 className="font-medium text-white">Two-Factor Authentication</h4>
+                      <p className="text-sm text-gray-400">Add an extra layer of security to your account</p>
                     </div>
                     <div className="flex items-center space-x-3">
                       {securitySettings.twoFactorEnabled && (
@@ -399,10 +399,10 @@ export default function VendorSettings() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Login Notifications</h4>
-                      <p className="text-sm text-gray-600">Get notified when someone logs into your account</p>
+                      <h4 className="font-medium text-white">Login Notifications</h4>
+                      <p className="text-sm text-gray-400">Get notified when someone logs into your account</p>
                     </div>
                     <Switch
                       checked={securitySettings.loginNotifications}
@@ -410,10 +410,10 @@ export default function VendorSettings() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div>
-                      <h4 className="font-medium text-gray-900">Suspicious Activity Alerts</h4>
-                      <p className="text-sm text-gray-600">Get alerts for unusual account activity</p>
+                      <h4 className="font-medium text-white">Suspicious Activity Alerts</h4>
+                      <p className="text-sm text-gray-400">Get alerts for unusual account activity</p>
                     </div>
                     <Switch
                       checked={securitySettings.suspiciousActivityAlerts}
@@ -423,7 +423,7 @@ export default function VendorSettings() {
                 </div>
                 
                 <div className="space-y-4">
-                  <h4 className="font-semibold text-gray-900">Password & Access</h4>
+                  <h4 className="font-semibold text-white">Password & Access</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Button variant="outline" className="justify-start">
                       <Key className="w-4 h-4 mr-2" />

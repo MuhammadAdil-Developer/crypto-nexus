@@ -100,10 +100,10 @@ export default function VendorDashboard() {
         {/* Main Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Recent Orders */}
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-bold text-gray-900">Recent Orders</CardTitle>
+                <CardTitle className="text-xl font-bold text-white">Recent Orders</CardTitle>
                 <Button variant="outline" size="sm">
                   View All
                 </Button>
@@ -112,10 +112,10 @@ export default function VendorDashboard() {
             <CardContent>
               <div className="space-y-4">
                 {recentOrders.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-medium text-gray-900">{order.id}</h4>
+                        <h4 className="font-medium text-white">{order.id}</h4>
                         <Badge 
                           variant={order.status === "Completed" ? "default" : "secondary"}
                           className={order.status === "Completed" ? "bg-green-100 text-green-800" : ""}
@@ -123,10 +123,10 @@ export default function VendorDashboard() {
                           {order.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{order.product}</p>
+                      <p className="text-sm text-gray-300 mb-1">{order.product}</p>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">by {order.buyer}</span>
-                        <span className="font-semibold text-blue-600">{order.amount}</span>
+                        <span className="text-sm text-gray-400">by {order.buyer}</span>
+                        <span className="font-semibold text-blue-400">{order.amount}</span>
                       </div>
                     </div>
                   </div>
@@ -136,10 +136,10 @@ export default function VendorDashboard() {
           </Card>
 
           {/* Top Products */}
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-bold text-gray-900">Top Products</CardTitle>
+                <CardTitle className="text-xl font-bold text-white">Top Products</CardTitle>
                 <Button variant="outline" size="sm">
                   <Package className="w-4 h-4 mr-2" />
                   Manage
@@ -149,16 +149,16 @@ export default function VendorDashboard() {
             <CardContent>
               <div className="space-y-4">
                 {topProducts.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={product.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 mb-1">{product.name}</h4>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <h4 className="font-medium text-white mb-1">{product.name}</h4>
+                      <div className="flex items-center space-x-4 text-sm text-gray-300">
                         <span>{product.sales} sales</span>
                         <span>Stock: {product.stock}</span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-blue-600">{product.revenue}</div>
+                      <div className="font-semibold text-blue-400">{product.revenue}</div>
                       <Badge variant="outline" className="mt-1">
                         {product.status}
                       </Badge>
@@ -171,10 +171,10 @@ export default function VendorDashboard() {
         </div>
 
         {/* Recent Messages */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-gray-900">Recent Messages</CardTitle>
+              <CardTitle className="text-xl font-bold text-white">Recent Messages</CardTitle>
               <Button variant="outline" size="sm">
                 View All
               </Button>
@@ -183,7 +183,7 @@ export default function VendorDashboard() {
           <CardContent>
             <div className="space-y-4">
               {recentMessages.map((message) => (
-                <div key={message.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={message.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                       <span className="text-white font-semibold">
@@ -192,17 +192,17 @@ export default function VendorDashboard() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-gray-900">{message.buyer}</h4>
+                        <h4 className="font-medium text-white">{message.buyer}</h4>
                         {message.unread && (
                           <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600">{message.product}</p>
-                      <p className="text-sm text-gray-500 truncate">{message.lastMessage}</p>
+                      <p className="text-sm text-gray-300">{message.product}</p>
+                      <p className="text-sm text-gray-400 truncate">{message.lastMessage}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-gray-500">{message.time}</span>
+                    <span className="text-xs text-gray-400">{message.time}</span>
                   </div>
                 </div>
               ))}
@@ -211,9 +211,9 @@ export default function VendorDashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Quick Actions</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

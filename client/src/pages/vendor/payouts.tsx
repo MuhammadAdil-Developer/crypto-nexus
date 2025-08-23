@@ -66,7 +66,7 @@ const getStatusColor = (status: string) => {
     case "Failed":
       return "bg-red-100 text-red-800 border-red-200";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
   }
 };
 
@@ -101,8 +101,8 @@ export default function VendorPayouts() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Payouts & Earnings</h1>
-            <p className="text-gray-600">Manage your earnings and withdrawal history</p>
+            <h1 className="text-3xl font-bold text-white">Payouts & Earnings</h1>
+            <p className="text-gray-400">Manage your earnings and withdrawal history</p>
           </div>
           <Dialog>
             <DialogTrigger asChild>
@@ -135,7 +135,7 @@ export default function VendorPayouts() {
                     value={withdrawAmount}
                     onChange={(e) => setWithdrawAmount(e.target.value)}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     Available: {withdrawMethod === "BTC" ? pendingEarnings.btc.amount + " BTC" : pendingEarnings.xmr.amount + " XMR"}
                   </p>
                 </div>
@@ -165,7 +165,7 @@ export default function VendorPayouts() {
 
         {/* Balance Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border border-gray-200 bg-gradient-to-br from-orange-50 to-orange-100">
+          <Card className="border border-gray-700 bg-gray-900 bg-gradient-to-br from-orange-50 to-orange-100">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-orange-600">
@@ -173,27 +173,27 @@ export default function VendorPayouts() {
                 </div>
                 <Badge className="bg-orange-500 text-white">BTC</Badge>
               </div>
-              <div className="text-2xl font-bold text-gray-900">{pendingEarnings.btc.amount} BTC</div>
-              <p className="text-sm text-gray-600">≈ {pendingEarnings.btc.usd}</p>
-              <p className="text-xs text-gray-500 mt-1">{pendingEarnings.btc.orders} pending orders</p>
+              <div className="text-2xl font-bold text-white">{pendingEarnings.btc.amount} BTC</div>
+              <p className="text-sm text-gray-400">≈ {pendingEarnings.btc.usd}</p>
+              <p className="text-xs text-gray-400 mt-1">{pendingEarnings.btc.orders} pending orders</p>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100">
+          <Card className="border border-gray-700 bg-gray-900 bg-gradient-to-br from-gray-50 to-gray-100">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-gray-600">
+                <div className="text-gray-400">
                   <Wallet className="w-8 h-8" />
                 </div>
                 <Badge className="bg-gray-600 text-white">XMR</Badge>
               </div>
-              <div className="text-2xl font-bold text-gray-900">{pendingEarnings.xmr.amount} XMR</div>
-              <p className="text-sm text-gray-600">≈ {pendingEarnings.xmr.usd}</p>
-              <p className="text-xs text-gray-500 mt-1">{pendingEarnings.xmr.orders} pending orders</p>
+              <div className="text-2xl font-bold text-white">{pendingEarnings.xmr.amount} XMR</div>
+              <p className="text-sm text-gray-400">≈ {pendingEarnings.xmr.usd}</p>
+              <p className="text-xs text-gray-400 mt-1">{pendingEarnings.xmr.orders} pending orders</p>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200 bg-gradient-to-br from-blue-50 to-blue-100">
+          <Card className="border border-gray-700 bg-gray-900 bg-gradient-to-br from-blue-50 to-blue-100">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-blue-600">
@@ -201,48 +201,48 @@ export default function VendorPayouts() {
                 </div>
                 <Badge className="bg-blue-500 text-white">TOTAL</Badge>
               </div>
-              <div className="text-2xl font-bold text-gray-900">{pendingEarnings.total.usd}</div>
-              <p className="text-sm text-gray-600">Total Pending</p>
-              <p className="text-xs text-gray-500 mt-1">{pendingEarnings.total.orders} total orders</p>
+              <div className="text-2xl font-bold text-white">{pendingEarnings.total.usd}</div>
+              <p className="text-sm text-gray-400">Total Pending</p>
+              <p className="text-xs text-gray-400 mt-1">{pendingEarnings.total.orders} total orders</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-green-600">${totalPaidOut.toLocaleString()}</div>
-              <p className="text-sm text-gray-600">Total Paid Out</p>
+              <p className="text-sm text-gray-400">Total Paid Out</p>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-blue-600">{payoutHistory.length}</div>
-              <p className="text-sm text-gray-600">Total Withdrawals</p>
+              <p className="text-sm text-gray-400">Total Withdrawals</p>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-purple-600">24h</div>
-              <p className="text-sm text-gray-600">Processing Time</p>
+              <p className="text-sm text-gray-400">Processing Time</p>
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-orange-600">
                 {payoutHistory.filter(p => p.status === "Completed").length}
               </div>
-              <p className="text-sm text-gray-600">Successful Payouts</p>
+              <p className="text-sm text-gray-400">Successful Payouts</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <Select value={filterMethod} onValueChange={setFilterMethod}>
@@ -264,16 +264,16 @@ export default function VendorPayouts() {
         </Card>
 
         {/* Payout History */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">
+            <CardTitle className="text-xl font-bold text-white">
               Withdrawal History ({filteredPayouts.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {filteredPayouts.map((payout) => (
-                <div key={payout.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={payout.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                       <Wallet className="w-6 h-6 text-white" />
@@ -281,7 +281,7 @@ export default function VendorPayouts() {
                     
                     <div>
                       <div className="flex items-center space-x-3 mb-1">
-                        <h3 className="font-semibold text-gray-900">{payout.id}</h3>
+                        <h3 className="font-semibold text-white">{payout.id}</h3>
                         <Badge className={`text-xs ${getStatusColor(payout.status)}`}>
                           {payout.status}
                         </Badge>
@@ -289,7 +289,7 @@ export default function VendorPayouts() {
                           {payout.method}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-400">
                         To: {payout.address.substring(0, 8)}...{payout.address.substring(payout.address.length - 6)}
                         <Button 
                           variant="ghost" 
@@ -300,14 +300,14 @@ export default function VendorPayouts() {
                           <Copy className="w-3 h-3" />
                         </Button>
                       </p>
-                      <p className="text-xs text-gray-500">{payout.date}</p>
+                      <p className="text-xs text-gray-400">{payout.date}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-6">
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900">{payout.amount}</div>
-                      <div className="text-sm text-gray-600">{payout.usdAmount}</div>
+                      <div className="font-semibold text-white">{payout.amount}</div>
+                      <div className="text-sm text-gray-400">{payout.usdAmount}</div>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -337,59 +337,59 @@ export default function VendorPayouts() {
                 <div className="text-gray-400 mb-4">
                   <Wallet className="w-12 h-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No withdrawals found</h3>
-                <p className="text-gray-600">Your withdrawal history will appear here.</p>
+                <h3 className="text-lg font-medium text-white mb-2">No withdrawals found</h3>
+                <p className="text-gray-400">Your withdrawal history will appear here.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Payout Information */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Payout Information</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Payout Information</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Withdrawal Limits</h4>
+                <h4 className="font-semibold text-white mb-3">Withdrawal Limits</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Minimum BTC:</span>
+                    <span className="text-gray-400">Minimum BTC:</span>
                     <span className="font-medium">0.001 BTC</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Minimum XMR:</span>
+                    <span className="text-gray-400">Minimum XMR:</span>
                     <span className="font-medium">0.1 XMR</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Daily Limit:</span>
+                    <span className="text-gray-400">Daily Limit:</span>
                     <span className="font-medium">10 BTC / 100 XMR</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Processing Time:</span>
+                    <span className="text-gray-400">Processing Time:</span>
                     <span className="font-medium">6-24 hours</span>
                   </div>
                 </div>
               </div>
               
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Network Fees</h4>
+                <h4 className="font-semibold text-white mb-3">Network Fees</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">BTC Network Fee:</span>
+                    <span className="text-gray-400">BTC Network Fee:</span>
                     <span className="font-medium">~0.0001 BTC</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">XMR Network Fee:</span>
+                    <span className="text-gray-400">XMR Network Fee:</span>
                     <span className="font-medium">~0.001 XMR</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Fee Calculation:</span>
+                    <span className="text-gray-400">Fee Calculation:</span>
                     <span className="font-medium">Dynamic</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-400 mt-2">
                   Network fees are automatically calculated based on current network conditions.
                 </p>
               </div>

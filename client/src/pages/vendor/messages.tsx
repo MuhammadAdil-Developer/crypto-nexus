@@ -144,8 +144,8 @@ export default function VendorMessages() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
-            <p className="text-gray-600">Communicate with your customers</p>
+            <h1 className="text-3xl font-bold text-white">Messages</h1>
+            <p className="text-gray-300">Communicate with your customers</p>
           </div>
           <div className="flex items-center space-x-4">
             <Badge className="bg-red-100 text-red-800">
@@ -156,32 +156,32 @@ export default function VendorMessages() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-gray-900">{conversations.length}</div>
-              <p className="text-sm text-gray-600">Total Conversations</p>
+              <div className="text-2xl font-bold text-white">{conversations.length}</div>
+              <p className="text-sm text-gray-300">Total Conversations</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-red-600">{totalUnread}</div>
-              <p className="text-sm text-gray-600">Unread Messages</p>
+              <p className="text-sm text-gray-300">Unread Messages</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-blue-600">
                 {conversations.filter(c => c.status === "active").length}
               </div>
-              <p className="text-sm text-gray-600">Active Chats</p>
+              <p className="text-sm text-gray-300">Active Chats</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-green-600">
                 {conversations.filter(c => c.status === "resolved").length}
               </div>
-              <p className="text-sm text-gray-600">Resolved</p>
+              <p className="text-sm text-gray-300">Resolved</p>
             </CardContent>
           </Card>
         </div>
@@ -189,7 +189,7 @@ export default function VendorMessages() {
         {/* Messages Interface */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
           {/* Conversations List */}
-          <Card className="lg:col-span-1 border border-gray-200">
+          <Card className="lg:col-span-1 border border-gray-700 bg-gray-900">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center space-x-2">
@@ -215,7 +215,7 @@ export default function VendorMessages() {
                     className={`p-4 cursor-pointer transition-colors duration-200 border-l-4 ${
                       selectedConversation?.id === conv.id 
                         ? 'bg-blue-50 border-blue-500' 
-                        : 'hover:bg-gray-50 border-transparent'
+                        : 'hover:bg-gray-800 border-transparent'
                     }`}
                     onClick={() => setSelectedConversation(conv)}
                   >
@@ -231,7 +231,7 @@ export default function VendorMessages() {
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-gray-900 truncate">
+                          <h4 className="font-medium text-white truncate">
                             {conv.buyer}
                           </h4>
                           {conv.unread > 0 && (
@@ -240,8 +240,8 @@ export default function VendorMessages() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 mb-1">{conv.product}</p>
-                        <p className="text-sm text-gray-600 truncate">
+                        <p className="text-xs text-gray-400 mb-1">{conv.product}</p>
+                        <p className="text-sm text-gray-300 truncate">
                           {conv.lastMessage}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">{conv.time}</p>
@@ -254,7 +254,7 @@ export default function VendorMessages() {
           </Card>
 
           {/* Chat Window */}
-          <Card className="lg:col-span-2 border border-gray-200 flex flex-col">
+          <Card className="lg:col-span-2 border border-gray-700 bg-gray-900 flex flex-col">
             {selectedConversation ? (
               <>
                 {/* Chat Header */}
@@ -267,15 +267,15 @@ export default function VendorMessages() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-white">
                           {selectedConversation.buyer}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-300">
                           Re: {selectedConversation.product}
                         </p>
                       </div>
                       <Badge 
-                        className={`text-xs ${selectedConversation.priority === 'urgent' ? 'bg-red-100 text-red-800' : selectedConversation.priority === 'high' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}
+                        className={`text-xs ${selectedConversation.priority === 'urgent' ? 'bg-red-100 text-red-800' : selectedConversation.priority === 'high' ? 'bg-orange-100 text-orange-800' : 'bg-gray-700 text-gray-800'}`}
                       >
                         {selectedConversation.priority}
                       </Badge>
@@ -312,11 +312,11 @@ export default function VendorMessages() {
                         <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
                           message.sender === 'vendor' 
                             ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-100 text-gray-900'
+                            : 'bg-gray-700 text-white'
                         }`}>
                           <p className="text-sm">{message.content}</p>
                           <p className={`text-xs mt-2 ${
-                            message.sender === 'vendor' ? 'text-blue-100' : 'text-gray-500'
+                            message.sender === 'vendor' ? 'text-blue-100' : 'text-gray-400'
                           }`}>
                             {message.time}
                           </p>
@@ -355,10 +355,10 @@ export default function VendorMessages() {
               <CardContent className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <h3 className="text-lg font-medium text-white mb-2">
                     Select a conversation
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-300">
                     Choose a customer to start chatting
                   </p>
                 </div>

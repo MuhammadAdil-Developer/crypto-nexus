@@ -83,7 +83,7 @@ const getStatusColor = (status: string) => {
     case "Expired":
       return "bg-red-100 text-red-800 border-red-200";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
   }
 };
 
@@ -111,8 +111,8 @@ export default function VendorAds() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Advertisement Management</h1>
-            <p className="text-gray-600">Create and manage your product advertisements</p>
+            <h1 className="text-3xl font-bold text-white">Advertisement Management</h1>
+            <p className="text-gray-400">Create and manage your product advertisements</p>
           </div>
           <Button className="bg-blue-500 hover:bg-blue-600">
             <Plus className="w-4 h-4 mr-2" />
@@ -122,40 +122,40 @@ export default function VendorAds() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-gray-900">{ads.length}</div>
-              <p className="text-sm text-gray-600">Total Campaigns</p>
+              <div className="text-2xl font-bold text-white">{ads.length}</div>
+              <p className="text-sm text-gray-400">Total Campaigns</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-blue-600">{totalBudget.toFixed(4)} BTC</div>
-              <p className="text-sm text-gray-600">Total Budget</p>
+              <p className="text-sm text-gray-400">Total Budget</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-purple-600">{totalSpent.toFixed(4)} BTC</div>
-              <p className="text-sm text-gray-600">Total Spent</p>
+              <p className="text-sm text-gray-400">Total Spent</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-green-600">{totalClicks.toLocaleString()}</div>
-              <p className="text-sm text-gray-600">Total Clicks</p>
+              <p className="text-sm text-gray-400">Total Clicks</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-orange-600">{avgCTR.toFixed(2)}%</div>
-              <p className="text-sm text-gray-600">Average CTR</p>
+              <p className="text-sm text-gray-400">Average CTR</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -182,21 +182,21 @@ export default function VendorAds() {
         </Card>
 
         {/* Ads List */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">
+            <CardTitle className="text-xl font-bold text-white">
               Campaigns ({filteredAds.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {filteredAds.map((ad) => (
-                <div key={ad.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={ad.id} className="flex items-center justify-between p-6 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
                   <div className="flex items-center space-x-6">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{ad.title}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{ad.product}</p>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <h3 className="font-semibold text-white mb-1">{ad.title}</h3>
+                      <p className="text-sm text-gray-400 mb-2">{ad.product}</p>
+                      <div className="flex items-center space-x-4 text-sm text-gray-400">
                         <span>{ad.placement}</span>
                         <span>•</span>
                         <span>{ad.startDate} - {ad.endDate}</span>
@@ -207,24 +207,24 @@ export default function VendorAds() {
                   <div className="flex items-center space-x-8">
                     {/* Performance Metrics */}
                     <div className="text-center">
-                      <div className="text-sm font-medium text-gray-900">{ad.impressions.toLocaleString()}</div>
-                      <div className="text-xs text-gray-600">Impressions</div>
+                      <div className="text-sm font-medium text-white">{ad.impressions.toLocaleString()}</div>
+                      <div className="text-xs text-gray-400">Impressions</div>
                     </div>
                     
                     <div className="text-center">
-                      <div className="text-sm font-medium text-gray-900">{ad.clicks.toLocaleString()}</div>
-                      <div className="text-xs text-gray-600">Clicks</div>
+                      <div className="text-sm font-medium text-white">{ad.clicks.toLocaleString()}</div>
+                      <div className="text-xs text-gray-400">Clicks</div>
                     </div>
                     
                     <div className="text-center">
-                      <div className="text-sm font-medium text-gray-900">{ad.ctr}%</div>
-                      <div className="text-xs text-gray-600">CTR</div>
+                      <div className="text-sm font-medium text-white">{ad.ctr}%</div>
+                      <div className="text-xs text-gray-400">CTR</div>
                     </div>
 
                     {/* Budget Info */}
                     <div className="text-right">
                       <div className="text-sm font-medium text-blue-600">{ad.spent}</div>
-                      <div className="text-xs text-gray-600">of {ad.budget}</div>
+                      <div className="text-xs text-gray-400">of {ad.budget}</div>
                       <div className="w-24 bg-gray-200 rounded-full h-1.5 mt-1">
                         <div 
                           className="bg-blue-500 h-1.5 rounded-full"
@@ -290,8 +290,8 @@ export default function VendorAds() {
                 <div className="text-gray-400 mb-4">
                   <BarChart3 className="w-12 h-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No campaigns found</h3>
-                <p className="text-gray-600 mb-4">Create your first advertisement to promote your products.</p>
+                <h3 className="text-lg font-medium text-white mb-2">No campaigns found</h3>
+                <p className="text-gray-400 mb-4">Create your first advertisement to promote your products.</p>
                 <Button className="bg-blue-500 hover:bg-blue-600">
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Campaign
@@ -302,34 +302,34 @@ export default function VendorAds() {
         </Card>
 
         {/* Performance Insights */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Performance Insights</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Performance Insights</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600 mb-2">Homepage Banner</div>
-                <p className="text-sm text-gray-600">Best performing placement</p>
+                <p className="text-sm text-gray-400">Best performing placement</p>
                 <p className="text-xs text-green-700 mt-1">7.88% CTR</p>
               </div>
               
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600 mb-2">Netflix Ads</div>
-                <p className="text-sm text-gray-600">Top converting product</p>
+                <p className="text-sm text-gray-400">Top converting product</p>
                 <p className="text-xs text-blue-700 mt-1">1,247 clicks</p>
               </div>
               
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600 mb-2">Peak Hours</div>
-                <p className="text-sm text-gray-600">2-6 PM daily</p>
+                <p className="text-sm text-gray-400">2-6 PM daily</p>
                 <p className="text-xs text-purple-700 mt-1">Highest engagement</p>
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-semibold text-gray-900 mb-2">Optimization Tips</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
+            <div className="mt-6 p-4 bg-gray-800 rounded-lg">
+              <h4 className="font-semibold text-white mb-2">Optimization Tips</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
                 <li>• Homepage banner ads perform 23% better than sidebar placements</li>
                 <li>• Netflix and streaming account ads have the highest click-through rates</li>
                 <li>• Consider increasing budget for high-performing campaigns</li>

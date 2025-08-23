@@ -132,59 +132,59 @@ export default function VendorReviews() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Customer Reviews</h1>
-            <p className="text-gray-600">Manage customer feedback and respond to reviews</p>
+            <h1 className="text-3xl font-bold text-white">Customer Reviews</h1>
+            <p className="text-gray-400">Manage customer feedback and respond to reviews</p>
           </div>
         </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">{averageRating.toFixed(1)}</div>
+                <div className="text-3xl font-bold text-white">{averageRating.toFixed(1)}</div>
                 <div className="flex items-center justify-center my-2">
                   {renderStars(Math.round(averageRating))}
                 </div>
-                <p className="text-sm text-gray-600">Average Rating</p>
-                <p className="text-xs text-gray-500">{reviews.length} total reviews</p>
+                <p className="text-sm text-gray-400">Average Rating</p>
+                <p className="text-xs text-gray-400">{reviews.length} total reviews</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-green-600">{ratingCounts[4]}</div>
-              <p className="text-sm text-gray-600">5-Star Reviews</p>
-              <p className="text-xs text-gray-500">{((ratingCounts[4] / reviews.length) * 100).toFixed(1)}% of total</p>
+              <p className="text-sm text-gray-400">5-Star Reviews</p>
+              <p className="text-xs text-gray-400">{((ratingCounts[4] / reviews.length) * 100).toFixed(1)}% of total</p>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-blue-600">
                 {reviews.filter(r => !r.reply).length}
               </div>
-              <p className="text-sm text-gray-600">Pending Replies</p>
-              <p className="text-xs text-gray-500">Need your response</p>
+              <p className="text-sm text-gray-400">Pending Replies</p>
+              <p className="text-xs text-gray-400">Need your response</p>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-purple-600">
                 {reviews.filter(r => r.verified).length}
               </div>
-              <p className="text-sm text-gray-600">Verified Reviews</p>
-              <p className="text-xs text-gray-500">From confirmed buyers</p>
+              <p className="text-sm text-gray-400">Verified Reviews</p>
+              <p className="text-xs text-gray-400">From confirmed buyers</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Rating Distribution */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Rating Distribution</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Rating Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -200,7 +200,7 @@ export default function VendorReviews() {
                       style={{ width: `${(ratingCounts[rating - 1] / reviews.length) * 100}%` }}
                     ></div>
                   </div>
-                  <span className="text-sm text-gray-600 w-12">{ratingCounts[rating - 1]}</span>
+                  <span className="text-sm text-gray-400 w-12">{ratingCounts[rating - 1]}</span>
                 </div>
               ))}
             </div>
@@ -208,7 +208,7 @@ export default function VendorReviews() {
         </Card>
 
         {/* Filters */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -240,16 +240,16 @@ export default function VendorReviews() {
         </Card>
 
         {/* Reviews List */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">
+            <CardTitle className="text-xl font-bold text-white">
               Reviews ({filteredReviews.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               {filteredReviews.map((review) => (
-                <div key={review.id} className="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
+                <div key={review.id} className="border-b border-gray-700 bg-gray-900 pb-6 last:border-b-0 last:pb-0">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -259,15 +259,15 @@ export default function VendorReviews() {
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h4 className="font-medium text-gray-900">{review.buyer}</h4>
+                          <h4 className="font-medium text-white">{review.buyer}</h4>
                           {review.verified && (
                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                               Verified
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">{review.product}</p>
-                        <p className="text-xs text-gray-500">{review.date}</p>
+                        <p className="text-sm text-gray-400">{review.product}</p>
+                        <p className="text-xs text-gray-400">{review.date}</p>
                       </div>
                     </div>
                     
@@ -289,14 +289,14 @@ export default function VendorReviews() {
                   <div className="mb-4">
                     <div className="flex items-center space-x-3 mb-2">
                       {renderStars(review.rating)}
-                      <h3 className="font-semibold text-gray-900">{review.title}</h3>
+                      <h3 className="font-semibold text-white">{review.title}</h3>
                     </div>
                     <p className="text-gray-700">{review.content}</p>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <button className="flex items-center space-x-1 text-gray-500 hover:text-gray-700">
+                      <button className="flex items-center space-x-1 text-gray-400 hover:text-gray-700">
                         <ThumbsUp className="w-4 h-4" />
                         <span className="text-sm">{review.helpful} helpful</span>
                       </button>
@@ -315,7 +315,7 @@ export default function VendorReviews() {
                             <DialogTitle>Reply to Review</DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4">
-                            <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="bg-gray-800 p-4 rounded-lg">
                               <div className="flex items-center space-x-2 mb-2">
                                 {renderStars(review.rating)}
                                 <span className="font-semibold">{review.title}</span>
@@ -359,8 +359,8 @@ export default function VendorReviews() {
                 <div className="text-gray-400 mb-4">
                   <Star className="w-12 h-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No reviews found</h3>
-                <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
+                <h3 className="text-lg font-medium text-white mb-2">No reviews found</h3>
+                <p className="text-gray-400">Try adjusting your search or filter criteria.</p>
               </div>
             )}
           </CardContent>

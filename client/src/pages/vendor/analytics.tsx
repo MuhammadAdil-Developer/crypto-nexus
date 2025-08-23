@@ -34,8 +34,8 @@ export default function VendorAnalytics() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analytics & Reports</h1>
-            <p className="text-gray-600">Track your performance and revenue insights</p>
+            <h1 className="text-3xl font-bold text-white">Analytics & Reports</h1>
+            <p className="text-gray-400">Track your performance and revenue insights</p>
           </div>
           <div className="flex items-center space-x-4">
             <Select defaultValue="30days">
@@ -58,13 +58,13 @@ export default function VendorAnalytics() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-gray-900">2.45 BTC</p>
-                  <p className="text-sm text-gray-500">≈ $98,420 USD</p>
+                  <p className="text-sm font-medium text-gray-400">Total Revenue</p>
+                  <p className="text-2xl font-bold text-white">2.45 BTC</p>
+                  <p className="text-sm text-gray-400">≈ $98,420 USD</p>
                 </div>
                 <div className="bg-green-100 p-3 rounded-full">
                   <DollarSign className="w-6 h-6 text-green-600" />
@@ -77,13 +77,13 @@ export default function VendorAnalytics() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Sales</p>
-                  <p className="text-2xl font-bold text-gray-900">142</p>
-                  <p className="text-sm text-gray-500">Orders completed</p>
+                  <p className="text-sm font-medium text-gray-400">Total Sales</p>
+                  <p className="text-2xl font-bold text-white">142</p>
+                  <p className="text-sm text-gray-400">Orders completed</p>
                 </div>
                 <div className="bg-blue-100 p-3 rounded-full">
                   <Package className="w-6 h-6 text-blue-600" />
@@ -96,13 +96,13 @@ export default function VendorAnalytics() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Unique Buyers</p>
-                  <p className="text-2xl font-bold text-gray-900">89</p>
-                  <p className="text-sm text-gray-500">Active customers</p>
+                  <p className="text-sm font-medium text-gray-400">Unique Buyers</p>
+                  <p className="text-2xl font-bold text-white">89</p>
+                  <p className="text-sm text-gray-400">Active customers</p>
                 </div>
                 <div className="bg-purple-100 p-3 rounded-full">
                   <Users className="w-6 h-6 text-purple-600" />
@@ -115,13 +115,13 @@ export default function VendorAnalytics() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Store Views</p>
-                  <p className="text-2xl font-bold text-gray-900">1,247</p>
-                  <p className="text-sm text-gray-500">Profile visits</p>
+                  <p className="text-sm font-medium text-gray-400">Store Views</p>
+                  <p className="text-2xl font-bold text-white">1,247</p>
+                  <p className="text-sm text-gray-400">Profile visits</p>
                 </div>
                 <div className="bg-yellow-100 p-3 rounded-full">
                   <Eye className="w-6 h-6 text-yellow-600" />
@@ -137,26 +137,26 @@ export default function VendorAnalytics() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Sales Chart */}
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
-              <CardTitle className="text-xl font-bold text-gray-900">Sales Over Time</CardTitle>
+              <CardTitle className="text-xl font-bold text-white">Sales Over Time</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80 flex items-end justify-between space-x-2">
                 {salesData.map((data, index) => (
                   <div key={index} className="flex flex-col items-center space-y-2 flex-1">
-                    <div className="bg-gray-100 w-full rounded-lg overflow-hidden h-64 flex flex-col justify-end">
+                    <div className="bg-gray-700 w-full rounded-lg overflow-hidden h-64 flex flex-col justify-end">
                       <div 
                         className="bg-blue-500 transition-all duration-500 ease-out"
                         style={{ height: `${(data.btc / 0.8) * 100}%` }}
                       ></div>
                     </div>
-                    <span className="text-xs text-gray-600 font-medium">{data.month}</span>
-                    <span className="text-xs text-gray-500">{data.btc} BTC</span>
+                    <span className="text-xs text-gray-400 font-medium">{data.month}</span>
+                    <span className="text-xs text-gray-400">{data.btc} BTC</span>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+              <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
                 <span>Revenue trend showing steady growth</span>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center">
@@ -169,17 +169,17 @@ export default function VendorAnalytics() {
           </Card>
 
           {/* Revenue Breakdown */}
-          <Card className="border border-gray-200">
+          <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
-              <CardTitle className="text-xl font-bold text-gray-900">Revenue Breakdown</CardTitle>
+              <CardTitle className="text-xl font-bold text-white">Revenue Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {revenueBreakdown.map((item, index) => (
                   <div key={index} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">{item.source}</span>
-                      <span className="font-semibold text-gray-900">{item.amount}</span>
+                      <span className="font-medium text-white">{item.source}</span>
+                      <span className="font-semibold text-white">{item.amount}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div 
@@ -187,24 +187,24 @@ export default function VendorAnalytics() {
                         style={{ width: `${item.percentage}%` }}
                       ></div>
                     </div>
-                    <div className="text-sm text-gray-600">{item.percentage}% of total revenue</div>
+                    <div className="text-sm text-gray-400">{item.percentage}% of total revenue</div>
                   </div>
                 ))}
               </div>
               
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-4">Payment Method Performance</h4>
+              <div className="mt-8 pt-6 border-t border-gray-700 bg-gray-900">
+                <h4 className="font-semibold text-white mb-4">Payment Method Performance</h4>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Average Order Value (BTC)</span>
+                    <span className="text-gray-400">Average Order Value (BTC)</span>
                     <span className="font-medium">0.0142 BTC</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Average Order Value (XMR)</span>
+                    <span className="text-gray-400">Average Order Value (XMR)</span>
                     <span className="font-medium">0.0098 XMR</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Most Popular Payment</span>
+                    <span className="text-gray-400">Most Popular Payment</span>
                     <span className="font-medium">Bitcoin (68.5%)</span>
                   </div>
                 </div>
@@ -214,28 +214,28 @@ export default function VendorAnalytics() {
         </div>
 
         {/* Top Products */}
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Top Performing Products</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Top Performing Products</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {topProducts.map((product, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={index} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-blue-600 font-semibold text-sm">#{index + 1}</span>
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900">{product.name}</h4>
-                      <p className="text-sm text-gray-600">{product.sales} sales</p>
+                      <h4 className="font-medium text-white">{product.name}</h4>
+                      <p className="text-sm text-gray-400">{product.sales} sales</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-6">
                     <div className="text-right">
                       <div className="font-semibold text-blue-600">{product.revenue}</div>
-                      <div className="text-sm text-gray-600">Revenue</div>
+                      <div className="text-sm text-gray-400">Revenue</div>
                     </div>
                     
                     <div className="flex items-center">

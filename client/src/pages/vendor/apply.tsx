@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const STEPS = [
   { id: 1, title: "Basic Info", icon: User, description: "Personal and business details" },
@@ -49,6 +49,7 @@ interface VendorApplicationData {
 
 export default function VendorApply() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [, setLocation] = useLocation();
   const [formData, setFormData] = useState<VendorApplicationData>({
     businessName: "",
     vendorUsername: "",
@@ -85,8 +86,8 @@ export default function VendorApply() {
 
   const onSubmit = (data: any) => {
     updateFormData(data);
-    // Redirect to confirmation page
-    window.location.href = "/vendor/apply/success";
+    // Navigate to confirmation page
+    setLocation("/vendor/apply/success");
   };
 
   const isStepValid = (step: number) => {
@@ -113,6 +114,11 @@ export default function VendorApply() {
                 <Input
                   id="businessName"
                   {...register("businessName", { required: "Business name is required" })}
+                  onChange={(e) => {
+                    setValue("businessName", e.target.value);
+                    setFormData(prev => ({ ...prev, businessName: e.target.value }));
+                  }}
+                  value={watchedValues.businessName || ""}
                   placeholder="Enter your business name"
                   className="bg-gray-800 border-gray-700"
                 />
@@ -232,6 +238,11 @@ export default function VendorApply() {
                 <Input
                   id="btcAddress"
                   {...register("btcAddress")}
+                  onChange={(e) => {
+                    setValue("btcAddress", e.target.value);
+                    setFormData(prev => ({ ...prev, btcAddress: e.target.value }));
+                  }}
+                  value={watchedValues.btcAddress || ""}
                   placeholder="bc1q..."
                   className="bg-gray-800 border-gray-700"
                 />
@@ -243,6 +254,11 @@ export default function VendorApply() {
                 <Input
                   id="xmrAddress"
                   {...register("xmrAddress")}
+                  onChange={(e) => {
+                    setValue("xmrAddress", e.target.value);
+                    setFormData(prev => ({ ...prev, xmrAddress: e.target.value }));
+                  }}
+                  value={watchedValues.xmrAddress || ""}
                   placeholder="4..."
                   className="bg-gray-800 border-gray-700"
                 />
@@ -262,7 +278,11 @@ export default function VendorApply() {
               <div className="flex items-start space-x-3">
                 <Checkbox
                   id="agreement"
-                  {...register("agreement", { required: "You must agree to the terms" })}
+                  checked={watchedValues.agreement}
+                  onCheckedChange={(checked) => {
+                    setValue("agreement", checked as boolean);
+                    setFormData(prev => ({ ...prev, agreement: checked as boolean }));
+                  }}
                   className="mt-1"
                 />
                 <div>

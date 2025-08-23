@@ -7,7 +7,9 @@ import {
   Heart, 
   Settings, 
   HelpCircle,
-  User
+  User,
+  Store,
+  ArrowRight
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -142,6 +144,28 @@ export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) 
           );
         })}
       </nav>
+
+      {/* Apply as Vendor Section */}
+      <div className="p-2 border-t border-gray-800">
+        <Link href="/vendor/apply">
+          <div className="relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer text-gray-400 hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-600 hover:text-white border border-gray-700 hover:border-purple-500">
+            <Store className="w-5 h-5 flex-shrink-0" />
+            
+            {expanded ? (
+              <div className="ml-3 flex items-center justify-between w-full">
+                <span className="font-medium">Apply as Vendor</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            ) : (
+              <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="text-sm font-medium whitespace-nowrap">Apply as Vendor</div>
+                <div className="text-xs text-gray-300 mt-1">Start selling</div>
+                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-800 rotate-45"></div>
+              </div>
+            )}
+          </div>
+        </Link>
+      </div>
 
       {/* User Profile */}
       <div className="p-4 border-t border-gray-800">

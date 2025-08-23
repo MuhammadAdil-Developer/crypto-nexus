@@ -8,6 +8,21 @@ import AdminDashboard from "@/pages/admin/admin-dashboard";
 import BuyerDashboard from "@/pages/buyer/buyer-dashboard";
 import MarketplaceHome from "@/pages/marketplace/home";
 
+// Vendor Pages
+import VendorApply from "@/pages/vendor/apply";
+import VendorApplySuccess from "@/pages/vendor/apply-success";
+import VendorDashboard from "@/pages/vendor/dashboard";
+import VendorListings from "@/pages/vendor/listings";
+import VendorOrders from "@/pages/vendor/orders";
+import VendorMessages from "@/pages/vendor/messages";
+import VendorAnalytics from "@/pages/vendor/analytics";
+import VendorReviews from "@/pages/vendor/reviews";
+import VendorAds from "@/pages/vendor/ads";
+import VendorDisputes from "@/pages/vendor/disputes";
+import VendorPayouts from "@/pages/vendor/payouts";
+import VendorSettings from "@/pages/vendor/settings";
+import VendorSupport from "@/pages/vendor/support";
+
 function Router() {
   return (
     <div className="h-full bg-bg text-text">
@@ -17,6 +32,22 @@ function Router() {
         <Route path="/buyer/:section*" component={BuyerDashboard} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/:section*" component={AdminDashboard} />
+        
+        {/* Vendor Routes */}
+        <Route path="/vendor/apply" component={VendorApply} />
+        <Route path="/vendor/apply/success" component={VendorApplySuccess} />
+        <Route path="/vendor/dashboard" component={VendorDashboard} />
+        <Route path="/vendor/listings" component={VendorListings} />
+        <Route path="/vendor/orders" component={VendorOrders} />
+        <Route path="/vendor/messages" component={VendorMessages} />
+        <Route path="/vendor/analytics" component={VendorAnalytics} />
+        <Route path="/vendor/reviews" component={VendorReviews} />
+        <Route path="/vendor/ads" component={VendorAds} />
+        <Route path="/vendor/disputes" component={VendorDisputes} />
+        <Route path="/vendor/payouts" component={VendorPayouts} />
+        <Route path="/vendor/settings" component={VendorSettings} />
+        <Route path="/vendor/support" component={VendorSupport} />
+        
         <Route component={NotFound} />
       </Switch>
     </div>

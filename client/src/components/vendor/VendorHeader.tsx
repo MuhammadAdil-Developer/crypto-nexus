@@ -13,7 +13,7 @@ import {
 
 export function VendorHeader() {
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Search */}
         <div className="flex-1 max-w-xl">
@@ -21,7 +21,7 @@ export function VendorHeader() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder="Search orders, products, customers..."
-              className="pl-10 bg-gray-50 border-gray-200"
+              className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
             />
           </div>
         </div>
@@ -30,7 +30,7 @@ export function VendorHeader() {
         <div className="flex items-center space-x-4">
           {/* Notifications */}
           <Button variant="ghost" size="sm" className="relative">
-            <Bell className="w-5 h-5 text-gray-600" />
+            <Bell className="w-5 h-5 text-gray-300" />
             <Badge className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs p-0 flex items-center justify-center">
               3
             </Badge>

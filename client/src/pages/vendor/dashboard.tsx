@@ -87,7 +87,7 @@ export default function VendorDashboard() {
           <h1 className="text-3xl font-bold mb-2">Welcome back, CryptoAccountsPlus!</h1>
           <p className="text-blue-100">Here's what's happening with your store today</p>
           <div className="mt-4 flex space-x-4">
-            <Button variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100">
+            <Button variant="secondary" className="bg-gray-800 text-white hover:bg-gray-700">
               <Plus className="w-4 h-4 mr-2" />
               Add New Product
             </Button>

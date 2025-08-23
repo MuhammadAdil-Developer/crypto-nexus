@@ -49,12 +49,14 @@ export default function SignIn() {
             <Globe className="w-7 h-7 text-purple-400" />
           </div>
 
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-            Welcome to CryptoMarket
-          </h1>
-          <p className="text-xl text-blue-100 mb-8 max-w-md">
-            The most secure and anonymous marketplace for digital assets and premium accounts
-          </p>
+          <div className="max-w-lg mx-auto text-center">
+            <h1 className="text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent leading-tight" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+              Welcome to CryptoMarket
+            </h1>
+            <p className="text-lg text-blue-100 leading-relaxed" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+              The most secure and anonymous marketplace for digital assets and premium accounts
+            </p>
+          </div>
           <div className="flex flex-col space-y-4 text-blue-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">

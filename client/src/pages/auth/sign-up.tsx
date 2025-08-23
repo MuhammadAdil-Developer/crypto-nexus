@@ -73,12 +73,14 @@ export default function SignUp() {
             </div>
           </div>
 
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent">
-            Start Your Journey
-          </h1>
-          <p className="text-xl text-purple-100 mb-8 max-w-md">
-            Join thousands of traders in the most trusted crypto marketplace for premium digital accounts
-          </p>
+          <div className="max-w-lg mx-auto text-center">
+            <h1 className="text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent leading-tight" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+              Start Your Journey
+            </h1>
+            <p className="text-lg text-purple-100 leading-relaxed" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+              Join thousands of traders in the most trusted crypto marketplace for premium digital accounts
+            </p>
+          </div>
           
           {/* Features */}
           <div className="space-y-4 text-purple-200">

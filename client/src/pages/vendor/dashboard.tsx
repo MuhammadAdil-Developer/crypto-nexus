@@ -85,8 +85,11 @@ export default function VendorDashboard() {
       <div className="space-y-8">
         {/* Welcome Section */}
         <div 
-          className="rounded-xl p-8 text-white border border-gray-700/50"
-          style={{ background: 'linear-gradient(135deg, #1F2937 0%, #374151 50%, #1F2937 100%)' }}
+          className="rounded-xl p-8 text-white border border-gray-700/50 backdrop-blur-sm relative overflow-hidden"
+          style={{ 
+            background: 'linear-gradient(135deg, #1F2937 0%, #4C1D95 30%, #6366F1 60%, #374151 100%)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+          }}
         >
           <h1 className="text-3xl font-bold mb-2">Welcome back, CryptoAccountsPlus!</h1>
           <p className="text-blue-100">Here's what's happening with your store today</p>

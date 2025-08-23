@@ -27,6 +27,7 @@ import VendorAddProduct from "@/pages/vendor/add-product";
 // Auth Pages
 import SignIn from "@/pages/auth/sign-in";
 import SignUp from "@/pages/auth/sign-up";
+import ForgotPassword from "@/pages/auth/forgot-password";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
         {/* Auth Routes */}
         <Route path="/sign-in" component={SignIn} />
         <Route path="/sign-up" component={SignUp} />
+        <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/buyer" component={BuyerDashboard} />
         <Route path="/buyer/:section*" component={BuyerDashboard} />
         <Route path="/admin" component={AdminDashboard} />

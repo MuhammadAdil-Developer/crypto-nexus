@@ -21,56 +21,58 @@ export default function SignIn() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
-      {/* Left Side - Illustration */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-purple-700 to-indigo-800 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-32 h-32 border-2 border-white rounded-full"></div>
-          <div className="absolute top-40 right-32 w-24 h-24 border border-white rounded-lg rotate-45"></div>
-          <div className="absolute bottom-32 left-32 w-40 h-40 border-2 border-white rounded-full"></div>
-          <div className="absolute bottom-20 right-20 w-16 h-16 border border-white rounded-lg rotate-12"></div>
-        </div>
+      {/* Left Side - Professional Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2232&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
+          }}
+        ></div>
+        
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-black/60"></div>
+        
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-purple-900/70 to-black/80"></div>
 
         <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
-          {/* Crypto Marketplace Illustration */}
-          <div className="mb-8">
-            <div className="relative">
-              {/* Main Circle */}
-              <div className="w-64 h-64 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center mb-8">
-                <div className="w-48 h-48 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
-                  <div className="text-6xl">₿</div>
-                </div>
-              </div>
-              
-              {/* Floating Elements */}
-              <div className="absolute -top-4 -right-4 w-16 h-16 bg-green-400 rounded-full flex items-center justify-center animate-bounce">
-                <TrendingUp className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
-                <Zap className="w-6 h-6 text-gray-900" />
-              </div>
-              <div className="absolute top-1/2 -right-8 w-14 h-14 bg-purple-400 rounded-full flex items-center justify-center animate-bounce delay-300">
-                <Globe className="w-7 h-7 text-white" />
-              </div>
-            </div>
+          {/* Floating Elements */}
+          <div className="absolute top-20 right-20 w-16 h-16 bg-green-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce border border-green-400/30">
+            <TrendingUp className="w-8 h-8 text-green-400" />
+          </div>
+          <div className="absolute bottom-32 left-20 w-12 h-12 bg-yellow-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse border border-yellow-400/30">
+            <Zap className="w-6 h-6 text-yellow-400" />
+          </div>
+          <div className="absolute top-1/3 left-16 w-14 h-14 bg-purple-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce delay-300 border border-purple-400/30">
+            <Globe className="w-7 h-7 text-purple-400" />
           </div>
 
-          <h1 className="text-4xl font-bold mb-4">Welcome to CryptoMarket</h1>
-          <p className="text-xl text-blue-100 mb-6 max-w-md">
-            The most secure and anonymous marketplace for digital assets and accounts
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+            Welcome to CryptoMarket
+          </h1>
+          <p className="text-xl text-blue-100 mb-8 max-w-md">
+            The most secure and anonymous marketplace for digital assets and premium accounts
           </p>
-          <div className="flex items-center space-x-6 text-blue-200">
-            <div className="flex items-center space-x-2">
-              <Shield className="w-5 h-5" />
-              <span>Secure Trading</span>
+          <div className="flex flex-col space-y-4 text-blue-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
+                <Shield className="w-5 h-5 text-blue-400" />
+              </div>
+              <span className="text-lg">Military-Grade Security</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Lock className="w-5 h-5" />
-              <span>Anonymous</span>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
+                <Lock className="w-5 h-5 text-purple-400" />
+              </div>
+              <span className="text-lg">Complete Anonymity</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="w-5 h-5" />
-              <span>24/7 Active</span>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-green-500/30">
+                <TrendingUp className="w-5 h-5 text-green-400" />
+              </div>
+              <span className="text-lg">24/7 Active Trading</span>
             </div>
           </div>
         </div>

@@ -25,97 +25,7 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
-      {/* Left Side - Professional Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1518546305927-5a555bb7020d?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
-          }}
-        ></div>
-        
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/70"></div>
-        
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/70 to-black/80"></div>
-
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
-          {/* Floating Success Elements */}
-          <div className="absolute top-20 right-20 w-16 h-16 bg-green-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce border border-green-400/30">
-            <CheckCircle className="w-8 h-8 text-green-400" />
-          </div>
-          <div className="absolute bottom-32 left-20 w-14 h-14 bg-purple-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse border border-purple-400/30">
-            <Zap className="w-7 h-7 text-purple-400" />
-          </div>
-          <div className="absolute top-1/3 left-16 w-12 h-12 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce delay-500 border border-cyan-400/30">
-            <Shield className="w-6 h-6 text-cyan-400" />
-          </div>
-
-          {/* Stats Container */}
-          <div className="w-80 h-32 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center mb-8 p-6">
-            <div className="flex items-center space-x-8">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">50K+</div>
-                <div className="text-sm text-gray-300">Active Traders</div>
-              </div>
-              <div className="w-px h-12 bg-white/20"></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-400">$2M+</div>
-                <div className="text-sm text-gray-300">Daily Volume</div>
-              </div>
-              <div className="w-px h-12 bg-white/20"></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-400">99.9%</div>
-                <div className="text-sm text-gray-300">Uptime</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="max-w-lg mx-auto text-center">
-            <h1 className="text-5xl lg:text-6xl font-black mb-6 bg-gradient-to-r from-white via-purple-100 to-blue-200 bg-clip-text text-transparent leading-none tracking-tight font-sans">
-              Start Your<br />
-              <span className="bg-gradient-to-r from-purple-400 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
-                Journey
-              </span>
-            </h1>
-            <p className="text-lg text-purple-100/90 leading-relaxed font-medium font-sans">
-              Join thousands of traders in the most trusted crypto marketplace for premium digital accounts
-            </p>
-          </div>
-          
-          {/* Features */}
-          <div className="space-y-4 text-purple-200">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-green-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-green-500/30">
-                <CheckCircle className="w-5 h-5 text-green-400" />
-              </div>
-              <span className="text-lg">Instant account verification</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
-                <CheckCircle className="w-5 h-5 text-blue-400" />
-              </div>
-              <span className="text-lg">Zero setup fees</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
-                <CheckCircle className="w-5 h-5 text-purple-400" />
-              </div>
-              <span className="text-lg">24/7 customer support</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-cyan-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-cyan-500/30">
-                <CheckCircle className="w-5 h-5 text-cyan-400" />
-              </div>
-              <span className="text-lg">Advanced security protocols</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Side - Sign Up Form */}
+      {/* Left Side - Sign Up Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
@@ -255,6 +165,97 @@ export default function SignUp() {
           </div>
         </div>
       </div>
+
+      {/* Right Side - Professional Image */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1518546305927-5a555bb7020d?q=80&w=2069&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
+          }}
+        ></div>
+        
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-black/70"></div>
+        
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/70 to-black/80"></div>
+
+        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
+          {/* Floating Success Elements */}
+          <div className="absolute top-20 right-20 w-16 h-16 bg-green-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce border border-green-400/30">
+            <CheckCircle className="w-8 h-8 text-green-400" />
+          </div>
+          <div className="absolute bottom-32 left-20 w-14 h-14 bg-purple-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse border border-purple-400/30">
+            <Zap className="w-7 h-7 text-purple-400" />
+          </div>
+          <div className="absolute top-1/3 left-16 w-12 h-12 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce delay-500 border border-cyan-400/30">
+            <Shield className="w-6 h-6 text-cyan-400" />
+          </div>
+
+          {/* Stats Container */}
+          <div className="w-80 h-32 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center mb-8 p-6">
+            <div className="flex items-center space-x-8">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-400">50K+</div>
+                <div className="text-sm text-gray-300">Active Traders</div>
+              </div>
+              <div className="w-px h-12 bg-white/20"></div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-400">$2M+</div>
+                <div className="text-sm text-gray-300">Daily Volume</div>
+              </div>
+              <div className="w-px h-12 bg-white/20"></div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-400">99.9%</div>
+                <div className="text-sm text-gray-300">Uptime</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-lg mx-auto text-center">
+            <h1 className="text-5xl lg:text-6xl font-black mb-6 bg-gradient-to-r from-white via-purple-100 to-blue-200 bg-clip-text text-transparent leading-none tracking-tight font-sans">
+              Start Your<br />
+              <span className="bg-gradient-to-r from-purple-400 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+                Journey
+              </span>
+            </h1>
+            <p className="text-lg text-purple-100/90 leading-relaxed font-medium font-sans">
+              Join thousands of traders in the most trusted crypto marketplace for premium digital accounts
+            </p>
+          </div>
+          
+          {/* Features */}
+          <div className="space-y-4 text-purple-200">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-green-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-green-500/30">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+              </div>
+              <span className="text-lg">Instant account verification</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
+                <CheckCircle className="w-5 h-5 text-blue-400" />
+              </div>
+              <span className="text-lg">Zero setup fees</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
+                <CheckCircle className="w-5 h-5 text-purple-400" />
+              </div>
+              <span className="text-lg">24/7 customer support</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-cyan-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-cyan-500/30">
+                <CheckCircle className="w-5 h-5 text-cyan-400" />
+              </div>
+              <span className="text-lg">Advanced security protocols</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

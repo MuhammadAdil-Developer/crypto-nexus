@@ -86,7 +86,7 @@ export default function VendorDashboard() {
         {/* Welcome Section */}
         <div 
           className="rounded-xl p-8 text-white border border-gray-700/50"
-          style={{ background: 'linear-gradient(135deg, #334155 0%, #475569 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #1F2937 0%, #374151 50%, #1F2937 100%)' }}
         >
           <h1 className="text-3xl font-bold mb-2">Welcome back, CryptoAccountsPlus!</h1>
           <p className="text-blue-100">Here's what's happening with your store today</p>

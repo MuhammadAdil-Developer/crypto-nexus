@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Eye, Edit, Trash2, TrendingUp, Package, Star } from "lucide-react";
+import { Link } from "wouter";
 
 const recentOrders = [
   {
@@ -83,14 +84,16 @@ export default function VendorDashboard() {
     <VendorLayout>
       <div className="space-y-8">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-8 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-xl p-8 text-white">
           <h1 className="text-3xl font-bold mb-2">Welcome back, CryptoAccountsPlus!</h1>
           <p className="text-blue-100">Here's what's happening with your store today</p>
           <div className="mt-4 flex space-x-4">
-            <Button variant="secondary" className="bg-gray-800 text-white hover:bg-gray-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Product
-            </Button>
+            <Link href="/vendor/listings/add">
+              <Button variant="secondary" className="bg-gray-800 text-white hover:bg-gray-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Product
+              </Button>
+            </Link>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical } from "lucide-react";
+import { Link } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,10 +106,12 @@ export default function VendorListings() {
             <h1 className="text-3xl font-bold text-white">Product Listings</h1>
             <p className="text-gray-400">Manage your products and inventory</p>
           </div>
-          <Button className="bg-blue-500 hover:bg-blue-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Product
-          </Button>
+          <Link href="/vendor/listings/add">
+            <Button className="bg-blue-500 hover:bg-blue-600">
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Product
+            </Button>
+          </Link>
         </div>
 
         {/* Stats Cards */}

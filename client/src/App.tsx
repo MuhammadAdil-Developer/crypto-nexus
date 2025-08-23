@@ -22,6 +22,7 @@ import VendorDisputes from "@/pages/vendor/disputes";
 import VendorPayouts from "@/pages/vendor/payouts";
 import VendorSettings from "@/pages/vendor/settings";
 import VendorSupport from "@/pages/vendor/support";
+import VendorAddProduct from "@/pages/vendor/add-product";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
         <Route path="/vendor/apply/success" component={VendorApplySuccess} />
         <Route path="/vendor/dashboard" component={VendorDashboard} />
         <Route path="/vendor/listings" component={VendorListings} />
+        <Route path="/vendor/listings/add" component={VendorAddProduct} />
         <Route path="/vendor/orders" component={VendorOrders} />
         <Route path="/vendor/messages" component={VendorMessages} />
         <Route path="/vendor/analytics" component={VendorAnalytics} />

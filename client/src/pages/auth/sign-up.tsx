@@ -24,9 +24,12 @@ export default function SignUp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
+    <div className="min-h-screen bg-gray-900 flex relative">
+      {/* Seamless Gradient Overlay for Smooth Transition */}
+      <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/95 via-gray-900/80 to-transparent z-10 pointer-events-none hidden lg:block"></div>
+      
       {/* Left Side - Sign Up Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-20">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
@@ -176,11 +179,11 @@ export default function SignUp() {
           }}
         ></div>
         
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/70"></div>
+        {/* Soft Gradient Overlay for Seamless Blend */}
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-purple-900/60 to-purple-900/80"></div>
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/70 to-black/80"></div>
+        {/* Secondary Gradient for Depth */}
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-900/40 to-black/60"></div>
 
         <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
           {/* Floating Success Elements */}

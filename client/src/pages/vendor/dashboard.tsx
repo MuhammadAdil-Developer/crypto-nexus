@@ -84,7 +84,7 @@ export default function VendorDashboard() {
     <VendorLayout>
       <div className="space-y-8">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-xl p-8 text-white">
+        <div className="bg-gradient-to-br from-blue-500/80 via-purple-600/70 to-indigo-600/80 rounded-xl p-8 text-white backdrop-blur-sm border border-gray-700/50">
           <h1 className="text-3xl font-bold mb-2">Welcome back, CryptoAccountsPlus!</h1>
           <p className="text-blue-100">Here's what's happening with your store today</p>
           <div className="mt-4 flex space-x-4">

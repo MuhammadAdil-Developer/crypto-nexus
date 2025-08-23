@@ -50,10 +50,13 @@ export default function SignIn() {
           </div>
 
           <div className="max-w-lg mx-auto text-center">
-            <h1 className="text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent leading-tight" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-              Welcome to CryptoMarket
+            <h1 className="text-4xl lg:text-6xl font-black mb-6 bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent leading-none tracking-tight font-sans">
+              Welcome to<br />
+              <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
+                CryptoMarket
+              </span>
             </h1>
-            <p className="text-lg text-blue-100 leading-relaxed" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+            <p className="text-lg text-blue-100/90 leading-relaxed font-medium font-sans">
               The most secure and anonymous marketplace for digital assets and premium accounts
             </p>
           </div>

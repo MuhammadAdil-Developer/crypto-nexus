@@ -15,7 +15,7 @@ import {
   ChevronDown,
   ChevronRight
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -81,7 +81,7 @@ const VENDOR_NAV_CATEGORIES = [
 ];
 
 export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps) {
-  const [location] = useLocation();
+  const location = useLocation();
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["Dashboard", "Products", "Sales"]);
 
   const toggleCategory = (category: string) => {
@@ -136,10 +136,10 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                 <CollapsibleContent className="space-y-1">
                   {category.items.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location === item.href || (item.href !== "/vendor/dashboard" && location.startsWith(item.href));
+                    const isActive = location.pathname === item.href || (item.href !== "/vendor/dashboard" && location.pathname.startsWith(item.href));
                     
                     return (
-                      <Link key={item.href} href={item.href}>
+                      <Link key={item.href} to={item.href}>
                         <div 
                           className={cn(
                             "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
@@ -171,10 +171,10 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
               // Collapsed view - show first item of each category
               category.items.slice(0, 1).map((item) => {
                 const Icon = item.icon;
-                const isActive = location === item.href || (item.href !== "/vendor/dashboard" && location.startsWith(item.href));
+                const isActive = location.pathname === item.href || (item.href !== "/vendor/dashboard" && location.pathname.startsWith(item.href));
                 
                 return (
-                  <Link key={item.href} href={item.href}>
+                  <Link key={item.href} to={item.href}>
                     <div 
                       className={cn(
                         "relative group flex items-center px-3 py-3 rounded-lg transition-all duration-200 cursor-pointer",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,15 +13,39 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { useForm } from "react-hook-form";
 import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, Plus, Phone, Mail, Calendar, User, UserCheck, Shield, Settings } from "lucide-react";
 import { SAMPLE_USERS } from "@/lib/constants";
+import { authService } from "@/services/authService";
+import { toast } from "@/hooks/use-toast";
+
+// API Integration Types
+interface User {
+  id: string; // Backend sends UUID as string
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  user_type: string;
+  phone?: string | null;
+  profile_picture?: string | null;
+  is_verified: boolean;
+  date_joined: string; // Backend sends this field
+}
 
 export default function AdminUsers() {
+  // API Integration State
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  
+  // Existing Modal State
   const [addUserModalOpen, setAddUserModalOpen] = useState(false);
   const [editUserModalOpen, setEditUserModalOpen] = useState(false);
   const [userDetailsModalOpen, setUserDetailsModalOpen] = useState(false);
   const [banConfirmOpen, setBanConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [actionUser, setActionUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [actionUser, setActionUser] = useState<User | null>(null);
   
   const form = useForm({
     defaultValues: {
@@ -107,6 +131,140 @@ export default function AdminUsers() {
     setDeleteConfirmOpen(false);
     setActionUser(null);
   };
+
+  // API Functions
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const apiUrl = 'http://localhost:8000/api/v1/users/';
+      console.log('🔍 Fetching users from:', apiUrl);
+      
+      // Get authentication token
+      const token = authService.getAccessToken();
+      if (!token) {
+        console.error('❌ No authentication token found');
+        toast({
+          title: "Authentication Error",
+          description: "Please login again to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('🔍 Response status:', response.status);
+      console.log('🔍 Response ok:', response.ok);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 Raw API response:', data);
+        
+        // Extract data from backend response format
+        let usersData = [];
+        if (data.success && data.data && data.data.users) {
+          usersData = data.data.users;
+        } else if (data.results) {
+          usersData = data.results;
+        } else if (Array.isArray(data)) {
+          usersData = data;
+        }
+        
+        console.log('🔍 Extracted users data:', usersData);
+        
+        setUsers(Array.isArray(usersData) ? usersData : []);
+        console.log('🔍 Final users state:', usersData);
+      } else if (response.status === 401) {
+        console.error('❌ Authentication failed');
+        toast({
+          title: "Authentication Error",
+          description: "Please login again to continue",
+          variant: "destructive",
+        });
+        setUsers([]);
+      } else if (response.status === 403) {
+        console.error('❌ Permission denied');
+        toast({
+          title: "Permission Denied",
+          description: "You don't have permission to view users",
+          variant: "destructive",
+        });
+        setUsers([]);
+      } else {
+        console.error('❌ Failed to fetch users');
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching users:', error);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get counts from API data
+  const getTotalUsersCount = () => {
+    return users.length;
+  };
+
+  const getActiveUsersCount = () => {
+    // Users are considered "active" if they exist (since we don't have a ban system yet)
+    // Later when ban system is implemented, we can check user.is_banned or user.status
+    return users.length;
+  };
+
+  const getVendorsCount = () => {
+    return users.filter(user => user.user_type === 'vendor').length;
+  };
+
+  const getBannedUsersCount = () => {
+    // Since ban system is not implemented yet, return 0
+    // Later when ban system is implemented, we can check user.is_banned or user.status
+    return 0;
+  };
+
+  // Filter users based on search and filters
+  const getFilteredUsers = () => {
+    let filtered = users;
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user => 
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.last_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active') {
+        filtered = filtered.filter(user => user.is_verified);
+      } else if (statusFilter === 'pending') {
+        filtered = filtered.filter(user => !user.is_verified);
+      } else if (statusFilter === 'banned') {
+        // Since ban system is not implemented, show no users for banned filter
+        filtered = [];
+      }
+    }
+
+    // Role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(user => user.user_type === roleFilter);
+    }
+
+    return filtered;
+  };
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
@@ -339,7 +497,7 @@ export default function AdminUsers() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm text-gray-400">Total Users</p>
-                  <p className="text-2xl font-bold text-white">2,847</p>
+                  <p className="text-2xl font-bold text-white">{getTotalUsersCount()}</p>
                 </div>
               </div>
             </CardContent>
@@ -353,7 +511,7 @@ export default function AdminUsers() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm text-gray-400">Active Users</p>
-                  <p className="text-2xl font-bold text-white">2,734</p>
+                  <p className="text-2xl font-bold text-white">{getActiveUsersCount()}</p>
                 </div>
               </div>
             </CardContent>
@@ -367,7 +525,7 @@ export default function AdminUsers() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm text-gray-400">Vendors</p>
-                  <p className="text-2xl font-bold text-white">127</p>
+                  <p className="text-2xl font-bold text-white">{getVendorsCount()}</p>
                 </div>
               </div>
             </CardContent>
@@ -381,7 +539,7 @@ export default function AdminUsers() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm text-gray-400">Banned</p>
-                  <p className="text-2xl font-bold text-white">23</p>
+                  <p className="text-2xl font-bold text-white">{getBannedUsersCount()}</p>
                 </div>
               </div>
             </CardContent>
@@ -399,10 +557,12 @@ export default function AdminUsers() {
                     placeholder="Search users by username or email..." 
                     className="pl-10 !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800"
                     data-testid="search-users"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
-              <Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40 !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -413,21 +573,17 @@ export default function AdminUsers() {
                   <SelectItem value="pending">Pending</SelectItem>
                 </SelectContent>
               </Select>
-              <Select>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-40 !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800">
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
                   <SelectItem value="vendor">Vendor</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" className="border-border hover:bg-surface-2">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -453,128 +609,154 @@ export default function AdminUsers() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {SAMPLE_USERS.map((user) => (
-                    <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`user-row-${user.id}`}>
-                      <td className="p-4">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                            <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
-                          </div>
-                          <span className="font-medium text-white">{user.username}</span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-gray-300">{user.email}</td>
-                      <td className="p-4">
-                        <Badge 
-                          variant={user.role === "Vendor" ? "secondary" : "outline"}
-                          className="text-gray-300"
-                        >
-                          {user.role}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <StatusBadge status={user.status} type={user.statusType} />
-                      </td>
-                      <td className="p-4 text-gray-300">{user.joinDate}</td>
-                      <td className="p-4 text-gray-300">{user.lastLogin}</td>
-                      <td className="p-4 text-gray-300">{user.orders}</td>
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-gray-400 hover:text-white" 
-                            onClick={() => handleViewUser(user)}
-                            data-testid={`view-user-${user.id}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-gray-400 hover:text-white" 
-                            onClick={() => handleEditUser(user)}
-                            data-testid={`edit-user-${user.id}`}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-gray-400 hover:text-white" 
-                            onClick={() => handleLoginAsUser(user.id)}
-                            data-testid={`login-as-${user.id}`}
-                          >
-                            <LogIn className="w-4 h-4" />
-                          </Button>
-                          {user.status === "Active" ? (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-danger hover:text-red-400" 
-                              onClick={() => handleBanUser(user)}
-                              data-testid={`ban-user-${user.id}`}
-                            >
-                              <Ban className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-success hover:text-green-400" 
-                              onClick={() => handleUnbanUser(user)}
-                              data-testid={`unban-user-${user.id}`}
-                            >
-                              <Unlock className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-gray-400 hover:text-white"
-                                data-testid={`more-actions-${user.id}`}
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-card border-border">
-                              <DropdownMenuItem 
-                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Edit User
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                onClick={() => console.log('View activity:', user.id)}
-                              >
-                                <UserCheck className="w-4 h-4 mr-2" />
-                                View Activity
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                onClick={() => console.log('Reset password:', user.id)}
-                              >
-                                <Shield className="w-4 h-4 mr-2" />
-                                Reset Password
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator className="bg-border" />
-                              <DropdownMenuItem 
-                                className="text-danger hover:bg-danger/10 hover:text-red-400 cursor-pointer"
-                                onClick={() => handleDeleteUser(user)}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete User
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-12">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+                          <span className="ml-3 text-gray-400">Loading users...</span>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : getFilteredUsers().length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-12">
+                        <User className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                        <p className="text-gray-400">
+                          {searchTerm || statusFilter !== 'all' || roleFilter !== 'all' 
+                            ? 'No users found matching your filters' 
+                            : 'No users found'
+                          }
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    getFilteredUsers().map((user) => (
+                      <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`user-row-${user.id}`}>
+                        <td className="p-4">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
+                              <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                            </div>
+                            <span className="font-medium text-white">{user.username}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-gray-300">{user.email}</td>
+                        <td className="p-4">
+                          <Badge 
+                            variant={user.user_type === "vendor" ? "secondary" : "outline"}
+                            className="text-gray-300"
+                          >
+                            {user.user_type === "vendor" ? "Vendor" : user.user_type === "admin" ? "Admin" : "Buyer"}
+                          </Badge>
+                        </td>
+                        <td className="p-4">
+                          <StatusBadge 
+                            status={user.is_verified ? "Verified" : "Pending Verification"} 
+                            type={user.is_verified ? "success" : "warning"} 
+                          />
+                        </td>
+                        <td className="p-4 text-gray-300">{new Date(user.date_joined).toLocaleDateString()}</td>
+                        <td className="p-4 text-gray-300">Never</td>
+                        <td className="p-4 text-gray-300">0</td>
+                        <td className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-gray-400 hover:text-white" 
+                              onClick={() => handleViewUser(user)}
+                              data-testid={`view-user-${user.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-gray-400 hover:text-white" 
+                              onClick={() => handleEditUser(user)}
+                              data-testid={`edit-user-${user.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-gray-400 hover:text-white" 
+                              onClick={() => handleLoginAsUser(user.id)}
+                              data-testid={`login-as-${user.id}`}
+                            >
+                              <LogIn className="w-4 h-4" />
+                            </Button>
+                            {user.is_verified ? (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-danger hover:text-red-400" 
+                                onClick={() => handleBanUser(user)}
+                                data-testid={`ban-user-${user.id}`}
+                              >
+                                <Ban className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-success hover:text-green-400" 
+                                onClick={() => handleUnbanUser(user)}
+                                data-testid={`unban-user-${user.id}`}
+                              >
+                                <Unlock className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-gray-400 hover:text-white"
+                                  data-testid={`more-actions-${user.id}`}
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-card border-border">
+                                <DropdownMenuItem 
+                                  className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                  onClick={() => handleEditUser(user)}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit User
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                  onClick={() => console.log('View activity:', user.id)}
+                                >
+                                  <UserCheck className="w-4 h-4 mr-2" />
+                                  View Activity
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                  onClick={() => console.log('Reset password:', user.id)}
+                                >
+                                  <Shield className="w-4 h-4 mr-2" />
+                                  Reset Password
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-border" />
+                                <DropdownMenuItem 
+                                  className="text-danger hover:bg-danger/10 hover:text-red-400 cursor-pointer"
+                                  onClick={() => handleDeleteUser(user)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete User
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

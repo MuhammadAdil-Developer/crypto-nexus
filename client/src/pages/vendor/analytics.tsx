@@ -1,4 +1,3 @@
-import { VendorLayout } from "@/components/vendor/VendorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,7 +28,7 @@ const revenueBreakdown = [
 
 export default function VendorAnalytics() {
   return (
-    <VendorLayout>
+    
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -255,6 +254,6 @@ export default function VendorAnalytics() {
           </CardContent>
         </Card>
       </div>
-    </VendorLayout>
+    
   );
 }

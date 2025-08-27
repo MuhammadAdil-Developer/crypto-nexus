@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: cryptonexus
+      POSTGRES_USER: cryptonexus_user
+      POSTGRES_PASSWORD: cryptonexus_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cryptonexus_network
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - cryptonexus_network
+
+  # User Service
+  user_service:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # Marketplace Service
+  marketplace_service:
+    build:
+      context: ./marketplace_service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # Order Service
+  order_service:
+    build:
+      context: ./order_service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # Vendor Service
+  vendor_service:
+    build:
+      context: ./vendor_service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # Admin Service
+  admin_service:
+    build:
+      context: ./admin_service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # Notification Service
+  notification_service:
+    build:
+      context: ./notification_service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # Payment Service
+  payment_service:
+    build:
+      context: ./payment_service
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8000"
+    environment:
+      - DATABASE_URL=postgresql://cryptonexus_user:cryptonexus_password@postgres:5432/cryptonexus
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cryptonexus_network
+
+  # API Gateway
+  api_gateway:
+    build:
+      context: ./api_gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - USER_SERVICE_URL=http://user_service:8000
+      - MARKETPLACE_SERVICE_URL=http://marketplace_service:8000
+      - ORDER_SERVICE_URL=http://order_service:8000
+      - VENDOR_SERVICE_URL=http://vendor_service:8000
+      - ADMIN_SERVICE_URL=http://admin_service:8000
+      - NOTIFICATION_SERVICE_URL=http://notification_service:8000
+      - PAYMENT_SERVICE_URL=http://payment_service:8000
+    depends_on:
+      - user_service
+      - marketplace_service
+      - order_service
+      - vendor_service
+      - admin_service
+      - notification_service
+      - payment_service
+    networks:
+      - cryptonexus_network
+
+volumes:
+  postgres_data:
+
+networks:
+  cryptonexus_network:
+    driver: bridge 

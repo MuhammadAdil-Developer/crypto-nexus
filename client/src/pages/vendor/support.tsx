@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { VendorLayout } from "@/components/vendor/VendorLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -173,7 +172,7 @@ export default function VendorSupport() {
   const waitingResponse = tickets.filter(t => t.status === "Waiting for Response").length;
 
   return (
-    <VendorLayout>
+    
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -460,6 +459,6 @@ export default function VendorSupport() {
           </CardContent>
         </Card>
       </div>
-    </VendorLayout>
+    
   );
 }

@@ -1,22 +1,108 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, Mail, Shield, TrendingUp, Zap, Globe } from "lucide-react";
+import authService from "@/services/authService";
 
 export default function SignIn() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: ""
   });
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: { email?: string; password?: string } = {};
+
+    if (!formData.email) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle sign in logic
-    console.log("Sign in:", formData);
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const response = await authService.login(formData);
+      console.log('🔐 Login response:', response);
+      
+      if (response.success) {
+        // Check if user is admin - redirect to admin login if so
+        if (response.data?.user?.user_type === 'admin' || response.data?.user?.is_superuser === true) {
+          setErrors({ 
+            general: 'Administrators must use the admin login page. Redirecting...' 
+          });
+          // Clear stored data
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          
+          // Redirect to admin login after a short delay
+          setTimeout(() => {
+            navigate('/admin-sign-in');
+          }, 2000);
+          return;
+        }
+        
+        // Show success message for non-admin users
+        console.log('✅ Login successful:', response.message);
+        console.log('👤 User data:', response.data?.user);
+        
+        // Use smart routing to determine redirect path
+        setTimeout(async () => {
+          try {
+            const redirectPath = await authService.getSmartRedirectPath();
+            console.log('🎯 Smart redirect to:', redirectPath);
+            navigate(redirectPath);
+          } catch (error) {
+            console.error('❌ Error getting redirect path:', error);
+            // Fallback to buyer dashboard
+            navigate('/buyer');
+          }
+        }, 1000);
+      } else {
+        setErrors({ general: response.message || 'Login failed. Please try again.' });
+      }
+    } catch (error: any) {
+      console.error('❌ Login error:', error);
+      setErrors({ 
+        general: error.message || 'An unexpected error occurred. Please try again.' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -87,8 +173,9 @@ export default function SignIn() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">User Sign In</h2>
             <p className="text-gray-400">Welcome back to your crypto marketplace</p>
+            <p className="text-xs text-gray-500 mt-2">For buyers and vendors only</p>
           </div>
 
           <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
@@ -107,12 +194,15 @@ export default function SignIn() {
                     <Input
                       id="email"
                       type="email"
+                      name="email"
                       value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={handleInputChange}
                       placeholder="Enter your email"
                       className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 transition-colors"
                       required
+                      disabled={isLoading}
                     />
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                   </div>
                 </div>
 
@@ -123,20 +213,24 @@ export default function SignIn() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
+                      name="password"
                       value={formData.password}
-                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                      onChange={handleInputChange}
                       placeholder="Enter your password"
                       className="pl-10 pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 transition-colors"
                       required
+                      disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      disabled={isLoading}
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -144,7 +238,7 @@ export default function SignIn() {
                     <input type="checkbox" className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500" />
                     <span className="text-sm text-gray-300">Remember me</span>
                   </label>
-                  <Link href="/forgot-password">
+                  <Link to="/forgot-password">
                     <span className="text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer">
                       Forgot password?
                     </span>
@@ -154,13 +248,16 @@ export default function SignIn() {
                 <Button 
                   type="submit" 
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                  disabled={isLoading}
                 >
-                  Sign In to Account
+                  {isLoading ? 'Signing In...' : 'Sign In to Account'}
                 </Button>
+
+                {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
 
                 <div className="text-center">
                   <span className="text-gray-400">Don't have an account? </span>
-                  <Link href="/sign-up">
+                  <Link to="/sign-up">
                     <span className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-semibold">
                       Create Account
                     </span>
@@ -172,6 +269,16 @@ export default function SignIn() {
 
           <div className="mt-6 text-center text-xs text-gray-500">
             Protected by enterprise-grade encryption and security protocols
+          </div>
+          
+          <div className="mt-4 text-center">
+            <span className="text-gray-400 text-xs">Administrators: </span>
+            <span 
+              onClick={() => navigate('/admin-sign-in')}
+              className="text-red-400 hover:text-red-300 transition-colors cursor-pointer text-xs font-semibold"
+            >
+              Admin Login
+            </span>
           </div>
         </div>
       </div>

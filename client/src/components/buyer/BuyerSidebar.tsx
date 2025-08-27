@@ -11,7 +11,7 @@ import {
   Store,
   ArrowRight
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -66,7 +66,7 @@ const BUYER_NAV_ITEMS = [
 ];
 
 export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) {
-  const [location] = useLocation();
+  const location = useLocation();
 
   return (
     <div 
@@ -96,10 +96,10 @@ export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) 
       <nav className="flex-1 p-2 space-y-1">
         {BUYER_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = location === item.href || (item.href !== "/buyer" && location.startsWith(item.href));
+          const isActive = location.pathname === item.href || (item.href !== "/buyer" && location.pathname.startsWith(item.href));
           
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} to={item.href}>
               <div 
                 className={cn(
                   "relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer",
@@ -147,7 +147,7 @@ export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) 
 
       {/* Apply as Vendor Section */}
       <div className="p-2 border-t border-gray-800">
-        <Link href="/vendor/apply">
+        <Link to="/vendor/apply">
           <div className="relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer text-gray-400 hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-600 hover:text-white border border-gray-700 hover:border-purple-500">
             <Store className="w-5 h-5 flex-shrink-0" />
             

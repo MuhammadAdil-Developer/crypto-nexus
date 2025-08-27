@@ -1,0 +1,1 @@
+# Vendors Django App 

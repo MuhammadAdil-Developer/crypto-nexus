@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoMarket Admin - Multi-Vendor Crypto Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    'bg': '#0B0F14',
+                    'surface': '#11161C', 
+                    'surface-2': '#141A22',
+                    'text': '#E6E9EF',
+                    'muted': '#9AA4B2',
+                    'border': '#1E2630',
+                    'accent': '#22D3EE',
+                    'accent-2': '#7DD3FC',
+                    'success': '#22C55E',
+                    'warning': '#F59E0B',
+                    'danger': '#EF4444'
+                },
+                fontFamily: {
+                    'sans': ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    'mono': ['JetBrains Mono', 'Menlo', 'Monaco', 'monospace']
+                }
+            }
+        }
+    };
+    </script>
+</head>
+<body class="h-full bg-bg text-text font-sans" data-mock="true">
+
+<!-- @COMPONENT: AdminLayout [Main layout with sidebar navigation and content area] -->
+<div class="flex h-screen overflow-hidden">
+    
+    <!-- @COMPONENT: Sidebar [Navigation sidebar with all admin modules] -->
+    <div class="hidden md:flex md:w-64 md:flex-col">
+        <div class="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto bg-surface border-r border-border">
+            <!-- Logo/Brand -->
+            <div class="flex items-center flex-shrink-0 px-4">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
+                        <i class="fas fa-shield-alt text-bg text-sm"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h1 class="text-lg font-semibold text-text" data-mock="true">CryptoMarket</h1>
+                        <p class="text-xs text-muted" data-mock="true">Admin Panel</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="mt-8 flex-1 px-2 space-y-1">
+                <!-- Overview -->
+                <a href="#" class="bg-surface-2 text-accent group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-chart-line text-accent mr-3 text-sm"></i>
+                    Overview
+                </a>
+                
+                <!-- Users -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-users mr-3 text-sm"></i>
+                    Users
+                    <span class="ml-auto inline-block py-0.5 px-2 text-xs rounded-full bg-warning/20 text-warning" data-mock="true">23</span>
+                </a>
+                
+                <!-- Vendors -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-store mr-3 text-sm"></i>
+                    Vendors
+                    <span class="ml-auto inline-block py-0.5 px-2 text-xs rounded-full bg-accent/20 text-accent" data-mock="true">7</span>
+                </a>
+                
+                <!-- Listings -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-list mr-3 text-sm"></i>
+                    Listings
+                </a>
+                
+                <!-- Orders -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-shopping-cart mr-3 text-sm"></i>
+                    Orders
+                    <span class="ml-auto inline-block py-0.5 px-2 text-xs rounded-full bg-success/20 text-success" data-mock="true">156</span>
+                </a>
+                
+                <!-- Disputes -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-gavel mr-3 text-sm"></i>
+                    Disputes
+                    <span class="ml-auto inline-block py-0.5 px-2 text-xs rounded-full bg-danger/20 text-danger" data-mock="true">3</span>
+                </a>
+                
+                <!-- Messages -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-comments mr-3 text-sm"></i>
+                    Messages
+                </a>
+                
+                <!-- Tickets -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-ticket-alt mr-3 text-sm"></i>
+                    Tickets
+                    <span class="ml-auto inline-block py-0.5 px-2 text-xs rounded-full bg-warning/20 text-warning" data-mock="true">12</span>
+                </a>
+                
+                <!-- Crypto -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fab fa-bitcoin mr-3 text-sm"></i>
+                    Crypto
+                </a>
+                
+                <!-- Payouts -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-wallet mr-3 text-sm"></i>
+                    Payouts & Refunds
+                </a>
+                
+                <!-- Commissions -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-percentage mr-3 text-sm"></i>
+                    Commissions
+                </a>
+                
+                <!-- Ads -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-bullhorn mr-3 text-sm"></i>
+                    Ads
+                </a>
+                
+                <!-- Categories -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-tags mr-3 text-sm"></i>
+                    Categories
+                </a>
+                
+                <!-- Gift Cards -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-gift mr-3 text-sm"></i>
+                    Gift Cards
+                </a>
+                
+                <!-- Alerts -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-bell mr-3 text-sm"></i>
+                    Alerts
+                </a>
+                
+                <!-- Roles -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-user-shield mr-3 text-sm"></i>
+                    Roles & Permissions
+                </a>
+                
+                <!-- Security -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-lock mr-3 text-sm"></i>
+                    Security
+                </a>
+                
+                <!-- Branding -->
+                <a href="#" class="text-muted hover:bg-surface-2 hover:text-text group flex items-center px-2 py-2 text-sm font-medium rounded-md" data-mock="true">
+                    <i class="fas fa-palette mr-3 text-sm"></i>
+                    Branding
+                </a>
+            </nav>
+            
+            <!-- User Profile -->
+            <div class="flex-shrink-0 flex border-t border-border p-4">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-accent text-sm"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-text" data-mock="true">admin_user</p>
+                        <p class="text-xs text-muted" data-mock="true">Super Admin</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: Sidebar -->
+    
+    <!-- @COMPONENT: MainContent [Main content area with header and dashboard] -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+        
+        <!-- @COMPONENT: Header [Top header with breadcrumbs and actions] -->
+        <header class="bg-surface border-b border-border px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <!-- Mobile menu button -->
+                    <button class="md:hidden text-muted hover:text-text">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    
+                    <!-- Breadcrumbs -->
+                    <nav class="flex" data-mock="true">
+                        <ol class="flex items-center space-x-2 text-sm">
+                            <li><a href="#" class="text-muted hover:text-text">Admin</a></li>
+                            <li><span class="text-muted mx-2">/</span></li>
+                            <li><span class="text-accent font-medium">Overview</span></li>
+                        </ol>
+                    </nav>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- View Marketplace Button -->
+                    <a href="#marketplace" class="inline-flex items-center px-3 py-1.5 border border-border text-sm font-medium rounded-md text-muted hover:text-text hover:bg-surface-2">
+                        <i class="fas fa-external-link-alt mr-2"></i>
+                        View Marketplace
+                    </a>
+                    
+                    <!-- Notifications -->
+                    <button class="relative text-muted hover:text-text" data-mock="true">
+                        <i class="fas fa-bell text-lg"></i>
+                        <span class="absolute -top-1 -right-1 w-3 h-3 bg-danger rounded-full"></span>
+                    </button>
+                    
+                    <!-- Settings -->
+                    <button class="text-muted hover:text-text" data-mock="true">
+                        <i class="fas fa-cog text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <!-- @END_COMPONENT: Header -->
+        
+        <!-- @COMPONENT: DashboardContent [Main dashboard overview content] -->
+        <main class="flex-1 overflow-y-auto bg-bg p-6">
+            
+            <!-- Alert Banner -->
+            <div class="mb-6 bg-warning/10 border border-warning/20 rounded-lg p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-warning" data-mock="true">Action Required</h3>
+                        <div class="mt-2 text-sm text-warning/80" data-mock="true">
+                            <p>7 vendor applications pending review • 3 disputes awaiting resolution • BTC node requires update</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Users -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-users text-accent text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex-1">
+                            <p class="text-sm font-medium text-muted" data-mock="true">Total Users</p>
+                            <p class="text-2xl font-bold text-text" data-mock="true">2,847</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm">
+                        <span class="text-success flex items-center" data-mock="true">
+                            <i class="fas fa-arrow-up text-xs mr-1"></i>
+                            12%
+                        </span>
+                        <span class="text-muted ml-2" data-mock="true">vs last month</span>
+                    </div>
+                </div>
+                
+                <!-- Active Vendors -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-store text-accent text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex-1">
+                            <p class="text-sm font-medium text-muted" data-mock="true">Active Vendors</p>
+                            <p class="text-2xl font-bold text-text" data-mock="true">127</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm">
+                        <span class="text-success flex items-center" data-mock="true">
+                            <i class="fas fa-arrow-up text-xs mr-1"></i>
+                            8%
+                        </span>
+                        <span class="text-muted ml-2" data-mock="true">vs last month</span>
+                    </div>
+                </div>
+                
+                <!-- Live Listings -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-list text-accent text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex-1">
+                            <p class="text-sm font-medium text-muted" data-mock="true">Live Listings</p>
+                            <p class="text-2xl font-bold text-text" data-mock="true">1,432</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm">
+                        <span class="text-success flex items-center" data-mock="true">
+                            <i class="fas fa-arrow-up text-xs mr-1"></i>
+                            24%
+                        </span>
+                        <span class="text-muted ml-2" data-mock="true">vs last month</span>
+                    </div>
+                </div>
+                
+                <!-- Today's Orders -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-shopping-cart text-accent text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4 flex-1">
+                            <p class="text-sm font-medium text-muted" data-mock="true">Orders Today</p>
+                            <p class="text-2xl font-bold text-text" data-mock="true">89</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm">
+                        <span class="text-danger flex items-center" data-mock="true">
+                            <i class="fas fa-arrow-down text-xs mr-1"></i>
+                            3%
+                        </span>
+                        <span class="text-muted ml-2" data-mock="true">vs yesterday</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts and Activity Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                
+                <!-- Order Volume Chart -->
+                <div class="lg:col-span-2 bg-surface rounded-2xl p-6 border border-border">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-text" data-mock="true">Order Volume</h3>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 text-sm bg-accent/20 text-accent rounded-md" data-mock="true">7D</button>
+                            <button class="px-3 py-1 text-sm text-muted hover:bg-surface-2 rounded-md" data-mock="true">30D</button>
+                            <button class="px-3 py-1 text-sm text-muted hover:bg-surface-2 rounded-md" data-mock="true">90D</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Static Chart Placeholder -->
+                    <div class="h-64 bg-surface-2 rounded-xl flex items-center justify-center border border-border">
+                        <!-- Multi-colored panoramic view of cryptocurrency trading charts with candlesticks and line graphs -->
+                        <img src="https://images.unsplash.com/photo-1642790106117-e829e14a795f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" alt="Trading chart visualization" class="w-full h-full object-cover rounded-xl opacity-60" />
+                        <div class="absolute flex items-center text-muted">
+                            <i class="fas fa-chart-area mr-2"></i>
+                            <span data-mock="true">Chart: Order volume trends</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Recent Activity</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start space-x-3" data-mock="true">
+                            <div class="w-2 h-2 bg-success rounded-full mt-2 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-sm text-text">New vendor approved</p>
+                                <p class="text-xs text-muted">CryptoAccountsPlus • 5 min ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3" data-mock="true">
+                            <div class="w-2 h-2 bg-warning rounded-full mt-2 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-sm text-text">Dispute opened</p>
+                                <p class="text-xs text-muted">Order #ORD-2847 • 12 min ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3" data-mock="true">
+                            <div class="w-2 h-2 bg-accent rounded-full mt-2 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-sm text-text">Large order completed</p>
+                                <p class="text-xs text-muted">2.4 BTC • 18 min ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3" data-mock="true">
+                            <div class="w-2 h-2 bg-success rounded-full mt-2 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-sm text-text">Escrow released</p>
+                                <p class="text-xs text-muted">Order #ORD-2845 • 22 min ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3" data-mock="true">
+                            <div class="w-2 h-2 bg-muted rounded-full mt-2 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-sm text-text">System maintenance</p>
+                                <p class="text-xs text-muted">XMR node sync • 1 hr ago</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Node Status and System Health -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                
+                <!-- Crypto Node Status -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Crypto Nodes</h3>
+                    
+                    <!-- BTC Node -->
+                    <div class="flex items-center justify-between p-4 bg-surface-2 rounded-xl mb-4">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-warning/20 rounded-xl flex items-center justify-center">
+                                <i class="fab fa-bitcoin text-warning"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium text-text" data-mock="true">Bitcoin Node</p>
+                                <p class="text-sm text-muted" data-mock="true">Block #820,847 • Synced 2 min ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-success/20 text-success" data-mock="true">
+                                <span class="w-1.5 h-1.5 bg-success rounded-full mr-1"></span>
+                                Connected
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- XMR Node -->
+                    <div class="flex items-center justify-between p-4 bg-surface-2 rounded-xl">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
+                                <i class="fab fa-monero text-accent"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium text-text" data-mock="true">Monero Node</p>
+                                <p class="text-sm text-muted" data-mock="true">Block #3,021,456 • Synced 1 min ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-success/20 text-success" data-mock="true">
+                                <span class="w-1.5 h-1.5 bg-success rounded-full mr-1"></span>
+                                Connected
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Escrow Status -->
+                <div class="bg-surface rounded-2xl p-6 border border-border">
+                    <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Escrow Overview</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-center p-4 bg-surface-2 rounded-xl">
+                            <p class="text-2xl font-bold text-text font-mono" data-mock="true">12.847</p>
+                            <p class="text-sm text-muted" data-mock="true">BTC in Escrow</p>
+                            <p class="text-xs text-muted mt-1" data-mock="true">~$525,847</p>
+                        </div>
+                        <div class="text-center p-4 bg-surface-2 rounded-xl">
+                            <p class="text-2xl font-bold text-text font-mono" data-mock="true">847.23</p>
+                            <p class="text-sm text-muted" data-mock="true">XMR in Escrow</p>
+                            <p class="text-xs text-muted mt-1" data-mock="true">~$145,623</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 space-y-2">
+                        <div class="flex justify-between text-sm" data-mock="true">
+                            <span class="text-muted">Pending Releases</span>
+                            <span class="text-text">23 orders</span>
+                        </div>
+                        <div class="flex justify-between text-sm" data-mock="true">
+                            <span class="text-muted">Auto-Release (48h)</span>
+                            <span class="text-text">156 orders</span>
+                        </div>
+                        <div class="flex justify-between text-sm" data-mock="true">
+                            <span class="text-muted">Disputed</span>
+                            <span class="text-danger">3 orders</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Orders Table -->
+            <div class="bg-surface rounded-2xl border border-border">
+                <div class="px-6 py-4 border-b border-border">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-text" data-mock="true">Recent Orders</h3>
+                        <a href="#" class="text-sm text-accent hover:text-accent-2" data-mock="true">View all orders →</a>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-border">
+                        <thead class="bg-surface-2">
+                            <tr data-mock="true">
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Order ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Buyer</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Vendor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Listing</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border" data-mock="true">
+                            <tr class="hover:bg-surface-2">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-accent">#ORD-2847</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">user_7824</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">CryptoAccountsPlus</td>
+                                <td class="px-6 py-4 text-sm text-text">Netflix Premium Account (1 Year)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text font-mono">0.0012 BTC</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
+                                        Delivered
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted">2 hours ago</td>
+                            </tr>
+                            <tr class="hover:bg-surface-2">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-accent">#ORD-2846</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">anon_user_423</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">DigitalVault</td>
+                                <td class="px-6 py-4 text-sm text-text">Spotify Premium (6 Months)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text font-mono">0.0008 BTC</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning">
+                                        In Escrow
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted">4 hours ago</td>
+                            </tr>
+                            <tr class="hover:bg-surface-2">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-accent">#ORD-2845</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">crypto_buyer_89</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">SecureAccounts</td>
+                                <td class="px-6 py-4 text-sm text-text">YouTube Premium (3 Months)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text font-mono">1.24 XMR</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent/20 text-accent">
+                                        Confirming
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted">6 hours ago</td>
+                            </tr>
+                            <tr class="hover:bg-surface-2">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-accent">#ORD-2844</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">privacy_first</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text">PremiumDigital</td>
+                                <td class="px-6 py-4 text-sm text-text">Disney+ (1 Year Subscription)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text font-mono">0.0015 BTC</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger/20 text-danger">
+                                        Disputed
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-muted">8 hours ago</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </main>
+        <!-- @END_COMPONENT: DashboardContent -->
+        
+    </div>
+    <!-- @END_COMPONENT: MainContent -->
+    
+</div>
+<!-- @END_COMPONENT: AdminLayout -->
+
+<!-- @COMPONENT: MarketplacePreview [Marketplace interface preview section] -->
+<div id="marketplace" class="min-h-screen bg-bg">
+    
+    <!-- Marketplace Header -->
+    <header class="bg-surface border-b border-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                
+                <!-- Logo & Navigation -->
+                <div class="flex items-center space-x-8">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-bg text-sm"></i>
+                        </div>
+                        <h1 class="ml-3 text-xl font-bold text-text" data-mock="true">CryptoMarket</h1>
+                    </div>
+                    
+                    <nav class="hidden md:flex space-x-6" data-mock="true">
+                        <a href="#" class="text-text hover:text-accent">Browse</a>
+                        <a href="#" class="text-muted hover:text-text">Categories</a>
+                        <a href="#" class="text-muted hover:text-text">Vendors</a>
+                        <a href="#" class="text-muted hover:text-text">Support</a>
+                    </nav>
+                </div>
+                
+                <!-- Search Bar -->
+                <div class="flex-1 max-w-2xl mx-8">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-muted"></i>
+                        </div>
+                        <input type="text" placeholder="Search for accounts..." 
+                               class="block w-full pl-10 pr-3 py-2 border border-border rounded-lg bg-surface-2 text-text placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent" data-mock="true">
+                    </div>
+                </div>
+                
+                <!-- User Actions -->
+                <div class="flex items-center space-x-4">
+                    <button class="text-muted hover:text-text" data-mock="true">
+                        <i class="fas fa-heart text-lg"></i>
+                    </button>
+                    <button class="text-muted hover:text-text relative" data-mock="true">
+                        <i class="fas fa-shopping-cart text-lg"></i>
+                        <span class="absolute -top-2 -right-2 w-4 h-4 bg-accent rounded-full text-xs text-bg flex items-center justify-center">2</span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button class="px-4 py-2 text-sm border border-border text-muted hover:text-text hover:bg-surface-2 rounded-lg" data-mock="true">
+                            Sign In
+                        </button>
+                        <button class="px-4 py-2 text-sm bg-accent text-bg hover:bg-accent-2 rounded-lg font-medium" data-mock="true">
+                            Join
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Hero Section -->
+    <section class="bg-surface">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div class="text-center">
+                <h1 class="text-4xl font-bold text-text mb-6" data-mock="true">
+                    Secure Digital Account Marketplace
+                </h1>
+                <p class="text-xl text-muted mb-8 max-w-3xl mx-auto" data-mock="true">
+                    Trade premium accounts safely with cryptocurrency payments, escrow protection, and complete anonymity. Your privacy is our priority.
+                </p>
+                
+                <!-- Search Bar -->
+                <div class="max-w-2xl mx-auto mb-8">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-muted"></i>
+                        </div>
+                        <input type="text" placeholder="Search Netflix, Spotify, Gaming accounts..." 
+                               class="block w-full pl-12 pr-4 py-4 border border-border rounded-2xl bg-surface-2 text-text placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-lg" data-mock="true">
+                        <button class="absolute inset-y-0 right-0 pr-4 flex items-center">
+                            <div class="bg-accent hover:bg-accent-2 text-bg px-6 py-2 rounded-xl font-medium">
+                                Search
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Trust Badges -->
+                <div class="flex items-center justify-center space-x-8 text-sm text-muted">
+                    <div class="flex items-center">
+                        <i class="fab fa-bitcoin text-warning mr-2"></i>
+                        <span data-mock="true">BTC & XMR Payments</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-shield-check text-success mr-2"></i>
+                        <span data-mock="true">Escrow Protection</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-user-secret text-accent mr-2"></i>
+                        <span data-mock="true">Anonymous Trading</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Featured Categories -->
+    <section class="py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-text mb-8" data-mock="true">Featured Categories</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Streaming Services -->
+                <div class="bg-surface rounded-2xl p-6 border border-border hover:border-accent/30 transition-colors cursor-pointer group" data-mock="true">
+                    <!-- Collage of popular streaming service logos and interface screenshots -->
+                    <img src="https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=200" alt="Streaming services overview" class="w-full h-32 object-cover rounded-xl mb-4" />
+                    <h3 class="text-lg font-semibold text-text mb-2">Streaming Services</h3>
+                    <p class="text-muted text-sm mb-4">Netflix, Spotify, Disney+, Hulu and more</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent text-sm font-medium">247 listings</span>
+                        <i class="fas fa-arrow-right text-muted group-hover:text-accent transition-colors"></i>
+                    </div>
+                </div>
+                
+                <!-- Gaming Accounts -->
+                <div class="bg-surface rounded-2xl p-6 border border-border hover:border-accent/30 transition-colors cursor-pointer group" data-mock="true">
+                    <!-- Gaming setup with multiple monitors showing various game interfaces -->
+                    <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=200" alt="Gaming setup and accounts" class="w-full h-32 object-cover rounded-xl mb-4" />
+                    <h3 class="text-lg font-semibold text-text mb-2">Gaming Accounts</h3>
+                    <p class="text-muted text-sm mb-4">Steam, Epic Games, Xbox, PlayStation</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent text-sm font-medium">189 listings</span>
+                        <i class="fas fa-arrow-right text-muted group-hover:text-accent transition-colors"></i>
+                    </div>
+                </div>
+                
+                <!-- Software & Tools -->
+                <div class="bg-surface rounded-2xl p-6 border border-border hover:border-accent/30 transition-colors cursor-pointer group" data-mock="true">
+                    <!-- Modern workspace with software development tools and applications on screen -->
+                    <img src="https://images.unsplash.com/photo-1551650975-87deedd944c3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=200" alt="Software development workspace" class="w-full h-32 object-cover rounded-xl mb-4" />
+                    <h3 class="text-lg font-semibold text-text mb-2">Software & Tools</h3>
+                    <p class="text-muted text-sm mb-4">Adobe, Microsoft, Figma, Notion</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent text-sm font-medium">156 listings</span>
+                        <i class="fas fa-arrow-right text-muted group-hover:text-accent transition-colors"></i>
+                    </div>
+                </div>
+                
+                <!-- VPN & Security -->
+                <div class="bg-surface rounded-2xl p-6 border border-border hover:border-accent/30 transition-colors cursor-pointer group" data-mock="true">
+                    <!-- Network security visualization with VPN and encryption graphics -->
+                    <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=200" alt="Network security and VPN concept" class="w-full h-32 object-cover rounded-xl mb-4" />
+                    <h3 class="text-lg font-semibold text-text mb-2">VPN & Security</h3>
+                    <p class="text-muted text-sm mb-4">NordVPN, ExpressVPN, Antivirus</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-accent text-sm font-medium">98 listings</span>
+                        <i class="fas fa-arrow-right text-muted group-hover:text-accent transition-colors"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Featured Listings -->
+    <section class="py-16 bg-surface">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-bold text-text" data-mock="true">Featured Listings</h2>
+                <a href="#" class="text-accent hover:text-accent-2 font-medium" data-mock="true">View All →</a>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Netflix Premium Listing -->
+                <div class="bg-bg rounded-2xl border border-border hover:border-accent/30 transition-colors cursor-pointer" data-mock="true">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
+                                Instant Delivery
+                            </span>
+                            <i class="fas fa-heart text-muted hover:text-danger cursor-pointer"></i>
+                        </div>
+                        
+                        <h3 class="text-lg font-semibold text-text mb-2">Netflix Premium Account (1 Year)</h3>
+                        <p class="text-muted text-sm mb-4">Full access to Netflix Premium with 4K streaming, 4 screens, and download capability. Warranty included.</p>
+                        
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-store text-accent text-xs"></i>
+                                </div>
+                                <span class="text-sm text-text">CryptoAccountsPlus</span>
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-warning text-xs"></i>
+                                    <span class="text-xs text-muted ml-1">4.9 (234)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fab fa-bitcoin text-warning text-sm"></i>
+                                    <span class="font-mono text-sm text-text">0.0012 BTC</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fab fa-monero text-accent text-sm"></i>
+                                    <span class="font-mono text-sm text-text">0.84 XMR</span>
+                                </div>
+                            </div>
+                            <button class="px-4 py-2 bg-accent text-bg hover:bg-accent-2 rounded-lg text-sm font-medium">
+                                Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Spotify Premium Listing -->
+                <div class="bg-bg rounded-2xl border border-border hover:border-accent/30 transition-colors cursor-pointer" data-mock="true">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning">
+                                Escrow Only
+                            </span>
+                            <i class="fas fa-heart text-muted hover:text-danger cursor-pointer"></i>
+                        </div>
+                        
+                        <h3 class="text-lg font-semibold text-text mb-2">Spotify Premium (6 Months)</h3>
+                        <p class="text-muted text-sm mb-4">Individual Spotify Premium account with offline downloads, no ads, and unlimited skips.</p>
+                        
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-store text-accent text-xs"></i>
+                                </div>
+                                <span class="text-sm text-text">DigitalVault</span>
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-warning text-xs"></i>
+                                    <span class="text-xs text-muted ml-1">4.7 (89)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fab fa-bitcoin text-warning text-sm"></i>
+                                    <span class="font-mono text-sm text-text">0.0008 BTC</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fab fa-monero text-accent text-sm"></i>
+                                    <span class="font-mono text-sm text-text">0.56 XMR</span>
+                                </div>
+                            </div>
+                            <button class="px-4 py-2 bg-accent text-bg hover:bg-accent-2 rounded-lg text-sm font-medium">
+                                Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Adobe Creative Suite -->
+                <div class="bg-bg rounded-2xl border border-border hover:border-accent/30 transition-colors cursor-pointer" data-mock="true">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent/20 text-accent">
+                                Manual Delivery
+                            </span>
+                            <i class="fas fa-heart text-muted hover:text-danger cursor-pointer"></i>
+                        </div>
+                        
+                        <h3 class="text-lg font-semibold text-text mb-2">Adobe Creative Cloud (1 Year)</h3>
+                        <p class="text-muted text-sm mb-4">Full access to all Adobe apps including Photoshop, Illustrator, After Effects, and more.</p>
+                        
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-store text-accent text-xs"></i>
+                                </div>
+                                <span class="text-sm text-text">PremiumSoft</span>
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-warning text-xs"></i>
+                                    <span class="text-xs text-muted ml-1">4.8 (156)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fab fa-bitcoin text-warning text-sm"></i>
+                                    <span class="font-mono text-sm text-text">0.0034 BTC</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fab fa-monero text-accent text-sm"></i>
+                                    <span class="font-mono text-sm text-text">2.47 XMR</span>
+                                </div>
+                            </div>
+                            <button class="px-4 py-2 bg-accent text-bg hover:bg-accent-2 rounded-lg text-sm font-medium">
+                                Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Privacy & Security Info -->
+    <section class="py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-2xl font-bold text-text mb-4" data-mock="true">Why Choose CryptoMarket?</h2>
+                <p class="text-muted max-w-2xl mx-auto" data-mock="true">
+                    We prioritize your privacy and security above all else, providing a safe environment for anonymous digital commerce.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="text-center" data-mock="true">
+                    <div class="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-user-secret text-accent text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-text mb-2">Anonymous Trading</h3>
+                    <p class="text-muted">No personal data required. Trade with complete privacy using only usernames and recovery phrases.</p>
+                </div>
+                
+                <div class="text-center" data-mock="true">
+                    <div class="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-shield-check text-accent text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-text mb-2">Escrow Protection</h3>
+                    <p class="text-muted">Your payments are held securely until delivery is confirmed, protecting both buyers and sellers.</p>
+                </div>
+                
+                <div class="text-center" data-mock="true">
+                    <div class="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fab fa-bitcoin text-accent text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-text mb-2">Crypto Payments</h3>
+                    <p class="text-muted">Accept Bitcoin and Monero for maximum privacy and security in all transactions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="bg-surface border-t border-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div class="md:col-span-2" data-mock="true">
+                    <div class="flex items-center mb-4">
+                        <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-bg text-sm"></i>
+                        </div>
+                        <h3 class="ml-3 text-xl font-bold text-text">CryptoMarket</h3>
+                    </div>
+                    <p class="text-muted mb-4">The secure, anonymous marketplace for digital accounts. Trade safely with cryptocurrency payments and escrow protection.</p>
+                    <p class="text-xs text-muted">We do not collect unnecessary personal data. Accounts are anonymous. Use recovery phrase to regain access.</p>
+                </div>
+                
+                <div data-mock="true">
+                    <h4 class="text-sm font-semibold text-text mb-4">Marketplace</h4>
+                    <ul class="space-y-2 text-sm text-muted">
+                        <li><a href="#" class="hover:text-text">Browse Listings</a></li>
+                        <li><a href="#" class="hover:text-text">Categories</a></li>
+                        <li><a href="#" class="hover:text-text">Featured Vendors</a></li>
+                        <li><a href="#" class="hover:text-text">How It Works</a></li>
+                    </ul>
+                </div>
+                
+                <div data-mock="true">
+                    <h4 class="text-sm font-semibold text-text mb-4">Support</h4>
+                    <ul class="space-y-2 text-sm text-muted">
+                        <li><a href="#" class="hover:text-text">Help Center</a></li>
+                        <li><a href="#" class="hover:text-text">Dispute Resolution</a></li>
+                        <li><a href="#" class="hover:text-text">Privacy Policy</a></li>
+                        <li><a href="#" class="hover:text-text">Terms of Service</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-border mt-8 pt-8 text-center">
+                <p class="text-xs text-muted" data-mock="true">
+                    © 2024 CryptoMarket. All rights reserved. • Privacy-first anonymous marketplace
+                </p>
+            </div>
+        </div>
+    </footer>
+    
+</div>
+<!-- @END_COMPONENT: MarketplacePreview -->
+
+<!-- @COMPONENT: ComponentLibrary [Component showcase and documentation] -->
+<div class="bg-bg py-16 border-t border-border">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-text mb-8" data-mock="true">Component Library</h2>
+        
+        <!-- Button Components -->
+        <div class="mb-12">
+            <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Buttons</h3>
+            <div class="flex flex-wrap gap-4 p-6 bg-surface rounded-2xl border border-border">
+                <button class="px-4 py-2 bg-accent text-bg hover:bg-accent-2 rounded-lg font-medium" data-mock="true">Primary</button>
+                <button class="px-4 py-2 border border-border text-text hover:bg-surface-2 rounded-lg font-medium" data-mock="true">Secondary</button>
+                <button class="px-4 py-2 text-accent hover:bg-accent/10 rounded-lg font-medium" data-mock="true">Ghost</button>
+                <button class="px-4 py-2 bg-danger text-white hover:bg-danger/90 rounded-lg font-medium" data-mock="true">Destructive</button>
+                <button class="px-4 py-2 bg-accent text-bg hover:bg-accent-2 rounded-lg font-medium opacity-50 cursor-not-allowed" disabled data-mock="true">Disabled</button>
+                <button class="w-8 h-8 bg-accent hover:bg-accent-2 text-bg rounded-lg flex items-center justify-center" data-mock="true">
+                    <i class="fas fa-plus text-sm"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Form Components -->
+        <div class="mb-12">
+            <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Form Elements</h3>
+            <div class="p-6 bg-surface rounded-2xl border border-border space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-text mb-1" data-mock="true">Text Input</label>
+                    <input type="text" placeholder="Enter text..." class="block w-full px-3 py-2 border border-border rounded-lg bg-surface-2 text-text placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent" data-mock="true">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-text mb-1" data-mock="true">Select</label>
+                    <select class="block w-full px-3 py-2 border border-border rounded-lg bg-surface-2 text-text focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent" data-mock="true">
+                        <option>Choose option...</option>
+                        <option>Option 1</option>
+                        <option>Option 2</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-text mb-1" data-mock="true">Textarea</label>
+                    <textarea rows="3" placeholder="Enter description..." class="block w-full px-3 py-2 border border-border rounded-lg bg-surface-2 text-text placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none" data-mock="true"></textarea>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="sample-checkbox" class="w-4 h-4 text-accent bg-surface-2 border-border rounded focus:ring-accent focus:ring-2" data-mock="true">
+                    <label for="sample-checkbox" class="text-sm text-text" data-mock="true">I agree to the terms</label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Badges -->
+        <div class="mb-12">
+            <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Status Badges</h3>
+            <div class="flex flex-wrap gap-2 p-6 bg-surface rounded-2xl border border-border">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success" data-mock="true">Live</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning/20 text-warning" data-mock="true">Pending</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger/20 text-danger" data-mock="true">Rejected</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent/20 text-accent" data-mock="true">In Escrow</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-2 text-muted border border-border" data-mock="true">Draft</span>
+            </div>
+        </div>
+        
+        <!-- Loading States -->
+        <div class="mb-12">
+            <h3 class="text-lg font-semibold text-text mb-4" data-mock="true">Loading States</h3>
+            <div class="p-6 bg-surface rounded-2xl border border-border space-y-4">
+                <!-- Skeleton Card -->
+                <div class="animate-pulse">
+                    <div class="h-4 bg-surface-2 rounded w-1/4 mb-2"></div>
+                    <div class="h-3 bg-surface-2 rounded w-3/4 mb-4"></div>
+                    <div class="h-20 bg-surface-2 rounded mb-4"></div>
+                    <div class="h-8 bg-surface-2 rounded w-1/3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- @END_COMPONENT: ComponentLibrary -->
+
+<script>
+(function() {
+    // TODO: Implement business logic, API calls, and state management
+    // Minimal interactive enhancements for demo purposes
+    console.log('CryptoMarket Admin & Marketplace UI loaded');
+    
+    // Simple tab switching simulation (static)
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('[data-tab]')) {
+            e.preventDefault();
+            // TODO: Implement tab switching logic
+            console.log('Tab clicked:', e.target.dataset.tab);
+        }
+    });
+})();
+</script>
+
+</body>
+</html>

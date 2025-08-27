@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Store, User, CreditCard } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Store, User, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "wouter";
+import { toast } from "@/hooks/use-toast";
 
 const STEPS = [
   { id: 1, title: "Basic Info", icon: User, description: "Personal and business details" },
@@ -34,14 +35,34 @@ interface VendorApplicationData {
   vendorUsername: string;
   email: string;
   contact: string;
+  phone: string;
+  website: string;
+  socialMedia: string;
   
   // Store Info
   storeDescription: string;
   category: string;
+  subCategory: string;
+  businessType: string;
+  yearsInBusiness: string;
+  targetMarket: string;
   
   // Payment Info
   btcAddress: string;
   xmrAddress: string;
+  preferredPayment: string;
+  
+  // Business Details
+  businessAddress: string;
+  businessLicense: string;
+  taxId: string;
+  insurance: string;
+  
+  // Documents & Media
+  documents: File[];
+  logo: File | null;
+  images: File[]; // Added for additional images
+  businessPlan: string;
   
   // Agreement
   agreement: boolean;
@@ -49,16 +70,33 @@ interface VendorApplicationData {
 
 export default function VendorApply() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [, setLocation] = useLocation();
   const [formData, setFormData] = useState<VendorApplicationData>({
     businessName: "",
     vendorUsername: "",
     email: "crypto_buyer@example.com", // Pre-filled
     contact: "",
+    phone: "",
+    website: "",
+    socialMedia: "",
     storeDescription: "",
     category: "",
+    subCategory: "",
+    businessType: "",
+    yearsInBusiness: "",
+    targetMarket: "",
     btcAddress: "",
     xmrAddress: "",
+    preferredPayment: "",
+    businessAddress: "",
+    businessLicense: "",
+    taxId: "",
+    insurance: "",
+    documents: [],
+    logo: null,
+    images: [], // Added for additional images
+    businessPlan: "",
     agreement: false
   });
 
@@ -84,20 +122,109 @@ export default function VendorApply() {
     }
   };
 
-  const onSubmit = (data: any) => {
-    updateFormData(data);
-    // Navigate to confirmation page
-    setLocation("/vendor/apply/success");
+  const onSubmit = async (data: any) => {
+    console.log('🚀 Form submission started with data:', data);
+    setIsSubmitting(true);
+    
+    try {
+      // Create FormData for file uploads
+      const formData = new FormData();
+      
+      // Add text fields
+      formData.append('business_name', data.businessName);
+      formData.append('vendor_username', data.vendorUsername);
+      formData.append('email', data.email);
+      formData.append('contact', data.contact || "");
+      formData.append('phone', data.phone || "");
+      formData.append('website', data.website || "");
+      formData.append('social_media', data.socialMedia || "");
+      formData.append('store_description', data.storeDescription);
+      formData.append('category', data.category);
+      formData.append('sub_category', data.subCategory || "");
+      formData.append('business_type', data.businessType || "");
+      formData.append('years_in_business', data.yearsInBusiness || "");
+      formData.append('target_market', data.targetMarket || "");
+      formData.append('btc_address', data.btcAddress || "");
+      formData.append('xmr_address', data.xmrAddress || "");
+      formData.append('preferred_payment', data.preferredPayment || "");
+      formData.append('business_address', data.businessAddress || "");
+      formData.append('business_license', data.businessLicense || "");
+      formData.append('tax_id', data.taxId || "");
+      formData.append('insurance', data.insurance || "");
+      formData.append('business_plan', data.businessPlan || "");
+      
+      // Add files
+      if (data.logo) {
+        formData.append('logo', data.logo);
+      }
+      if (data.documents && data.documents.length > 0) {
+        // For now, append the first document (we can enhance this later for multiple files)
+        formData.append('documents', data.documents[0]);
+      }
+      if (data.images && data.images.length > 0) {
+        // For now, append the first image (we can enhance this later for multiple files)
+        formData.append('images', data.images[0]);
+      }
+
+      console.log('📤 Sending application data to API with FormData:', formData);
+
+      // Submit to backend API
+      const response = await fetch('http://localhost:8000/api/v1/applications/', {
+        method: 'POST',
+        body: formData // Don't set Content-Type header for FormData
+      });
+
+      console.log('📥 API response status:', response.status);
+      console.log('📥 API response headers:', response.headers);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ API response success:', result);
+        
+        // Show success message
+        toast({
+          title: "Application Submitted!",
+          description: "Your vendor application has been submitted successfully. We'll review it and get back to you soon.",
+        });
+
+        console.log('🔄 Navigating to success page...');
+        // Navigate to success page
+        setLocation("/vendor/apply/success");
+      } else {
+        const errorData = await response.json();
+        console.error('❌ API response error:', errorData);
+        throw new Error(errorData.message || 'Failed to submit application');
+      }
+      
+    } catch (error) {
+      console.error('💥 Form submission error:', error);
+      
+      toast({
+        title: "Submission Failed",
+        description: error.message || "Failed to submit application. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isStepValid = (step: number) => {
     switch (step) {
       case 1:
-        return watchedValues.businessName && watchedValues.vendorUsername && watchedValues.email;
+        return watchedValues.businessName && 
+               watchedValues.vendorUsername && 
+               watchedValues.email && 
+               watchedValues.phone && 
+               watchedValues.businessType && 
+               watchedValues.yearsInBusiness;
       case 2:
-        return watchedValues.storeDescription && watchedValues.category;
+        return watchedValues.storeDescription && 
+               watchedValues.category && 
+               watchedValues.targetMarket && 
+               watchedValues.businessPlan;
       case 3:
-        return watchedValues.agreement;
+        return watchedValues.preferredPayment && watchedValues.agreement;
       default:
         return false;
     }
@@ -156,13 +283,74 @@ export default function VendorApply() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="contact">Contact (Optional)</Label>
+                <Label htmlFor="phone">Phone Number *</Label>
                 <Input
-                  id="contact"
-                  {...register("contact")}
-                  placeholder="Phone or Telegram"
+                  id="phone"
+                  type="tel"
+                  {...register("phone", { required: "Phone number is required" })}
+                  placeholder="+1 (555) 123-4567"
                   className="bg-gray-800 border-gray-700"
                 />
+                {errors.phone && (
+                  <p className="text-red-400 text-sm">{errors.phone.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="website">Website (Optional)</Label>
+                <Input
+                  id="website"
+                  type="url"
+                  {...register("website")}
+                  placeholder="https://yourwebsite.com"
+                  className="bg-gray-800 border-gray-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="socialMedia">Social Media (Optional)</Label>
+                <Input
+                  id="socialMedia"
+                  {...register("socialMedia")}
+                  placeholder="@username or profile URL"
+                  className="bg-gray-800 border-gray-700"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="businessType">Business Type *</Label>
+                <Select onValueChange={(value) => setValue("businessType", value)}>
+                  <SelectTrigger className="bg-gray-800 border-gray-700">
+                    <SelectValue placeholder="Select business type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual/Sole Proprietor</SelectItem>
+                    <SelectItem value="partnership">Partnership</SelectItem>
+                    <SelectItem value="corporation">Corporation</SelectItem>
+                    <SelectItem value="llc">Limited Liability Company (LLC)</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="yearsInBusiness">Years in Business *</Label>
+                <Select onValueChange={(value) => setValue("yearsInBusiness", value)}>
+                  <SelectTrigger className="bg-gray-800 border-gray-700">
+                    <SelectValue placeholder="Select experience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="less-than-1">Less than 1 year</SelectItem>
+                    <SelectItem value="1-2">1-2 years</SelectItem>
+                    <SelectItem value="3-5">3-5 years</SelectItem>
+                    <SelectItem value="5-10">5-10 years</SelectItem>
+                    <SelectItem value="more-than-10">More than 10 years</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -176,7 +364,7 @@ export default function VendorApply() {
               <Textarea
                 id="storeDescription"
                 {...register("storeDescription", { required: "Store description is required" })}
-                placeholder="Describe your store and what you sell..."
+                placeholder="Describe your store, products, services, and what makes you unique..."
                 className="bg-gray-800 border-gray-700 h-32"
               />
               {errors.storeDescription && (
@@ -184,23 +372,55 @@ export default function VendorApply() {
               )}
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="category">Primary Category *</Label>
+                <Select onValueChange={(value) => setValue("category", value)}>
+                  <SelectTrigger className="bg-gray-800 border-gray-700">
+                    <SelectValue placeholder="Select your primary category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.category && (
+                  <p className="text-red-400 text-sm">{errors.category.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subCategory">Sub-Category (Optional)</Label>
+                <Input
+                  id="subCategory"
+                  {...register("subCategory")}
+                  placeholder="e.g., Streaming, Gaming, Software"
+                  className="bg-gray-800 border-gray-700"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select onValueChange={(value) => setValue("category", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700">
-                  <SelectValue placeholder="Select your primary category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.category && (
-                <p className="text-red-400 text-sm">{errors.category.message}</p>
-              )}
+              <Label htmlFor="targetMarket">Target Market *</Label>
+              <Textarea
+                id="targetMarket"
+                {...register("targetMarket", { required: "Target market is required" })}
+                placeholder="Describe your target customers, their needs, and how you serve them..."
+                className="bg-gray-800 border-gray-700 h-24"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="businessPlan">Business Plan Summary *</Label>
+              <Textarea
+                id="businessPlan"
+                {...register("businessPlan", { required: "Business plan summary is required" })}
+                placeholder="Describe your business strategy, pricing, marketing approach, and growth plans..."
+                className="bg-gray-800 border-gray-700 h-32"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -210,9 +430,15 @@ export default function VendorApply() {
                   id="documents"
                   type="file"
                   multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   className="bg-gray-800 border-gray-700"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setValue("documents", files);
+                    setFormData(prev => ({ ...prev, documents: files }));
+                  }}
                 />
-                <p className="text-xs text-gray-400">ID, License, Verification files</p>
+                <p className="text-xs text-gray-400">ID, License, Verification files, Business registration</p>
               </div>
 
               <div className="space-y-2">
@@ -222,9 +448,31 @@ export default function VendorApply() {
                   type="file"
                   accept="image/*"
                   className="bg-gray-800 border-gray-700"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setValue("logo", file);
+                    setFormData(prev => ({ ...prev, logo: file }));
+                  }}
                 />
                 <p className="text-xs text-gray-400">PNG, JPG (max 2MB)</p>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="images">Additional Images (Optional)</Label>
+              <Input
+                id="images"
+                type="file"
+                multiple
+                accept="image/*"
+                className="bg-gray-800 border-gray-700"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setValue("images", files);
+                  setFormData(prev => ({ ...prev, images: files }));
+                }}
+              />
+              <p className="text-xs text-gray-400">Store photos, product images, etc.</p>
             </div>
           </div>
         );
@@ -263,6 +511,53 @@ export default function VendorApply() {
                   className="bg-gray-800 border-gray-700"
                 />
                 <p className="text-xs text-gray-400">For receiving XMR payments</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="preferredPayment">Preferred Payment Method *</Label>
+              <Select onValueChange={(value) => setValue("preferredPayment", value)}>
+                <SelectTrigger className="bg-gray-800 border-gray-700">
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="btc">Bitcoin (BTC)</SelectItem>
+                  <SelectItem value="xmr">Monero (XMR)</SelectItem>
+                  <SelectItem value="both">Both BTC & XMR</SelectItem>
+                  <SelectItem value="escrow">Escrow Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="businessAddress">Business Address (Optional)</Label>
+              <Textarea
+                id="businessAddress"
+                {...register("businessAddress")}
+                placeholder="Your business address or location..."
+                className="bg-gray-800 border-gray-700 h-20"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="businessLicense">Business License Number (Optional)</Label>
+                <Input
+                  id="businessLicense"
+                  {...register("businessLicense")}
+                  placeholder="License number if applicable"
+                  className="bg-gray-800 border-gray-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="taxId">Tax ID/EIN (Optional)</Label>
+                <Input
+                  id="taxId"
+                  {...register("taxId")}
+                  placeholder="Tax identification number"
+                  className="bg-gray-800 border-gray-700"
+                />
               </div>
             </div>
 
@@ -399,10 +694,17 @@ export default function VendorApply() {
                 ) : (
                   <Button
                     type="submit"
-                    disabled={!isStepValid(currentStep)}
+                    disabled={!isStepValid(currentStep) || isSubmitting}
                     className="bg-green-500 hover:bg-green-600"
                   >
-                    Submit Application
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Application"
+                    )}
                   </Button>
                 )}
               </div>

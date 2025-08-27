@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +12,57 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar } from "lucide-react";
-import { SAMPLE_LISTINGS } from "@/lib/constants";
+import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+// API Service
+const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+interface Product {
+  id: number;
+  listing_title: string;
+  description: string;
+  vendor: {
+    id: number;
+    username: string;
+    email: string;
+  };
+  category: {
+    id: number;
+    name: string;
+  };
+  sub_category: {
+    id: number;
+    name: string;
+  };
+  price: string;
+  account_type: string;
+  verification_level: string;
+  delivery_method: string;
+  status: string;
+  created_at: string;
+  main_images: string[];
+  tags: string[];
+  special_features: string[];
+  quantity_available: number;
+  documents: string[]; // Changed from string[] to string[]
+}
 
 export default function AdminListings() {
   const [viewListingModalOpen, setViewListingModalOpen] = useState(false);
   const [editListingModalOpen, setEditListingModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<Product | null>(null);
+  const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [currentFilter, setCurrentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
+  const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
+  const [actionProduct, setActionProduct] = useState<Product | null>(null);
+  const { toast } = useToast();
   
   const editForm = useForm({
     defaultValues: {
@@ -33,95 +76,361 @@ export default function AdminListings() {
       status: "Pending"
     }
   });
-  
-  const handleViewListing = (listing: any) => {
+
+  // Fetch pending products
+  useEffect(() => {
+    fetchAllProducts();
+  }, []);
+
+  const fetchAllProducts = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access admin panel",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/products/admin/all/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 Backend Response (All Products):', data);
+        console.log('📊 Products with statuses:', data.results?.map(p => ({ id: p.id, status: p.status, title: p.listing_title })));
+        
+        setAllProducts(data.results || []);
+        setPendingProducts(data.results || []);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to fetch products",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get filtered products based on current filter
+  const getFilteredProducts = () => {
+    console.log('🔍 Filtering products:', {
+      currentFilter,
+      totalProducts: allProducts.length,
+      products: allProducts.map(p => ({ id: p.id, status: p.status, title: p.listing_title }))
+    });
+    
+    switch (currentFilter) {
+      case 'pending':
+        const pending = allProducts.filter(product => product.status === 'pending_approval' || product.status === 'draft');
+        console.log('📋 Pending products:', pending.length);
+        return pending;
+      case 'approved':
+        const approved = allProducts.filter(product => product.status === 'approved');
+        console.log('✅ Approved products:', approved.length);
+        return approved;
+      case 'rejected':
+        const rejected = allProducts.filter(product => product.status === 'rejected');
+        console.log('❌ Rejected products:', rejected.length);
+        return rejected;
+      default:
+        console.log('🌐 All products:', allProducts.length);
+        return allProducts;
+    }
+  };
+
+  // Get product counts for stats
+  const getProductCounts = () => {
+    const pending = allProducts.filter(p => p.status === 'pending_approval' || p.status === 'draft').length;
+    const approved = allProducts.filter(p => p.status === 'approved').length;
+    const rejected = allProducts.filter(p => p.status === 'rejected').length;
+    const total = allProducts.length;
+    
+    return { pending, approved, rejected, total };
+  };
+
+  const handleViewListing = (listing: Product) => {
     setSelectedListing(listing);
     setViewListingModalOpen(true);
   };
-  
-  const handleEditListing = (listing: any) => {
+
+  const openApproveConfirm = (listing: Product) => {
+    setActionProduct(listing);
+    setIsApproveConfirmOpen(true);
+  };
+
+  const openRejectConfirm = (listing: Product) => {
+    setActionProduct(listing);
+    setIsRejectConfirmOpen(true);
+  };
+
+  const handleApproveListing = async (listingId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access admin panel",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/products/admin/${listingId}/approve/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Approval Response:', responseData);
+        console.log('🔄 Updating product status from pending to approved');
+        
+        // Update local state immediately
+        setAllProducts(prevProducts => {
+          const updated = prevProducts.map(product => 
+            product.id === listingId 
+              ? { ...product, status: 'approved' }
+              : product
+          );
+          console.log('📝 Updated products:', updated.map(p => ({ id: p.id, status: p.status, title: p.listing_title })));
+          return updated;
+        });
+        
+        // Show success toaster
+        toast({
+          title: "✅ Listing Approved Successfully!",
+          description: "Product has been approved and is now visible to buyers.",
+          variant: "default",
+        });
+        
+        // Close the review modal
+        setViewListingModalOpen(false);
+        setSelectedListing(null);
+        
+        // Also refresh from server to ensure consistency
+        setTimeout(() => {
+          console.log('🔄 Refreshing from server...');
+          fetchAllProducts();
+        }, 1000);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "❌ Approval Failed",
+          description: errorData.message || "Failed to approve listing",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error approving listing:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to approve listing. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectListing = async (listingId: number) => {
+    if (!rejectionReason.trim()) {
+      toast({
+        title: "❌ Rejection Reason Required",
+        description: "Please provide a reason for rejection",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access admin panel",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/products/admin/${listingId}/reject/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rejection_reason: rejectionReason
+        }),
+      });
+
+      if (response.ok) {
+        // Update local state immediately
+        setAllProducts(prevProducts => 
+          prevProducts.map(product => 
+            product.id === listingId 
+              ? { ...product, status: 'rejected' }
+              : product
+          )
+        );
+        
+        // Show success toaster
+        toast({
+          title: "✅ Listing Rejected Successfully!",
+          description: "Product has been rejected with the provided reason.",
+          variant: "default",
+        });
+        
+        // Close both modals
+        setRejectModalOpen(false);
+        setViewListingModalOpen(false);
+        setSelectedListing(null);
+        setRejectionReason('');
+        
+        // Also refresh from server to ensure consistency
+        setTimeout(() => {
+          fetchAllProducts();
+        }, 1000);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "❌ Rejection Failed",
+          description: errorData.message || "Failed to reject listing",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error rejecting listing:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to reject listing. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditListing = (listing: Product) => {
     setSelectedListing(listing);
     editForm.reset({
-      title: listing.title,
+      title: listing.listing_title,
       description: listing.description,
-      vendor: listing.vendor,
-      category: listing.category,
-      btcPrice: listing.btcPrice,
-      xmrPrice: listing.xmrPrice,
-      delivery: listing.delivery,
+      vendor: listing.vendor.username,
+      category: listing.category.name,
+      btcPrice: listing.price,
+      xmrPrice: listing.price,
+      delivery: listing.delivery_method,
       status: listing.status
     });
     setEditListingModalOpen(true);
   };
-  
+
   const handleUpdateListing = (data: any) => {
     console.log("Updating listing:", selectedListing?.id, data);
     setEditListingModalOpen(false);
   };
-  
-  const handleDeleteListing = (listing: any) => {
+
+  const handleDeleteListing = (listing: Product) => {
     setSelectedListing(listing);
     setDeleteConfirmOpen(true);
   };
-  
+
   const confirmDeleteListing = () => {
     console.log("Confirmed deleting listing:", selectedListing?.id);
     setDeleteConfirmOpen(false);
     setSelectedListing(null);
   };
-  
-  const handleApproveListing = (listingId: number) => {
-    console.log("Approving listing:", listingId);
-  };
-  
-  const handleRejectListing = (listingId: number) => {
-    console.log("Rejecting listing:", listingId);
+
+  const openRejectModal = (listing: Product) => {
+    setSelectedListing(listing);
+    setRejectModalOpen(true);
   };
 
-  const extendedListings = [
-    ...SAMPLE_LISTINGS.map(listing => ({
-      ...listing,
-      status: "Approved" as const,
-      statusType: "success" as const,
-      category: "Streaming",
-      created: "2 days ago",
-      lastUpdate: "1 hour ago"
-    })),
-    {
-      id: 4,
-      title: "Steam Account with 100+ Games",
-      description: "Premium Steam account with extensive game library including AAA titles.",
-      vendor: "GamingAccounts",
-      rating: 4.6,
-      reviews: 78,
-      btcPrice: "0.0025",
-      xmrPrice: "1.84",
-      delivery: "Manual Delivery",
-      deliveryType: "accent" as const,
-      status: "Pending" as const,
-      statusType: "warning" as const,
-      category: "Gaming",
-      created: "1 day ago",
-      lastUpdate: "6 hours ago"
-    },
-    {
-      id: 5,
-      title: "Office 365 Business License",
-      description: "Complete Office 365 business suite with all applications included.",
-      vendor: "BusinessSoft",
-      rating: 0,
-      reviews: 0,
-      btcPrice: "0.0045",
-      xmrPrice: "3.21",
-      delivery: "Instant Delivery",
-      deliveryType: "success" as const,
-      status: "Rejected" as const,
-      statusType: "danger" as const,
-      category: "Software",
-      created: "3 days ago",
-      lastUpdate: "2 days ago"
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending_approval':
+        return <StatusBadge status="warning" text="Pending Approval" />;
+      case 'draft':
+        return <StatusBadge status="info" text="Draft" />;
+      case 'approved':
+        return <StatusBadge status="success" text="Approved" />;
+      case 'rejected':
+        return <StatusBadge status="destructive" text="Rejected" />;
+      default:
+        return <StatusBadge status="secondary" text={status} />;
     }
-  ];
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // If it's today, show time
+    if (diffDays === 1) {
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    
+    // If it's within last 7 days, show relative date
+    if (diffDays <= 7) {
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays === 2) return '2 days ago';
+      if (diffDays === 3) return '3 days ago';
+      if (diffDays === 4) return '4 days ago';
+      if (diffDays === 5) return '5 days ago';
+      if (diffDays === 6) return '6 days ago';
+      if (diffDays === 7) return '1 week ago';
+    }
+    
+    // For older dates, show compact format
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  // Helper function to get full URL for media files
+  const getFullUrl = (url: string) => {
+    if (url.startsWith('http')) {
+      return url; // Already absolute URL
+    }
+    if (url.startsWith('/media/')) {
+      return `http://localhost:8000${url}`; // Convert relative to absolute
+    }
+    return url; // Fallback
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading pending products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
@@ -150,8 +459,8 @@ export default function AdminListings() {
                   <Check className="w-6 h-6 text-success" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm text-gray-400">Approved</p>
-                  <p className="text-2xl font-bold text-white">1,432</p>
+                  <p className="text-sm text-gray-400">Total Products</p>
+                  <p className="text-2xl font-bold text-white">{allProducts.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -165,7 +474,9 @@ export default function AdminListings() {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm text-gray-400">Pending Review</p>
-                  <p className="text-2xl font-bold text-white">47</p>
+                  <p className="text-2xl font-bold text-white">
+                    {allProducts.filter(p => p.status === 'pending_approval' || p.status === 'draft').length}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -174,12 +485,14 @@ export default function AdminListings() {
           <Card className="crypto-card">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-danger/20 rounded-lg">
-                  <X className="w-6 h-6 text-danger" />
+                <div className="p-2 bg-info/20 rounded-lg">
+                  <Edit className="w-6 h-6 text-info" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm text-gray-400">Rejected</p>
-                  <p className="text-2xl font-bold text-white">23</p>
+                  <p className="text-sm text-gray-400">Draft</p>
+                  <p className="text-2xl font-bold text-white">
+                    {allProducts.filter(p => p.status === 'draft').length}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -189,11 +502,13 @@ export default function AdminListings() {
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-accent/20 rounded-lg">
-                  <Edit className="w-6 h-6 text-accent" />
+                  <User className="w-6 h-6 text-accent" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm text-gray-400">Draft</p>
-                  <p className="text-2xl font-bold text-white">12</p>
+                  <p className="text-sm text-gray-400">Vendors</p>
+                  <p className="text-2xl font-bold text-white">
+                    {new Set(allProducts.map(p => p.vendor.id)).size}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -244,6 +559,35 @@ export default function AdminListings() {
           </CardContent>
         </Card>
 
+        {/* Filter Tabs */}
+        <Card className="crypto-card mb-6">
+          <CardContent className="p-4">
+            <div className="flex space-x-1 bg-surface-2 p-1 rounded-lg">
+              {[
+                { key: 'all', label: 'All', count: getProductCounts().total },
+                { key: 'pending', label: 'Pending', count: getProductCounts().pending },
+                { key: 'approved', label: 'Approved', count: getProductCounts().approved },
+                { key: 'rejected', label: 'Rejected', count: getProductCounts().rejected }
+              ].map((filter) => (
+                <button
+                  key={filter.key}
+                  onClick={() => setCurrentFilter(filter.key as any)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    currentFilter === filter.key
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-300 hover:text-white hover:bg-surface-2'
+                  }`}
+                >
+                  {filter.label}
+                  <span className="ml-2 bg-gray-600 text-gray-200 px-2 py-1 rounded-full text-xs">
+                    {filter.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Listings Table */}
         <Card className="crypto-card">
           <CardHeader>
@@ -271,7 +615,7 @@ export default function AdminListings() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {extendedListings.map((listing) => (
+                  {getFilteredProducts().map((listing) => (
                     <tr key={listing.id} className="hover:bg-surface-2/50" data-testid={`listing-row-${listing.id}`}>
                       <td className="p-4">
                         <Checkbox className="border-border" />
@@ -279,81 +623,92 @@ export default function AdminListings() {
                       <td className="p-4">
                         <div className="flex items-start">
                           <div className="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-accent text-sm font-medium">{listing.title[0]}</span>
+                            <span className="text-accent text-sm font-medium">{listing.listing_title[0]}</span>
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-white truncate">{listing.title}</p>
+                            <p className="font-medium text-white truncate">{listing.listing_title}</p>
                             <p className="text-sm text-gray-400 line-clamp-2">{listing.description}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-gray-300">{listing.vendor}</td>
+                      <td className="p-4 text-gray-300">{listing.vendor.username}</td>
                       <td className="p-4">
                         <Badge variant="outline" className="text-gray-300">
-                          {listing.category}
+                          {listing.category.name}
                         </Badge>
                       </td>
                       <td className="p-4">
                         <div className="space-y-1">
-                          <div className="text-white font-mono text-sm">{listing.btcPrice} BTC</div>
-                          <div className="text-gray-400 font-mono text-xs">{listing.xmrPrice} XMR</div>
+                          <div className="text-white font-mono text-sm">{listing.price} BTC</div>
+                          <div className="text-gray-400 font-mono text-xs">{listing.price} XMR</div>
                         </div>
                       </td>
                       <td className="p-4">
-                        <StatusBadge status={listing.status} type={listing.statusType} />
+                        {getStatusBadge(listing.status)}
                       </td>
-                      <td className="p-4 text-gray-300">{listing.created}</td>
+                      <td className="p-4 text-gray-300">{formatDate(listing.created_at)}</td>
                       <td className="p-4">
                         <div className="flex items-center space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-gray-400 hover:text-white" 
-                            onClick={() => handleViewListing(listing)}
-                            data-testid={`view-listing-${listing.id}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          {listing.status === "Pending" && (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-success hover:text-green-400" 
-                                onClick={() => handleApproveListing(listing.id)}
-                                data-testid={`approve-listing-${listing.id}`}
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-danger hover:text-red-400" 
-                                onClick={() => handleRejectListing(listing.id)}
-                                data-testid={`reject-listing-${listing.id}`}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </>
+                          {/* Show Review button only for pending products */}
+                          {(currentFilter === 'pending' || currentFilter === 'all') && 
+                           (listing.status === 'pending_approval' || listing.status === 'draft') && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white" 
+                              onClick={() => handleViewListing(listing)}
+                              data-testid={`review-listing-${listing.id}`}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Review
+                            </Button>
                           )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-gray-400 hover:text-white" 
-                            onClick={() => handleEditListing(listing)}
-                            data-testid={`edit-listing-${listing.id}`}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-danger hover:text-red-400" 
-                            onClick={() => handleDeleteListing(listing)}
-                            data-testid={`delete-listing-${listing.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          
+                          {/* Show View button for approved and rejected products */}
+                          {(currentFilter === 'approved' || currentFilter === 'rejected' || currentFilter === 'all') && 
+                           (listing.status === 'approved' || listing.status === 'rejected') && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-gray-500 text-gray-400 hover:bg-gray-500 hover:text-white" 
+                              onClick={() => handleViewListing(listing)}
+                              data-testid={`view-listing-${listing.id}`}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View
+                            </Button>
+                          )}
+                          
+                          {/* Show Edit button for all products except pending */}
+                          {listing.status !== 'pending_approval' && listing.status !== 'draft' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-yellow-500 text-yellow-400 hover:bg-yellow-500 hover:text-white" 
+                              onClick={() => handleEditListing(listing)}
+                              data-testid={`edit-listing-${listing.id}`}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </Button>
+                          )}
+                          
+                          {/* Show Delete button for all products except pending */}
+                          {listing.status !== 'pending_approval' && listing.status !== 'draft' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-red-500 text-red-400 hover:bg-red-500 hover:text-white" 
+                              onClick={() => {
+                                setSelectedListing(listing);
+                                setDeleteConfirmOpen(true);
+                              }}
+                              data-testid={`delete-listing-${listing.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -366,93 +721,254 @@ export default function AdminListings() {
         
         {/* View Listing Modal */}
         <Dialog open={viewListingModalOpen} onOpenChange={setViewListingModalOpen}>
-          <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="sm:max-w-[800px] bg-card border border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle className="text-white">Listing Details</DialogTitle>
+              <DialogTitle className="text-white">Review Product Listing</DialogTitle>
             </DialogHeader>
             {selectedListing && (
-              <div className="space-y-6 overflow-y-auto flex-1 pr-2">
+              <div className="space-y-8 overflow-y-auto flex-1 pr-2">
                 {/* Listing Header */}
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 pb-6 border-b border-gray-700">
                   <div className="w-16 h-16 bg-accent/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-accent text-xl font-medium">{selectedListing.title[0]}</span>
+                    <span className="text-accent text-xl font-medium">{selectedListing.listing_title[0]}</span>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-white">{selectedListing.title}</h3>
-                    <div className="flex items-center gap-4 mt-2">
+                    <h3 className="text-2xl font-semibold text-white mb-2">{selectedListing.listing_title}</h3>
+                    <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-400" />
                         <span className="text-white font-medium">{selectedListing.rating || 'N/A'}</span>
                         <span className="text-gray-400">({selectedListing.reviews || 0} reviews)</span>
                       </div>
-                      <StatusBadge status={selectedListing.status} type={selectedListing.statusType} />
+                      {getStatusBadge(selectedListing.status)}
                     </div>
                   </div>
                 </div>
                 
-                {/* Listing Info */}
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label className="text-gray-300 text-sm font-medium">Vendor</Label>
-                    <p className="text-white mt-1">{selectedListing.vendor}</p>
+                {/* Basic Information Section */}
+                <div className="space-y-6">
+                  <div className="border-b border-gray-700 pb-2">
+                    <h4 className="text-lg font-semibold text-white mb-4">Basic Information</h4>
                   </div>
-                  <div>
-                    <Label className="text-gray-300 text-sm font-medium">Category</Label>
-                    <p className="text-white mt-1">{selectedListing.category}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-300 text-sm font-medium">Created</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-white">{selectedListing.created}</span>
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Vendor</Label>
+                      <p className="text-white mt-1 font-medium">{selectedListing.vendor.username}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Category</Label>
+                      <p className="text-white mt-1 font-medium">{selectedListing.category.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Created</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <span className="text-white">{formatDate(selectedListing.created_at)}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Last Updated</Label>
+                      <p className="text-white mt-1">{formatDate(selectedListing.created_at)}</p>
                     </div>
                   </div>
+                </div>
+                
+                {/* Product Details Section */}
+                <div className="space-y-6">
+                  <div className="border-b border-gray-700 pb-2">
+                    <h4 className="text-lg font-semibold text-white mb-4">Product Details</h4>
+                  </div>
+                  
                   <div>
-                    <Label className="text-gray-300 text-sm font-medium">Last Updated</Label>
-                    <p className="text-white mt-1">{selectedListing.lastUpdate}</p>
+                    <Label className="text-gray-300 text-sm font-medium">Description</Label>
+                    <p className="text-gray-300 mt-2 leading-relaxed bg-gray-800 p-3 rounded-lg">{selectedListing.description}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Account Type</Label>
+                      <p className="text-white mt-1 font-medium">{selectedListing.account_type || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Verification Level</Label>
+                      <p className="text-white mt-1 font-medium">{selectedListing.verification_level || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Quantity Available</Label>
+                      <p className="text-white mt-1 font-medium">{selectedListing.quantity_available || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-sm font-medium">Delivery Method</Label>
+                      <Badge variant="outline" className="mt-1">
+                        {selectedListing.delivery_method}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-gray-300 text-sm font-medium">Special Features</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedListing.special_features && selectedListing.special_features.length > 0 ? (
+                        selectedListing.special_features.map((feature, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {feature}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-sm">None</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                {/* Description */}
-                <div>
-                  <Label className="text-gray-300 text-sm font-medium">Description</Label>
-                  <p className="text-gray-300 mt-2 leading-relaxed">{selectedListing.description}</p>
-                </div>
-                
-                {/* Pricing */}
-                <div>
-                  <Label className="text-gray-300 text-sm font-medium">Pricing</Label>
-                  <div className="bg-surface-2 rounded-lg p-4 mt-2">
+                {/* Pricing Section */}
+                <div className="space-y-6">
+                  <div className="border-b border-gray-700 pb-2">
+                    <h4 className="text-lg font-semibold text-white mb-4">Pricing & Availability</h4>
+                  </div>
+                  
+                  <div className="bg-gray-800 rounded-lg p-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-400">Bitcoin Price</p>
-                        <p className="text-white font-mono text-lg">{selectedListing.btcPrice} BTC</p>
+                        <p className="text-sm text-gray-400">Price</p>
+                        <p className="text-white font-mono text-lg">{selectedListing.price} BTC</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400">Monero Price</p>
-                        <p className="text-white font-mono text-lg">{selectedListing.xmrPrice} XMR</p>
+                        <p className="text-sm text-gray-400">Discount</p>
+                        <p className="text-white font-medium">{selectedListing.discount_percentage || 0}%</p>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                {/* Delivery */}
-                <div>
-                  <Label className="text-gray-300 text-sm font-medium">Delivery Method</Label>
-                  <div className="flex items-center gap-2 mt-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <Badge variant="outline" className={`
-                      ${selectedListing.deliveryType === 'success' ? 'border-success text-success' : 
-                        selectedListing.deliveryType === 'accent' ? 'border-accent text-accent' : 
-                        'border-gray-400 text-gray-400'}
-                    `}>
-                      {selectedListing.delivery}
-                    </Badge>
+                {/* Media Section */}
+                <div className="space-y-6">
+                  <div className="border-b border-gray-700 pb-2">
+                    <h4 className="text-lg font-semibold text-white mb-4">Media & Documents</h4>
+                  </div>
+                  
+                  {/* Main Images */}
+                  <div>
+                    <Label className="text-gray-300 text-sm font-medium mb-3 block">Main Product Images</Label>
+                    <div className="mt-2">
+                      {selectedListing.main_images && selectedListing.main_images.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {selectedListing.main_images.map((image, index) => (
+                            <div key={index} className="relative group">
+                              <img 
+                                src={getFullUrl(typeof image === 'string' ? image : image.url || image)} 
+                                alt={`Product image ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border border-gray-600"
+                                onError={(e) => {
+                                  console.error('Image failed to load:', image);
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="opacity-0 group-hover:opacity-100 text-white hover:text-white"
+                                  onClick={() => window.open(getFullUrl(typeof image === 'string' ? image : image.url || image), '_blank')}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-800 rounded-lg p-8 text-center">
+                          <p className="text-gray-400">No images uploaded</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Gallery Images */}
+                  <div>
+                    <Label className="text-gray-300 text-sm font-medium mb-3 block">Gallery Images</Label>
+                    <div className="mt-2">
+                      {selectedListing.gallery_images && selectedListing.gallery_images.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {selectedListing.gallery_images.map((image, index) => (
+                            <div key={index} className="relative group">
+                              <img 
+                                src={getFullUrl(typeof image === 'string' ? image : image.url || image)} 
+                                alt={`Gallery image ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-lg border border-gray-600"
+                                onError={(e) => {
+                                  console.error('Gallery image failed to load:', image);
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="opacity-0 group-hover:opacity-100 text-white hover:text-white"
+                                  onClick={() => window.open(getFullUrl(typeof image === 'string' ? image : image.url || image), '_blank')}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-800 rounded-lg p-6 text-center">
+                          <p className="text-gray-400">No gallery images</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Documents */}
+                  <div>
+                    <Label className="text-gray-300 text-sm font-medium mb-3 block">Supporting Documents</Label>
+                    <div className="mt-2">
+                      {selectedListing.documents && selectedListing.documents.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedListing.documents.map((doc, index) => {
+                            const docUrl = typeof doc === 'string' ? doc : doc.url || doc;
+                            const docName = typeof doc === 'string' ? `Document ${index + 1}` : doc.name || doc.title || `Document ${index + 1}`;
+                            const docSize = typeof doc === 'string' ? 'Unknown size' : doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown size';
+                            
+                            return (
+                              <div key={index} className="flex items-center justify-between bg-gray-800 p-3 rounded-lg border border-gray-600">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                    <span className="text-blue-400 text-sm">📄</span>
+                                  </div>
+                                  <div>
+                                    <p className="text-white text-sm font-medium">{docName}</p>
+                                    <p className="text-gray-400 text-xs">{docSize}</p>
+                                  </div>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-blue-400 hover:text-blue-300"
+                                  onClick={() => window.open(getFullUrl(docUrl), '_blank')}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-800 rounded-lg p-6 text-center">
+                          <p className="text-gray-400">No documents uploaded</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
                 {/* Actions */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-border">
+                <div className="flex justify-between items-center pt-4 border-t border-border">
                   <Button 
                     variant="outline" 
                     onClick={() => setViewListingModalOpen(false)}
@@ -461,17 +977,27 @@ export default function AdminListings() {
                   >
                     Close
                   </Button>
-                  <Button 
-                    onClick={() => {
-                      setViewListingModalOpen(false);
-                      handleEditListing(selectedListing);
-                    }}
-                    className="bg-accent text-bg hover:bg-accent-2"
-                    data-testid="btn-edit-from-details"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Listing
-                  </Button>
+                  
+                  {(selectedListing.status === "pending_approval" || selectedListing.status === "draft") && (
+                    <div className="flex space-x-3">
+                      <Button 
+                        onClick={() => openApproveConfirm(selectedListing)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        data-testid="btn-approve-listing"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Approve Listing
+                      </Button>
+                      <Button 
+                        onClick={() => openRejectConfirm(selectedListing)}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                        data-testid="btn-reject-listing"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Reject Listing
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -675,7 +1201,7 @@ export default function AdminListings() {
             <AlertDialogHeader>
               <AlertDialogTitle className="text-white">Delete Listing</AlertDialogTitle>
               <AlertDialogDescription className="text-gray-300">
-                Are you sure you want to permanently delete the listing <strong className="text-white">"{selectedListing?.title}"</strong>? 
+                Are you sure you want to permanently delete the listing <strong className="text-white">"{selectedListing?.listing_title}"</strong>? 
                 This action cannot be undone and will remove the listing from the marketplace.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -696,6 +1222,109 @@ export default function AdminListings() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Reject Confirmation Dialog */}
+        <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
+          <DialogContent className="sm:max-w-[400px] bg-card border border-border shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="text-white">Reject Listing</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
+              <p className="text-gray-300">
+                Are you sure you want to reject the listing <strong className="text-white">"{selectedListing?.listing_title}"</strong>? 
+                This action cannot be undone and will remove the listing from the marketplace.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Label className="text-gray-300 text-sm font-medium">Rejection Reason</Label>
+                <Textarea
+                  placeholder="Enter rejection reason"
+                  className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 min-h-[100px] resize-none focus:!bg-gray-800"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  data-testid="reject-reason-textarea"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4 border-t border-border mt-6 flex-shrink-0">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setRejectModalOpen(false)}
+                className="border-border text-gray-300 hover:bg-surface-2"
+                data-testid="btn-cancel-reject-listing"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                onClick={() => handleRejectListing(selectedListing?.id || 0)}
+                className="bg-danger text-white hover:bg-red-600"
+                data-testid="btn-confirm-reject-listing"
+              >
+                Reject Listing
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Approve Confirmation Dialog */}
+        <AlertDialog open={isApproveConfirmOpen} onOpenChange={setIsApproveConfirmOpen}>
+          <AlertDialogContent className="bg-card border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">Approve Product Listing</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-300">
+                Are you sure you want to approve <strong className="text-white">"{actionProduct?.listing_title}"</strong>? 
+                This will make the product visible to buyers.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-border text-gray-300 hover:bg-surface-2">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (actionProduct) {
+                    handleApproveListing(actionProduct.id);
+                    setIsApproveConfirmOpen(false);
+                  }
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Yes, Approve
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Reject Confirmation Dialog */}
+        <AlertDialog open={isRejectConfirmOpen} onOpenChange={setIsRejectConfirmOpen}>
+          <AlertDialogContent className="bg-card border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">Reject Product Listing</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-300">
+                Are you sure you want to reject <strong className="text-white">"{actionProduct?.listing_title}"</strong>? 
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-border text-gray-300 hover:bg-surface-2">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (actionProduct) {
+                    openRejectModal(actionProduct);
+                    setIsRejectConfirmOpen(false);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Yes, Reject
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
   );
 }
+  

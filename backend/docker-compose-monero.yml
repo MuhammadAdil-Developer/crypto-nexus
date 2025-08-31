@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Monero Daemon (monerod)
+  monerod:
+    image: sethsimmons/simple-monerod:latest
+    container_name: monerod
+    restart: unless-stopped
+    ports:
+      - "18080:18080"  # P2P port
+      - "18081:18081"  # RPC port
+    volumes:
+      - monero_data:/home/monero/.bitmonero
+    command: >
+      monerod
+      --testnet
+      --non-interactive
+      --rpc-bind-ip=0.0.0.0
+      --rpc-bind-port=18081
+      --confirm-external-bind
+      --disable-rpc-ban
+      --rpc-access-control-origins=*
+      --log-level=1
+    networks:
+      - monero
+
+  # Monero Wallet RPC
+  monero-wallet-rpc:
+    image: sethsimmons/simple-monerod:latest
+    container_name: monero-wallet-rpc
+    restart: unless-stopped
+    ports:
+      - "18082:18082"  # Wallet RPC port
+    volumes:
+      - monero_wallet_data:/home/monero/wallet
+    command: >
+      monero-wallet-rpc
+      --testnet
+      --daemon-host=monerod
+      --daemon-port=18081
+      --rpc-bind-ip=0.0.0.0
+      --rpc-bind-port=18082
+      --wallet-file=/home/monero/wallet/cryptonexus_wallet
+      --password=cryptonexus123
+      --confirm-external-bind
+      --disable-rpc-ban
+      --rpc-access-control-origins=*
+      --log-level=1
+    depends_on:
+      - monerod
+    networks:
+      - monero
+
+  # Monero Wallet Generator (run once to create wallet)
+  monero-wallet-generator:
+    image: sethsimmons/simple-monerod:latest
+    container_name: monero-wallet-generator
+    volumes:
+      - monero_wallet_data:/home/monero/wallet
+    command: >
+      sh -c "
+      if [ ! -f /home/monero/wallet/cryptonexus_wallet ]; then
+        monero-wallet-cli 
+        --testnet 
+        --generate-new-wallet /home/monero/wallet/cryptonexus_wallet 
+        --password cryptonexus123 
+        --mnemonic-language English 
+        --command exit;
+      fi
+      "
+    networks:
+      - monero
+
+volumes:
+  monero_data:
+  monero_wallet_data:
+
+networks:
+  monero:
+    driver: bridge 

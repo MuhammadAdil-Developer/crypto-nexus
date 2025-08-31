@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import PaymentModal from './PaymentModal';
 
 interface Product {
   id: number;
@@ -52,6 +53,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isClientHistoryExpanded, setIsClientHistoryExpanded] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     if (product && product.main_images && product.main_images.length > 0) {
@@ -80,11 +82,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
   };
 
   const handleOrder = () => {
-    toast({
-      title: "Order Placed",
-      description: "Your order has been placed successfully!",
-    });
-    onClose();
+    setIsPaymentModalOpen(true);
   };
 
   const handleAddToWishlist = () => {
@@ -136,12 +134,16 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
         <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-600 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">₿</span>
-              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-full w-10 h-10 p-0 transition-all duration-300"
+                onClick={onClose}
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
               <div>
-                <h1 className="text-xl font-bold text-white">{product.listing_title}</h1>
-                <p className="text-gray-400 text-sm">Posted {product.created_at ? formatDate(product.created_at) : 'Recently'}</p>
+              Back
               </div>
             </div>
             
@@ -559,6 +561,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        product={product}
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onBack={() => setIsPaymentModalOpen(false)}
+      />
     </div>
   );
 };

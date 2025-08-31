@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, Heart, ShoppingCart, Eye, User, Shield, Clock } from 'lucide-react';
 import ProductDetailModal from './ProductDetailModal';
+import PaymentModal from './PaymentModal';
 
 interface Product {
   id: number;
@@ -36,6 +37,7 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
@@ -65,6 +67,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) =
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleOpenPaymentModal = () => {
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleClosePaymentModal = () => {
+    setIsPaymentModalOpen(false);
   };
 
   return (
@@ -158,7 +168,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) =
                   View
                 </Button>
                 
-                <Button size="sm" className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                <Button size="sm" className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" onClick={handleOpenPaymentModal}>
                   <ShoppingCart className="w-4 h-4 mr-1" />
                   Order Now
                 </Button>
@@ -251,6 +261,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) =
                     <Eye className="w-4 h-4 mr-2" />
                     View Details
                   </Button>
+                  <Button 
+                    size="sm" 
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    onClick={handleOpenPaymentModal}
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Order Now
+                  </Button>
                   <Button size="sm" variant="outline">
                     <Heart className="w-4 h-4 mr-2" />
                     Wishlist
@@ -267,6 +285,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) =
         product={product}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+      />
+
+      {/* Payment Modal */}
+      <PaymentModal
+        product={product}
+        isOpen={isPaymentModalOpen}
+        onClose={handleClosePaymentModal}
+        onBack={handleClosePaymentModal}
       />
     </>
   );

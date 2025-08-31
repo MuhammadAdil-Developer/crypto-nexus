@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Frontend + Node.js Backend
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: cryptonexus-frontend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - BACKEND_URL=http://backend:8000
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - cryptonexus-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Django Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: cryptonexus-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=cryptonexus.settings
+      - DEBUG=False
+    volumes:
+      - ./backend/media:/app/media
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - cryptonexus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add database if needed
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: cryptonexus-db
+  #   environment:
+  #     - POSTGRES_DB=cryptonexus
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - cryptonexus-network
+
+networks:
+  cryptonexus-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local 

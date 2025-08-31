@@ -1,0 +1,9 @@
+2025-08-29 09:23:08.133	    7ace2189a7c0	INFO	logging	contrib/epee/src/mlog.cpp:273	New log categories: *:WARNING,net:FATAL,net.http:FATAL,net.ssl:FATAL,net.p2p:FATAL,net.cn:FATAL,daemon.rpc:FATAL,global:INFO,verify:FATAL,serialization:FATAL,daemon.rpc.payment:ERROR,stacktrace:INFO,logging:INFO,msgwriter:INFO
+2025-08-29 09:23:08.133	    7ace2189a7c0	INFO	logging	contrib/epee/src/mlog.cpp:273	New log categories: *:WARNING,net:FATAL,net.http:FATAL,net.ssl:FATAL,net.p2p:FATAL,net.cn:FATAL,daemon.rpc:FATAL,global:INFO,verify:FATAL,serialization:FATAL,daemon.rpc.payment:ERROR,stacktrace:INFO,logging:INFO,msgwriter:INFO,bcutil:INFO
+2025-08-29 09:23:08.133	    7ace2189a7c0	WARNING	bcutil	src/blockchain_utilities/blockchain_export.cpp:106	Starting...
+2025-08-29 09:23:08.133	    7ace2189a7c0	WARNING	bcutil	src/blockchain_utilities/blockchain_export.cpp:125	Export output file: /home/adil-x1/.bitmonero/export/blockchain.raw
+2025-08-29 09:23:08.133	    7ace2189a7c0	WARNING	bcutil	src/blockchain_utilities/blockchain_export.cpp:138	Initializing source blockchain (BlockchainDB)
+2025-08-29 09:23:08.135	    7ace2189a7c0	WARNING	bcutil	src/blockchain_utilities/blockchain_export.cpp:149	database: LMDB
+2025-08-29 09:23:08.136	    7ace2189a7c0	WARNING	bcutil	src/blockchain_utilities/blockchain_export.cpp:155	Loading blockchain from folder /home/adil-x1/.bitmonero/lmdb ...
+2025-08-29 09:23:08.136	    7ace2189a7c0	WARNING	blockchain.db.lmdb	src/blockchain_db/lmdb/db_lmdb.cpp:75	Failed to open lmdb environment: No such file or directory
+2025-08-29 09:23:08.138	    7ace2189a7c0	WARNING	bcutil	src/blockchain_utilities/blockchain_export.cpp:162	Error opening database: Failed to open lmdb environment: No such file or directory

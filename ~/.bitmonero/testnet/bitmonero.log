@@ -1,0 +1,49 @@
+2025-08-29 09:44:59.494	    72bd1dcbb080	INFO	logging	contrib/epee/src/mlog.cpp:273	New log categories: *:WARNING,net:FATAL,net.http:FATAL,net.ssl:FATAL,net.p2p:FATAL,net.cn:FATAL,daemon.rpc:FATAL,global:INFO,verify:FATAL,serialization:FATAL,daemon.rpc.payment:ERROR,stacktrace:INFO,logging:INFO,msgwriter:INFO
+2025-08-29 09:44:59.494	    72bd1dcbb080	INFO	logging	contrib/epee/src/mlog.cpp:273	New log categories: *:INFO,global:INFO,stacktrace:INFO,logging:INFO,msgwriter:INFO,perf.*:DEBUG
+2025-08-29 09:44:59.495	    72bd1dcbb080	INFO	global	src/daemon/main.cpp:309	Monero 'Fluorine Fermi' (v0.18.3.2-release)
+2025-08-29 09:44:59.496	    72bd1dcbb080	INFO	daemon	src/daemon/main.cpp:371	Moving from main() into the daemonize now.
+2025-08-29 09:44:59.496	    72bd1dcbb080	INFO	msgwriter	src/common/scoped_message_writer.h:102	Forking to background...
+2025-08-29 09:44:59.499	    72bd1dcbb080	WARNING	daemon	src/daemon/executor.cpp:61	Monero 'Fluorine Fermi' (v0.18.3.2-release) Daemonised
+2025-08-29 09:44:59.501	    72bd1dcbb080	INFO	global	src/daemon/protocol.h:53	Initializing cryptonote protocol...
+2025-08-29 09:44:59.501	    72bd1dcbb080	INFO	global	src/daemon/protocol.h:58	Cryptonote protocol initialized OK
+2025-08-29 09:44:59.505	    72bd1dcbb080	INFO	global	src/daemon/core.h:64	Initializing core...
+2025-08-29 09:44:59.505	    72bd1dcbb080	INFO	global	src/cryptonote_core/cryptonote_core.cpp:523	Loading blockchain from folder ~/.bitmonero/testnet/testnet/lmdb ...
+2025-08-29 09:44:59.527	    72bd1dcbb080	INFO	blockchain.db.lmdb	src/blockchain_db/lmdb/db_lmdb.cpp:1400	LMDB memory map size: 1073741824
+2025-08-29 09:44:59.528	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:346	Blockchain not loaded, generating genesis block.
+2025-08-29 09:44:59.885	    72bd1dcbb080	INFO	perf.blockchain	src/common/perf_timer.cpp:120	PERF             ----------
+2025-08-29 09:44:59.885	    72bd1dcbb080	INFO	perf.blockchain	src/common/perf_timer.cpp:156	PERF      362    get_next_long_term_block_weight
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	perf.blockchain	src/common/perf_timer.cpp:120	PERF             ----------
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	perf.blockchain	src/common/perf_timer.cpp:156	PERF       84    update_next_cumulative_weight_limit
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:4499	+++++ BLOCK SUCCESSFULLY ADDED
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:4499	id:	<48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b>
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:4499	PoW:	<6d408ba49e2bf86ec18644626be8e9b325ed800d5fb25d8ce4ce3e7074a07257>
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:4499	HEIGHT 0, difficulty:	1
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:4499	block reward: 17.592186044415(17.592186044415 + 0.000000000000), coinbase_weight: 80, cumulative weight: 80, 162(0/162)ms
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain.db.lmdb	src/blockchain_db/lmdb/db_lmdb.cpp:3876	batch transaction mode already enabled, but asked to enable batch mode
+2025-08-29 09:44:59.886	    72bd1dcbb080	INFO	blockchain.db.lmdb	src/blockchain_db/lmdb/db_lmdb.cpp:3879	batch transactions enabled
+2025-08-29 09:44:59.887	    72bd1dcbb080	INFO	blockchain	src/cryptonote_core/blockchain.cpp:387	Blockchain initialized. last block: 0, d4150.h22.m56.s6 time ago, current difficulty: 1
+2025-08-29 09:44:59.888	    72bd1dcbb080	INFO	perf.blockchain	src/common/perf_timer.cpp:120	PERF             ----------
+2025-08-29 09:44:59.888	    72bd1dcbb080	INFO	perf.blockchain	src/common/perf_timer.cpp:156	PERF      117    update_next_cumulative_weight_limit
+2025-08-29 09:44:59.888	    72bd1dcbb080	INFO	txpool	src/cryptonote_core/tx_pool.cpp:1765	Validating txpool contents for v1
+2025-08-29 09:44:59.888	    72bd1dcbb080	INFO	global	src/cryptonote_core/cryptonote_core.cpp:698	Loading checkpoints
+2025-08-29 09:44:59.888	    72bd1dcbb080	INFO	global	src/daemon/core.h:81	Core initialized OK
+2025-08-29 09:44:59.888	    72bd1dcbb080	INFO	global	src/daemon/p2p.h:64	Initializing p2p server...
+2025-08-29 09:44:59.894	    72bd1dcbb080	INFO	net.throttle	contrib/epee/src/network_throttle-detail.cpp:150	Setting LIMIT: 2048 kbps
+2025-08-29 09:44:59.894	    72bd1dcbb080	INFO	net.p2p	src/p2p/net_node.inl:2835	Set limit-up to 2048 kB/s
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.throttle	contrib/epee/src/network_throttle-detail.cpp:150	Setting LIMIT: 8192 kbps
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.throttle	contrib/epee/src/network_throttle-detail.cpp:150	Setting LIMIT: 8192 kbps
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.p2p	src/p2p/net_node.inl:2847	Set limit-down to 8192 kB/s
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.throttle	contrib/epee/src/network_throttle-detail.cpp:150	Setting LIMIT: 2048 kbps
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.p2p	src/p2p/net_node.inl:2869	Set limit-up to 2048 kB/s
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.throttle	contrib/epee/src/network_throttle-detail.cpp:150	Setting LIMIT: 8192 kbps
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.throttle	contrib/epee/src/network_throttle-detail.cpp:150	Setting LIMIT: 8192 kbps
+2025-08-29 09:44:59.895	    72bd1dcbb080	INFO	net.p2p	src/p2p/net_node.inl:2873	Set limit-down to 8192 kB/s
+2025-08-29 09:44:59.913	    72bd1dcbb080	INFO	net	contrib/epee/include/net/abstract_tcp_server2.inl:1341	Set server type to: 2 from name: P2P, prefix_name = P2P
+2025-08-29 09:44:59.913	    72bd1dcbb080	INFO	net.p2p	src/p2p/net_node.inl:975	Binding (IPv4) on 0.0.0.0:28080
+2025-08-29 09:44:59.914	    72bd1dcbb080	ERROR	net	contrib/epee/include/net/abstract_tcp_server2.inl:1225	Failed to bind IPv4: bind: Address already in use
+2025-08-29 09:44:59.915	    72bd1dcbb080	FATAL	net	contrib/epee/include/net/abstract_tcp_server2.inl:1274	Error starting server: Failed to bind IPv4 (set to required)
+2025-08-29 09:44:59.915	    72bd1dcbb080	ERROR	net.p2p	src/p2p/net_node.inl:983	Failed to bind server
+2025-08-29 09:44:59.915	    72bd1dcbb080	INFO	global	src/daemon/core.h:102	Deinitializing core...
+2025-08-29 09:44:59.924	    72bd1dcbb080	INFO	global	src/daemon/protocol.h:75	Stopping cryptonote protocol...
+2025-08-29 09:44:59.924	    72bd1dcbb080	INFO	global	src/daemon/protocol.h:79	Cryptonote protocol stopped successfully
+2025-08-29 09:44:59.924	    72bd1dcbb080	ERROR	daemon	src/daemon/main.cpp:377	Exception in main! Failed to initialize p2p server.

@@ -73,8 +73,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DB_NAME', 'cryptonexus'),
         'USER': os.environ.get('DB_USER', 'cryptonexus_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'cryptonexus_password'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'admin@123'),
+        'HOST': os.environ.get('DB_HOST', '94.130.201.44'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
@@ -246,3 +246,41 @@ os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 # Create static and media directories
 os.makedirs(os.path.join(BASE_DIR, 'static'), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True) 
+
+# Payment System Configuration - REAL INTEGRATION
+# BTCPay Server (Real Bitcoin)
+BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://localhost:23000')
+BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'JEc1gfxx2DXM8RYUwgtcdiBhxVAJtXYCD3LRYfAY4mt')  # From your BTCPay dashboard
+BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'a10ae0eef075731c4842e3fc493bf0d405c13d02')    # TODO: Add your BTCPay API key here
+BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', 'cryptonexus_webhook_secret_2024')
+
+# Monero RPC (Real Monero)
+MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://localhost:18082/json_rpc')
+MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', '')
+MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'cryptonexus123')
+MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'cryptonexus123')
+
+# Bitcoin Core RPC (for direct Bitcoin operations)
+BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://localhost:18332')
+BITCOIN_RPC_USER = os.environ.get('BITCOIN_RPC_USER', 'bitcoinuser')
+BITCOIN_RPC_PASSWORD = os.environ.get('BITCOIN_RPC_PASSWORD', 'bitcoinpass123')
+
+# Network Configuration
+BITCOIN_NETWORK = os.environ.get('BITCOIN_NETWORK', 'testnet')  # testnet for development
+MONERO_NETWORK = os.environ.get('MONERO_NETWORK', 'testnet')    # testnet for development
+
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+PAYMENT_EXPIRY_HOURS = int(os.environ.get('PAYMENT_EXPIRY_HOURS', '2'))
+DEFAULT_ESCROW_FEE_PERCENTAGE = float(os.environ.get('DEFAULT_ESCROW_FEE_PERCENTAGE', '2.0'))
+
+# Blockchain Monitoring
+BLOCK_CONFIRMATION_REQUIREMENTS = {
+    'BTC': int(os.environ.get('BTC_CONFIRMATIONS', '1')),  # 1 for testnet, 3+ for mainnet
+    'XMR': int(os.environ.get('XMR_CONFIRMATIONS', '1')),  # 1 for testnet, 10+ for mainnet
+}
+
+# Required confirmations per cryptocurrency
+REQUIRED_CONFIRMATIONS = {
+    'BTC': int(os.environ.get('BTC_REQUIRED_CONFIRMATIONS', '3')),
+    'XMR': int(os.environ.get('XMR_REQUIRED_CONFIRMATIONS', '1')),
+} 

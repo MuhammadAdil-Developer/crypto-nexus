@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # BTCPay Server
+  btcpayserver:
+    image: btcpayserver/btcpayserver:1.12.5
+    container_name: btcpayserver
+    restart: unless-stopped
+    ports:
+      - "23000:49392"
+    environment:
+      # Database
+      - BTCPAY_POSTGRES=User ID=postgres;Host=postgres;Port=5432;Database=btcpayserver;Password=btcpay123
+      
+      # Basic Configuration
+      - BTCPAY_NETWORK=testnet  # Change to mainnet for production
+      - BTCPAY_CHAINS=btc
+      - BTCPAY_BTCEXPLORERURL=https://blockstream.info/testnet/
+      - BTCPAY_BTCRPCURL=http://bitcoind:43782/
+      - BTCPAY_BTCRPCUSER=bitcoinuser
+      - BTCPAY_BTCRPCPASSWORD=bitcoinpass123
+      
+      # External URL (change this to your domain)
+      - BTCPAY_HOST=localhost:23000
+      - BTCPAY_PROTOCOL=http
+      
+      # Security
+      - BTCPAY_ROOTPATH=/
+      - BTCPAY_POSTGRES_MIGRATE=1
+      
+    depends_on:
+      - postgres
+      - bitcoind
+    volumes:
+      - btcpay_datadir:/datadir
+      - btcpay_pluginsdir:/app/Plugins
+      - btcpay_wwwroot:/app/wwwroot
+    networks:
+      - btcpay
+
+  # Bitcoin Core (Testnet)
+  bitcoind:
+    image: ruimarinho/bitcoin-core:25.0
+    container_name: bitcoind
+    restart: unless-stopped
+    ports:
+      - "18332:18332"  # RPC port
+      - "18333:18333"  # P2P port
+    environment:
+      - BITCOIN_DATA=/bitcoin
+    command: >
+      bitcoind
+      -testnet=1
+      -server=1
+      -rpcallowip=0.0.0.0/0
+      -rpcbind=0.0.0.0:18332
+      -rpcuser=bitcoinuser
+      -rpcpassword=bitcoinpass123
+      -txindex=1
+      -zmqpubrawblock=tcp://0.0.0.0:28332
+      -zmqpubrawtx=tcp://0.0.0.0:28333
+    volumes:
+      - bitcoin_data:/bitcoin
+    networks:
+      - btcpay
+
+  # PostgreSQL for BTCPay
+  postgres:
+    image: postgres:13
+    container_name: btcpay_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=btcpay123
+      - POSTGRES_DB=btcpayserver
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - btcpay
+
+  # NBXplorer (Bitcoin blockchain indexer)
+  nbxplorer:
+    image: nicolasdorier/nbxplorer:2.4.3
+    container_name: nbxplorer
+    restart: unless-stopped
+    ports:
+      - "32838:32838"
+    environment:
+      - NBXPLORER_NETWORK=testnet
+      - NBXPLORER_CHAINS=btc
+      - NBXPLORER_BTCRPCURL=http://bitcoind:18332/
+      - NBXPLORER_BTCRPCUSER=bitcoinuser
+      - NBXPLORER_BTCRPCPASSWORD=bitcoinpass123
+      - NBXPLORER_BIND=0.0.0.0:32838
+    depends_on:
+      - bitcoind
+    volumes:
+      - nbxplorer_datadir:/datadir
+    networks:
+      - btcpay
+
+volumes:
+  bitcoin_data:
+  postgres_data:
+  btcpay_datadir:
+  btcpay_pluginsdir:
+  btcpay_wwwroot:
+  nbxplorer_datadir:
+
+networks:
+  btcpay:
+    driver: bridge 

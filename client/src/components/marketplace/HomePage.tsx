@@ -15,7 +15,7 @@ export function HomePage() {
             <h1 className="text-4xl font-bold text-text mb-6">
               Secure Digital Account Marketplace
             </h1>
-            <p className="text-xl text-muted mb-8 max-w-3xl mx-auto">
+            <p className="text-xl mb-8 max-w-3xl mx-auto">
               Trade premium accounts safely with cryptocurrency payments, escrow protection, and complete anonymity. Your privacy is our priority.
             </p>
             
@@ -23,7 +23,7 @@ export function HomePage() {
             <div className="max-w-2xl mx-auto mb-8">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-muted" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -40,7 +40,7 @@ export function HomePage() {
             </div>
             
             {/* Trust Badges */}
-            <div className="flex items-center justify-center space-x-8 text-sm text-muted">
+            <div className="flex items-center justify-center space-x-8 text-sm">
               <div className="flex items-center">
                 <Bitcoin className="text-warning w-4 h-4 mr-2" />
                 <span>BTC & XMR Payments</span>
@@ -73,10 +73,10 @@ export function HomePage() {
                     className="w-full h-32 object-cover rounded-xl mb-4" 
                   />
                   <h3 className="text-lg font-semibold text-text mb-2">{category.title}</h3>
-                  <p className="text-muted text-sm mb-4">{category.description}</p>
+                  <p className="text-sm mb-4">{category.description}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-accent text-sm font-medium">{category.listings} listings</span>
-                    <ArrowRight className="w-4 h-4 text-muted group-hover:text-accent transition-colors" />
+                    <ArrowRight className="w-4 h-4 group-hover:text-accent transition-colors" />
                   </div>
                 </CardContent>
               </Card>
@@ -99,13 +99,13 @@ export function HomePage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <StatusBadge status={listing.delivery} type={listing.deliveryType} />
-                    <Button variant="ghost" size="sm" className="text-muted hover:text-danger" data-testid={`favorite-${listing.id}`}>
+                    <Button variant="ghost" size="sm" className="hover:text-danger" data-testid={`favorite-${listing.id}`}>
                       <Heart className="w-4 h-4" />
                     </Button>
                   </div>
                   
                   <h3 className="text-lg font-semibold text-text mb-2">{listing.title}</h3>
-                  <p className="text-muted text-sm mb-4">{listing.description}</p>
+                  <p className="text-sm mb-4">{listing.description}</p>
                   
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
@@ -117,7 +117,7 @@ export function HomePage() {
                       <span className="text-sm text-text">{listing.vendor}</span>
                       <div className="flex items-center">
                         <Star className="text-warning w-3 h-3 fill-current" />
-                        <span className="text-xs text-muted ml-1">{listing.rating} ({listing.reviews})</span>
+                        <span className="text-xs ml-1">{listing.rating} ({listing.reviews})</span>
                       </div>
                     </div>
                   </div>
@@ -151,7 +151,7 @@ export function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold text-text mb-4">Why Choose CryptoMarket?</h2>
-            <p className="text-muted max-w-2xl mx-auto">
+            <p className="max-w-2xl mx-auto">
               We prioritize your privacy and security above all else, providing a safe environment for anonymous digital commerce.
             </p>
           </div>
@@ -162,7 +162,7 @@ export function HomePage() {
                 <UserX className="text-accent w-8 h-8" />
               </div>
               <h3 className="text-lg font-semibold text-text mb-2">Anonymous Trading</h3>
-              <p className="text-muted">No personal data required. Trade with complete privacy using only usernames and recovery phrases.</p>
+              <p className="">No personal data required. Trade with complete privacy using only usernames and recovery phrases.</p>
             </div>
             
             <div className="text-center">
@@ -170,7 +170,7 @@ export function HomePage() {
                 <Shield className="text-accent w-8 h-8" />
               </div>
               <h3 className="text-lg font-semibold text-text mb-2">Escrow Protection</h3>
-              <p className="text-muted">Your payments are held securely until delivery is confirmed, protecting both buyers and sellers.</p>
+              <p className="">Your payments are held securely until delivery is confirmed, protecting both buyers and sellers.</p>
             </div>
             
             <div className="text-center">
@@ -178,7 +178,7 @@ export function HomePage() {
                 <Bitcoin className="text-accent w-8 h-8" />
               </div>
               <h3 className="text-lg font-semibold text-text mb-2">Crypto Payments</h3>
-              <p className="text-muted">Accept Bitcoin and Monero for maximum privacy and security in all transactions.</p>
+              <p className="">Accept Bitcoin and Monero for maximum privacy and security in all transactions.</p>
             </div>
           </div>
         </div>
@@ -195,13 +195,13 @@ export function HomePage() {
                 </div>
                 <h3 className="ml-3 text-xl font-bold text-text">CryptoMarket</h3>
               </div>
-              <p className="text-muted mb-4">The secure, anonymous marketplace for digital accounts. Trade safely with cryptocurrency payments and escrow protection.</p>
-              <p className="text-xs text-muted">We do not collect unnecessary personal data. Accounts are anonymous. Use recovery phrase to regain access.</p>
+              <p className=" mb-4">The secure, anonymous marketplace for digital accounts. Trade safely with cryptocurrency payments and escrow protection.</p>
+              <p className="text-xs">We do not collect unnecessary personal data. Accounts are anonymous. Use recovery phrase to regain access.</p>
             </div>
             
             <div>
               <h4 className="text-sm font-semibold text-text mb-4">Marketplace</h4>
-              <ul className="space-y-2 text-sm text-muted">
+              <ul className="space-y-2 text-sm ">
                 <li><a href="#" className="hover:text-text">Browse Listings</a></li>
                 <li><a href="#" className="hover:text-text">Categories</a></li>
                 <li><a href="#" className="hover:text-text">Featured Vendors</a></li>
@@ -211,7 +211,7 @@ export function HomePage() {
             
             <div>
               <h4 className="text-sm font-semibold text-text mb-4">Support</h4>
-              <ul className="space-y-2 text-sm text-muted">
+              <ul className="space-y-2 text-sm ">
                 <li><a href="#" className="hover:text-text">Help Center</a></li>
                 <li><a href="#" className="hover:text-text">Dispute Resolution</a></li>
                 <li><a href="#" className="hover:text-text">Privacy Policy</a></li>
@@ -221,7 +221,7 @@ export function HomePage() {
           </div>
           
           <div className="border-t border-border mt-8 pt-8 text-center">
-            <p className="text-xs text-muted">
+            <p className="text-xs">
               © 2024 CryptoMarket. All rights reserved. • Privacy-first anonymous marketplace
             </p>
           </div>

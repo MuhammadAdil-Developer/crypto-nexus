@@ -131,6 +131,7 @@ class PaymentWebhook(BaseModel):
     
     # Webhook data
     external_id = models.CharField(max_length=255)  # BTCPay invoice ID or Monero txid
+    delivery_id = models.CharField(max_length=255, blank=True, null=True)  # BTCPay delivery ID for deduplication
     raw_data = models.JSONField()
     processed = models.BooleanField(default=False)
     

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link } from "wouter";
 
-export function BuyerHeader() {
+export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const notifications = [
@@ -25,7 +25,7 @@ export function BuyerHeader() {
   const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
-    <header className="bg-gray-950 border-b border-gray-800 px-6 py-4">
+    <header className={`bg-gray-950 border-b border-gray-800 px-6 py-4 ${hasBanner ? 'mt-16' : ''}`}>
       <div className="flex items-center justify-between">
         {/* Search Bar */}
         <div className="flex-1 max-w-2xl">

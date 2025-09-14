@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Grid, List as ListIcon, ChevronDown, Star, Eye, Heart } from "lucide-react";
+import { Search, Filter, Grid, List as ListIcon, ChevronDown, Star, Eye, Heart, ShoppingCart } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { ProductCard } from "@/components/buyer/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { CartProvider, useCart } from "@/contexts/CartContext";
+import CartSidebar from "@/components/buyer/CartSidebar";
+import BulkPurchaseModal from "@/components/buyer/BulkPurchaseModal";
 
 // API Service
 const API_BASE_URL = 'http://localhost:8000/api/v1';
@@ -48,7 +51,7 @@ interface Product {
   review_count?: number;
 }
 
-export default function BuyerListings() {
+function BuyerListingsContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,7 +60,10 @@ export default function BuyerListings() {
   const [viewMode, setViewMode] = useState("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{id: string, name: string, count: number}[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isBulkPurchaseOpen, setIsBulkPurchaseOpen] = useState(false);
   const { toast } = useToast();
+  const { getTotalItems } = useCart();
 
   // Fetch products from API
   useEffect(() => {
@@ -127,23 +133,24 @@ export default function BuyerListings() {
         });
         return;
       }
-
+  
       const response = await fetch(`${API_BASE_URL}/products/buyer/listings/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-
+  
       if (response.ok) {
         const data = await response.json();
         console.log('📦 Buyer Listings Response:', data);
         
-        setProducts(data.results || []);
-        setFilteredProducts(data.results || []);
+        // Fix: Use data.data instead of data.results
+        setProducts(data.data || []);
+        setFilteredProducts(data.data || []);
         
         // Extract categories from products
         const categoryMap = new Map();
-        data.results?.forEach((product: Product) => {
+        data.data?.forEach((product) => {
           const catName = product.category.name;
           categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
         });
@@ -155,7 +162,7 @@ export default function BuyerListings() {
         }));
         
         setCategories([
-          { id: "all", name: "All Categories", count: data.results?.length || 0 },
+          { id: "all", name: "All Categories", count: data.data?.length || 0 },
           ...categoryList
         ]);
         
@@ -228,6 +235,16 @@ export default function BuyerListings() {
   return (
     <BuyerLayout>
       <div className="space-y-6">
+        {/* Cart Button */}
+        <div className="fixed bottom-6 right-6 z-40">
+          <Button
+            onClick={() => setIsCartOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg"
+          >
+            <ShoppingCart className="w-6 h-6 mr-2" />
+            Cart ({getTotalItems()})
+          </Button>
+        </div>
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <h1 className="text-2xl font-bold mb-2">Browse Listings</h1>
@@ -366,13 +383,45 @@ export default function BuyerListings() {
                 "space-y-4"
               }>
                 {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} viewMode={viewMode} />
+                  <ProductCard key={product.id} product={product} viewMode={viewMode as "grid" | "list"} />
                 ))}
               </div>
             )}
           </div>
         </div>
+        
+        {/* Cart Sidebar */}
+        <CartSidebar
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          onCheckout={() => {
+            setIsCartOpen(false);
+            setIsBulkPurchaseOpen(true);
+          }}
+        />
+        
+        {/* Bulk Purchase Modal */}
+        <BulkPurchaseModal
+          isOpen={isBulkPurchaseOpen}
+          onClose={() => setIsBulkPurchaseOpen(false)}
+          onConfirm={() => {
+            // Handle bulk purchase logic here
+            toast({
+              title: "Purchase Initiated",
+              message: "Your bulk purchase has been initiated"
+            });
+            setIsBulkPurchaseOpen(false);
+          }}
+        />
       </div>
     </BuyerLayout>
+  );
+}
+
+export default function BuyerListings() {
+  return (
+    <CartProvider>
+      <BuyerListingsContent />
+    </CartProvider>
   );
 }

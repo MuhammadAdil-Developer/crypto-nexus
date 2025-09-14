@@ -2,35 +2,29 @@ import { VendorOverviewCards } from "@/components/vendor/VendorOverviewCards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Edit, Trash2, TrendingUp, Package, Star } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, Eye, Edit, Trash2, TrendingUp, Package, Star, Lock, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { orderService } from "@/services/orderService";
+import { useToast } from "@/hooks/use-toast";
 
-const recentOrders = [
-  {
-    id: "ORD-VN-4521",
-    buyer: "crypto_buyer_01",
-    product: "Netflix Premium Account (1 Year)",
-    amount: "0.0012 BTC",
-    status: "Processing",
-    date: "2024-01-15"
-  },
-  {
-    id: "ORD-VN-4520",
-    buyer: "anonymous_buyer",
-    product: "Spotify Premium (6 Months)",
-    amount: "0.0008 BTC",
-    status: "Completed",
-    date: "2024-01-14"
-  },
-  {
-    id: "ORD-VN-4519",
-    buyer: "crypto_buyer_02",
-    product: "Disney+ Account (1 Year)",
-    amount: "0.0010 BTC",
-    status: "Shipped",
-    date: "2024-01-14"
-  }
-];
+interface Order {
+  id: string;
+  order_id: string;
+  buyer: {
+    username: string;
+  };
+  product: {
+    headline: string;
+  };
+  total_amount: string;
+  crypto_currency: string;
+  payment_status: string;
+  order_status: string;
+  created_at: string;
+  use_escrow?: boolean;
+  confirmed_at?: string;
+}
 
 const topProducts = [
   {
@@ -79,25 +73,114 @@ const recentMessages = [
 ];
 
 export default function VendorOverview() {
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Fetch recent orders
+  const fetchRecentOrders = async () => {
+    try {
+      setIsLoadingOrders(true);
+      const ordersData = await orderService.getOrders();
+      const ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any).results || [];
+      
+      // Get last 3 orders sorted by creation date
+      const sortedOrders = ordersArray
+        .sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
+      
+      setRecentOrders(sortedOrders);
+    } catch (error) {
+      console.error('Error fetching recent orders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch recent orders",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentOrders();
+  }, []);
+
+  // Navigation handlers
+  const handleViewAllOrders = () => {
+    navigate('/vendor/orders');
+  };
+
+  const handleAddNewProduct = () => {
+    navigate('/vendor/listings/add');
+  };
+
+  // Get status display for orders
+  const getStatusDisplay = (order: Order) => {
+    const paymentStatus = order.payment_status?.toLowerCase();
+    const orderStatus = order.order_status?.toLowerCase();
+    
+    if (paymentStatus === 'paid') {
+      return 'Completed';
+    }
+    
+    switch (orderStatus) {
+      case 'pending':
+      case 'pending_payment':
+        return 'Pending';
+      case 'processing':
+        return 'Processing';
+      case 'shipped':
+        return 'Shipped';
+      case 'completed':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return 'Pending';
+    }
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <div 
-        className="rounded-xl p-8 text-white border border-gray-700/50 backdrop-blur-sm relative overflow-hidden"
+        className="p-8 text-white border border-gray-700/50 backdrop-blur-sm relative overflow-hidden"
         style={{ 
-          background: 'linear-gradient(135deg, #1F2937 0%, #4C1D95 30%, #6366F1 60%, #374151 100%)',
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #16213e 75%, #1a1a2e 100%)',
+          boxShadow: '0 8px 32px 0 rgba(26, 26, 46, 0.5)',
+          borderRadius: '16px',
+          border: '1px solid rgba(75, 85, 99, 0.3)'
         }}
       >
-        <h1 className="text-3xl font-bold mb-2">Welcome back, CryptoAccountsPlus!</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          Welcome back, <span 
+            className="bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent"
+          >
+            CryptoAccountsPlus!
+          </span>
+        </h1>
         <p className="text-blue-100">Here's what's happening with your store today</p>
         <div className="mt-4 flex space-x-4">
-          <Link href="/vendor/listings/add">
-            <Button variant="secondary" className="bg-gray-800 text-white hover:bg-gray-700">
+          <Button 
+            variant="secondary" 
+            className="bg-gray-800 text-white hover:bg-gray-700"
+            onClick={handleAddNewProduct}
+          >
               <Plus className="w-4 h-4 mr-2" />
               Add New Product
             </Button>
-          </Link>
         </div>
       </div>
 
@@ -111,33 +194,67 @@ export default function VendorOverview() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl font-bold text-white">Recent Orders</CardTitle>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleViewAllOrders}
+              >
                 View All
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentOrders.map((order) => (
+              {isLoadingOrders ? (
+                <p className="text-center text-gray-400">Loading orders...</p>
+              ) : recentOrders.length === 0 ? (
+                <p className="text-center text-gray-400">No recent orders found.</p>
+              ) : (
+                recentOrders.map((order) => (
                 <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-medium text-white">{order.id}</h4>
-                      <Badge 
-                        variant={order.status === "Completed" ? "default" : "secondary"}
-                        className={order.status === "Completed" ? "bg-green-100 text-green-800" : ""}
-                      >
-                        {order.status}
-                      </Badge>
+                        <h4 className="font-medium text-white">{order.order_id}</h4>
+                        <div className="text-right">
+                          <div className="text-xs text-gray-400 mb-1">{formatDate(order.created_at)}</div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Badge 
+                          variant={getStatusDisplay(order) === "Completed" ? "default" : "secondary"}
+                          className={getStatusDisplay(order) === "Completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                        >
+                          {getStatusDisplay(order)}
+                        </Badge>
+                        {order.use_escrow && (
+                          <>
+                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[10px] px-1 py-0 h-4">
+                              <Lock className="w-2 h-2 mr-0.5" />
+                              ESCROW
+                            </Badge>
+                            {order.order_status === 'paid' && !order.confirmed_at && (
+                              <Badge className="bg-orange-500/20 text-orange-300 text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                Awaiting
+                              </Badge>
+                            )}
+                            {order.confirmed_at && (
+                              <Badge className="bg-green-500/20 text-green-300 text-[10px] px-1 py-0 h-4">
+                                <CheckCircle className="w-2 h-2 mr-0.5" />
+                                Approved
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-300 mb-1">{order.product}</p>
+                      </div>
+                      <p className="text-sm text-gray-300 mb-1">{order.product.headline}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">by {order.buyer}</span>
-                      <span className="font-semibold text-blue-400">{order.amount}</span>
+                        <span className="text-sm text-gray-400">by {order.buyer.username}</span>
+                        <span className="font-semibold text-blue-400">{order.total_amount} {order.crypto_currency}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

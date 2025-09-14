@@ -64,25 +64,65 @@ const Login: React.FC = () => {
         showToast({
           type: 'success',
           title: 'Login Successful!',
-          message: `Welcome back, ${response.data.user.first_name}!`,
+          message: `Welcome back, ${response.data.user.username}!`,
           duration: 3000
         });
         
-        // Redirect to dashboard based on user type
-        setTimeout(() => {
+        // Smart routing based on user type and vendor status
+        setTimeout(async () => {
+          try {
           const userType = response.data.user.user_type;
-          switch (userType) {
-            case 'buyer':
-              window.location.href = '/buyer/dashboard';
-              break;
-            case 'vendor':
-              window.location.href = '/vendor/dashboard';
-              break;
-            case 'admin':
+            console.log('🔍 Login - User Type:', userType);
+            console.log('🔍 Login - Full User Data:', response.data.user);
+            
+            if (userType === 'admin') {
+              console.log('🚀 Redirecting to Admin Dashboard');
               window.location.href = '/admin/dashboard';
-              break;
-            default:
-              window.location.href = '/dashboard';
+              return;
+            }
+            
+            if (userType === 'vendor') {
+              console.log('🚀 Redirecting to Vendor Dashboard');
+              window.location.href = '/vendor/dashboard';
+              return;
+            }
+            
+            // For buyers, check if they have vendor application
+            if (userType === 'buyer') {
+              console.log('🔍 Checking vendor status for buyer...');
+              const vendorStatus = await authService.checkVendorStatus();
+              console.log('🔍 Vendor Status:', vendorStatus);
+              
+              if (vendorStatus.hasApplication) {
+                if (vendorStatus.applicationStatus === 'approved') {
+                  // User is now an approved vendor
+                  console.log('🚀 Buyer has approved vendor application, redirecting to Vendor Dashboard');
+                  window.location.href = '/vendor/dashboard';
+                } else if (vendorStatus.applicationStatus === 'pending') {
+                  // Application is pending, show success page
+                  console.log('🚀 Buyer has pending vendor application, redirecting to Success Page');
+                  window.location.href = '/vendor/apply/success';
+                } else if (vendorStatus.applicationStatus === 'rejected') {
+                  // Application was rejected, allow re-application
+                  console.log('🚀 Buyer has rejected vendor application, redirecting to Apply Page');
+                  window.location.href = '/vendor/apply';
+                }
+              } else {
+                // No vendor application, go to buyer dashboard
+                console.log('🚀 Buyer has no vendor application, redirecting to Buyer Dashboard');
+                window.location.href = '/buyer';
+              }
+              return;
+            }
+            
+            // Default fallback
+            console.log('🚀 Default fallback, redirecting to Buyer Dashboard');
+            window.location.href = '/buyer';
+            
+          } catch (error) {
+            console.error('❌ Routing error:', error);
+            // Fallback to buyer dashboard
+            window.location.href = '/buyer';
           }
         }, 1500);
       } else {

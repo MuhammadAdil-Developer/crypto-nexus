@@ -4,18 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Lock, Mail, Shield, TrendingUp, Zap, Globe } from "lucide-react";
-import authService from "@/services/authService";
+import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
+import { authService } from "@/services/authService";
 
 export default function SignIn() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: ""
   });
-  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; password?: string; general?: string }>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -28,12 +28,10 @@ export default function SignIn() {
   };
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: { username?: string; password?: string } = {};
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    if (!formData.username) {
+      newErrors.username = 'Username is required';
     }
 
     if (!formData.password) {
@@ -59,39 +57,15 @@ export default function SignIn() {
       console.log('🔐 Login response:', response);
       
       if (response.success) {
-        // Check if user is admin - redirect to admin login if so
-        if (response.data?.user?.user_type === 'admin' || response.data?.user?.is_superuser === true) {
-          setErrors({ 
-            general: 'Administrators must use the admin login page. Redirecting...' 
-          });
-          // Clear stored data
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          
-          // Redirect to admin login after a short delay
-          setTimeout(() => {
-            navigate('/admin-sign-in');
-          }, 2000);
-          return;
+        // Redirect based on user type
+        const userType = response.data.user.user_type;
+        if (userType === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (userType === 'vendor') {
+          navigate('/vendor/');
+        } else {
+          navigate('/buyer/');
         }
-        
-        // Show success message for non-admin users
-        console.log('✅ Login successful:', response.message);
-        console.log('👤 User data:', response.data?.user);
-        
-        // Use smart routing to determine redirect path
-        setTimeout(async () => {
-          try {
-            const redirectPath = await authService.getSmartRedirectPath();
-            console.log('🎯 Smart redirect to:', redirectPath);
-            navigate(redirectPath);
-          } catch (error) {
-            console.error('❌ Error getting redirect path:', error);
-            // Fallback to buyer dashboard
-            navigate('/buyer');
-          }
-        }, 1000);
       } else {
         setErrors({ general: response.message || 'Login failed. Please try again.' });
       }
@@ -188,21 +162,21 @@ export default function SignIn() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-300">Email Address</Label>
+                  <Label htmlFor="username" className="text-gray-300">Username</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
-                      id="email"
-                      type="email"
-                      name="email"
-                      value={formData.email}
+                      id="username"
+                      type="text"
+                      name="username"
+                      value={formData.username}
                       onChange={handleInputChange}
-                      placeholder="Enter your email"
+                      placeholder="Enter your username"
                       className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 transition-colors"
                       required
                       disabled={isLoading}
                     />
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                    {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
                   </div>
                 </div>
 
@@ -271,15 +245,6 @@ export default function SignIn() {
             Protected by enterprise-grade encryption and security protocols
           </div>
           
-          <div className="mt-4 text-center">
-            <span className="text-gray-400 text-xs">Administrators: </span>
-            <span 
-              onClick={() => navigate('/admin-sign-in')}
-              className="text-red-400 hover:text-red-300 transition-colors cursor-pointer text-xs font-semibold"
-            >
-              Admin Login
-            </span>
-          </div>
         </div>
       </div>
     </div>

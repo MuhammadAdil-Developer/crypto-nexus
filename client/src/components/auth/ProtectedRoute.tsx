@@ -6,13 +6,11 @@ import { Loader2 } from 'lucide-react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredUserType?: 'buyer' | 'vendor' | 'admin';
-  allowPendingVendor?: boolean;
 }
 
 export function ProtectedRoute({ 
   children, 
-  requiredUserType, 
-  allowPendingVendor = false 
+  requiredUserType
 }: ProtectedRouteProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -23,55 +21,30 @@ export function ProtectedRoute({
       try {
         // Check if user is authenticated
         if (!authService.isAuthenticated()) {
-          navigate('/sign-in');
+          navigate('/auth/sign-in');
           return;
         }
 
         const user = authService.getCurrentUser();
         if (!user) {
-          navigate('/sign-in');
+          navigate('/auth/sign-in');
           return;
         }
 
-        // Check vendor application status
-        const vendorStatus = await authService.getVendorApplicationStatus();
-        
-        // Smart routing logic
-        if (requiredUserType === 'vendor') {
-          if (vendorStatus === 'pending') {
-            // Vendor application pending - redirect to success page
-            navigate('/vendor/apply/success');
-            return;
-          } else if (vendorStatus === 'approved') {
-            // Vendor application approved - allow access
+        // Check user type permissions
+        if (requiredUserType) {
+          if (user.user_type === requiredUserType) {
             setIsAuthorized(true);
           } else {
-            // No application or rejected - redirect to buyer dashboard
-            navigate('/buyer');
+            // Redirect based on user type
+            if (user.user_type === 'admin') {
+              navigate('/admin/dashboard');
+            } else if (user.user_type === 'vendor') {
+              navigate('/vendor/dashboard');
+            } else {
+              navigate('/buyer/dashboard');
+            }
             return;
-          }
-        } else if (requiredUserType === 'admin') {
-          if (authService.isAdmin()) {
-            setIsAuthorized(true);
-          } else {
-            // Not admin - redirect based on user type
-            const redirectPath = await authService.getSmartRedirectPath();
-            navigate(redirectPath);
-            return;
-          }
-        } else if (requiredUserType === 'buyer') {
-          // For buyer routes, check if user is trying to access vendor features
-          if (vendorStatus === 'pending') {
-            // Vendor application pending - redirect to success page
-            navigate('/vendor/apply/success');
-            return;
-          } else if (vendorStatus === 'approved') {
-            // Vendor application approved - redirect to vendor dashboard
-            navigate('/vendor/dashboard');
-            return;
-          } else {
-            // No vendor application - allow buyer access
-            setIsAuthorized(true);
           }
         } else {
           // No specific user type required - allow access
@@ -79,14 +52,14 @@ export function ProtectedRoute({
         }
       } catch (error) {
         console.error('Error checking access:', error);
-        navigate('/sign-in');
+        navigate('/auth/sign-in');
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAccess();
-  }, [navigate, requiredUserType, allowPendingVendor]);
+  }, [navigate, requiredUserType]);
 
   if (isLoading) {
     return (
@@ -100,7 +73,7 @@ export function ProtectedRoute({
   }
 
   if (!isAuthorized) {
-    return null; // Will redirect, so don't render anything
+    return null;
   }
 
   return <>{children}</>;

@@ -1,518 +1,934 @@
-from rest_framework import status, generics, filters
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, BasePermission
-from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q, Count, Avg, Min, Max
 from django.shortcuts import get_object_or_404
+from django.db.models import Q, Count, Avg
 from django.utils import timezone
-from django.core.paginator import Paginator
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
-
-from .models import Product, ProductCategory, ProductSubCategory, ProductImage, ProductDocument
-from .serializers import (
-    ProductCreateSerializer, ProductDetailSerializer, ProductListSerializer,
-    ProductUpdateSerializer, ProductSearchSerializer, ProductCategorySerializer,
-    ProductSubCategorySerializer
-)
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Product, ProductCategory, ProductSubCategory, ProductView
+from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductSubCategorySerializer
 from users.models import User
+import json
+import csv
+import io
+from django.http import HttpResponse
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+import os
+from django.conf import settings
+from django.utils.text import slugify
+import uuid
+from decimal import Decimal
+import logging
 
+logger = logging.getLogger(__name__)
 
-class IsAdminOrSuperUser(BasePermission):
-    """
-    Custom permission class to check if user is admin or superuser
-    Works with JWT authentication
-    """
+class IsAdminUser(BasePermission):
+    """Custom permission to only allow admin users"""
+    
     def has_permission(self, request, view):
-        # Check if user is authenticated
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
-        # Check if user is superuser (Django's built-in field)
-        if request.user.is_superuser:
-            return True
-        
-        # Check if user has admin user_type
-        if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':
-            return True
-        
-        return False
-
-
-class ProductPagination(PageNumberPagination):
-    """Custom pagination for products"""
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-
-class ProductCategoryView(generics.ListAPIView):
-    """Get all product categories"""
-    queryset = ProductCategory.objects.filter(is_active=True)
-    serializer_class = ProductCategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-
-class ProductSubCategoryView(generics.ListAPIView):
-    """Get sub-categories for a specific category"""
-    serializer_class = ProductSubCategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    
-    def get_queryset(self):
-        category_id = self.kwargs.get('category_id')
-        return ProductSubCategory.objects.filter(
-            category_id=category_id,
-            is_active=True
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            hasattr(request.user, 'user_type') and 
+            request.user.user_type == 'admin'
         )
 
-
-class ProductCreateView(generics.CreateAPIView):
-    """Create a new product listing"""
-    serializer_class = ProductCreateSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def perform_create(self, serializer):
-        """Set vendor and initial status"""
-        serializer.save(vendor=self.request.user, status='pending_approval')
-
-
-class ProductDetailView(generics.RetrieveAPIView):
-    """Get detailed information about a specific product"""
-    queryset = Product.objects.filter(is_active=True, status='approved')
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    
-    def get_queryset(self):
-        """Get product with related data"""
-        return Product.objects.filter(
-            is_active=True, 
-            status='approved'
-        ).select_related(
-            'vendor', 'category', 'sub_category'
-        )
-    
-    def retrieve(self, request, *args, **kwargs):
-        """Custom retrieve with additional data"""
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            data = serializer.data
-            
-            # Add additional context
-            data['full_description'] = instance.description
-            data['vendor_info'] = {
-                'username': instance.vendor.username,
-                'email': instance.vendor.email,
-                'date_joined': instance.vendor.date_joined,
-                'is_verified': True,  # You can add verification logic here
-            }
-            
-            return Response({
-                'success': True,
-                'data': data
-            })
-        except Exception as e:
-            return Response({
-                'success': False,
-                'message': f'Error fetching product: {str(e)}'
-            }, status=500)
-
-
-class ProductUpdateView(generics.UpdateAPIView):
-    """Update product information"""
-    serializer_class = ProductUpdateSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        """Only allow vendors to update their own products"""
-        return Product.objects.filter(vendor=self.request.user)
-    
-    def perform_update(self, serializer):
-        """Reset status to pending approval after update"""
-        serializer.save(status='pending_approval')
-
-
-class ProductStatusUpdateView(generics.UpdateAPIView):
-    """Update only product status (without triggering other updates)"""
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        """Only allow vendors to update their own products"""
-        return Product.objects.filter(vendor=self.request.user)
-    
-    def patch(self, request, *args, **kwargs):
-        """Update only the status field"""
-        instance = self.get_object()
-        new_status = request.data.get('status')
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_products(request):
+    """List all approved products with filtering and search"""
+    try:
+        # Get query parameters
+        search = request.GET.get('search', '')
+        category = request.GET.get('category', '')
+        account_type = request.GET.get('account_type', '')
+        min_price = request.GET.get('min_price', '')
+        max_price = request.GET.get('max_price', '')
+        sort_by = request.GET.get('sort_by', 'created_at')
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
         
-        if new_status and new_status in ['draft', 'pending_approval', 'approved', 'rejected', 'suspended']:
-            instance.status = new_status
-            instance.save(update_fields=['status'])
-            
-            return Response({
-                'success': True,
-                'message': f'Product status updated to {new_status}',
-                'status': new_status
-            })
-        else:
-            return Response({
-                'success': False,
-                'message': 'Invalid status value'
-            }, status=400)
-
-
-class ProductDeleteView(generics.DestroyAPIView):
-    """Delete a product (soft delete)"""
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        """Only allow vendors to delete their own products"""
-        return Product.objects.filter(vendor=self.request.user)
-    
-    def perform_destroy(self, instance):
-        """Soft delete by setting is_active to False"""
-        instance.is_active = False
-        instance.save()
-
-
-class ProductListView(generics.ListAPIView):
-    """Get list of approved products with filtering and search"""
-    serializer_class = ProductListSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    pagination_class = ProductPagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'sub_category', 'account_type', 'verification_level', 'delivery_method']
-    search_fields = ['listing_title', 'description', 'tags']
-    ordering_fields = ['price', 'created_at', 'rating', 'views_count']
-    ordering = ['-created_at']
-    
-    def get_queryset(self):
-        """Filter queryset based on request parameters"""
-        queryset = Product.objects.filter(
+        # Start with approved products
+        products = Product.objects.filter(
+            status='approved',
             is_active=True,
-            status='approved'
+            is_deleted=False
         ).select_related('vendor', 'category', 'sub_category')
-        
-        # Apply additional filters
-        min_price = self.request.query_params.get('min_price')
-        max_price = self.request.query_params.get('max_price')
-        
-        if min_price:
-            queryset = queryset.filter(price__gte=min_price)
-        if max_price:
-            queryset = queryset.filter(price__lte=max_price)
-        
-        return queryset
-
-
-class VendorProductListView(generics.ListAPIView):
-    """Get products for a specific vendor"""
-    serializer_class = ProductListSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    pagination_class = ProductPagination
-    
-    def get_queryset(self):
-        """Get products for specific vendor"""
-        vendor_id = self.kwargs.get('vendor_id')
-        return Product.objects.filter(
-            vendor_id=vendor_id,
-            is_active=True,
-            status='approved'
-        ).select_related('vendor', 'category', 'sub_category')
-
-
-class MyProductsView(generics.ListAPIView):
-    """Get current user's products"""
-    serializer_class = ProductListSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = ProductPagination
-    
-    def get_queryset(self):
-        """Get current user's products"""
-        return Product.objects.filter(
-            vendor=self.request.user,
-            is_active=True
-        ).select_related('category', 'sub_category').order_by('-created_at')
-
-
-class ProductSearchView(generics.ListAPIView):
-    """Advanced product search with multiple filters"""
-    serializer_class = ProductListSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    pagination_class = ProductPagination
-    
-    def get_queryset(self):
-        """Build complex search queryset"""
-        queryset = Product.objects.filter(
-            is_active=True,
-            status='approved'
-        ).select_related('vendor', 'category', 'sub_category')
-        
-        # Get search parameters
-        query = self.request.query_params.get('query', '')
-        category = self.request.query_params.get('category', '')
-        sub_category = self.request.query_params.get('sub_category', '')
-        min_price = self.request.query_params.get('min_price')
-        max_price = self.request.query_params.get('max_price')
-        account_type = self.request.query_params.get('account_type', '')
-        verification_level = self.request.query_params.get('verification_level', '')
-        tags = self.request.query_params.getlist('tags')
-        sort_by = self.request.query_params.get('sort_by', 'newest')
-        
-        # Apply text search
-        if query:
-            queryset = queryset.filter(
-                Q(listing_title__icontains=query) |
-                Q(description__icontains=query) |
-                Q(tags__contains=[query])
-            )
         
         # Apply filters
+        if search:
+            products = products.filter(
+                Q(headline__icontains=search) |
+                Q(description__icontains=search) |
+                Q(website__icontains=search) |
+                Q(tags__icontains=search)
+            )
+        
         if category:
-            queryset = queryset.filter(category__name__iexact=category)
-        
-        if sub_category:
-            queryset = queryset.filter(sub_category__name__iexact=sub_category)
-        
-        if min_price:
-            queryset = queryset.filter(price__gte=min_price)
-        
-        if max_price:
-            queryset = queryset.filter(price__lte=max_price)
-        
+            products = products.filter(category__name__icontains=category)
+            
         if account_type:
-            queryset = queryset.filter(account_type=account_type)
-        
-        if verification_level:
-            queryset = queryset.filter(verification_level=verification_level)
-        
-        if tags:
-            for tag in tags:
-                queryset = queryset.filter(tags__contains=[tag])
+            products = products.filter(account_type=account_type)
+            
+        if min_price:
+            products = products.filter(price__gte=Decimal(min_price))
+            
+        if max_price:
+            products = products.filter(price__lte=Decimal(max_price))
         
         # Apply sorting
         if sort_by == 'price_low':
-            queryset = queryset.order_by('price')
+            products = products.order_by('price')
         elif sort_by == 'price_high':
-            queryset = queryset.order_by('-price')
+            products = products.order_by('-price')
         elif sort_by == 'rating':
-            queryset = queryset.order_by('-rating', '-review_count')
-        elif sort_by == 'popular':
-            queryset = queryset.order_by('-views_count', '-favorites_count')
-        else:  # newest
-            queryset = queryset.order_by('-created_at')
+            products = products.order_by('-rating')
+        elif sort_by == 'views':
+            products = products.order_by('-views_count')
+        else:  # created_at
+            products = products.order_by('-created_at')
         
-        return queryset
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def toggle_product_favorite(request, product_id):
-    """Toggle product favorite status for current user"""
-    try:
-        product = get_object_or_404(Product, id=product_id, is_active=True, status='approved')
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
         
-        # Check if user has already favorited this product
-        if hasattr(request.user, 'favorites') and product in request.user.favorites.all():
-            request.user.favorites.remove(product)
-            product.favorites_count = max(0, product.favorites_count - 1)
-            product.save()
-            message = "Product removed from favorites"
-        else:
-            request.user.favorites.add(product)
-            product.favorites_count += 1
-            product.save()
-            message = "Product added to favorites"
+        # Serialize products
+        serializer = ProductSerializer(products, many=True, context={'request': request})
         
         return Response({
             'success': True,
-            'message': message,
-            'favorites_count': product.favorites_count
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticatedOrReadOnly])
-def get_product_stats(request):
-    """Get marketplace statistics"""
-    try:
-        total_products = Product.objects.filter(is_active=True, status='approved').count()
-        total_vendors = User.objects.filter(user_type='vendor', is_active=True).count()
-        total_categories = ProductCategory.objects.filter(is_active=True).count()
-        
-        # Get top categories
-        top_categories = Product.objects.filter(
-            is_active=True, 
-            status='approved'
-        ).values('category__name').annotate(
-            count=Count('id')
-        ).order_by('-count')[:5]
-        
-        # Get price range
-        price_stats = Product.objects.filter(
-            is_active=True, 
-            status='approved'
-        ).aggregate(
-            avg_price=Avg('price'),
-            min_price=Avg('price'),
-            max_price=Avg('price')
-        )
-        
-        return Response({
-            'success': True,
-            'data': {
-                'total_products': total_products,
-                'total_vendors': total_vendors,
-                'total_categories': total_categories,
-                'top_categories': top_categories,
-                'price_stats': price_stats
+            'message': 'Products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
             }
         })
         
     except Exception as e:
+        logger.error(f"Error listing products: {str(e)}")
         return Response({
             'success': False,
-            'message': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': 'Failed to retrieve products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def bulk_update_products(request):
-    """Bulk update multiple products"""
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_product_detail(request, product_id):
+    """Get detailed product information"""
     try:
-        product_ids = request.data.get('product_ids', [])
-        update_data = request.data.get('update_data', {})
+        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
         
-        if not product_ids:
-            return Response({
-                'success': False,
-                'message': 'No product IDs provided'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # Track view if user is authenticated
+        if request.user.is_authenticated:
+            product.track_view(request.user, request)
         
-        # Get products that belong to current user
-        products = Product.objects.filter(
-            id__in=product_ids,
-            vendor=request.user,
-            is_active=True
-        )
-        
-        # Update products
-        updated_count = products.update(**update_data)
+        serializer = ProductDetailSerializer(product, context={'request': request})
         
         return Response({
             'success': True,
-            'message': f'{updated_count} products updated successfully'
+            'message': 'Product details retrieved successfully',
+            'data': serializer.data
         })
         
     except Exception as e:
+        logger.error(f"Error getting product detail: {str(e)}")
         return Response({
             'success': False,
-            'message': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': 'Failed to retrieve product details',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def track_product_view(request, product_id):
+    """Track a product view (separate endpoint for frontend)"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        # Track the view (removed vendor restriction)
+        view_created = product.track_view(request.user, request)
+        
+        return Response({
+            'success': True,
+            'message': 'View tracked successfully' if view_created else 'View already tracked',
+            'view_created': view_created,
+            'views_count': product.views_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error tracking product view: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to track product view',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ===== ADMIN VIEWS FOR PRODUCT APPROVAL =====
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_vendor_products(request):
+    """Get products for the authenticated vendor"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        products = Product.objects.filter(
+            vendor=request.user,
+            is_deleted=False
+        ).select_related('category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'Vendor products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting vendor products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve vendor products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class AdminPendingProductsView(generics.ListAPIView):
-    """Get all products pending admin approval"""
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAdminOrSuperUser]
-    pagination_class = ProductPagination
-    
-    def get_queryset(self):
-        """Get products pending approval"""
-        return Product.objects.filter(
-            status__in=['pending_approval', 'draft'],
-            is_active=True
-        ).select_related(
-            'vendor', 'category', 'sub_category'
-        ).prefetch_related(
-            'product_images', 'product_documents'
-        ).order_by('-created_at')
-
-
-class AdminAllProductsView(generics.ListAPIView):
-    """Get all products for admin filtering and management"""
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAdminOrSuperUser]
-    pagination_class = ProductPagination
-    
-    def get_queryset(self):
-        """Get all products for admin management"""
-        return Product.objects.filter(
-            is_active=True
-        ).select_related(
-            'vendor', 'category', 'sub_category'
-        ).prefetch_related(
-            'product_images', 'product_documents'
-        ).order_by('-created_at')
-
-
-class AdminApproveProductView(generics.UpdateAPIView):
-    """Approve a product listing"""
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAdminOrSuperUser]
-    lookup_field = 'id'
-    
-    def get_queryset(self):
-        """Only allow admins to approve products"""
-        return Product.objects.filter(status__in=['pending_approval', 'draft'])
-    
-    def perform_update(self, serializer):
-        """Approve the product and set approved_by"""
-        serializer.save(
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_buyer_products(request):
+    """Get products for buyer (approved products only)"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        products = Product.objects.filter(
             status='approved',
-            approved_by=self.request.user,
-            approved_at=timezone.now()
-        )
+            is_active=True,
+            is_deleted=False
+        ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'Buyer products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting buyer products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve buyer products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_product(request):
+    """Create a new product"""
+    try:
+        # Add vendor information to the data
+        data = request.data.copy()
+        data['vendor'] = request.user.id
+        
+        serializer = ProductCreateSerializer(data=data, context={"request": request})
+        if serializer.is_valid():
+            product = serializer.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Product created successfully',
+                'data': ProductSerializer(product, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                'success': False,
+                'message': 'Failed to create product',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        logger.error(f"Error creating product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to create product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class AdminRejectProductView(generics.UpdateAPIView):
-    """Reject a product listing"""
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAdminOrSuperUser]
-    lookup_field = 'id'
-    
-    def get_queryset(self):
-        """Only allow admins to reject products"""
-        return Product.objects.filter(status__in=['pending_approval', 'draft'])
-    
-    def perform_update(self, serializer):
-        """Reject the product and set rejection reason"""
-        rejection_reason = self.request.data.get('rejection_reason', 'Admin rejected')
-        serializer.save(
-            status='rejected',
-            rejection_reason=rejection_reason,
-            rejected_by=self.request.user,
-            rejected_at=timezone.now()
-        )
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_all_products(request):
+    """Get all products for admin"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        products = Product.objects.filter(
+            is_deleted=False
+        ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'All products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def approve_product(request, product_id):
+    """Approve a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        product.approve_product(request.user)
+        
+        return Response({
+            'success': True,
+            'message': 'Product approved successfully',
+            'data': ProductSerializer(product, context={'request': request}).data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error approving product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to approve product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class BuyerListingsView(generics.ListAPIView):
-    """Get all approved products for buyers with search, filter, and sorting"""
-    serializer_class = ProductDetailSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = ProductPagination
-    
-    def get_queryset(self):
-        """Get only approved and active products for buyers"""
-        try:
-            queryset = Product.objects.filter(
-                status='approved',
-                is_active=True
-            ).select_related(
-                'vendor', 'category', 'sub_category'
-            )
-            print(f"✅ Found {queryset.count()} approved products")
-            return queryset
-        except Exception as e:
-            print(f"❌ Error in get_queryset: {e}")
-            return Product.objects.none() 
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def reject_product(request, product_id):
+    """Reject a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        rejection_notes = request.data.get('rejection_notes', '')
+        product.reject_product(rejection_notes, request.user)
+        
+        return Response({
+            'success': True,
+            'message': 'Product rejected successfully',
+            'data': ProductSerializer(product, context={'request': request}).data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error rejecting product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to reject product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_categories(request):
+    """Get all product categories"""
+    try:
+        categories = ProductCategory.objects.filter(is_active=True, is_deleted=False).order_by('sort_order', 'name')
+        serializer = ProductSubCategorySerializer(categories, many=True)
+        
+        return Response({
+            'success': True,
+            'message': 'Categories retrieved successfully',
+            'data': serializer.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting categories: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve categories',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_subcategories(request, category_id):
+    """Get subcategories for a category"""
+    try:
+        subcategories = ProductSubCategory.objects.filter(
+            category_id=category_id,
+            is_active=True,
+            is_deleted=False
+        ).order_by('sort_order', 'name')
+        serializer = ProductSubCategorySerializer(subcategories, many=True)
+        
+        return Response({
+            'success': True,
+            'message': 'Subcategories retrieved successfully',
+            'data': serializer.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting subcategories: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve subcategories',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def bulk_upload_products(request):
+    """Bulk upload products from CSV"""
+    try:
+        if 'file' not in request.FILES:
+            return Response({
+                'success': False,
+                'message': 'No file provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        file = request.FILES['file']
+        if not file.name.endswith('.csv'):
+            return Response({
+                'success': False,
+                'message': 'File must be a CSV'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Read CSV
+        content = file.read().decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(content))
+        
+        products_created = 0
+        errors = []
+        
+        for row_num, row in enumerate(csv_reader, start=2):
+            try:
+                # Map CSV columns to product fields
+                product_data = {
+                    'headline': row.get('headline', ''),
+                    'website': row.get('website', ''),
+                    'account_type': row.get('account_type', 'other'),
+                    'access_type': row.get('access_type', 'full_ownership'),
+                    'description': row.get('description', ''),
+                    'price': row.get('price', '0'),
+                    'additional_info': row.get('additional_info', ''),
+                    'delivery_time': row.get('delivery_time', 'instant_auto'),
+                    'vendor': request.user.id,
+                    'category_id': 1,  # Default category
+                }
+                
+                serializer = ProductCreateSerializer(data=product_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    products_created += 1
+                else:
+                    errors.append(f"Row {row_num}: {serializer.errors}")
+                    
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        return Response({
+            'success': True,
+            'message': f'Bulk upload completed. {products_created} products created.',
+            'products_created': products_created,
+            'errors': errors
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk upload: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to process bulk upload',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def export_products_csv(request):
+    """Export products to CSV"""
+    try:
+        products = Product.objects.filter(is_deleted=False).select_related('vendor', 'category')
+        
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="products.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'ID', 'Headline', 'Website', 'Account Type', 'Access Type', 
+            'Price', 'Status', 'Vendor', 'Category', 'Created At'
+        ])
+        
+        for product in products:
+            writer.writerow([
+                product.id,
+                product.headline,
+                product.website,
+                product.account_type,
+                product.access_type,
+                str(product.price),
+                product.status,
+                product.vendor.username,
+                product.category.name if product.category else '',
+                product.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to export products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def buyer_listings(request):
+    """Get products for buyer (approved products only)"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        products = Product.objects.filter(
+            status='approved',
+            is_active=True,
+            is_deleted=False
+        ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'Buyer products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting buyer products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve buyer products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def vendor_products(request):
+    """Get products for the authenticated vendor"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        products = Product.objects.filter(
+            vendor=request.user,
+            is_deleted=False
+        ).select_related('category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'Vendor products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting vendor products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve vendor products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_product(request, product_id):
+    """Update a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        
+        serializer = ProductCreateSerializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Product updated successfully',
+                'data': ProductSerializer(product, context={'request': request}).data
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': 'Failed to update product',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        logger.error(f"Error updating product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to update product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_product(request, product_id):
+    """Delete a product (soft delete)"""
+    try:
+        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        product.is_deleted = True
+        product.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Product deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to delete product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_category_subcategories(request, category_id):
+    """Get subcategories for a category"""
+    try:
+        subcategories = ProductSubCategory.objects.filter(
+            category_id=category_id,
+            is_active=True,
+            is_deleted=False
+        ).order_by('sort_order', 'name')
+        serializer = ProductSubCategorySerializer(subcategories, many=True)
+        
+        return Response({
+            'success': True,
+            'message': 'Subcategories retrieved successfully',
+            'data': serializer.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting subcategories: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve subcategories',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def bulk_upload_csv(request):
+    """Bulk upload products from CSV"""
+    try:
+        if 'file' not in request.FILES:
+            return Response({
+                'success': False,
+                'message': 'No file provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        file = request.FILES['file']
+        if not file.name.endswith('.csv'):
+            return Response({
+                'success': False,
+                'message': 'File must be a CSV'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Read CSV
+        content = file.read().decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(content))
+        
+        products_created = 0
+        errors = []
+        
+        for row_num, row in enumerate(csv_reader, start=2):
+            try:
+                # Map CSV columns to product fields
+                product_data = {
+                    'headline': row.get('headline', ''),
+                    'website': row.get('website', ''),
+                    'account_type': row.get('account_type', 'other'),
+                    'access_type': row.get('access_type', 'full_ownership'),
+                    'description': row.get('description', ''),
+                    'price': row.get('price', '0'),
+                    'additional_info': row.get('additional_info', ''),
+                    'delivery_time': row.get('delivery_time', 'instant_auto'),
+                    'vendor': request.user.id,
+                    'category_id': 1,  # Default category
+                }
+                
+                serializer = ProductCreateSerializer(data=product_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    products_created += 1
+                else:
+                    errors.append(f"Row {row_num}: {serializer.errors}")
+                    
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        return Response({
+            'success': True,
+            'message': f'Bulk upload completed. {products_created} products created.',
+            'products_created': products_created,
+            'errors': errors
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk upload: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to process bulk upload',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def bulk_upload_simple(request):
+    """Simple bulk upload for admin"""
+    return bulk_upload_csv(request)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_bulk_upload_template(request):
+    """Get bulk upload template"""
+    try:
+        template = {
+            'headers': [
+                'headline', 'website', 'account_type', 'access_type', 
+                'description', 'price', 'additional_info', 'delivery_time'
+            ],
+            'sample_data': [
+                'Sample Product', 'example.com', 'social', 'full_ownership',
+                'Sample description', '10.00', 'Additional info', 'instant_auto'
+            ]
+        }
+        
+        return Response({
+            'success': True,
+            'message': 'Template retrieved successfully',
+            'data': template
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting template: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve template',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reveal_credentials(request, product_id):
+    """Reveal credentials after payment"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        # Check if user has permission to view credentials
+        # This should be enhanced with proper order/payment verification
+        if request.user != product.vendor:
+            return Response({
+                'success': False,
+                'message': 'You do not have permission to view these credentials'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        product.reveal_credentials()
+        
+        return Response({
+            'success': True,
+            'message': 'Credentials revealed successfully',
+            'credentials': product.credentials
+        })
+        
+    except Exception as e:
+        logger.error(f"Error revealing credentials: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to reveal credentials',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_list_all_products(request):
+    """Get all products for admin"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        products = Product.objects.filter(
+            is_deleted=False
+        ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'All products retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def admin_approve_product(request, product_id):
+    """Approve a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        product.approve_product(request.user)
+        
+        return Response({
+            'success': True,
+            'message': 'Product approved successfully',
+            'data': ProductSerializer(product, context={'request': request}).data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error approving product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to approve product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def admin_reject_product(request, product_id):
+    """Reject a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        rejection_notes = request.data.get('rejection_notes', '')
+        product.reject_product(rejection_notes, request.user)
+        
+        return Response({
+            'success': True,
+            'message': 'Product rejected successfully',
+            'data': ProductSerializer(product, context={'request': request}).data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error rejecting product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to reject product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def product_detail(request, product_id):
+    """Get detailed product information"""
+    try:
+        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
+        
+        # Track view if user is authenticated
+        if request.user.is_authenticated:
+            product.track_view(request.user, request)
+        
+        serializer = ProductDetailSerializer(product, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': 'Product details retrieved successfully',
+            'data': serializer.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting product detail: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to retrieve product details',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

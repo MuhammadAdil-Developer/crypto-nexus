@@ -88,7 +88,7 @@ export default function AdminVendors() {
       console.log('🔍 Fetching applications from:', apiUrl);
       
       // Get authentication token
-      const token = authService.getAccessToken();
+      const token = authService.getToken();
       if (!token) {
         console.error('❌ No authentication token found');
         toast({
@@ -163,7 +163,7 @@ export default function AdminVendors() {
     
     try {
       // Get authentication token
-      const token = authService.getAccessToken();
+      const token = authService.getToken();
       if (!token) {
         console.error('❌ No authentication token found');
         toast({
@@ -262,7 +262,7 @@ export default function AdminVendors() {
     
     try {
       // Get authentication token
-      const token = authService.getAccessToken();
+      const token = authService.getToken();
       if (!token) {
         console.error('❌ No authentication token found');
         toast({
@@ -312,7 +312,7 @@ export default function AdminVendors() {
     
     try {
       // Get authentication token
-      const token = authService.getAccessToken();
+      const token = authService.getToken();
       if (!token) {
         console.error('❌ No authentication token found');
         toast({

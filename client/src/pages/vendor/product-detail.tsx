@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Edit, Trash2, Eye, Calendar, DollarSign, Package, Star, Eye as EyeIcon, Heart, Tag, Folder, FolderOpen, User, Shield, Clock, Key, Truck, FileText, Download, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Eye, Calendar, DollarSign, Package, Star, Eye as EyeIcon, Heart, Tag, Folder, FolderOpen, User, Shield, Clock, Key, Truck, FileText, Download, CheckCircle, XCircle, Lock } from "lucide-react";
 import vendorService, { VendorProduct } from "@/services/vendorService";
 import {
   AlertDialog,
@@ -35,26 +35,25 @@ export default function VendorProductDetail() {
         setLoading(true);
         setError(null);
         
-        // For now, we'll fetch from the products list and find the specific one
-        // In a real app, you'd have a dedicated endpoint for single product
-        const response = await vendorService.getMyProducts();
+        console.log('🔍 Fetching product with ID:', id);
         
-        if (response.results) {
-          const foundProduct = response.results.find(p => {
-            return p.id == id; // Use loose equality to handle string vs number
-          });
+        // Use dedicated product detail endpoint
+        const response = await vendorService.getProductDetail(id);
+        
+        console.log('🔍 Product detail response:', response);
+        console.log('🔍 Response success:', response.success);
+        console.log('🔍 Response data:', response.data);
           
-          if (foundProduct) {
-            setProduct(foundProduct);
-          } else {
-            setError('Product not found');
-          }
+        if (response.success && response.data) {
+          console.log('✅ Setting product state:', response.data);
+          setProduct(response.data);
         } else {
-          setError('Failed to fetch product');
+          console.error('❌ Product detail error:', response);
+          setError(response.message || 'Failed to fetch product');
         }
       } catch (err: any) {
+        console.error('❌ Error fetching product:', err);
         setError(err.message || 'Failed to fetch product');
-        console.error('Error fetching product:', err);
       } finally {
         setLoading(false);
       }
@@ -208,8 +207,8 @@ export default function VendorProductDetail() {
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <img
-                src={product.main_image || "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400"}
-                alt={product.listing_title}
+                src={product.main_image ? `http://localhost:8000${product.main_image}` : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400"}
+                alt={product.headline || product.listing_title || "Product"}
                 className="w-full h-64 object-cover rounded-lg"
                 onError={(e) => {
                   e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
@@ -223,11 +222,17 @@ export default function VendorProductDetail() {
         <div className="lg:col-span-2 space-y-6">
           {/* Product Header */}
           <div className="mb-6">
-            <h2 className="text-3xl font-bold text-white mb-2">{product.listing_title}</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">{product.headline || product.listing_title}</h2>
             <div className="flex items-center space-x-4 mb-4">
               <Badge className={`border ${getStatusColor(product.status)}`}>
                 {getStatusDisplayName(product.status)}
               </Badge>
+              {product.escrow_enabled && (
+                <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60">
+                  <Lock className="w-3 h-3 mr-1" />
+                  ESCROW PROTECTED
+                </Badge>
+              )}
               <span className="text-gray-400">ID: {product.id}</span>
             </div>
           </div>
@@ -251,15 +256,20 @@ export default function VendorProductDetail() {
                     {getStatusDisplayName(product.status)}
                   </Badge>
                 </div>
+                {product.escrow_enabled && (
+                  <div className="flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-400">Escrow:</span>
+                    <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60">
+                      <Lock className="w-3 h-3 mr-1" />
+                      ENABLED
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2">
                   <Folder className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-400">Category:</span>
-                  <span className="text-white">{product.category_name || 'N/A'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <FolderOpen className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-400">Sub-category:</span>
-                  <span className="text-white">{product.sub_category_name || 'N/A'}</span>
+                  <span className="text-gray-400">Website:</span>
+                  <span className="text-white">{product.website || 'N/A'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-gray-400" />
@@ -271,7 +281,12 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <Package className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Stock:</span>
-                  <span className="text-white">{product.quantity_available || 0}</span>
+                  <span className="text-white">{product.quantity_available !== undefined ? product.quantity_available : 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Vendor:</span>
+                  <span className="text-white">{product.vendor_username || 'N/A'}</span>
                 </div>
               </div>
             </CardContent>
@@ -333,22 +348,32 @@ export default function VendorProductDetail() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Shield className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-400">Verification:</span>
+                  <span className="text-gray-400">Access Type:</span>
                   <Badge variant="outline" className="text-green-400 border-green-400">
-                    {product.verification_level || 'N/A'}
+                    {product.access_type || 'N/A'}
                   </Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Account Balance:</span>
+                  <span className="text-white">{product.account_balance || 'N/A'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Account Age:</span>
-                  <span className="text-white">
-                    {product.account_age ? new Date(product.account_age).toLocaleDateString() : 'N/A'}
-                  </span>
+                  <span className="text-white">{product.account_age || 'N/A'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Key className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Access Method:</span>
                   <span className="text-white">{product.access_method || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Truck className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Delivery Time:</span>
+                  <Badge variant="outline" className="text-yellow-400 border-yellow-400">
+                    {product.delivery_time || 'N/A'}
+                  </Badge>
                 </div>
               </div>
             </CardContent>
@@ -567,6 +592,34 @@ export default function VendorProductDetail() {
                 <div>
                   <h4 className="text-sm font-medium text-gray-300 mb-2">Rejection Reason:</h4>
                   <p className="text-white text-sm">{product.rejection_reason}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Additional Information */}
+          {product.additional_info && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Additional Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white text-sm leading-relaxed">{product.additional_info}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Credentials Display */}
+          {product.credentials_display && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Credentials Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-2">
+                  <Key className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Status:</span>
+                  <span className="text-white">{product.credentials_display}</span>
                 </div>
               </CardContent>
             </Card>

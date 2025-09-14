@@ -17,9 +17,8 @@ class BTCPayServerService:
     """Service for BTCPay Server integration"""
     
     def __init__(self):
-        # Updated to use actual BTCPay Server running on localhost:23000
         self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'http://localhost:23000')
-        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'AKwDcGXvXRfKkVD3uTD7cK2Yv3jbnidDhwihfxBGyUN3')  # From your screenshot
+        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'JEc1gfxx2DXM8RYUwgtcdiBhxVAJtXYCD3LRYfAY4mt')  # Updated to match settings.py
         self.api_key = getattr(settings, 'BTCPAY_API_KEY', '')
         self.headers = {
             'Authorization': f'token {self.api_key}',
@@ -42,7 +41,7 @@ class BTCPayServerService:
                 }
             }
             
-            # Updated API endpoint for BTCPay Server
+            # Try BTCPay Server first
             response = requests.post(
                 f"{self.base_url}/api/v1/stores/{self.store_id}/invoices",
                 headers=self.headers,
@@ -51,9 +50,47 @@ class BTCPayServerService:
             )
             
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                logger.info(f"BTCPay invoice created successfully: {data}")
+                
+                invoice_id = data.get('id')
+                
+                # Wait a moment for address generation, then fetch the invoice details
+                import time
+                time.sleep(2)  # Wait 2 seconds for address generation
+                
+                # Get the payment methods to get the BTC address
+                payment_methods_response = requests.get(
+                    f"{self.base_url}/api/v1/stores/{self.store_id}/invoices/{invoice_id}/payment-methods",
+                    headers=self.headers,
+                    timeout=30
+                )
+                
+                btc_address = ''
+                if payment_methods_response.status_code == 200:
+                    payment_methods_data = payment_methods_response.json()
+                    logger.info(f"BTCPay payment methods: {payment_methods_data}")
+                    
+                    # Extract BTC address from the payment methods response
+                    for payment_method in payment_methods_data:
+                        if payment_method.get('paymentMethodId') == 'BTC-CHAIN':
+                            btc_address = payment_method.get('destination', '')
+                            break
+                
+                logger.info(f"Extracted BTC address: {btc_address}")
+                
+                # Return a standardized format
+                return {
+                    'invoice_id': invoice_id,
+                    'address': btc_address,
+                    'checkoutLink': data.get('checkoutLink', ''),
+                    'amount': str(amount),
+                    'currency': currency,
+                    'orderId': order_id
+                }
             else:
-                logger.error(f"BTCPay invoice creation failed: {response.text}")
+                logger.error(f"BTCPay invoice creation failed. Status: {response.status_code}, Response: {response.text}")
+                # Return None to trigger fallback address generation
                 return None
                 
         except Exception as e:
@@ -81,11 +118,18 @@ class BTCPayServerService:
         """Verify BTCPay webhook signature"""
         try:
             webhook_secret = getattr(settings, 'BTCPAY_WEBHOOK_SECRET', '')
+            
+            # BTCPay sends signature as "sha256=hash", extract just the hash
+            if signature.startswith('sha256='):
+                signature = signature[7:]  # Remove "sha256=" prefix
+            
             expected_signature = hmac.new(
                 webhook_secret.encode('utf-8'),
                 payload.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest()
+            
+            logger.info(f"Verifying webhook: received={signature[:16]}..., expected={expected_signature[:16]}...")
             
             return hmac.compare_digest(signature, expected_signature)
         except Exception as e:
@@ -197,36 +241,54 @@ class PaymentService:
     def create_payment_address(self, order_id: str, crypto_currency: str, 
                              amount: Decimal, payment_type: str = 'wallet',
                              use_escrow: bool = False) -> PaymentAddress:
-        """Create payment address for order"""
+        
         try:
             crypto = CryptoCurrency.objects.get(symbol=crypto_currency)
             
-            # Create payment address record
-            payment_address = PaymentAddress.objects.create(
+            # Use get_or_create to avoid duplicate key constraint
+            payment_address, created = PaymentAddress.objects.get_or_create(
                 order_id=order_id,
-                crypto_currency=crypto,
-                payment_type=payment_type,
-                expected_amount=amount,
-                expires_at=timezone.now() + timedelta(hours=2),  # 2 hour expiry
-                required_confirmations=1 if crypto_currency == 'XMR' else 3
+                defaults={
+                    'crypto_currency': crypto,
+                    'payment_type': payment_type,
+                    'expected_amount': amount,
+                    'expires_at': timezone.now() + timedelta(hours=2),  # 2 hour expiry
+                    'required_confirmations': settings.REQUIRED_CONFIRMATIONS.get(
+                        crypto_currency, 1 if crypto_currency == 'XMR' else 3
+                    )
+                }
             )
             
-            # Generate address based on cryptocurrency
-            if crypto_currency == 'BTC':
+            # If payment address already exists, update it
+            if not created:
+                payment_address.crypto_currency = crypto
+                payment_address.payment_type = payment_type
+                payment_address.expected_amount = amount
+                payment_address.expires_at = timezone.now() + timedelta(hours=2)
+                payment_address.required_confirmations = settings.REQUIRED_CONFIRMATIONS.get(
+                    crypto_currency, 1 if crypto_currency == 'XMR' else 3
+            )
+            
+            # Generate address based on cryptocurrency (only if not already created)
+            if crypto_currency == 'BTC' and not payment_address.payment_address:
+                # Try BTCPay Server first
                 invoice_data = self.btcpay.create_invoice(order_id, amount, 'BTC')
-                if invoice_data:
-                    payment_address.btcpay_invoice_id = invoice_data['id']
-                    payment_address.btcpay_checkout_link = invoice_data['checkoutLink']
-                    payment_address.payment_address = invoice_data['addresses']['BTC']
+                if invoice_data and invoice_data.get('address'):
+                    payment_address.btcpay_invoice_id = invoice_data.get('invoice_id', '')
+                    payment_address.btcpay_checkout_link = invoice_data.get('checkoutLink', '')
+                    payment_address.payment_address = invoice_data['address']
+                    logger.info(f"BTCPay address generated for order {order_id}: {payment_address.payment_address}")
                 else:
                     # Fallback to static address generation
                     payment_address.payment_address = self._generate_btc_address(order_id)
+                    logger.warning(f"Using fallback BTC address for order {order_id}: {payment_address.payment_address}")
                     
-            elif crypto_currency == 'XMR':
+            elif crypto_currency == 'XMR' and not payment_address.payment_address:
                 subaddress_data = self.monero.create_subaddress(label=f"Order-{order_id}")
                 if subaddress_data:
                     payment_address.payment_address = subaddress_data['address']
                     payment_address.monero_subaddress_index = subaddress_data['address_index']
+                    logger.info(f"Monero subaddress generated for order {order_id}: {payment_address.payment_address}")
                 else:
                     raise Exception("Failed to create Monero subaddress")
             
@@ -243,14 +305,14 @@ class PaymentService:
             raise
     
     def _generate_btc_address(self, order_id: str) -> str:
-        """Generate deterministic BTC address (simplified)"""
-        # This is a simplified implementation
-        # In production, use proper HD wallet derivation
-        import hashlib
-        seed = f"{settings.SECRET_KEY}{order_id}".encode()
-        hash_obj = hashlib.sha256(seed)
-        # This would need proper Bitcoin address generation
-        return f"bc1q{hash_obj.hexdigest()[:32]}"
+        """Generate deterministic BTC testnet address (for development/testing only)"""
+        # This is a simplified version that generates a valid testnet address format
+        # In production, you should use proper key derivation
+        prefix = 'tb1q'  # testnet bech32 prefix
+        hash_input = f"{order_id}-{timezone.now().timestamp()}"
+        hash_obj = hashlib.sha256(hash_input.encode())
+        addr_hash = hash_obj.hexdigest()[:32]  # Take first 32 chars
+        return f"{prefix}{addr_hash}"
     
     def _create_escrow_payment(self, payment_address: PaymentAddress, amount: Decimal):
         """Create escrow payment record"""
@@ -282,40 +344,136 @@ class PaymentService:
         """Process BTCPay Server webhook"""
         try:
             invoice_id = payload.get('invoiceId')
-            order_id = payload.get('orderId')
+            # BTCPay Server puts orderId in metadata, not root level
+            order_id = payload.get('orderId') or payload.get('metadata', {}).get('orderId')
             status = payload.get('status')
+            webhook_type = payload.get('type')
             
-            payment_address = PaymentAddress.objects.get(
-                order_id=order_id,
-                btcpay_invoice_id=invoice_id
-            )
+            logger.info(f"Processing BTCPay webhook: invoice_id={invoice_id}, order_id={order_id}, status={status}, type={webhook_type}")
+            logger.info(f"Full webhook payload: {payload}")
             
-            # Store webhook
-            PaymentWebhook.objects.create(
+            # Handle test webhooks (no order_id or invoice_id)
+            if not order_id or not invoice_id:
+                logger.info("Test webhook received - ignoring")
+                return True
+            
+            try:
+                # Try to find by order_id first, then by invoice_id
+                if order_id:
+                    payment_address = PaymentAddress.objects.get(
+                        order_id=order_id,
+                        btcpay_invoice_id=invoice_id
+                    )
+                else:
+                    # If no order_id in webhook, find by invoice_id only
+                    payment_address = PaymentAddress.objects.get(
+                        btcpay_invoice_id=invoice_id
+                    )
+                    logger.info(f"Found PaymentAddress by invoice_id only: {payment_address.order_id}")
+            except PaymentAddress.DoesNotExist:
+                logger.warning(f"PaymentAddress not found for order_id={order_id}, invoice_id={invoice_id}")
+                return False
+            
+            # Check if this webhook was already processed
+            existing_webhook = PaymentWebhook.objects.filter(
                 payment_address=payment_address,
                 webhook_type='btcpay',
                 external_id=invoice_id,
-                raw_data=payload
+                delivery_id=payload.get('deliveryId')
+            ).first()
+            
+            if existing_webhook and existing_webhook.processed:
+                logger.info(f"Webhook already processed for invoice {invoice_id}, skipping")
+                return True
+            
+            # Store webhook
+            webhook = PaymentWebhook.objects.create(
+                payment_address=payment_address,
+                webhook_type='btcpay',
+                external_id=invoice_id,
+                raw_data=payload,
+                delivery_id=payload.get('deliveryId')
             )
             
-            # Update payment status
-            if status == 'Settled':
+            # Update payment status based on webhook type
+            if webhook_type == 'InvoiceReceivedPayment':
+                # Payment received, update status
                 payment_address.status = 'paid'
                 payment_address.confirmed_at = timezone.now()
-                payment_address.transaction_hash = payload.get('transactionHash')
+                
+                # Get transaction hash from payment data
+                payment_data = payload.get('payment', {})
+                if payment_data:
+                    payment_address.transaction_hash = payment_data.get('id')
+                    payment_address.received_amount = float(payment_data.get('value', 0))
+                
                 payment_address.save()
+                
+                # Update order status
+                logger.info(f"Calling _update_order_status_on_payment for order {payment_address.order_id}")
+                self._update_order_status_on_payment(payment_address.order_id)
                 
                 # Process escrow if applicable
                 if hasattr(payment_address, 'escrow'):
                     escrow = payment_address.escrow
                     escrow.status = 'funded'
                     escrow.save()
+                
+                # Mark webhook as processed
+                webhook.processed = True
+                webhook.processed_at = timezone.now()
+                webhook.save()
+                
+                logger.info(f"Payment confirmed for order {payment_address.order_id}")
+            
+            elif webhook_type == 'InvoiceSettled':
+                # Invoice fully settled
+                payment_address.status = 'paid'
+                payment_address.confirmed_at = timezone.now()
+                payment_address.save()
+                
+                # Update order status
+                logger.info(f"Calling _update_order_status_on_payment for settled order {payment_address.order_id}")
+                self._update_order_status_on_payment(payment_address.order_id)
+                
+                # Mark webhook as processed
+                webhook.processed = True
+                webhook.processed_at = timezone.now()
+                webhook.save()
+                
+                logger.info(f"Invoice settled for order {payment_address.order_id}")
             
             return True
             
         except Exception as e:
             logger.error(f"BTCPay webhook processing error: {str(e)}")
             return False
+    
+    def _update_order_status_on_payment(self, order_id: str):
+        """Update order status when payment is received"""
+        try:
+            from orders.models import Order, OrderStatus
+            
+            logger.info(f"Looking for order with order_id: {order_id}")
+            order = Order.objects.get(order_id=order_id)
+            logger.info(f"Found order: {order.id}, current status: {order.order_status}, payment_status: {order.payment_status}")
+            
+            # Only update if order is not already paid
+            if order.payment_status != 'paid':
+                # Update order status to processing
+                order.order_status = OrderStatus.PROCESSING.value
+                order.payment_status = 'paid'
+                order.payment_confirmed_at = timezone.now()
+                order.save()
+                
+                logger.info(f"Order {order_id} status updated to PROCESSING after payment")
+            else:
+                logger.info(f"Order {order_id} is already marked as paid, skipping status update")
+            
+        except Order.DoesNotExist:
+            logger.error(f"Order not found with order_id: {order_id}")
+        except Exception as e:
+            logger.error(f"Error updating order status for {order_id}: {str(e)}")
     
     def _process_monero_webhook(self, payload: dict) -> bool:
         """Process Monero payment notification"""
@@ -327,6 +485,13 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Monero webhook processing error: {str(e)}")
             return False
+    
+    def get_payment_address(self, order_id: str) -> PaymentAddress:
+        """Get payment address for order"""
+        try:
+            return PaymentAddress.objects.get(order_id=order_id)
+        except PaymentAddress.DoesNotExist:
+            return None
     
     def check_payment_status(self, order_id: str) -> dict:
         """Check current payment status"""

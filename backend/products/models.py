@@ -1,116 +1,117 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils.text import slugify
-import uuid
 from django.utils import timezone
+from shared.models import BaseModel
 
 
 class ProductCategory(models.Model):
-    """Enhanced product categories for crypto marketplace"""
+    """Product categories for the marketplace"""
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(unique=True, blank=True)
+    slug = models.SlugField(unique=True)
     description = models.TextField(blank=True)
-    icon = models.CharField(max_length=50, blank=True)
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='subcategories')
+    icon = models.CharField(max_length=50, blank=True)  # Icon class name
     is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'product_categories'
         verbose_name_plural = 'Product Categories'
-        ordering = ['name']
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
+        ordering = ['sort_order', 'name']
 
     def __str__(self):
         return self.name
 
 
 class ProductSubCategory(models.Model):
-    """Sub-categories for main categories"""
+    """Product sub-categories"""
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100)
-    slug = models.SlugField(blank=True)
-    category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE, related_name='subcategories_list')
+    category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE, related_name='sub_categories', db_column='category_id')
+    slug = models.SlugField()
+    description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'product_subcategories'
         verbose_name_plural = 'Product Sub-Categories'
-        unique_together = ['name', 'category']
-        ordering = ['name']
+        unique_together = ['category', 'slug']
+        ordering = ['sort_order', 'name']
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = self.name.lower().replace(' ', '-')
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.category.name} - {self.name}"
 
 
-class Product(models.Model):
-    """Enhanced Product model for crypto marketplace"""
+class Product(BaseModel):
+    """Account marketplace product model - Client Requirements"""
     
     # Basic Information
     id = models.BigAutoField(primary_key=True)
     vendor = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='vendor_products')
-    listing_title = models.CharField(max_length=200)
-    category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE)
-    sub_category = models.ForeignKey(ProductSubCategory, on_delete=models.CASCADE, blank=True, null=True)
-    description = models.TextField(max_length=150)
     
-    # Account/Product Details
+    # Client Required Fields
+    headline = models.CharField(max_length=200)  # Zoom Account, PIC
+    listing_title = models.CharField(max_length=200, blank=True)  # Legacy field - map to headline
+    website = models.CharField(max_length=200)  # Zoom.com
     account_type = models.CharField(max_length=50, choices=[
-        ('personal', 'Personal'),
-        ('business', 'Business'),
-        ('premium', 'Premium'),
-        ('trial', 'Trial'),
-        ('demo', 'Demo'),
-        ('vip', 'VIP'),
+        ('messengers', 'Messengers'),
+        ('streaming', 'Streaming'),
+        ('gaming', 'Gaming'),
+        ('social', 'Social Media'),
+        ('trading', 'Trading/Exchange'),
+        ('software', 'Software'),
+        ('other', 'Other'),
     ])
-    verification_level = models.CharField(max_length=50, choices=[
-        ('unverified', 'Unverified'),
-        ('email_verified', 'Email Verified'),
-        ('kyc_verified', 'KYC Verified'),
-        ('2fa_enabled', '2FA Enabled'),
-        ('phone_verified', 'Phone Verified'),
+    access_type = models.CharField(max_length=50, choices=[
+        ('full_ownership', 'Full Ownership'),
+        ('access', 'Access'),
+        ('shared', 'Shared'),
     ])
-    account_age = models.DateField(blank=True, null=True)
-    access_method = models.CharField(max_length=50, choices=[
-        ('username_password', 'Username + Password'),
-        ('api_keys', 'API Keys'),
-        ('seed_phrase', 'Seed Phrase'),
-        ('software_license', 'Software License'),
-        ('access_token', 'Access Token'),
-    ])
-    special_features = models.JSONField(default=list, blank=True)
-    region_restrictions = models.CharField(max_length=200, blank=True)
-    
-    # Pricing & Availability
+    access_method = models.CharField(max_length=100, default='email_password')  # email:password
+    account_balance = models.CharField(max_length=100, blank=True)  # $15 welcome credit
+    description = models.TextField()  # Aged Zoom Account from 2021 USA IP Female blabla...
     price = models.DecimalField(max_digits=20, decimal_places=8, validators=[MinValueValidator(0)])
-    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
-    quantity_available = models.PositiveIntegerField(default=1)
-    delivery_method = models.CharField(max_length=50, choices=[
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    additional_info = models.TextField(blank=True)  # Account is Shadowflagged by this and that
+    delivery_time = models.CharField(max_length=50, choices=[
         ('instant_auto', 'Instant Auto-delivery'),
-        ('manual_approval', 'Manual after order approval'),
+        ('manual_24h', 'Manual delivery within 24hrs'),
     ])
+    delivery_method = models.CharField(max_length=50, default='instant')  # instant, manual
     
-    # Media & Proof
-    main_images = models.JSONField(default=list)  # List of image URLs
-    gallery_images = models.JSONField(default=list)  # List of gallery image URLs
-    documents = models.JSONField(default=list)  # List of document URLs
+    # Optional Fields
+    special_features = models.JSONField(default=list, db_column='special_features')  # 2FA, premium features
+    region_restrictions = models.CharField(max_length=200, default='')  # US only, EU restricted
+    quantity_available = models.PositiveIntegerField(default=1)
+    account_age = models.CharField(max_length=100, blank=True, null=True, db_column='account_age')  # 2 years old
+    main_images = models.JSONField(default=list, db_column='main_images')  # Main product images
+    gallery_images = models.JSONField(default=list, db_column='gallery_images')  # Additional images
+    documents = models.JSONField(default=list, db_column='documents')  # Supporting documents
+    tags = models.JSONField(default=list, db_column='tags')  # Keywords/tags
+    auto_delivery_script = models.TextField(default='')  # Auto-delivery script
+    notes_for_buyer = models.TextField(default='')  # Special instructions
     
-    # Additional Metadata
-    tags = models.JSONField(default=list)
-    auto_delivery_script = models.TextField(blank=True)
-    notes_for_buyer = models.TextField(blank=True)
+    # Credentials - Hidden until payment confirmed
+    credentials = models.TextField(blank=True)  # testemail@test.com:testuser66:testpassword
+    credentials_visible = models.BooleanField(default=False)  # Auto-set to True after payment
+    
+    # Escrow Settings
+    escrow_enabled = models.BooleanField(default=False)  # Enable escrow for this product
+    
+    # Media
+    main_image = models.ImageField(upload_to='products/images/', blank=True, null=True)
     
     # Status & Approval
     status = models.CharField(max_length=20, choices=[
@@ -121,14 +122,22 @@ class Product(models.Model):
         ('suspended', 'Suspended'),
     ], default='draft')
     
-    is_featured = models.BooleanField(default=False)
+    verification_level = models.CharField(max_length=20, choices=[
+        ('unverified', 'Unverified'),
+        ('basic', 'Basic Verification'),
+        ('premium', 'Premium Verification'),
+        ('verified', 'Verified'),
+    ], default='unverified')
+    
     is_active = models.BooleanField(default=True)
-    approval_notes = models.TextField(blank=True)
+    is_featured = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    approval_notes = models.TextField(default='')
     approved_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, blank=True, null=True, related_name='approved_products')
     approved_at = models.DateTimeField(blank=True, null=True)
     
     # Rejection fields
-    rejection_reason = models.TextField(blank=True)
+    rejection_reason = models.TextField(default='')
     rejected_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, blank=True, null=True, related_name='rejected_products')
     rejected_at = models.DateTimeField(blank=True, null=True)
     
@@ -137,6 +146,10 @@ class Product(models.Model):
     favorites_count = models.PositiveIntegerField(default=0)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00, validators=[MinValueValidator(0), MaxValueValidator(5)])
     review_count = models.PositiveIntegerField(default=0)
+    
+    # Category (required for now)
+    category = models.ForeignKey('ProductCategory', on_delete=models.CASCADE, related_name='products', db_column='category_id')
+    sub_category = models.ForeignKey('ProductSubCategory', on_delete=models.SET_NULL, blank=True, null=True, related_name='products', db_column='sub_category_id')
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -148,30 +161,60 @@ class Product(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['vendor', 'status']),
-            models.Index(fields=['category', 'status']),
+            models.Index(fields=['account_type', 'status']),
             models.Index(fields=['price']),
             models.Index(fields=['rating']),
             models.Index(fields=['created_at']),
         ]
 
     def __str__(self):
-        return f"{self.listing_title} - {self.vendor.username}"
+        return f"{self.headline} - {self.vendor.username}"
 
-    def get_final_price(self):
-        """Calculate final price after discount"""
-        if self.discount_percentage > 0:
-            discount_amount = (self.price * self.discount_percentage) / 100
-            return self.price - discount_amount
-        return self.price
+    def save(self, *args, **kwargs):
+        """Auto-set listing_title from headline"""
+        if self.headline and not self.listing_title:
+            self.listing_title = self.headline
+        super().save(*args, **kwargs)
 
-    def get_available_quantity(self):
-        """Get available quantity for purchase"""
-        return max(0, self.quantity_available)
+    def get_credentials_display(self):
+        """Get credentials display based on payment status"""
+        if self.credentials_visible:
+            return self.credentials
+        elif self.delivery_time == 'instant_auto':
+            return "Credentials will be delivered automatically after payment confirmation"
+        else:
+            return "Manual delivery by seller within 24 hours"
 
     def increment_views(self):
         """Increment view count"""
         self.views_count += 1
         self.save(update_fields=['views_count'])
+
+    def track_view(self, user, request=None):
+        """Track a view for this product by a specific user"""
+        from django.utils import timezone
+        
+        # Only track if user is authenticated (removed vendor restriction)
+        if not user.is_authenticated:
+            return False
+            
+        # Get or create view record (unique per user per product)
+        view, created = ProductView.objects.get_or_create(
+            product=self,
+            user=user,
+            defaults={
+                'ip_address': request.META.get('REMOTE_ADDR') if request else None,
+                'user_agent': request.META.get('HTTP_USER_AGENT', '') if request else '',
+            }
+        )
+        
+        # If it's a new view, increment the views_count
+        if created:
+            self.views_count += 1
+            self.save(update_fields=['views_count'])
+            return True
+            
+        return False
 
     def approve_product(self, approved_by_user):
         """Approve product listing"""
@@ -180,66 +223,49 @@ class Product(models.Model):
         self.approved_at = timezone.now()
         self.save()
 
-    def reject_product(self, rejection_notes):
+    def reject_product(self, rejection_notes, rejected_by_user):
         """Reject product listing"""
         self.status = 'rejected'
-        self.approval_notes = rejection_notes
+        self.rejection_reason = rejection_notes
+        self.rejected_by = rejected_by_user
+        self.rejected_at = timezone.now()
         self.save()
 
-
-class ProductImage(models.Model):
-    """Product images with metadata"""
-    id = models.BigAutoField(primary_key=True)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_images')
-    image = models.ImageField(upload_to='products/images/')
-    alt_text = models.CharField(max_length=200, blank=True)
-    is_primary = models.BooleanField(default=False)
-    order = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'product_images'
-        ordering = ['order', 'created_at']
-
-    def __str__(self):
-        return f"{self.product.listing_title} - Image {self.order}"
+    def reveal_credentials(self):
+        """Reveal credentials after payment confirmation"""
+        self.credentials_visible = True
+        self.save(update_fields=['credentials_visible'])
 
 
-class ProductDocument(models.Model):
-    """Product documents for verification"""
-    id = models.BigAutoField(primary_key=True)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_documents')
-    document = models.FileField(upload_to='products/documents/')
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    file_type = models.CharField(max_length=20)
-    file_size = models.PositiveIntegerField()  # Size in bytes
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'product_documents'
-
-    def __str__(self):
-        return f"{self.product.listing_title} - {self.title}"
-
-
-class ProductTag(models.Model):
-    """Product tags for search and categorization"""
-    id = models.BigAutoField(primary_key=True)
-    name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(blank=True)
-    usage_count = models.PositiveIntegerField(default=0)
+class BulkUploadTemplate(BaseModel):
+    """Template for bulk upload format"""
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    template_format = models.TextField(help_text="CSV format template")
     is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'product_tags'
-        ordering = ['-usage_count', 'name']
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
+        db_table = 'bulk_upload_templates'
 
     def __str__(self):
         return self.name 
+
+
+class ProductView(BaseModel):
+    """Track individual product views per user"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_views')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='product_views')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'product_views'
+        unique_together = ['product', 'user']  # One view per user per product
+        indexes = [
+            models.Index(fields=['product', 'user']),
+            models.Index(fields=['viewed_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} viewed {self.product.headline}"

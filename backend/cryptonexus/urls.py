@@ -11,7 +11,7 @@ urlpatterns = [
     path('api/v1/products/', include('products.urls')),  # Fixed: added 'products/' prefix
     path('api/v1/', include('orders.urls')),
     path('api/v1/', include('vendors.urls')),
-    path('api/v1/', include('payments.urls')),
+    path('api/v1/payments/', include('payments.urls')),  # Fixed: added 'payments/' prefix
     path('api/v1/', include('notifications.urls')),
 ]
 

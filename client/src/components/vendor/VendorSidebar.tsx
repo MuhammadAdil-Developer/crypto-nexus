@@ -144,7 +144,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                           className={cn(
                             "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
                             isActive 
-                              ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md" 
+                              ? "text-cyan-400" 
                               : "text-gray-300 hover:bg-gray-700 hover:text-white"
                           )}
                           data-testid={`vendor-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
@@ -179,7 +179,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                       className={cn(
                         "relative group flex items-center px-3 py-3 rounded-lg transition-all duration-200 cursor-pointer",
                         isActive 
-                          ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md" 
+                          ? "text-cyan-400" 
                           : "text-gray-300 hover:bg-gray-700 hover:text-white"
                       )}
                     >

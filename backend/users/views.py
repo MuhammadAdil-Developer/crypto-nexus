@@ -1,33 +1,26 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, BasePermission
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from django.shortcuts import get_object_or_404
-from django.db.models import Q
-from django.db import transaction
+from django.utils import timezone
 
 from .models import User
 from .serializers import (
-    UserSerializer, UserDetailSerializer, 
-    UserRegistrationSerializer, UserLoginSerializer
+    UserRegistrationSerializer, UserLoginSerializer, 
+    UserSerializer, UserUpdateSerializer
 )
 
 
-class IsAdminOrSuperUser(BasePermission):
+class IsAdminUser(BasePermission):
     """
-    Custom permission class to check if user is admin or superuser
-    Works with JWT authentication
+    Custom permission class to check if user is admin
     """
     def has_permission(self, request, view):
         # Check if user is authenticated
         if not request.user or not request.user.is_authenticated:
             return False
-        
-        # Check if user is superuser (Django's built-in field)
-        if request.user.is_superuser:
-            return True
         
         # Check if user has admin user_type
         if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':
@@ -39,12 +32,11 @@ class IsAdminOrSuperUser(BasePermission):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def user_registration(request):
-    """User registration endpoint"""
+    """User registration endpoint - username + password only"""
     try:
         serializer = UserRegistrationSerializer(data=request.data)
         
         if serializer.is_valid():
-            with transaction.atomic():
                 user = serializer.save()
                 
                 # Generate tokens
@@ -65,9 +57,9 @@ def user_registration(request):
                 
                 return Response({
                     'success': True,
-                    'message': 'User registered successfully',
+                'message': 'Registration successful',
                     'data': response_data
-                }, status=status.HTTP_201_CREATED)
+            })
         else:
             return Response({
                 'success': False,
@@ -86,16 +78,16 @@ def user_registration(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def user_login(request):
-    """User login endpoint"""
+    """User login endpoint - username + password only"""
     try:
         serializer = UserLoginSerializer(data=request.data)
         
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            username = serializer.validated_data['username']
             password = serializer.validated_data['password']
             
             # Authenticate user
-            user = authenticate(request, email=email, password=password)
+            user = authenticate(request, username=username, password=password)
             
             if not user:
                 return Response({
@@ -149,145 +141,15 @@ def user_login(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
-def refresh_token(request):
-    """Refresh access token using refresh token"""
-    try:
-        refresh_token = request.data.get('refresh')
-        
-        if not refresh_token:
-            return Response({
-                'success': False,
-                'message': 'Refresh token is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Verify and decode refresh token
-        refresh = RefreshToken(refresh_token)
-        
-        # Generate new access token
-        access_token = str(refresh.access_token)
-        
-        return Response({
-            'success': True,
-            'message': 'Token refreshed successfully',
-            'data': {
-                'access': access_token
-            }
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': 'Token refresh failed',
-            'errors': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def user_profile(request):
-    """Get current user's profile"""
-    try:
-        serializer = UserSerializer(request.user)
-        return Response({
-            'success': True,
-            'message': 'Profile retrieved successfully',
-            'data': serializer.data
-        })
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve profile',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated])
-def update_profile(request):
-    """Update current user's profile"""
-    try:
-        user = request.user
-        serializer = UserSerializer(user, data=request.data, partial=True)
-        
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'success': True,
-                'message': 'Profile updated successfully',
-                'data': serializer.data
-            })
-        else:
-            return Response({
-                'success': False,
-                'message': 'Invalid data',
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': 'Failed to update profile',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def change_password(request):
-    """Change user password"""
-    try:
-        current_password = request.data.get('current_password')
-        new_password = request.data.get('new_password')
-        
-        if not current_password or not new_password:
-            return Response({
-                'success': False,
-                'message': 'Both current and new password are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Verify current password
-        if not request.user.check_password(current_password):
-            return Response({
-                'success': False,
-                'message': 'Current password is incorrect'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Validate new password
-        if len(new_password) < 8:
-            return Response({
-                'success': False,
-                'message': 'New password must be at least 8 characters long'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Set new password
-        request.user.set_password(new_password)
-        request.user.save()
-        
-        return Response({
-            'success': True,
-            'message': 'Password changed successfully'
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': 'Failed to change password',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
-    """User logout endpoint"""
+    """Logout endpoint"""
     try:
-        # In production, you might want to blacklist the refresh token
+        # In a real implementation, you might want to blacklist the token
         return Response({
             'success': True,
             'message': 'Logout successful'
         })
-        
     except Exception as e:
         return Response({
             'success': False,
@@ -297,9 +159,66 @@ def logout(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminOrSuperUser])
+@permission_classes([IsAuthenticated])
+def user_profile(request):
+    """Get current user profile - no PII"""
+    try:
+        user_data = UserSerializer(request.user).data
+        return Response({
+            'success': True,
+            'data': user_data
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Failed to get profile',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    """Update user profile - limited fields only"""
+    try:
+        serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            user_data = UserSerializer(request.user).data
+            
+            return Response({
+                'success': True,
+                'message': 'Profile updated successfully',
+                'data': user_data
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': 'Update failed',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Update failed',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def list_users(request):
     """List all users (admin only)"""
+    # Check if user is admin
+    if not hasattr(request.user, 'user_type') or request.user.user_type != 'admin':
+        return Response({
+            'success': False,
+            'message': 'Access denied. Admin privileges required.',
+            'errors': 'You do not have permission to perform this action.'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
     try:
         # Get query parameters
         page = int(request.GET.get('page', 1))
@@ -312,17 +231,13 @@ def list_users(request):
         
         # Apply filters
         if search:
-            queryset = queryset.filter(
-                Q(email__icontains=search) |
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search)
-            )
+            queryset = queryset.filter(username__icontains=search)
         
         if user_type:
             queryset = queryset.filter(user_type=user_type)
         
         # Order by creation date
-        queryset = queryset.order_by('-created_at')
+        queryset = queryset.order_by('-date_joined')
         
         # Paginate results
         total_count = queryset.count()

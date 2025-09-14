@@ -11,13 +11,14 @@ import {
   Store,
   ArrowRight
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 interface BuyerSidebarProps {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
+  hasBanner?: boolean;
 }
 
 const BUYER_NAV_ITEMS = [
@@ -65,14 +66,15 @@ const BUYER_NAV_ITEMS = [
   }
 ];
 
-export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) {
-  const location = useLocation();
+export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: BuyerSidebarProps) {
+  const [location] = useLocation();
 
   return (
     <div 
       className={cn(
         "bg-gray-950 border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col",
-        expanded ? "w-64" : "w-16"
+        expanded ? "w-64" : "w-16",
+        hasBanner ? "pt-16" : ""
       )}
       onMouseEnter={() => onExpandedChange(true)}
       onMouseLeave={() => onExpandedChange(false)}
@@ -80,7 +82,7 @@ export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) 
       {/* Logo */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-fuchsia-500 rounded-xl flex items-center justify-center">
             <User className="text-white w-4 h-4" />
           </div>
           {expanded && (
@@ -96,17 +98,20 @@ export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) 
       <nav className="flex-1 p-2 space-y-1">
         {BUYER_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.href || (item.href !== "/buyer" && location.pathname.startsWith(item.href));
+          const isActive = location === item.href || (item.href !== "/buyer" && location.startsWith(item.href));
           
           return (
-            <Link key={item.href} to={item.href}>
+            <Link key={item.href} href={item.href}>
               <div 
                 className={cn(
                   "relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer",
                   isActive 
-                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg" 
+                    ? "text-white shadow-lg" 
                     : "text-gray-400 hover:bg-gray-800 hover:text-white"
                 )}
+                style={{
+                  background: isActive ? 'linear-gradient(to right,rgba(34, 211, 238, 0.81), #85144A)' : 'transparent'
+                }}
                 data-testid={`buyer-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
@@ -147,8 +152,19 @@ export function BuyerSidebar({ expanded, onExpandedChange }: BuyerSidebarProps) 
 
       {/* Apply as Vendor Section */}
       <div className="p-2 border-t border-gray-800">
-        <Link to="/vendor/apply">
-          <div className="relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer text-gray-400 hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-600 hover:text-white border border-gray-700 hover:border-purple-500">
+        <Link href="/vendor/apply">
+          <div 
+            className="relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer text-gray-400 hover:text-white border border-gray-700 hover:border-fuchsia-400"
+            style={{
+              background: 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(to right, #22d3ee, #85144A)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
             <Store className="w-5 h-5 flex-shrink-0" />
             
             {expanded ? (

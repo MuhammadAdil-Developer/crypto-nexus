@@ -29,6 +29,8 @@ interface Product {
   review_count: number;
   created_at: string;
   updated_at: string;
+  quantity_available: number;
+  status: string;
 }
 
 interface Review {
@@ -49,6 +51,9 @@ const ProductDetailPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isInWishlist, setIsInWishlist] = useState(false);
+
+  // Stock management logic
+  const isOutOfStock = product ? (product.quantity_available <= 0 || product.status !== 'approved') : false;
 
   useEffect(() => {
     if (id) {
@@ -97,6 +102,15 @@ const ProductDetailPage: React.FC = () => {
   };
 
   const handleOrder = () => {
+    if (isOutOfStock) {
+      // Show out of stock message using toast
+      toast({
+        title: "Out of Stock",
+        description: "This product is currently out of stock",
+        variant: "destructive",
+      });
+      return;
+    }
     toast({
       title: "Order Placed",
       description: "Your order has been placed successfully!",
@@ -308,8 +322,14 @@ const ProductDetailPage: React.FC = () => {
             <div className="flex gap-4">
               <Button 
                 size="lg" 
-                className="flex-1 bg-gradient-to-r from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-medium"
+                className={`flex-1 font-medium ${
+                  isOutOfStock 
+                    ? 'bg-gray-500 hover:bg-gray-400 cursor-not-allowed opacity-60 text-white' 
+                    : 'bg-gradient-to-r from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white'
+                }`}
                 onClick={handleOrder}
+                disabled={isOutOfStock}
+                title={isOutOfStock ? "This product is currently out of stock" : "Order this product"}
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Order Now

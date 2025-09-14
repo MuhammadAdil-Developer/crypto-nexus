@@ -4,18 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Lock, Mail, Shield, Crown, Database, Server, Key } from "lucide-react";
-import authService from "@/services/authService";
+import { Eye, EyeOff, Lock, User, Shield, Crown, Database, Server, Key } from "lucide-react";
+import { authService } from "@/services/authService";
 
 export default function AdminSignIn() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: ""
   });
-  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; password?: string; general?: string }>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -28,12 +28,10 @@ export default function AdminSignIn() {
   };
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: { username?: string; password?: string } = {};
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    if (!formData.username) {
+      newErrors.username = 'Username is required';
     }
 
     if (!formData.password) {
@@ -60,9 +58,9 @@ export default function AdminSignIn() {
       
       if (response.success) {
         // Check if user is actually admin
-        if (response.data?.user?.user_type === 'admin' || response.data?.user?.is_superuser === true) {
+        if (response.data?.user?.user_type === 'admin') {
           console.log('✅ Admin login successful, redirecting to /admin');
-          navigate('/admin');
+          navigate('/admin/dashboard');
         } else {
           setErrors({ 
             general: 'Access denied. This login is for administrators only.' 
@@ -167,21 +165,21 @@ export default function AdminSignIn() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-300">Admin Email</Label>
+                  <Label htmlFor="username" className="text-gray-300">Admin Username</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
-                      id="email"
-                      type="email"
-                      name="email"
-                      value={formData.email}
+                      id="username"
+                      type="text"
+                      name="username"
+                      value={formData.username}
                       onChange={handleInputChange}
-                      placeholder="Enter admin email"
+                      placeholder="Enter admin username"
                       className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500 transition-colors"
                       required
                       disabled={isLoading}
                     />
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                    {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
                   </div>
                 </div>
 
@@ -232,15 +230,6 @@ export default function AdminSignIn() {
 
                 {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
 
-                <div className="text-center">
-                  <span className="text-gray-400">Need regular access? </span>
-                  <span 
-                    onClick={() => navigate('/sign-in')}
-                    className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-semibold"
-                  >
-                    User Login
-                  </span>
-                </div>
               </form>
             </CardContent>
           </Card>
@@ -248,7 +237,6 @@ export default function AdminSignIn() {
           <div className="mt-6 text-center text-xs text-gray-500">
             <div className="flex items-center justify-center space-x-2">
               <Shield className="w-4 h-4 text-red-400" />
-              <span>Restricted administrative access only</span>
             </div>
           </div>
         </div>

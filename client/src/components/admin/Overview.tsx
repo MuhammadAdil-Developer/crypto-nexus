@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Bitcoin, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, Bitcoin, Wallet, Lock, CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ADMIN_NAV_ITEMS, SAMPLE_ORDERS, SAMPLE_ACTIVITY } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
+import { ADMIN_NAV_ITEMS, SAMPLE_ACTIVITY } from "@/lib/constants";
 import { authService } from "@/services/authService";
+import { orderService, Order } from "@/services/orderService";
+import { Link } from "react-router-dom";
 
 // API Integration Types
 interface User {
@@ -28,16 +31,121 @@ interface VendorApplication {
   created_at: string;
 }
 
+// Transform API order data to match UI structure
+interface UIOrder {
+  id: string;
+  buyer: string;
+  vendor: string;
+  listing: string;
+  amount: string;
+  status: string;
+  statusType: 'success' | 'warning' | 'danger' | 'accent';
+  created: string;
+  use_escrow?: boolean;
+  order_status?: string;
+  confirmed_at?: string;
+}
+
+const transformApiOrderToUIOrder = (apiOrder: Order): UIOrder => {
+  // Determine status badge type based on order status
+  const getStatusType = (status: string): 'success' | 'warning' | 'danger' | 'accent' => {
+    if (typeof status !== 'string') return 'warning';
+    
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'confirmed':
+      case 'paid':
+        return 'success';
+      case 'pending_payment':
+      case 'pending':
+        return 'warning';
+      case 'cancelled':
+      case 'disputed':
+      case 'failed':
+        return 'danger';
+      case 'delivered':
+      case 'processing':
+        return 'accent';
+      default:
+        return 'warning';
+    }
+  };
+
+  // Format date to readable string
+  const formatDate = (dateString: string): string => {
+    try {
+      if (!dateString || typeof dateString !== 'string') return 'N/A';
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  // Safe string conversion helper
+  const safeString = (value: any): string => {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return value.toString();
+    if (value && typeof value === 'object') {
+      // If it's an object, try to get a meaningful string representation
+      if (value.username) return value.username;
+      if (value.email) return value.email;
+      if (value.first_name) return value.first_name;
+      if (value.headline) return value.headline;
+      if (value.listing_title) return value.listing_title;
+      if (value.name) return value.name;
+      return 'Unknown';
+    }
+    return 'Unknown';
+  };
+
+  // Extract display names safely with robust error handling
+  const buyerName = safeString(apiOrder.buyer);
+  const vendorName = safeString(apiOrder.vendor);
+  const productName = safeString(apiOrder.product);
+
+  // Safe amount formatting
+  const totalAmount = typeof apiOrder.total_amount === 'number' ? apiOrder.total_amount : 
+                     typeof apiOrder.total_amount === 'string' ? parseFloat(apiOrder.total_amount) || 0 : 0;
+  const cryptoCurrency = typeof apiOrder.crypto_currency === 'string' ? apiOrder.crypto_currency : 'BTC';
+  const amountString = `${totalAmount} ${cryptoCurrency}`;
+
+  // Safe status handling
+  const orderStatus = safeString(apiOrder.order_status);
+  const statusDisplay = safeString(apiOrder.order_status_display) || orderStatus;
+
+  return {
+    id: safeString(apiOrder.order_id || apiOrder.id),
+    buyer: buyerName,
+    vendor: vendorName,
+    listing: productName,
+    amount: amountString,
+    status: statusDisplay,
+    statusType: getStatusType(orderStatus),
+    created: formatDate(apiOrder.created_at),
+    use_escrow: apiOrder.use_escrow,
+    order_status: apiOrder.order_status,
+    confirmed_at: apiOrder.confirmed_at
+  };
+};
+
 export function Overview() {
   // API Integration State
   const [users, setUsers] = useState<User[]>([]);
   const [vendorApplications, setVendorApplications] = useState<VendorApplication[]>([]);
+  const [recentOrders, setRecentOrders] = useState<UIOrder[]>([]);
   const [loading, setLoading] = useState(false);
 
   // API Functions
   const fetchUsers = async () => {
     try {
-      const token = authService.getAccessToken();
+      const token = authService.getToken();
       if (!token) {
         console.error('❌ No authentication token found');
         return;
@@ -63,7 +171,7 @@ export function Overview() {
 
   const fetchVendorApplications = async () => {
     try {
-      const token = authService.getAccessToken();
+      const token = authService.getToken();
       if (!token) {
         console.error('❌ No authentication token found');
         return;
@@ -87,6 +195,51 @@ export function Overview() {
     }
   };
 
+  const fetchRecentOrders = async () => {
+    try {
+      console.log('🔄 Fetching recent orders from admin dashboard...');
+      const dashboardData = await orderService.getAdminDashboard();
+      
+      if (dashboardData.recent_orders && Array.isArray(dashboardData.recent_orders)) {
+        // Get only the last 4 orders and transform them
+        const last4Orders = dashboardData.recent_orders.slice(0, 4);
+        console.log('🔍 Raw orders data:', last4Orders);
+        
+        const transformedOrders = last4Orders.map((order, index) => {
+          try {
+            console.log(`🔄 Transforming order ${index}:`, order);
+            const transformed = transformApiOrderToUIOrder(order);
+            console.log(`✅ Transformed order ${index}:`, transformed);
+            return transformed;
+          } catch (error) {
+            console.error(`❌ Error transforming order ${index}:`, error, order);
+            // Return a safe fallback order
+            return {
+              id: `error-${index}`,
+              buyer: 'Unknown',
+              vendor: 'Unknown',
+              listing: 'Unknown Product',
+              amount: '0 BTC',
+              status: 'Unknown',
+              statusType: 'warning' as const,
+              created: 'N/A'
+            };
+          }
+        });
+        
+        setRecentOrders(transformedOrders);
+        console.log('✅ Successfully fetched and transformed recent orders:', transformedOrders);
+      } else {
+        console.warn('⚠️ No recent orders found in dashboard data');
+        setRecentOrders([]);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching recent orders:', error);
+      // Keep the component working even if API fails
+      setRecentOrders([]);
+    }
+  };
+
   // Get counts from API data
   const getTotalUsersCount = () => {
     return users.length;
@@ -103,7 +256,11 @@ export function Overview() {
   // Fetch data on component mount
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchUsers(), fetchVendorApplications()]).finally(() => {
+    Promise.all([
+      fetchUsers(), 
+      fetchVendorApplications(),
+      fetchRecentOrders()
+    ]).finally(() => {
       setLoading(false);
     });
   }, []);
@@ -312,6 +469,44 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
+        
+        {/* Escrow Notifications */}
+        <Card className="crypto-card">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold text-text mb-4 flex items-center">
+              <Lock className="w-5 h-5 mr-2 text-yellow-400" />
+              Escrow Alerts
+            </h3>
+            <div className="space-y-4">
+              {recentOrders.filter(order => order.use_escrow).slice(0, 3).map((order) => (
+                <div key={order.id} className="flex items-start space-x-3">
+                  <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0 bg-yellow-400" />
+                  <div className="flex-1">
+                    <p className="text-sm text-text">
+                      Escrow Order: {order.product?.headline || 'Unknown Product'}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {order.order_status === 'paid' && !order.confirmed_at 
+                        ? 'Awaiting buyer approval' 
+                        : order.confirmed_at 
+                        ? 'Approved by buyer' 
+                        : 'Payment pending'}
+                    </p>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+              {recentOrders.filter(order => order.use_escrow).length === 0 && (
+                <div className="text-center py-4">
+                  <Lock className="w-8 h-8 mx-auto text-gray-500 mb-2" />
+                  <p className="text-sm text-gray-400">No escrow orders at the moment</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       {/* Node Status and System Health */}
@@ -394,7 +589,12 @@ export function Overview() {
         <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-text">Recent Orders</h3>
-            <a href="#" className="text-sm text-accent hover:text-accent-2">View all orders →</a>
+            <Link 
+              to="/admin/orders" 
+              className="text-sm text-accent hover:text-accent-2 transition-colors duration-200"
+            >
+              View all orders →
+            </Link>
           </div>
         </div>
         
@@ -412,19 +612,54 @@ export function Overview() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {SAMPLE_ORDERS.map((order) => (
-                <tr key={order.id} className="hover:bg-surface-2">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-accent">{order.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text">{order.buyer}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text">{order.vendor}</td>
-                  <td className="px-6 py-4 text-sm text-text">{order.listing}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-text font-mono">{order.amount}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={order.status} type={order.statusType} />
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-sm text-muted">
+                    Loading recent orders...
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">{order.created}</td>
                 </tr>
-              ))}
+              ) : recentOrders.length > 0 ? (
+                recentOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-surface-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-accent">{order.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text">{order.buyer}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text">{order.vendor}</td>
+                    <td className="px-6 py-4 text-sm text-text">{order.listing}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text font-mono">{order.amount}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="space-y-1">
+                        <StatusBadge status={order.status} type={order.statusType} />
+                        {order.use_escrow && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[10px] px-1 py-0 h-4">
+                              <Lock className="w-2 h-2 mr-0.5" />
+                              ESCROW
+                            </Badge>
+                            {order.order_status === 'paid' && !order.confirmed_at && (
+                              <Badge className="bg-orange-500/20 text-orange-300 text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                Awaiting
+                              </Badge>
+                            )}
+                            {order.confirmed_at && (
+                              <Badge className="bg-green-500/20 text-green-300 text-[10px] px-1 py-0 h-4">
+                                <CheckCircle className="w-2 h-2 mr-0.5" />
+                                Approved
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">{order.created}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-sm text-muted">
+                    No recent orders found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

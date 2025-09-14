@@ -41,30 +41,23 @@ api.interceptors.response.use(
 
 export interface UserRegistrationData {
   username: string;
-  full_name: string;
-  email: string;
   password: string;
   confirm_password: string;
-  phone?: string;
 }
 
 export interface UserLoginData {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface User {
   id: string;
-  email: string;
   username: string;
-  first_name: string;
-  last_name: string;
   user_type: string;
-  phone?: string;
-  profile_picture?: string;
   is_verified: boolean;
-  created_at: string;
-  is_superuser?: boolean;
+  two_factor_enabled: boolean;
+  is_active: boolean;
+  date_joined: string;
 }
 
 export interface AuthResponse {
@@ -100,14 +93,14 @@ class AuthService {
       if (error.response?.data) {
         return error.response.data;
       }
-      throw new Error('Registration failed. Please try again.');
+      throw error;
     }
   }
 
   // User Login
-  async login(loginData: UserLoginData): Promise<ApiResponse<AuthResponse>> {
+  async login(userData: UserLoginData): Promise<ApiResponse<AuthResponse>> {
     try {
-      const response = await api.post<ApiResponse<AuthResponse>>('/auth/login/', loginData);
+      const response = await api.post<ApiResponse<AuthResponse>>('/auth/login/', userData);
       
       if (response.data.success) {
         // Store tokens and user data
@@ -121,33 +114,6 @@ class AuthService {
       if (error.response?.data) {
         return error.response.data;
       }
-      throw new Error('Login failed. Please try again.');
-    }
-  }
-
-  // Refresh Token
-  async refreshToken(): Promise<{ access: string }> {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await api.post<ApiResponse<{ access: string }>>('/auth/refresh/', {
-        refresh: refreshToken
-      });
-
-      if (response.data.success) {
-        localStorage.setItem('accessToken', response.data.data.access);
-        return response.data.data;
-      }
-      
-      throw new Error('Token refresh failed');
-    } catch (error: any) {
-      // Clear invalid tokens
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
       throw error;
     }
   }
@@ -159,14 +125,14 @@ class AuthService {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear all stored data
+      // Clear local storage
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     }
   }
 
-  // Get Current User
+  // Get current user
   getCurrentUser(): User | null {
     const userStr = localStorage.getItem('user');
     if (userStr) {
@@ -185,103 +151,262 @@ class AuthService {
     return !!localStorage.getItem('accessToken');
   }
 
-  // Get access token
-  getAccessToken(): string | null {
+  // Get auth token
+  getToken(): string | null {
     return localStorage.getItem('accessToken');
   }
 
-  // Check if user is admin
-  isAdmin(): boolean {
-    const user = this.getCurrentUser();
-    return user?.user_type === 'admin' || user?.is_superuser === true;
-  }
-
-  // Check if user is vendor
-  isVendor(): boolean {
-    const user = this.getCurrentUser();
-    return user?.user_type === 'vendor';
-  }
-
-  // Check if user is buyer
-  isBuyer(): boolean {
-    const user = this.getCurrentUser();
-    return user?.user_type === 'buyer';
-  }
-
-  // Check vendor application status
-  async getVendorApplicationStatus(): Promise<'pending' | 'approved' | 'rejected' | 'none'> {
+  // Refresh token
+  async refreshToken(): Promise<boolean> {
     try {
-      const token = this.getAccessToken();
-      if (!token) return 'none';
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        return false;
+      }
 
-      const response = await fetch('http://localhost:8000/api/v1/applications/', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await api.post<ApiResponse<{ access: string }>>('/auth/refresh/', {
+        refresh: refreshToken
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const user = this.getCurrentUser();
-        
-        if (user && data.results) {
-          // Find application for current user
-          const application = data.results.find((app: any) => 
-            app.vendor_username === user.username || app.email === user.email
-          );
-          
-          if (application) {
-            return application.status;
-          }
-        }
+      if (response.data.success) {
+        localStorage.setItem('accessToken', response.data.data.access);
+        return true;
       }
-      return 'none';
+      return false;
     } catch (error) {
-      console.error('Error checking vendor application status:', error);
-      return 'none';
+      console.error('Token refresh failed:', error);
+      return false;
     }
   }
 
-  // Get smart redirect path based on user status (excludes admin users)
-  async getSmartRedirectPath(): Promise<string> {
-    const user = this.getCurrentUser();
-    console.log('🔍 getSmartRedirectPath - Current user:', user);
-    
-    if (!user) {
-      console.log('❌ No user found, redirecting to /sign-in');
-      return '/sign-in';
+  // Update user profile
+  async updateProfile(profileData: Partial<User>): Promise<ApiResponse<User>> {
+    try {
+      const response = await api.put<ApiResponse<User>>('/auth/profile/', profileData);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
     }
+  }
 
-    console.log('👤 User type:', user.user_type);
-    console.log('🔐 Is admin?', this.isAdmin());
-    console.log('🏪 Is vendor?', this.isVendor());
-    console.log('🛒 Is buyer?', this.isBuyer());
-
-    // Admin users should not use this method - they have separate login
-    if (this.isAdmin()) {
-      console.log('⚠️ Admin user detected in regular redirect, redirecting to /admin');
-      return '/admin';
+  // Get user profile
+  async getProfile(): Promise<ApiResponse<User>> {
+    try {
+      const response = await api.get<ApiResponse<User>>('/auth/profile/');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
     }
+  }
 
-    // Check if user has vendor application
-    const vendorStatus = await this.getVendorApplicationStatus();
-    console.log('📋 Vendor application status:', vendorStatus);
-    
-    if (vendorStatus === 'pending') {
-      // Vendor application pending - always show success page
-      console.log('⏳ Vendor application pending, redirecting to /vendor/apply/success');
-      return '/vendor/apply/success';
-    } else if (vendorStatus === 'approved') {
-      // Vendor application approved - go to vendor dashboard
-      console.log('✅ Vendor application approved, redirecting to /vendor/dashboard');
-      return '/vendor/dashboard';
-    } else {
-      // No vendor application or rejected - go to buyer dashboard
-      console.log('🛒 No vendor application or rejected, redirecting to /buyer');
-      return '/buyer';
+  // Change password
+  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/change-password/', {
+        current_password: currentPassword,
+        new_password: newPassword
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Forgot password
+  async forgotPassword(email: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/forgot-password/', {
+        email
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Reset password
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/reset-password/', {
+        token,
+        new_password: newPassword
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Enable 2FA
+  async enable2FA(): Promise<ApiResponse<{ qr_code: string; secret: string }>> {
+    try {
+      const response = await api.post<ApiResponse<{ qr_code: string; secret: string }>>('/auth/enable-2fa/');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Disable 2FA
+  async disable2FA(password: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/disable-2fa/', {
+        password
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Verify 2FA
+  async verify2FA(token: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/verify-2fa/', {
+        token
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Verify email
+  async verifyEmail(token: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/verify-email/', {
+        token
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Resend verification email
+  async resendVerificationEmail(): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/auth/resend-verification/');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Get user statistics
+  async getUserStats(): Promise<ApiResponse<any>> {
+    try {
+      const response = await api.get<ApiResponse<any>>('/auth/stats/');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Check username availability
+  async checkUsernameAvailability(username: string): Promise<ApiResponse<{ available: boolean }>> {
+    try {
+      const response = await api.get<ApiResponse<{ available: boolean }>>(`/auth/check-username/${username}/`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Check vendor status and application status
+  async checkVendorStatus(): Promise<{
+    isVendor: boolean;
+    isApproved: boolean;
+    hasApplication: boolean;
+    applicationStatus?: string;
+  }> {
+    try {
+      const currentUser = this.getCurrentUser();
+      if (!currentUser) {
+        return { isVendor: false, isApproved: false, hasApplication: false };
+      }
+
+      // Check if user is already a vendor
+      if (currentUser.user_type === 'vendor') {
+        return { isVendor: true, isApproved: true, hasApplication: true, applicationStatus: 'approved' };
+      }
+
+      // Check if user has pending vendor application
+      try {
+        const response = await api.get(`/vendors/applications/check/${currentUser.username}/`);
+        if (response.data.success) {
+          const { has_application, status } = response.data.data;
+          return {
+            isVendor: false,
+            isApproved: false,
+            hasApplication: has_application,
+            applicationStatus: status
+          };
+        }
+      } catch (error) {
+        // If endpoint doesn't exist or error, assume no application
+        console.log('Vendor application check failed, assuming no application');
+      }
+
+      return { isVendor: false, isApproved: false, hasApplication: false };
+    } catch (error) {
+      console.error('Error checking vendor status:', error);
+      return { isVendor: false, isApproved: false, hasApplication: false };
+    }
+  }
+
+  // Delete account
+  async deleteAccount(password: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.delete<ApiResponse<void>>('/auth/delete-account/', {
+        data: { password }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
     }
   }
 }
 
 export const authService = new AuthService();
+export { api };
 export default authService; 

@@ -21,20 +21,41 @@ export default function VendorEditProduct() {
   const [product, setProduct] = useState<VendorProduct | null>(null);
   
   const [formData, setFormData] = useState({
-    listing_title: '',
+    // Client Required Fields
+    headline: '',
+    website: '',
+    account_type: '',
+    access_type: '',
+    account_balance: '',
     description: '',
     price: '',
-    quantity_available: '',
-    status: 'pending_approval',
-    account_type: '',
-    verification_level: '',
+    additional_info: '',
+    delivery_time: '',
+    credentials: '',
+    
+    // Optional Fields
     account_age: '',
     access_method: '',
-    delivery_method: '',
+    quantity_available: '',
+    main_image: null as File | null,
+    gallery_images: [] as File[],
+    documents: [] as File[],
+    tags: [] as string[],
+    
+    // Legacy fields for compatibility
+    listing_title: '',
+    category: '',
+    sub_category: '',
+    verification_level: '',
     region_restrictions: '',
-    notes_for_buyer: '',
+    discount_percentage: '',
+    delivery_method: '',
     special_features: [] as string[],
-    tags: [] as string[]
+    auto_delivery_script: '',
+    notes_for_buyer: '',
+    
+    // Status
+    status: 'pending_approval'
   });
 
   // Image management state
@@ -52,45 +73,72 @@ export default function VendorEditProduct() {
         setLoading(true);
         setError(null);
         
-        // Fetch the product to edit
-        const response = await vendorService.getMyProducts();
-        if (response.results) {
-          const foundProduct = response.results.find(p => p.id == id);
-          if (foundProduct) {
+        console.log('🔍 Fetching product for edit with ID:', id);
+        
+        // Use dedicated product detail endpoint
+        const response = await vendorService.getProductDetail(id);
+        
+        console.log('🔍 Edit product response:', response);
+        
+        if (response.success && response.data) {
+          const foundProduct = response.data;
+          console.log('✅ Setting product for edit:', foundProduct);
+          
             setProduct(foundProduct);
             setFormData({
-              listing_title: foundProduct.listing_title || '',
+            // Client Required Fields
+            headline: foundProduct.headline || '',
+            website: foundProduct.website || '',
+            account_type: foundProduct.account_type || '',
+            access_type: foundProduct.access_type || '',
+            account_balance: foundProduct.account_balance?.toString() || '',
               description: foundProduct.description || '',
               price: foundProduct.price?.toString() || '',
-              quantity_available: foundProduct.quantity_available?.toString() || '',
-              status: foundProduct.status || 'pending_approval',
-              account_type: foundProduct.account_type || '',
-              verification_level: foundProduct.verification_level || '',
+            additional_info: foundProduct.additional_info || '',
+            delivery_time: foundProduct.delivery_time || '',
+            credentials: foundProduct.credentials || '',
+            
+            // Optional Fields
               account_age: foundProduct.account_age || '',
               access_method: foundProduct.access_method || '',
+            quantity_available: foundProduct.quantity_available?.toString() || '',
+            main_image: null, // Will be set by handleMainImageChange
+            gallery_images: [] as File[], // Will be set by handleGalleryImageChange
+            documents: [] as File[], // Assuming documents are not directly managed in this form
+            tags: foundProduct.tags || [],
+            
+            // Legacy fields for compatibility
+            listing_title: foundProduct.listing_title || '',
+            category: foundProduct.category || '',
+            sub_category: foundProduct.sub_category || '',
+            verification_level: foundProduct.verification_level || '',
+            region_restrictions: foundProduct.region_restrictions || '',
+            discount_percentage: foundProduct.discount_percentage?.toString() || '',
               delivery_method: foundProduct.delivery_method || '',
-              region_restrictions: foundProduct.region_restrictions || '',
+            special_features: foundProduct.special_features || [],
+            auto_delivery_script: foundProduct.auto_delivery_script || '',
               notes_for_buyer: foundProduct.notes_for_buyer || '',
-              special_features: foundProduct.special_features || [],
-              tags: foundProduct.tags || []
+            
+            // Status
+            status: foundProduct.status || 'pending_approval'
             });
             
             // Set existing images
             if (foundProduct.main_image) {
-              setMainImagePreview(foundProduct.main_image);
+              console.log('🔍 Setting main image preview:', foundProduct.main_image);
+              setMainImagePreview(`http://localhost:8000${foundProduct.main_image}`);
             }
             if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
-              setGalleryImagePreviews(foundProduct.gallery_images);
+              console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
+              setGalleryImagePreviews(foundProduct.gallery_images.map(img => `http://localhost:8000${img}`));
             }
           } else {
-            setError('Product not found');
-          }
-        } else {
-          setError('Failed to fetch product');
+          console.error('❌ Edit product error:', response);
+          setError(response.message || 'Failed to fetch product');
         }
       } catch (err: any) {
+        console.error('❌ Error fetching product for edit:', err);
         setError(err.message || 'Failed to fetch product');
-        console.error('Error fetching product:', err);
       } finally {
         setLoading(false);
       }
@@ -194,12 +242,6 @@ export default function VendorEditProduct() {
       setSaving(true);
       setError(null);
       
-      // For now, we'll just show the form data and update the status
-      // In a real app, you'd send all the form data to update the product
-      console.log('📝 Form data to update:', formData);
-      console.log('🖼️ Main image:', mainImage);
-      console.log('🖼️ Gallery images:', galleryImages);
-      
       const response = await vendorService.updateProductStatus(id, formData.status);
       if (response.success) {
         showToast({
@@ -281,37 +323,49 @@ export default function VendorEditProduct() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="listing_title" className="text-gray-300">Product Title</Label>
+                <Label htmlFor="headline" className="text-gray-300">Headline *</Label>
                 <Input
-                  id="listing_title"
-                  name="listing_title"
-                  value={formData.listing_title}
+                  id="headline"
+                  name="headline"
+                  value={formData.headline}
                   onChange={handleInputChange}
                   className="bg-gray-800 border-gray-600 text-white"
-                  placeholder="Enter product title"
+                  placeholder="e.g., Premium Zoom Pro Account 2021"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-gray-300">Product Description</Label>
+                <Label htmlFor="website" className="text-gray-300">Website *</Label>
+                <Input
+                  id="website"
+                  name="website"
+                  value={formData.website}
+                  onChange={handleInputChange}
+                  className="bg-gray-800 border-gray-600 text-white"
+                  placeholder="e.g., zoom.us"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-gray-300">Description *</Label>
                 <Textarea
                   id="description"
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
                   className="bg-gray-800 border-gray-600 text-white min-h-[100px]"
-                  placeholder="Enter product description"
+                  placeholder="Enter detailed product description"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price" className="text-gray-300">Price ($)</Label>
+                  <Label htmlFor="price" className="text-gray-300">Price ($) *</Label>
                   <Input
                     id="price"
                     name="price"
                     type="number"
-                    step="0.00000001"
+                    step="0.01"
                     value={formData.price}
                     onChange={handleInputChange}
                     className="bg-gray-800 border-gray-600 text-white"
@@ -328,24 +382,9 @@ export default function VendorEditProduct() {
                     value={formData.quantity_available}
                     onChange={handleInputChange}
                     className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="0"
+                    placeholder="1"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status" className="text-gray-300">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => handleSelectChange('status', value)}>
-                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-gray-600">
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>
@@ -357,12 +396,15 @@ export default function VendorEditProduct() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Current Image Display */}
-              {mainImagePreview && (
+              {(mainImagePreview || (product?.main_image && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview}
+                    src={mainImagePreview || (product?.main_image ? `http://localhost:8000${product.main_image}` : '')}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                    }}
                   />
                   <Button
                     type="button"

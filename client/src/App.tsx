@@ -19,6 +19,7 @@ import BuyerSettings from "./pages/buyer/settings";
 import BuyerSupport from "./pages/buyer/support";
 import BuyerHome from "./pages/buyer/home";
 import ProductDetailPage from "./pages/buyer/product-detail";
+import PaymentTest from "./pages/buyer/payment-test";
 import './index.css';
 
 // Debug component to track route changes
@@ -47,6 +48,7 @@ function App() {
             <Route path="/sign-in" element={<SignIn />} />
             <Route path="/sign-up" element={<SignUp />} />
             <Route path="/admin-sign-in" element={<AdminSignIn />} />
+            <Route path="/payment-test" element={<PaymentTest />} />
             
             {/* Buyer Dashboard Routes */}
             <Route path="/buyer" element={
@@ -55,6 +57,7 @@ function App() {
               </ProtectedRoute>
             }>
               <Route index element={<BuyerHome />} />
+              <Route path="dashboard" element={<BuyerHome />} />
               <Route path="home" element={<BuyerHome />} />
               <Route path="listings" element={<BuyerListings />} />
               <Route path="orders" element={<BuyerOrders />} />
@@ -63,6 +66,7 @@ function App() {
               <Route path="settings" element={<BuyerSettings />} />
               <Route path="support" element={<BuyerSupport />} />
               <Route path="product/:id" element={<ProductDetailPage />} />
+              <Route path="payment-test" element={<PaymentTest />} />
             </Route>
             
             {/* Vendor Apply Routes (Standalone) - MUST come BEFORE /vendor/* */}

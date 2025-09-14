@@ -120,6 +120,52 @@ class PaymentStatusView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def post(self, request, order_id):
+        """Manual payment confirmation for testing"""
+        try:
+            from orders.models import Order, OrderStatus
+            
+            # Get the order
+            order = Order.objects.get(order_id=order_id)
+            
+            # Update order status to PAID (not PROCESSING)
+            order.order_status = OrderStatus.PAID.value
+            order.payment_status = 'paid'
+            order.payment_confirmed_at = timezone.now()
+            order.save()
+            
+            # Update payment address status (if it exists)
+            payment_service = PaymentService()
+            payment_address = payment_service.get_payment_address(order_id)
+            if payment_address:
+                payment_address.status = 'paid'
+                payment_address.confirmed_at = timezone.now()
+                payment_address.save()
+                logger.info(f"Payment address status updated for order {order_id}")
+            else:
+                logger.warning(f"No payment address found for order {order_id}, but order status updated")
+            
+            logger.info(f"Order {order_id} manually confirmed as paid")
+            
+            return Response({
+                'message': 'Payment confirmed successfully',
+                'order_id': order_id,
+                'status': 'paid',
+                'order_status': 'paid'
+            })
+            
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Order not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Manual payment confirmation error: {str(e)}")
+            return Response(
+                {'error': 'Failed to confirm payment'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class EscrowActionView(APIView):
     """API for escrow actions (release, dispute)"""
@@ -191,6 +237,8 @@ class BTCPayWebhookView(APIView):
             if not payment_service.btcpay.verify_webhook(payload, signature):
                 logger.warning("Invalid BTCPay webhook signature")
                 return Response({'error': 'Invalid signature'}, status=401)
+            
+            logger.info(f"BTCPay webhook received and verified with signature: {signature}")
             
             # Process webhook
             webhook_data = json.loads(payload)

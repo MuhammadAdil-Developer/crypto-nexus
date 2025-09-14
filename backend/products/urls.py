@@ -1,35 +1,39 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from . import views
 
-# API URLs for products
 urlpatterns = [
+    # Product listing and details
+    path('', views.list_products, name='list_products'),
+    
+    # Buyer listings
+    path('buyer/listings/', views.buyer_listings, name='buyer_listings'),
+    
+    # Vendor product management
+    path('vendor/products/', views.vendor_products, name='vendor_products'),
+    path('create/', views.create_product, name='create_product'),
+    path('update/<int:product_id>/', views.update_product, name='update_product'),
+    path('delete/<int:product_id>/', views.delete_product, name='delete_product'),
+    
     # Categories
-    path('categories/', views.ProductCategoryView.as_view(), name='product-categories'),
-    path('categories/<int:category_id>/subcategories/', views.ProductSubCategoryView.as_view(), name='product-subcategories'),
+    path('categories/', views.get_categories, name='get_categories'),
+    path('categories/<int:category_id>/subcategories/', views.get_category_subcategories, name='get_category_subcategories'),
     
-    # Admin Management (MUST come before generic product patterns)
-    path('admin/pending/', views.AdminPendingProductsView.as_view(), name='admin-pending-products'),
-    path('admin/all/', views.AdminAllProductsView.as_view(), name='admin-all-products'),
-    path('admin/<int:id>/approve/', views.AdminApproveProductView.as_view(), name='admin-approve-product'),
-    path('admin/<int:id>/reject/', views.AdminRejectProductView.as_view(), name='admin-reject-product'),
+    # Bulk operations
+    path('bulk-upload/csv/', views.bulk_upload_csv, name='bulk_upload_csv'),
+    path('bulk-upload/simple/', views.bulk_upload_simple, name='bulk_upload_simple'),
+    path('bulk-upload/template/', views.get_bulk_upload_template, name='get_bulk_upload_template'),
     
-    # Product CRUD
-    path('create/', views.ProductCreateView.as_view(), name='product-create'),
-    path('<int:pk>/', views.ProductDetailView.as_view(), name='product-detail'),
-    path('<int:pk>/update/', views.ProductUpdateView.as_view(), name='product-update'),
-    path('<int:pk>/status/', views.ProductStatusUpdateView.as_view(), name='product-status-update'),
-    path('<int:pk>/delete/', views.ProductDeleteView.as_view(), name='product-delete'),
+    # Credentials
+    path('<int:product_id>/reveal-credentials/', views.reveal_credentials, name='reveal_credentials'),
     
-    # Product Lists
-    path('list/', views.ProductListView.as_view(), name='product-list'),
-    path('buyer/listings/', views.BuyerListingsView.as_view(), name='buyer-listings'),
-    path('search/', views.ProductSearchView.as_view(), name='product-search'),
-    path('vendor/<int:vendor_id>/', views.VendorProductListView.as_view(), name='vendor-products'),
-    path('my-products/', views.MyProductsView.as_view(), name='my-products'),
+    # View tracking
+    path('<int:product_id>/track-view/', views.track_product_view, name='track_product_view'),
     
-    # Actions
-    path('<int:product_id>/favorite/', views.toggle_product_favorite, name='toggle-favorite'),
-    path('stats/', views.get_product_stats, name='product-stats'),
-    path('bulk-update/', views.bulk_update_products, name='bulk-update-products'),
-] 
+    # Admin endpoints
+    path('admin/all/', views.admin_list_all_products, name='admin_list_all_products'),
+    path('admin/<int:product_id>/approve/', views.admin_approve_product, name='admin_approve_product'),
+    path('admin/<int:product_id>/reject/', views.admin_reject_product, name='admin_reject_product'),
+    
+    # Product detail (must be last to avoid conflicts)
+    path('<int:product_id>/', views.product_detail, name='product_detail'),
+]

@@ -66,24 +66,18 @@ export interface SupportedCurrency {
 }
 
 class PaymentService {
-  async createPaymentAddress(data: {
-    order_id: string;
-    crypto_currency: string;
-    amount: number;
-    payment_type?: 'wallet' | 'buy' | 'exchange';
-    use_escrow?: boolean;
-  }): Promise<PaymentAddress> {
+
+  async createPaymentAddress(data: { order_id: string; crypto_currency: string; amount: string; payment_type: string; use_escrow: boolean }): Promise<PaymentAddress> {
     try {
-      const response = await api.post('/create/', data);
+      const response = await api.post("/payments/create/", data);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to create payment address');
+      throw new Error(error.response?.data?.error || "Failed to create payment address");
     }
   }
-
   async getPaymentStatus(orderId: string): Promise<PaymentStatus> {
     try {
-      const response = await api.get(`/status/${orderId}/`);
+      const response = await api.get(`/payments/status/${orderId}/`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to get payment status');
@@ -92,7 +86,7 @@ class PaymentService {
 
   async getSupportedCurrencies(): Promise<SupportedCurrency[]> {
     try {
-      const response = await api.get('/currencies/');
+      const response = await api.get('/payments/currencies/');
       return response.data.supported_currencies;
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to get supported currencies');

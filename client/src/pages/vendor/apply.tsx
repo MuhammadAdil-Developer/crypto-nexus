@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, ArrowRight, Check, Store, User, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
+import { authService } from "@/services/authService";
 
 const STEPS = [
   { id: 1, title: "Basic Info", icon: User, description: "Personal and business details" },
@@ -33,7 +34,6 @@ interface VendorApplicationData {
   // Basic Info
   businessName: string;
   vendorUsername: string;
-  email: string;
   contact: string;
   phone: string;
   website: string;
@@ -72,10 +72,10 @@ export default function VendorApply() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [, setLocation] = useLocation();
+  
   const [formData, setFormData] = useState<VendorApplicationData>({
     businessName: "",
     vendorUsername: "",
-    email: "crypto_buyer@example.com", // Pre-filled
     contact: "",
     phone: "",
     website: "",
@@ -106,6 +106,19 @@ export default function VendorApply() {
 
   const watchedValues = watch();
 
+  // Get current user's username and auto-fill vendor username
+  useEffect(() => {
+    const currentUser = authService.getCurrentUser();
+    if (currentUser && currentUser.username) {
+      setFormData(prev => ({
+        ...prev,
+        vendorUsername: currentUser.username
+      }));
+      // Also set the form value directly
+      setValue("vendorUsername", currentUser.username);
+    }
+  }, [setValue]);
+
   const updateFormData = (data: Partial<VendorApplicationData>) => {
     setFormData(prev => ({ ...prev, ...data }));
   };
@@ -133,7 +146,6 @@ export default function VendorApply() {
       // Add text fields
       formData.append('business_name', data.businessName);
       formData.append('vendor_username', data.vendorUsername);
-      formData.append('email', data.email);
       formData.append('contact', data.contact || "");
       formData.append('phone', data.phone || "");
       formData.append('website', data.website || "");
@@ -168,9 +180,23 @@ export default function VendorApply() {
 
       console.log('📤 Sending application data to API with FormData:', formData);
 
+      // Get authentication token
+      const token = authService.getToken();
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login again to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Submit to backend API
-      const response = await fetch('http://localhost:8000/api/v1/applications/', {
+      const response = await fetch('http://localhost:8000/api/v1/applications/create/', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData // Don't set Content-Type header for FormData
       });
 
@@ -201,7 +227,7 @@ export default function VendorApply() {
       
       toast({
         title: "Submission Failed",
-        description: error.message || "Failed to submit application. Please try again.",
+        description: (error as Error)?.message || "Failed to submit application. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -210,14 +236,25 @@ export default function VendorApply() {
   };
 
   const isStepValid = (step: number) => {
+    console.log('🔍 Step validation for step:', step);
+    console.log('🔍 Current watched values:', watchedValues);
+    
     switch (step) {
       case 1:
-        return watchedValues.businessName && 
+        const step1Valid = watchedValues.businessName && 
                watchedValues.vendorUsername && 
-               watchedValues.email && 
                watchedValues.phone && 
                watchedValues.businessType && 
                watchedValues.yearsInBusiness;
+        console.log('🔍 Step 1 validation result:', step1Valid);
+        console.log('🔍 Step 1 individual checks:', {
+          businessName: !!watchedValues.businessName,
+          vendorUsername: !!watchedValues.vendorUsername,
+          phone: !!watchedValues.phone,
+          businessType: !!watchedValues.businessType,
+          yearsInBusiness: !!watchedValues.yearsInBusiness
+        });
+        return step1Valid;
       case 2:
         return watchedValues.storeDescription && 
                watchedValues.category && 
@@ -259,29 +296,17 @@ export default function VendorApply() {
                 <Input
                   id="vendorUsername"
                   {...register("vendorUsername", { required: "Username is required" })}
-                  placeholder="Choose a unique username"
-                  className="bg-gray-800 border-gray-700"
+                  value={watchedValues.vendorUsername || ""}
+                  disabled
+                  readOnly
+                  className="bg-blue-900/30 border-blue-500 text-white cursor-not-allowed font-medium"
+                  style={{ color: 'white' }}
                 />
-                {errors.vendorUsername && (
-                  <p className="text-red-400 text-sm">{errors.vendorUsername.message}</p>
-                )}
+                <p className="text-blue-300 text-sm">This field is automatically filled with your username and can be changed later</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register("email", { required: "Email is required" })}
-                  className="bg-gray-800 border-gray-700"
-                />
-                {errors.email && (
-                  <p className="text-red-400 text-sm">{errors.email.message}</p>
-                )}
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number *</Label>
                 <Input
@@ -294,6 +319,17 @@ export default function VendorApply() {
                 {errors.phone && (
                   <p className="text-red-400 text-sm">{errors.phone.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="website">Website (Optional)</Label>
+                <Input
+                  id="website"
+                  type="url"
+                  {...register("website")}
+                  placeholder="https://yourwebsite.com"
+                  className="bg-gray-800 border-gray-700"
+                />
               </div>
             </div>
 

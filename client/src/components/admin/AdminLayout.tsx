@@ -1,5 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { Toaster } from "@/components/ui/toaster";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -14,6 +15,7 @@ export function AdminLayout({ children, breadcrumbs }: AdminLayoutProps) {
         <Header breadcrumbs={breadcrumbs} />
         {children}
       </div>
+      <Toaster />
     </div>
   );
 }

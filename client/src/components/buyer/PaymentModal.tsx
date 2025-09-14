@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Copy, QrCode, Shield, Clock, CheckCircle, AlertTriangle, Wallet, Bitcoin, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowLeft, Copy, QrCode, Shield, Clock, CheckCircle, AlertTriangle, Wallet, Bitcoin, Eye, EyeOff, Loader2, Lock, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import paymentService, { PaymentAddress, PaymentStatus } from '@/services/paymentService';
 
@@ -20,6 +21,7 @@ interface Product {
   };
   accepted_cryptocurrencies?: string[];
   escrow_available?: boolean;
+  escrow_enabled?: boolean;
 }
 
 interface PaymentModalProps {
@@ -65,6 +67,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
   });
 
   // Real payment creation
+
   const createRealPayment = async () => {
     if (!product || !selectedCrypto || !paymentType) return;
 
@@ -72,18 +75,43 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
     setApiError(null);
 
     try {
-      const orderIdGenerated = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // First create order
+      const orderData = {
+        product: product.id,
+        quantity: quantity,
+        crypto_currency: selectedCrypto,
+        use_escrow: useEscrow
+      };
+
+      const orderResponse = await fetch("http://localhost:8000/api/v1/orders/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!orderResponse.ok) {
+        throw new Error("Failed to create order");
+      }
+
+      const order = await orderResponse.json();
+      const orderIdGenerated = order.order_id;
+      setOrderId(orderIdGenerated);
+
+      // Update order with payment address\n      await fetch(`http://localhost:8000/api/v1/orders/${orderIdGenerated}/`, {\n        method: "PATCH",\n        headers: {\n          "Content-Type": "application/json",\n          "Authorization": `Bearer ${localStorage.getItem("accessToken")}`\n        },\n        body: JSON.stringify({\n          payment_address: paymentData.payment_address\n        })\n      });
       
+      // Then create payment address
       const paymentData = await paymentService.createPaymentAddress({
         order_id: orderIdGenerated,
         crypto_currency: selectedCrypto,
-        amount: totalPrice,
-        payment_type: paymentType as 'wallet' | 'buy' | 'exchange',
+        amount: totalPrice.toString(),
+        payment_type: paymentType as "wallet" | "buy" | "exchange",
         use_escrow: useEscrow
       });
 
       setRealPaymentAddress(paymentData);
-      setOrderId(orderIdGenerated);
       setPaymentAddress(paymentData.payment_address);
       setPaymentAmount(paymentData.expected_amount);
 
@@ -97,13 +125,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
         (status: PaymentStatus) => {
           setRealPaymentStatus(status);
           
-          if (status.status === 'paid') {
+          if (status.status === "paid") {
             toast({
               title: "Payment Confirmed! ✅",
               description: "Your payment has been successfully confirmed.",
             });
             setStep(4); // Move to confirmation step
-          } else if (status.status === 'expired') {
+          } else if (status.status === "expired") {
             toast({
               title: "Payment Expired ⏰",
               description: "Payment window has expired. Please try again.",
@@ -116,17 +144,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
       setPollingInterval(interval);
 
       toast({
-        title: "Payment Address Created! 🚀",
-        description: `Send ${paymentData.expected_amount} ${selectedCrypto} to the address below.`,
+        title: "Order Created & Payment Address Generated! 🚀",
+        description: `Order #${orderIdGenerated} created. Send ${paymentData.expected_amount} ${selectedCrypto} to the address below.`,
       });
 
+
+      console.log("✅ Order created successfully, moving to step 3", { orderIdGenerated, paymentData });
       setStep(3); // Move to payment details step
 
     } catch (error: any) {
+
+      console.log("❌ Error details:", { error, message: error.message, stack: error.stack });
+      console.error("Payment creation error:", error);
       setApiError(error.message);
       toast({
-        title: "Error Creating Payment",
-        description: error.message,
+        title: "Error Creating Order",
+        description: error.message || "Failed to create order and payment address",
         variant: "destructive"
       });
     } finally {
@@ -155,7 +188,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
   const calculateTotal = () => {
     const basePrice = parseFloat(product?.price || '0');
     const total = basePrice * quantity;
-    const escrowFee = useEscrow ? total * 0.02 : 0; // 2% escrow fee
+    // Only charge escrow fee if user opts in for non-escrow products
+    const escrowFee = (useEscrow && !product?.escrow_enabled) ? total * 0.02 : 0; // 2% escrow fee only for optional escrow
     return {
       subtotal: total,
       escrowFee,
@@ -361,7 +395,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
                       <span className="text-gray-300">Subtotal</span>
                       <span className="text-white">${pricing.subtotal.toFixed(2)}</span>
                     </div>
-                    {useEscrow && (
+                    {pricing.escrowFee > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-300">Escrow Fee (2%)</span>
                         <span className="text-white">${pricing.escrowFee.toFixed(2)}</span>
@@ -412,8 +446,37 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
                 </CardContent>
               </Card>
 
-              {/* Escrow Option */}
-              {product.escrow_available && (
+              {/* Escrow Information */}
+              {product.escrow_enabled && (
+                <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                          <Lock className="w-4 h-4 text-green-400" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="text-lg font-semibold text-green-300">Escrow Protection Active</h3>
+                          <button 
+                            className="text-green-400 hover:text-green-300 transition-colors"
+                            title="Payment held until you approve the order • Automatic refund if order is not approved • No additional fees for escrow protection"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className="text-gray-300 text-sm leading-relaxed">
+                          This product is protected by escrow. Your payment will be held securely until you confirm the order is satisfactory.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Optional Escrow Option for non-escrow products */}
+              {!product.escrow_enabled && product.escrow_available && (
                 <Card className="bg-gray-800 border-gray-700">
                   <CardContent className="pt-6">
                     <div className="flex items-start space-x-3">

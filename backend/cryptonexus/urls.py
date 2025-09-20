@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/v1/', include('vendors.urls')),
     path('api/v1/payments/', include('payments.urls')),  # Fixed: added 'payments/' prefix
     path('api/v1/', include('notifications.urls')),
+    path('api/v1/messaging/', include('messaging.urls')),
 ]
 
 # Serve media files in development

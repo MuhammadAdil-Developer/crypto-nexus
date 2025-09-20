@@ -17,8 +17,8 @@ class BTCPayServerService:
     """Service for BTCPay Server integration"""
     
     def __init__(self):
-        self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'http://localhost:23000')
-        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'JEc1gfxx2DXM8RYUwgtcdiBhxVAJtXYCD3LRYfAY4mt')  # Updated to match settings.py
+        self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'http://94.130.201.44:23000')
+        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'AKwDcGXvXRfKkVD3uTD7cK2Yv3jbnidDhwihfxBGyUN3')  # Correct Store ID
         self.api_key = getattr(settings, 'BTCPAY_API_KEY', '')
         self.headers = {
             'Authorization': f'token {self.api_key}',

@@ -10,6 +10,18 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-produc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
+# CORS Configuration - Production settings
+CORS_ALLOWED_ORIGINS = [
+    "http://94.130.201.44:5000",
+    "http://localhost:5000",
+    "http://localhost:3000",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False  # Set to False for production security
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 # Application definition
@@ -33,6 +45,7 @@ INSTALLED_APPS = [
     'vendors',
     'payments',
     'notifications',
+    'messaging',
 ]
 
 MIDDLEWARE = [
@@ -73,7 +86,7 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME', 'cryptonexus'),
         'USER': os.environ.get('DB_USER', 'cryptonexus_user'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'admin@123'),
-        'HOST': os.environ.get('DB_HOST', '94.130.201.44'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
@@ -169,14 +182,24 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# CORS Configuration
+# CORS Configuration - Environment-based
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-CORS_ALLOWED_ORIGINS = cors_origins.split(',') if cors_origins else []
+if cors_origins:
+    CORS_ALLOWED_ORIGINS = cors_origins.split(',')
+else:
+    # Default origins if not set in environment
+    CORS_ALLOWED_ORIGINS = [
+        "http://94.130.201.44:5000",
+        "http://localhost:5000",
+        "http://localhost:3000",
+        "http://127.0.0.1:5000",
+        "http://127.0.0.1:3000",
+    ]
 CORS_ALLOW_CREDENTIALS = True
 
 # Redis Configuration
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://:6379')
 
 # Celery Configuration
 CELERY_BROKER_URL = REDIS_URL
@@ -248,9 +271,9 @@ os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True)
 
 # Payment System Configuration - REAL INTEGRATION
 # BTCPay Server (Real Bitcoin)
-BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://localhost:23000')
-BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'JEc1gfxx2DXM8RYUwgtcdiBhxVAJtXYCD3LRYfAY4mt')  # From your BTCPay dashboard
-BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'a10ae0eef075731c4842e3fc493bf0d405c13d02')    # TODO: Add your BTCPay API key here
+BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://94.130.201.44:23000')
+BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'AKwDcGXvXRfKkVD3uTD7cK2Yv3jbnidDhwihfxBGyUN3')  # Correct Store ID from BTCPay dashboard
+BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', '3022e72fdddc7106a5bb2c3da83bbdc9a75e68f3')    # Working Greenfield API key
 BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', 'cryptonexus_webhook_secret_2024')
 
 # Monero RPC (Real Monero)

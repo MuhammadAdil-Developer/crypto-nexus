@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Product, ProductCategory, ProductSubCategory, ProductView
-from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductSubCategorySerializer
+from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductSubCategorySerializer, ProductCategorySerializer
 from users.models import User
 import json
 import csv
@@ -32,6 +32,17 @@ class IsAdminUser(BasePermission):
             request.user.is_authenticated and 
             hasattr(request.user, 'user_type') and 
             request.user.user_type == 'admin'
+        )
+
+class IsVendorOrAdmin(BasePermission):
+    """Custom permission to allow vendor and admin users"""
+    
+    def has_permission(self, request, view):
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            hasattr(request.user, 'user_type') and 
+            request.user.user_type in ['vendor', 'admin']
         )
 
 @api_view(['GET'])
@@ -377,7 +388,7 @@ def get_categories(request):
     """Get all product categories"""
     try:
         categories = ProductCategory.objects.filter(is_active=True, is_deleted=False).order_by('sort_order', 'name')
-        serializer = ProductSubCategorySerializer(categories, many=True)
+        serializer = ProductCategorySerializer(categories, many=True)
         
         return Response({
             'success': True,
@@ -420,7 +431,7 @@ def get_subcategories(request, category_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsVendorOrAdmin])
 def bulk_upload_products(request):
     """Bulk upload products from CSV"""
     try:
@@ -446,16 +457,44 @@ def bulk_upload_products(request):
         
         for row_num, row in enumerate(csv_reader, start=2):
             try:
+                # Check if CSV parsing failed (all data in one column)
+                if len(row) == 1 and ',' in list(row.keys())[0]:
+                    # CSV parsing failed, manually parse the data
+                    header_key = list(row.keys())[0]
+                    data_value = list(row.values())[0]
+                    
+                    # Split the header and data
+                    headers = [h.strip() for h in header_key.split(',')]
+                    values = [v.strip() for v in data_value.split(',')]
+                    
+                    # Create a proper row dictionary
+                    row = {}
+                    for i, header in enumerate(headers):
+                        if i < len(values):
+                            row[header] = values[i]
+                        else:
+                            row[header] = ''
+                
+                # Handle credentials field - replace \n with actual newlines
+                credentials = (row.get('credentials') or '').strip()
+                if credentials:
+                    credentials = credentials.replace('\\n', '\n')
+                
+                # Handle account balance
+                account_balance = (row.get('account_balance') or '').strip()
+                
                 # Map CSV columns to product fields
                 product_data = {
-                    'headline': row.get('headline', ''),
-                    'website': row.get('website', ''),
-                    'account_type': row.get('account_type', 'other'),
-                    'access_type': row.get('access_type', 'full_ownership'),
-                    'description': row.get('description', ''),
-                    'price': row.get('price', '0'),
-                    'additional_info': row.get('additional_info', ''),
-                    'delivery_time': row.get('delivery_time', 'instant_auto'),
+                    'headline': (row.get('headline') or '').strip(),
+                    'website': (row.get('website') or '').strip(),
+                    'account_type': (row.get('account_type') or 'other').strip(),
+                    'access_type': (row.get('access_type') or 'full_ownership').strip(),
+                    'description': (row.get('description') or '').strip(),
+                    'price': (row.get('price') or '0').strip(),
+                    'additional_info': (row.get('additional_info') or '').strip(),
+                    'delivery_time': (row.get('delivery_time') or 'instant_auto').strip(),
+                    'credentials': credentials,
+                    'account_balance': account_balance,
                     'vendor': request.user.id,
                     'category_id': 1,  # Default category
                 }
@@ -689,7 +728,7 @@ def get_category_subcategories(request, category_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsVendorOrAdmin])
 def bulk_upload_csv(request):
     """Bulk upload products from CSV"""
     try:
@@ -715,16 +754,44 @@ def bulk_upload_csv(request):
         
         for row_num, row in enumerate(csv_reader, start=2):
             try:
+                # Check if CSV parsing failed (all data in one column)
+                if len(row) == 1 and ',' in list(row.keys())[0]:
+                    # CSV parsing failed, manually parse the data
+                    header_key = list(row.keys())[0]
+                    data_value = list(row.values())[0]
+                    
+                    # Split the header and data
+                    headers = [h.strip() for h in header_key.split(',')]
+                    values = [v.strip() for v in data_value.split(',')]
+                    
+                    # Create a proper row dictionary
+                    row = {}
+                    for i, header in enumerate(headers):
+                        if i < len(values):
+                            row[header] = values[i]
+                        else:
+                            row[header] = ''
+                
+                # Handle credentials field - replace \n with actual newlines
+                credentials = (row.get('credentials') or '').strip()
+                if credentials:
+                    credentials = credentials.replace('\\n', '\n')
+                
+                # Handle account balance
+                account_balance = (row.get('account_balance') or '').strip()
+                
                 # Map CSV columns to product fields
                 product_data = {
-                    'headline': row.get('headline', ''),
-                    'website': row.get('website', ''),
-                    'account_type': row.get('account_type', 'other'),
-                    'access_type': row.get('access_type', 'full_ownership'),
-                    'description': row.get('description', ''),
-                    'price': row.get('price', '0'),
-                    'additional_info': row.get('additional_info', ''),
-                    'delivery_time': row.get('delivery_time', 'instant_auto'),
+                    'headline': (row.get('headline') or '').strip(),
+                    'website': (row.get('website') or '').strip(),
+                    'account_type': (row.get('account_type') or 'other').strip(),
+                    'access_type': (row.get('access_type') or 'full_ownership').strip(),
+                    'description': (row.get('description') or '').strip(),
+                    'price': (row.get('price') or '0').strip(),
+                    'additional_info': (row.get('additional_info') or '').strip(),
+                    'delivery_time': (row.get('delivery_time') or 'instant_auto').strip(),
+                    'credentials': credentials,
+                    'account_balance': account_balance,
                     'vendor': request.user.id,
                     'category_id': 1,  # Default category
                 }
@@ -755,10 +822,153 @@ def bulk_upload_csv(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsVendorOrAdmin])
 def bulk_upload_simple(request):
-    """Simple bulk upload for admin"""
-    return bulk_upload_csv(request)
+    """Simple bulk upload for text format"""
+    try:
+        # Handle both string and array formats
+        if isinstance(request.data, str):
+            # If it's a string, parse it as text format
+            text_data = request.data
+            products_data = parse_text_format(text_data)
+        else:
+            # If it's already an array, use it directly
+            products_data = request.data.get('products', [])
+        
+        if not products_data:
+            return Response({
+                'success': False,
+                'message': 'No products data provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        products_created = 0
+        errors = []
+        
+        for product_data in products_data:
+            try:
+                # Add vendor and category
+                product_data['vendor'] = request.user.id
+                product_data['category_id'] = 1  # Default category
+                
+                serializer = ProductCreateSerializer(data=product_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    products_created += 1
+                else:
+                    errors.append(f"Product validation failed: {serializer.errors}")
+                    
+            except Exception as e:
+                errors.append(f"Error creating product: {str(e)}")
+        
+        return Response({
+            'success': True,
+            'message': f'Bulk upload completed. {products_created} products created.',
+            'products_created': products_created,
+            'errors': errors
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk upload simple: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to process bulk upload',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def parse_text_format(text_data):
+    """Parse text format into product objects"""
+    products = []
+    lines = text_data.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Try different parsing methods
+        if '|' in line:
+            # Format: Product Name | Website | Account Type | Price | Description
+            parts = [part.strip() for part in line.split('|')]
+            if len(parts) >= 5:
+                product = {
+                    'headline': parts[0],
+                    'website': parts[1],
+                    'account_type': parts[2],
+                    'price': parts[3],
+                    'description': parts[4],
+                    'access_type': 'full_ownership',
+                    'delivery_time': 'instant_auto',
+                    'additional_info': '',
+                    'credentials': '',
+                    'account_balance': ''
+                }
+                products.append(product)
+        elif ',' in line:
+            # Format: Product Name, Website, Account Type, Price, Description
+            parts = [part.strip() for part in line.split(',')]
+            if len(parts) >= 5:
+                product = {
+                    'headline': parts[0],
+                    'website': parts[1],
+                    'account_type': parts[2],
+                    'price': parts[3],
+                    'description': parts[4],
+                    'access_type': 'full_ownership',
+                    'delivery_time': 'instant_auto',
+                    'additional_info': '',
+                    'credentials': '',
+                    'account_balance': ''
+                }
+                products.append(product)
+    
+    return products
+
+@api_view(['POST'])
+@permission_classes([IsVendorOrAdmin])
+def debug_csv_columns(request):
+    """Debug endpoint to see what columns are in the CSV"""
+    try:
+        if 'file' not in request.FILES:
+            return Response({
+                'success': False,
+                'message': 'No file provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        file = request.FILES['file']
+        if not file.name.endswith('.csv'):
+            return Response({
+                'success': False,
+                'message': 'File must be a CSV'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Read CSV
+        content = file.read().decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(content))
+        
+        # Get first few rows for debugging
+        rows = []
+        for i, row in enumerate(csv_reader):
+            if i < 3:  # First 3 rows
+                rows.append(row)
+            else:
+                break
+        
+        return Response({
+            'success': True,
+            'message': 'CSV debug info',
+            'csv_columns': csv_reader.fieldnames,
+            'sample_rows': rows,
+            'expected_columns': ['headline', 'website', 'description', 'account_type', 'access_type', 'price', 'additional_info', 'delivery_time']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in CSV debug: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to debug CSV',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])

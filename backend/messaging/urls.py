@@ -5,7 +5,10 @@ from .views import (
     MessageListCreateView,
     create_product_conversation,
     get_conversation_by_product,
-    mark_messages_read
+    mark_messages_read,
+    report_message,
+    edit_message,
+    delete_message
 )
 
 urlpatterns = [
@@ -20,4 +23,8 @@ urlpatterns = [
     
     # Message actions
     path('conversations/<uuid:conversation_id>/mark-read/', mark_messages_read, name='mark-messages-read'),
+    path('messages/<uuid:message_id>/report/', report_message, name='report-message'),
+    path('messages/<uuid:message_id>/edit/', edit_message, name='edit-message'),
+    path('messages/<uuid:message_id>/delete/', delete_message, name='delete-message'),
 ]
+

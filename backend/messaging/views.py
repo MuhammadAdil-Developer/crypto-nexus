@@ -4,7 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import Conversation, Message
+from django.utils import timezone
+from shared.models import Conversation, Message
 from .serializers import (
     ConversationSerializer, 
     MessageSerializer, 
@@ -108,6 +109,7 @@ def create_product_conversation(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
+    # Use Django ORM to get the product and recipient
     try:
         product = Product.objects.get(id=product_id)
         recipient = User.objects.get(id=recipient_id)
@@ -117,19 +119,17 @@ def create_product_conversation(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Check if conversation already exists
+    # Check if conversation already exists using Django ORM
     sender = request.user
     existing_conversation = Conversation.objects.filter(
-        participants=sender,
-        participants=recipient,
-        product=product
-    ).first()
+        product_id=product.id
+    ).filter(participants=sender).filter(participants=recipient).first()
     
     if existing_conversation:
         serializer = ConversationSerializer(existing_conversation, context={'request': request})
         return Response(serializer.data)
     
-    # Create new conversation
+    # Create new conversation using Django ORM
     conversation = Conversation.objects.create(product=product)
     conversation.participants.add(sender, recipient)
     conversation.save()
@@ -143,6 +143,7 @@ def create_product_conversation(request):
 def get_conversation_by_product(request, product_id):
     """Get conversation for a specific product"""
     try:
+        # Use Django ORM to get the product - this handles the ID conversion properly
         product = Product.objects.get(id=product_id)
     except Product.DoesNotExist:
         return Response(
@@ -150,9 +151,10 @@ def get_conversation_by_product(request, product_id):
             status=status.HTTP_404_NOT_FOUND
         )
     
+    # Use Django ORM to find conversation
     conversation = Conversation.objects.filter(
+        product_id=product.id,
         participants=request.user,
-        product=product,
         is_active=True
     ).first()
     
@@ -181,3 +183,85 @@ def mark_messages_read(request, conversation_id):
     ).update(is_read=True)
     
     return Response({'status': 'Messages marked as read'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_message(request, message_id):
+    """Report a message"""
+    try:
+        message = Message.objects.get(id=message_id)
+        
+        # Check if user is participant in the conversation
+        if request.user not in message.conversation.participants.all():
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Create a report (you might want to create a Report model for this)
+        # For now, we'll just mark the message as reported
+        message.metadata = message.metadata or {}
+        message.metadata['reported'] = True
+        message.metadata['reported_by'] = str(request.user.id)
+        message.metadata['reported_at'] = timezone.now().isoformat()
+        message.save()
+        
+        return Response({'status': 'Message reported successfully'})
+        
+    except Message.DoesNotExist:
+        return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def edit_message(request, message_id):
+    """Edit a message"""
+    try:
+        message = Message.objects.get(id=message_id)
+        
+        # Check if user is the sender
+        if message.sender != request.user:
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if message is too old (e.g., 24 hours)
+        time_diff = timezone.now() - message.created_at
+        if time_diff.total_seconds() > 86400:  # 24 hours
+            return Response({'error': 'Message too old to edit'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        content = request.data.get('content', '').strip()
+        if not content:
+            return Response({'error': 'Content cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        message.content = content
+        message.metadata = message.metadata or {}
+        message.metadata['edited'] = True
+        message.metadata['edited_at'] = timezone.now().isoformat()
+        message.save()
+        
+        serializer = MessageSerializer(message)
+        return Response(serializer.data)
+        
+    except Message.DoesNotExist:
+        return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_message(request, message_id):
+    """Delete a message"""
+    try:
+        message = Message.objects.get(id=message_id)
+        
+        # Check if user is the sender
+        if message.sender != request.user:
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if message is too old (e.g., 1 hour)
+        time_diff = timezone.now() - message.created_at
+        if time_diff.total_seconds() > 3600:  # 1 hour
+            return Response({'error': 'Message too old to delete'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        message.delete()
+        
+        return Response({'status': 'Message deleted successfully'})
+        
+    except Message.DoesNotExist:
+        return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)

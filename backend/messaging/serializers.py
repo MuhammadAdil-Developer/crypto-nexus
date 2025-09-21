@@ -1,16 +1,21 @@
 from rest_framework import serializers
-from .models import Conversation, Message
+from shared.models import Conversation, Message
 from users.models import User
 from products.models import Product
 
 
 class UserSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    vendor_username = serializers.CharField(source='vendor.username', read_only=True)
+    id = serializers.CharField(read_only=True)
+    
     class Meta:
         model = Product
         fields = ['id', 'headline', 'main_image', 'price', 'vendor_username']
@@ -19,6 +24,8 @@ class ProductSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
     recipient = UserSerializer(read_only=True)
+    id = serializers.CharField(read_only=True)
+    conversation = serializers.CharField(read_only=True)
     
     class Meta:
         model = Message
@@ -56,28 +63,25 @@ class CreateConversationSerializer(serializers.ModelSerializer):
         product_id = validated_data.pop('product_id')
         recipient_id = validated_data.pop('recipient_id')
         
-        # Get the product and recipient
+        # Use Django ORM to get the product and recipient
         try:
             product = Product.objects.get(id=product_id)
             recipient = User.objects.get(id=recipient_id)
         except (Product.DoesNotExist, User.DoesNotExist):
             raise serializers.ValidationError("Invalid product or recipient")
         
-        # Check if conversation already exists
+        # Check if conversation already exists using Django ORM
         sender = self.context['request'].user
         existing_conversation = Conversation.objects.filter(
-            participants=sender,
-            participants=recipient,
-            product=product
-        ).first()
+            product_id=product.id
+        ).filter(participants=sender).filter(participants=recipient).first()
         
         if existing_conversation:
             return existing_conversation
         
-        # Create new conversation
-        conversation = Conversation.objects.create(**validated_data)
+        # Create new conversation using Django ORM
+        conversation = Conversation.objects.create(product=product)
         conversation.participants.add(sender, recipient)
-        conversation.product = product
         conversation.save()
         
         return conversation
@@ -112,3 +116,4 @@ class SendMessageSerializer(serializers.ModelSerializer):
         conversation.save()
         
         return message
+

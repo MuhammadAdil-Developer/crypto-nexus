@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'channels',
     
     # Shared Models
     'shared',
@@ -305,4 +306,17 @@ BLOCK_CONFIRMATION_REQUIREMENTS = {
 REQUIRED_CONFIRMATIONS = {
     'BTC': int(os.environ.get('BTC_REQUIRED_CONFIRMATIONS', '3')),
     'XMR': int(os.environ.get('XMR_REQUIRED_CONFIRMATIONS', '1')),
-} 
+}
+
+# Channels Configuration
+ASGI_APPLICATION = 'cryptonexus.asgi.application'
+
+# Channel Layers Configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+        },
+    },
+}  

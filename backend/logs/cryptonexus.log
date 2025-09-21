@@ -93783,3 +93783,1594 @@ INFO 2025-09-20 11:47:13,038 autoreload 47833 123145674104832 /home/adil-x1/work
 INFO 2025-09-20 11:47:14,324 autoreload 50311 132823018237952 Watching for file changes with StatReloader
 INFO 2025-09-20 11:47:22,869 autoreload 50311 132823018237952 /home/adil-x1/workspace/CryptoNexus/backend/cryptonexus/settings.py changed, reloading.
 INFO 2025-09-20 11:47:24,136 autoreload 50465 125432139628544 Watching for file changes with StatReloader
+INFO 2025-09-20 12:53:10,508 autoreload 7941 130331836465152 Watching for file changes with StatReloader
+INFO 2025-09-20 13:14:51,398 autoreload 11176 140264776957952 Watching for file changes with StatReloader
+INFO 2025-09-20 13:15:20,661 autoreload 11188 124854537371648 Watching for file changes with StatReloader
+INFO 2025-09-20 13:15:48,403 basehttp 11188 124854444488256 "OPTIONS /api/v1/auth/login/ HTTP/1.1" 200 0
+WARNING 2025-09-20 13:15:48,512 log 11188 124854444488256 Unauthorized: /api/v1/auth/login/
+WARNING 2025-09-20 13:15:48,512 basehttp 11188 124854444488256 "POST /api/v1/auth/login/ HTTP/1.1" 401 183
+INFO 2025-09-20 13:16:07,813 basehttp 11188 124854444488256 "POST /api/v1/auth/login/ HTTP/1.1" 200 853
+INFO 2025-09-20 13:16:07,923 basehttp 11188 124854444488256 "OPTIONS /api/v1/products?sort_by=views_count&page_size=50 HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:07,931 basehttp 11188 124854444488256 "OPTIONS /api/v1/products?sort_by=views_count&page_size=50 HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:07,934 basehttp 11188 124854346966592 "OPTIONS /api/v1/orders/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:07,934 basehttp 11188 124854355359296 "OPTIONS /api/v1/orders/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:07,992 basehttp 11188 124854346966592 "GET /api/v1/orders/ HTTP/1.1" 200 52
+INFO 2025-09-20 13:16:08,028 basehttp 11188 124854444488256 "OPTIONS /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:08,034 basehttp 11188 124854355359296 "OPTIONS /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:08,090 basehttp 11188 124854355359296 "GET /api/v1/orders/ HTTP/1.1" 200 52
+INFO 2025-09-20 13:16:08,131 basehttp 11188 124854444488256 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 13:16:08,212 basehttp 11188 124854355359296 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 13:16:11,315 basehttp 11188 124854355359296 "OPTIONS /api/v1/products/buyer/listings/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:11,318 basehttp 11188 124854444488256 "OPTIONS /api/v1/products/buyer/listings/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:11,374 basehttp 11188 124854355359296 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+INFO 2025-09-20 13:16:11,445 basehttp 11188 124854444488256 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+INFO 2025-09-20 13:16:15,765 basehttp 11188 124854444488256 "OPTIONS /api/v1/products/14/track-view/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:15,765 basehttp 11188 124854355359296 "OPTIONS /api/v1/products/14/track-view/ HTTP/1.1" 200 0
+WARNING 2025-09-20 13:16:15,770 log 11188 124854355359296 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:16:15,771 log 11188 124854444488256 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:16:15,772 basehttp 11188 124854355359296 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 13:16:15,772 basehttp 11188 124854444488256 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 13:16:23,772 basehttp 11188 124854346966592 "OPTIONS /api/v1/messaging/conversations/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:23,772 basehttp 11188 124854444488256 "OPTIONS /api/v1/messaging/conversations/product/14/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:23,772 basehttp 11188 124854355359296 "OPTIONS /api/v1/messaging/conversations/ HTTP/1.1" 200 0
+INFO 2025-09-20 13:16:23,824 basehttp 11188 124854346966592 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:16:23,911 basehttp 11188 124854444488256 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+ERROR 2025-09-20 13:16:23,989 log 11188 124854355359296 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 155, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:16:23,993 basehttp 11188 124854355359296 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 172155
+INFO 2025-09-20 13:16:24,003 basehttp 11188 124854444488256 "OPTIONS /api/v1/messaging/conversations/create-product/ HTTP/1.1" 200 0
+ERROR 2025-09-20 13:16:24,112 log 11188 124854444488256 Internal Server Error: /api/v1/messaging/conversations/create-product/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 124, in create_product_conversation
+    ).filter(participants=sender).filter(participants=recipient).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:16:24,113 basehttp 11188 124854444488256 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 500 174148
+INFO 2025-09-20 13:21:03,408 autoreload 11188 124854537371648 /home/adil-x1/workspace/CryptoNexus/backend/cryptonexus/settings.py changed, reloading.
+INFO 2025-09-20 13:21:04,205 autoreload 12008 140622596128768 Watching for file changes with StatReloader
+INFO 2025-09-20 13:28:27,658 autoreload 12614 127102235344896 Watching for file changes with StatReloader
+INFO 2025-09-20 13:28:36,244 basehttp 12614 127102143690304 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:28:36,282 basehttp 12614 127102125864512 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+WARNING 2025-09-20 13:28:47,789 log 12614 127102125864512 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:28:47,801 basehttp 12614 127102125864512 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 13:28:47,797 log 12614 127102143690304 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:28:47,813 basehttp 12614 127102143690304 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 13:28:51,008 basehttp 12614 127102125864512 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:28:51,074 basehttp 12614 127102117471808 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+ERROR 2025-09-20 13:28:51,202 log 12614 127102143690304 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 155, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:28:51,208 basehttp 12614 127102143690304 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 172153
+ERROR 2025-09-20 13:28:51,385 log 12614 127102143690304 Internal Server Error: /api/v1/messaging/conversations/create-product/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 124, in create_product_conversation
+    ).filter(participants=sender).filter(participants=recipient).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:28:51,387 basehttp 12614 127102143690304 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 500 174146
+INFO 2025-09-20 13:29:31,789 autoreload 12614 127102235344896 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:29:32,406 autoreload 12779 128839596085248 Watching for file changes with StatReloader
+INFO 2025-09-20 13:29:40,368 autoreload 12779 128839596085248 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:29:40,973 autoreload 12858 137694496067584 Watching for file changes with StatReloader
+INFO 2025-09-20 13:29:47,876 autoreload 12858 137694496067584 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 13:29:48,329 autoreload 12869 136845781192704 Watching for file changes with StatReloader
+INFO 2025-09-20 13:29:52,941 autoreload 12869 136845781192704 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:29:53,456 autoreload 12876 136207760261120 Watching for file changes with StatReloader
+INFO 2025-09-20 13:34:12,253 basehttp 12876 136207667295808 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:34:12,287 basehttp 12876 136207649470016 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+WARNING 2025-09-20 13:34:24,247 log 12876 136207649470016 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:34:24,249 log 12876 136207667295808 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:34:24,250 basehttp 12876 136207649470016 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 13:34:24,250 basehttp 12876 136207667295808 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 13:34:29,891 basehttp 12876 136207649470016 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:34:29,953 basehttp 12876 136207437657664 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+ERROR 2025-09-20 13:34:30,050 log 12876 136207667295808 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 168, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:34:30,055 basehttp 12876 136207667295808 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 172153
+ERROR 2025-09-20 13:34:30,188 log 12876 136207667295808 Internal Server Error: /api/v1/messaging/conversations/create-product/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 131, in create_product_conversation
+    ).filter(participants=sender).filter(participants=recipient).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:34:30,189 basehttp 12876 136207667295808 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 500 174146
+INFO 2025-09-20 13:36:46,027 autoreload 12876 136207760261120 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:36:46,760 autoreload 14151 140381842251776 Watching for file changes with StatReloader
+INFO 2025-09-20 13:36:53,449 autoreload 14151 140381842251776 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:36:54,303 autoreload 14160 132958146117632 Watching for file changes with StatReloader
+INFO 2025-09-20 13:37:02,119 autoreload 14160 132958146117632 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 13:37:02,739 autoreload 14172 140691449675776 Watching for file changes with StatReloader
+INFO 2025-09-20 13:39:38,270 autoreload 14521 136789380182016 Watching for file changes with StatReloader
+INFO 2025-09-20 13:39:42,756 basehttp 14521 136789287237184 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:39:42,797 basehttp 14521 136789197059648 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+WARNING 2025-09-20 13:39:46,323 log 14521 136789197059648 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:39:46,331 basehttp 14521 136789197059648 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 13:39:46,329 log 14521 136789287237184 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:39:46,338 basehttp 14521 136789287237184 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 13:39:49,413 basehttp 14521 136789197059648 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:39:49,510 basehttp 14521 136789188666944 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+ERROR 2025-09-20 13:39:49,582 log 14521 136789287237184 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 168, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:39:49,586 basehttp 14521 136789287237184 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 172159
+ERROR 2025-09-20 13:39:49,755 log 14521 136789287237184 Internal Server Error: /api/v1/messaging/conversations/create-product/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 131, in create_product_conversation
+    ).filter(participants=sender).filter(participants=recipient).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ersation_id") WHERE ("conversations"."product_id" = 14 AND "...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:39:49,756 basehttp 14521 136789287237184 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 500 174152
+INFO 2025-09-20 13:40:43,344 autoreload 14521 136789380182016 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:40:43,971 autoreload 14734 130148606332928 Watching for file changes with StatReloader
+INFO 2025-09-20 13:40:51,912 autoreload 14734 130148606332928 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:40:52,456 autoreload 14754 129160183554048 Watching for file changes with StatReloader
+INFO 2025-09-20 13:40:57,370 autoreload 14754 129160183554048 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 13:40:57,844 autoreload 14762 127046332534784 Watching for file changes with StatReloader
+INFO 2025-09-20 13:41:21,087 autoreload 14762 127046332534784 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 13:41:21,815 autoreload 14854 129156173623296 Watching for file changes with StatReloader
+INFO 2025-09-20 13:41:25,550 autoreload 14854 129156173623296 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 13:41:26,057 autoreload 14861 129836095045632 Watching for file changes with StatReloader
+INFO 2025-09-20 13:41:51,335 autoreload 14952 133298352300032 Watching for file changes with StatReloader
+WARNING 2025-09-20 13:42:02,555 log 14952 133298251621952 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:42:02,557 log 14952 133298260014656 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:42:02,558 basehttp 14952 133298260014656 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 13:42:02,559 basehttp 14952 133298251621952 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 13:42:26,841 basehttp 14952 133298251621952 "POST /api/v1/auth/login/ HTTP/1.1" 200 853
+INFO 2025-09-20 13:42:27,009 basehttp 14952 133298251621952 "GET /api/v1/orders/ HTTP/1.1" 200 52
+INFO 2025-09-20 13:42:27,058 basehttp 14952 133298260014656 "GET /api/v1/orders/ HTTP/1.1" 200 52
+INFO 2025-09-20 13:42:27,126 basehttp 14952 133298251621952 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 13:42:27,228 basehttp 14952 133298260014656 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 13:42:29,104 basehttp 14952 133298260014656 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+INFO 2025-09-20 13:42:29,174 basehttp 14952 133298251621952 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+WARNING 2025-09-20 13:42:30,409 log 14952 133298251621952 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:42:30,411 basehttp 14952 133298251621952 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 13:42:30,419 log 14952 133298251621952 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 13:42:30,419 basehttp 14952 133298251621952 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 13:42:35,207 basehttp 14952 133298260014656 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 13:42:35,285 basehttp 14952 133298232751680 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+ERROR 2025-09-20 13:42:35,356 log 14952 133298251621952 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.InvalidTextRepresentation: invalid input syntax for type uuid: "14"
+LINE 4:             WHERE c.product_id = '14' AND cp.user_id = 'fa0a...
+                                         ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 179, in get_conversation_by_product
+    cursor.execute("""
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.DataError: invalid input syntax for type uuid: "14"
+LINE 4:             WHERE c.product_id = '14' AND cp.user_id = 'fa0a...
+                                         ^
+
+ERROR 2025-09-20 13:42:35,359 basehttp 14952 133298251621952 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 144985
+ERROR 2025-09-20 13:42:35,527 log 14952 133298251621952 Internal Server Error: /api/v1/messaging/conversations/create-product/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.InvalidTextRepresentation: invalid input syntax for type uuid: "14"
+LINE 5:             WHERE c.product_id = '14' AND cp1.user_id = 'fa0...
+                                         ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 131, in create_product_conversation
+    cursor.execute("""
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.DataError: invalid input syntax for type uuid: "14"
+LINE 5:             WHERE c.product_id = '14' AND cp1.user_id = 'fa0...
+                                         ^
+
+ERROR 2025-09-20 13:42:35,528 basehttp 14952 133298251621952 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 500 146556
+INFO 2025-09-20 13:43:26,876 autoreload 14952 133298352300032 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:43:27,653 autoreload 15131 126553519304704 Watching for file changes with StatReloader
+INFO 2025-09-20 13:43:42,813 autoreload 15131 126553519304704 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:43:43,527 autoreload 15217 136442692493312 Watching for file changes with StatReloader
+INFO 2025-09-20 13:43:50,356 autoreload 15217 136442692493312 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 13:43:50,940 autoreload 15226 124962335506432 Watching for file changes with StatReloader
+INFO 2025-09-20 13:44:11,567 autoreload 15226 124962335506432 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 13:44:12,292 autoreload 15235 132256446717952 Watching for file changes with StatReloader
+INFO 2025-09-20 13:48:02,941 autoreload 16849 127109781110784 Watching for file changes with StatReloader
+WARNING 2025-09-20 13:48:10,733 log 16849 127109620037184 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-20 13:48:10,735 basehttp 16849 127109620037184 "POST /api/v1/auth/login/ HTTP/1.1" 400 92
+INFO 2025-09-20 13:48:25,382 basehttp 16849 127109620037184 "POST /api/v1/auth/login/ HTTP/1.1" 200 853
+ERROR 2025-09-20 13:50:24,968 log 16849 127109603259968 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 2:             SELECT id FROM products WHERE id = 14
+                                                     ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 189, in get_conversation_by_product
+    cursor.execute("""
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 2:             SELECT id FROM products WHERE id = 14
+                                                     ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 13:50:24,975 basehttp 16849 127109603259968 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 142449
+INFO 2025-09-20 14:05:46,334 autoreload 16849 127109781110784 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:05:46,936 autoreload 18527 128600770187264 Watching for file changes with StatReloader
+INFO 2025-09-20 14:05:51,627 autoreload 18527 128600770187264 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:05:52,283 autoreload 18538 139928770002944 Watching for file changes with StatReloader
+INFO 2025-09-20 14:06:21,406 autoreload 18538 139928770002944 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:06:22,105 autoreload 18560 125522050871296 Watching for file changes with StatReloader
+INFO 2025-09-20 14:06:28,845 autoreload 18560 125522050871296 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:06:29,484 autoreload 18569 126932380737536 Watching for file changes with StatReloader
+INFO 2025-09-20 14:06:42,771 autoreload 18569 126932380737536 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:06:43,236 autoreload 18654 123192434147328 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:06:57,829 log 18654 123192273270336 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.CannotCoerce: cannot cast type integer to uuid
+LINE 2:             SELECT id FROM products WHERE id = 14::uuid
+                                                         ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 189, in get_conversation_by_product
+    cursor.execute("""
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: cannot cast type integer to uuid
+LINE 2:             SELECT id FROM products WHERE id = 14::uuid
+                                                         ^
+
+ERROR 2025-09-20 14:06:57,831 basehttp 18654 123192273270336 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 141456
+INFO 2025-09-20 14:07:27,840 autoreload 18654 123192434147328 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:07:28,688 autoreload 18680 138950385840128 Watching for file changes with StatReloader
+INFO 2025-09-20 14:07:39,744 autoreload 18680 138950385840128 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:07:40,576 autoreload 18766 126320958656512 Watching for file changes with StatReloader
+INFO 2025-09-20 14:07:50,404 autoreload 18766 126320958656512 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:07:51,210 autoreload 18776 133691998232576 Watching for file changes with StatReloader
+INFO 2025-09-20 14:08:08,288 autoreload 18776 133691998232576 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:08:08,954 autoreload 18802 135169513533440 Watching for file changes with StatReloader
+INFO 2025-09-20 14:08:18,013 autoreload 18802 135169513533440 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:08:18,491 autoreload 18809 136197783822336 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:08:36,684 log 18809 136197691143744 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 4:             WHERE c.product_id = 14 AND cp.user_id = 'fa0a2a...
+                                       ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 182, in get_conversation_by_product
+    cursor.execute("""
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 4:             WHERE c.product_id = 14 AND cp.user_id = 'fa0a2a...
+                                       ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:08:36,685 basehttp 18809 136197691143744 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 144752
+INFO 2025-09-20 14:09:27,171 autoreload 18809 136197783822336 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:09:27,872 autoreload 18919 125199186944000 Watching for file changes with StatReloader
+INFO 2025-09-20 14:09:39,178 autoreload 18919 125199186944000 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:09:39,999 autoreload 19003 136462665990144 Watching for file changes with StatReloader
+INFO 2025-09-20 14:09:44,949 autoreload 19003 136462665990144 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:09:45,492 autoreload 19011 133023650856960 Watching for file changes with StatReloader
+INFO 2025-09-20 14:09:56,394 autoreload 19011 133023650856960 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:09:57,210 autoreload 19023 139008819261440 Watching for file changes with StatReloader
+INFO 2025-09-20 14:10:19,491 autoreload 19023 139008819261440 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:10:19,950 autoreload 19035 139183426101248 Watching for file changes with StatReloader
+INFO 2025-09-20 14:14:00,782 autoreload 19035 139183426101248 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:14:01,503 autoreload 19378 135594106372096 Watching for file changes with StatReloader
+INFO 2025-09-20 14:15:22,752 autoreload 19378 135594106372096 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:15:23,566 autoreload 19496 124950408146944 Watching for file changes with StatReloader
+INFO 2025-09-20 14:15:29,417 autoreload 19496 124950408146944 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:15:30,171 autoreload 19504 140676708360192 Watching for file changes with StatReloader
+INFO 2025-09-20 14:15:37,013 autoreload 19504 140676708360192 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:15:37,936 autoreload 19512 131806777356288 Watching for file changes with StatReloader
+INFO 2025-09-20 14:15:45,107 autoreload 19512 131806777356288 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:15:45,786 autoreload 19602 135663343980544 Watching for file changes with StatReloader
+INFO 2025-09-20 14:15:51,586 autoreload 19602 135663343980544 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:15:52,403 autoreload 19613 138994291720192 Watching for file changes with StatReloader
+INFO 2025-09-20 14:16:08,579 autoreload 19613 138994291720192 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:16:09,079 autoreload 19621 123534704484352 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:16:14,502 log 19621 123534612362816 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 158, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:16:14,504 basehttp 19621 123534612362816 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 170959
+ERROR 2025-09-20 14:16:32,712 log 19621 123534612362816 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 158, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:16:32,713 basehttp 19621 123534612362816 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 170959
+INFO 2025-09-20 14:17:12,343 autoreload 19621 123534704484352 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:17:12,954 autoreload 19738 136884720353280 Watching for file changes with StatReloader
+INFO 2025-09-20 14:17:20,042 autoreload 19738 136884720353280 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:17:20,575 autoreload 19746 132298779992064 Watching for file changes with StatReloader
+INFO 2025-09-20 14:17:27,535 autoreload 19746 132298779992064 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:17:28,307 autoreload 19755 127711445696512 Watching for file changes with StatReloader
+INFO 2025-09-20 14:17:44,762 autoreload 19755 127711445696512 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:17:45,262 autoreload 19844 125431441694720 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:17:49,605 log 19844 125431348983360 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 158, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:17:49,608 basehttp 19844 125431348983360 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 170965
+INFO 2025-09-20 14:18:01,673 autoreload 19844 125431441694720 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:18:02,306 autoreload 19866 138060990308352 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:18:44,205 log 19866 138060898498112 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 158, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:18:44,207 basehttp 19866 138060898498112 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 170965
+INFO 2025-09-20 14:20:59,724 basehttp 19866 138060878575168 "GET /api/v1/products/ HTTP/1.1" 200 3379
+INFO 2025-09-20 14:21:33,146 autoreload 19866 138060990308352 /home/adil-x1/workspace/CryptoNexus/backend/products/models.py changed, reloading.
+INFO 2025-09-20 14:21:34,082 autoreload 20344 131781621862400 Watching for file changes with StatReloader
+INFO 2025-09-20 14:25:44,897 autoreload 21112 135370813587456 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:25:49,899 log 21112 135370653038144 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: bigint = uuid
+LINE 1: ...OM "vendor_products" WHERE "vendor_products"."id" = '0000000...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 146, in get_conversation_by_product
+    product = Product.objects.get(id=product_id)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 633, in get
+    num = len(clone)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 380, in __len__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: bigint = uuid
+LINE 1: ...OM "vendor_products" WHERE "vendor_products"."id" = '0000000...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:25:49,902 basehttp 21112 135370653038144 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 190644
+INFO 2025-09-20 14:26:51,438 autoreload 21112 135370813587456 /home/adil-x1/workspace/CryptoNexus/backend/products/models.py changed, reloading.
+INFO 2025-09-20 14:26:51,970 autoreload 21315 125003095007232 Watching for file changes with StatReloader
+INFO 2025-09-20 14:29:35,679 autoreload 21605 138059243786240 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:29:39,981 log 21605 138059151570496 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 158, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:29:39,985 basehttp 21605 138059151570496 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 170965
+INFO 2025-09-20 14:31:36,247 autoreload 21914 137599887507456 Watching for file changes with StatReloader
+ERROR 2025-09-20 14:31:38,952 log 21914 137599794542144 Internal Server Error: /api/v1/messaging/conversations/product/14/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+psycopg2.errors.UndefinedFunction: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 158, in get_conversation_by_product
+    ).first()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1057, in first
+    for obj in queryset[:1]:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 398, in __iter__
+    self._fetch_all()
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 1881, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/models/sql/compiler.py", line 1562, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 102, in execute
+    return super().execute(sql, params)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 67, in execute
+    return self._execute_with_wrappers(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 80, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 84, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/db/backends/utils.py", line 89, in _execute
+    return self.cursor.execute(sql, params)
+django.db.utils.ProgrammingError: operator does not exist: uuid = integer
+LINE 1: ...ce00f7fba'::uuid AND "conversations"."product_id" = 14) ORDE...
+                                                             ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+ERROR 2025-09-20 14:31:38,961 basehttp 21914 137599794542144 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 500 170965
+INFO 2025-09-20 14:33:44,944 autoreload 21914 137599887507456 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:33:46,006 autoreload 22327 140450996989952 Watching for file changes with StatReloader
+INFO 2025-09-20 14:41:56,285 autoreload 28022 130276467421184 Watching for file changes with StatReloader
+WARNING 2025-09-20 14:42:01,479 log 28022 130276375131712 Not Found: /api/v1/messaging/conversations/product/14/
+WARNING 2025-09-20 14:42:01,480 basehttp 28022 130276375131712 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 404 50
+WARNING 2025-09-20 14:42:11,598 log 28022 130276375131712 Not Found: /api/v1/messaging/conversations/product/14/
+WARNING 2025-09-20 14:42:11,599 basehttp 28022 130276375131712 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 404 50
+INFO 2025-09-20 14:42:24,937 basehttp 28022 130276281808448 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+INFO 2025-09-20 14:42:25,032 basehttp 28022 130276273415744 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+WARNING 2025-09-20 14:42:28,080 log 28022 130276273415744 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:42:28,087 basehttp 28022 130276273415744 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 14:42:28,084 log 28022 130276281808448 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:42:28,088 basehttp 28022 130276281808448 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 14:42:36,762 log 28022 130276281808448 Unauthorized: /api/v1/messaging/conversations/product/14/
+WARNING 2025-09-20 14:42:36,763 basehttp 28022 130276281808448 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 401 183
+WARNING 2025-09-20 14:42:36,777 log 28022 130276273415744 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 14:42:36,778 basehttp 28022 130276273415744 "GET /api/v1/messaging/conversations/ HTTP/1.1" 401 183
+WARNING 2025-09-20 14:42:36,804 log 28022 130276281808448 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 14:42:36,806 basehttp 28022 130276281808448 "GET /api/v1/messaging/conversations/ HTTP/1.1" 401 183
+WARNING 2025-09-20 14:42:37,088 log 28022 130276281808448 Unauthorized: /api/v1/messaging/conversations/create-product/
+WARNING 2025-09-20 14:42:37,090 basehttp 28022 130276281808448 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 401 183
+WARNING 2025-09-20 14:42:53,855 log 28022 130276281808448 Unauthorized: /api/v1/orders/
+WARNING 2025-09-20 14:42:53,857 basehttp 28022 130276281808448 "GET /api/v1/orders/ HTTP/1.1" 401 183
+WARNING 2025-09-20 14:42:53,867 log 28022 130276273415744 Unauthorized: /api/v1/orders/
+WARNING 2025-09-20 14:42:53,867 basehttp 28022 130276273415744 "GET /api/v1/orders/ HTTP/1.1" 401 183
+INFO 2025-09-20 14:42:54,070 basehttp 28022 130276273415744 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 14:42:54,177 basehttp 28022 130276281808448 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 14:43:06,484 basehttp 28022 130276281808448 "POST /api/v1/auth/login/ HTTP/1.1" 200 853
+INFO 2025-09-20 14:43:06,792 basehttp 28022 130276281808448 "GET /api/v1/orders/ HTTP/1.1" 200 52
+INFO 2025-09-20 14:43:06,873 basehttp 28022 130276273415744 "GET /api/v1/orders/ HTTP/1.1" 200 52
+INFO 2025-09-20 14:43:07,117 basehttp 28022 130276273415744 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 14:43:07,259 basehttp 28022 130276281808448 "GET /api/v1/products/?sort_by=views_count&page_size=50 HTTP/1.1" 200 3379
+INFO 2025-09-20 14:43:09,767 basehttp 28022 130276281808448 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+INFO 2025-09-20 14:43:09,880 basehttp 28022 130276273415744 "GET /api/v1/products/buyer/listings/ HTTP/1.1" 200 3385
+WARNING 2025-09-20 14:43:11,293 log 28022 130276273415744 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:43:11,294 basehttp 28022 130276273415744 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 14:43:11,304 log 28022 130276281808448 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:43:11,305 basehttp 28022 130276281808448 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 14:43:15,294 log 28022 130276281808448 Not Found: /api/v1/messaging/conversations/product/14/
+WARNING 2025-09-20 14:43:15,298 basehttp 28022 130276281808448 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 404 50
+INFO 2025-09-20 14:43:15,302 basehttp 28022 130276273415744 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+INFO 2025-09-20 14:43:15,354 basehttp 28022 130276281808448 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 2
+ERROR 2025-09-20 14:43:15,753 log 28022 130276281808448 Internal Server Error: /api/v1/messaging/conversations/create-product/
+Traceback (most recent call last):
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+  File "/home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py", line 137, in create_product_conversation
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 555, in data
+    ret = super().data
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 253, in data
+    self._data = self.to_representation(self.instance)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 522, in to_representation
+    ret[field.field_name] = field.to_representation(attribute)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 507, in to_representation
+    for field in fields:
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 368, in _readable_fields
+    for field in self.fields.values():
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/django/utils/functional.py", line 57, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 356, in fields
+    for key, value in self.get_fields().items():
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 1076, in get_fields
+    field_class, field_kwargs = self.build_field(
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 1222, in build_field
+    return self.build_unknown_field(field_name, model_class)
+  File "/home/adil-x1/.virtualenvs/cryptonexus_venv/lib/python3.10/site-packages/rest_framework/serializers.py", line 1340, in build_unknown_field
+    raise ImproperlyConfigured(
+django.core.exceptions.ImproperlyConfigured: Field name `vendor_username` is not valid for model `Product`.
+ERROR 2025-09-20 14:43:15,756 basehttp 28022 130276281808448 "POST /api/v1/messaging/conversations/create-product/ HTTP/1.1" 500 164701
+INFO 2025-09-20 14:43:35,055 autoreload 28022 130276467421184 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 14:43:35,943 autoreload 29375 137140510547968 Watching for file changes with StatReloader
+INFO 2025-09-20 14:44:23,043 autoreload 29375 137140510547968 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:44:24,194 autoreload 30036 127429079113728 Watching for file changes with StatReloader
+INFO 2025-09-20 14:44:42,204 autoreload 30036 127429079113728 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:44:42,977 autoreload 30346 140284900749312 Watching for file changes with StatReloader
+WARNING 2025-09-20 14:45:34,574 log 30346 140284807607872 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:45:34,576 basehttp 30346 140284807607872 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 14:45:34,576 log 30346 140284799215168 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:45:34,577 basehttp 30346 140284799215168 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 14:45:38,585 basehttp 30346 140284799215168 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 200 557
+INFO 2025-09-20 14:45:38,586 basehttp 30346 140284807607872 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:45:38,671 basehttp 30346 140284781393472 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:45:38,815 basehttp 30346 140284781393472 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:45:42,977 basehttp 30346 140284781393472 "OPTIONS /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 0
+INFO 2025-09-20 14:45:43,036 basehttp 30346 140284781393472 "GET /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 2
+INFO 2025-09-20 14:45:43,109 basehttp 30346 140284781393472 "OPTIONS /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 0
+WARNING 2025-09-20 14:45:43,156 log 30346 140284569581120 Not Found: /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/
+WARNING 2025-09-20 14:45:43,157 basehttp 30346 140284569581120 "GET /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/ HTTP/1.1" 404 3247
+INFO 2025-09-20 14:45:43,253 basehttp 30346 140284781393472 "POST /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 36
+INFO 2025-09-20 14:46:04,653 basehttp 30346 140284781393472 "GET /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 2
+WARNING 2025-09-20 14:46:04,700 log 30346 140284569581120 Not Found: /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/
+WARNING 2025-09-20 14:46:04,704 basehttp 30346 140284569581120 "GET /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/ HTTP/1.1" 404 3247
+INFO 2025-09-20 14:46:04,719 basehttp 30346 140284781393472 "POST /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 36
+INFO 2025-09-20 14:47:12,790 autoreload 30346 140284900749312 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:47:13,373 autoreload 32378 131233087897600 Watching for file changes with StatReloader
+INFO 2025-09-20 14:49:47,419 autoreload 32378 131233087897600 /home/adil-x1/workspace/CryptoNexus/backend/messaging/serializers.py changed, reloading.
+INFO 2025-09-20 14:49:48,192 autoreload 34417 126671221440512 Watching for file changes with StatReloader
+INFO 2025-09-20 14:50:06,276 basehttp 34417 126671061513792 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:50:06,365 basehttp 34417 126671043688000 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:50:07,802 basehttp 34417 126671043688000 "GET /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 2
+WARNING 2025-09-20 14:50:07,871 log 34417 126671034246720 Not Found: /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/
+WARNING 2025-09-20 14:50:07,877 basehttp 34417 126671034246720 "GET /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/ HTTP/1.1" 404 3247
+INFO 2025-09-20 14:50:07,879 basehttp 34417 126671034246720 - Broken pipe from ('127.0.0.1', 50578)
+INFO 2025-09-20 14:50:07,892 basehttp 34417 126671043688000 "POST /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 36
+INFO 2025-09-20 14:54:52,290 autoreload 38653 137346048700416 Watching for file changes with StatReloader
+INFO 2025-09-20 14:55:55,498 basehttp 38653 137345956312640 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:55:55,644 basehttp 38653 137345865086528 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:55:58,847 basehttp 38653 137345865086528 "GET /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 2
+WARNING 2025-09-20 14:55:59,173 log 38653 137345856693824 Not Found: /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/
+WARNING 2025-09-20 14:55:59,179 basehttp 38653 137345856693824 "GET /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/ HTTP/1.1" 404 3247
+INFO 2025-09-20 14:55:59,180 basehttp 38653 137345856693824 - Broken pipe from ('127.0.0.1', 48540)
+INFO 2025-09-20 14:55:59,185 basehttp 38653 137345865086528 "POST /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 36
+WARNING 2025-09-20 14:56:35,198 log 38653 137345865086528 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:56:35,200 basehttp 38653 137345865086528 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 14:56:35,228 log 38653 137345956312640 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 14:56:35,230 basehttp 38653 137345956312640 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 14:56:45,480 basehttp 38653 137345956312640 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 200 557
+INFO 2025-09-20 14:56:45,524 basehttp 38653 137345865086528 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:56:45,632 basehttp 38653 137345956312640 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:56:46,154 basehttp 38653 137345956312640 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 14:56:50,203 basehttp 38653 137345956312640 "GET /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 2
+WARNING 2025-09-20 14:56:50,309 log 38653 137345856693824 Not Found: /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/
+WARNING 2025-09-20 14:56:50,312 basehttp 38653 137345856693824 "GET /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/ HTTP/1.1" 404 3247
+INFO 2025-09-20 14:56:50,349 basehttp 38653 137345956312640 "POST /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 36
+INFO 2025-09-20 15:04:51,487 autoreload 49106 125783659859968 Watching for file changes with StatReloader
+WARNING 2025-09-20 15:05:06,744 log 49106 125783485969984 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:05:06,747 basehttp 49106 125783485969984 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+WARNING 2025-09-20 15:05:06,747 log 49106 125783566710336 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:05:06,748 basehttp 49106 125783566710336 "POST /api/v1/products/14/track-view/ HTTP/1.1" 401 58
+INFO 2025-09-20 15:05:12,544 basehttp 49106 125783566710336 "GET /api/v1/messaging/conversations/product/14/ HTTP/1.1" 200 557
+INFO 2025-09-20 15:05:12,544 basehttp 49106 125783485969984 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 15:05:12,643 basehttp 49106 125783469192768 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 15:05:12,915 basehttp 49106 125783469192768 "GET /api/v1/messaging/conversations/ HTTP/1.1" 200 559
+INFO 2025-09-20 15:05:16,868 basehttp 49106 125783469192768 "GET /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/ HTTP/1.1" 200 2
+WARNING 2025-09-20 15:05:16,987 log 49106 125783460800064 Not Found: /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/
+WARNING 2025-09-20 15:05:16,991 basehttp 49106 125783460800064 "GET /ws/chat/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/ HTTP/1.1" 404 3247
+INFO 2025-09-20 15:05:17,012 basehttp 49106 125783469192768 "POST /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/mark-read/ HTTP/1.1" 200 36
+INFO 2025-09-20 15:06:42,704 autoreload 49106 125783659859968 /home/adil-x1/workspace/CryptoNexus/backend/messaging/views.py changed, reloading.
+INFO 2025-09-20 15:06:43,811 autoreload 50620 139879408488448 Watching for file changes with StatReloader
+WARNING 2025-09-20 15:11:07,530 log 53744 139806143145536 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:11:07,549 log 53744 139806143145536 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:15:00,438 log 57086 134160170608192 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:15:00,440 log 57086 134160170608192 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:16:26,476 log 59097 127827874666048 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:16:26,478 log 59097 127827874666048 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:19:19,796 log 61754 130106957747776 Unauthorized: /api/v1/products/14/track-view/
+WARNING 2025-09-20 15:19:19,803 log 61754 130106957747776 Unauthorized: /api/v1/products/14/track-view/
+INFO 2025-09-20 15:36:02,943 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:03,268 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:03,555 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:04,746 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:04,863 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:05,134 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:05,249 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:05,618 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:05,821 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:06,931 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+INFO 2025-09-20 15:36:07,918 core 61754 130107058765824 2 of 4 channels over capacity in group chat_98d16540-8d34-4a8e-a837-d9fb2b1c8e9e
+WARNING 2025-09-20 15:46:16,089 log 61754 130106957747776 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:46:16,103 log 61754 130106957747776 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:46:22,066 log 61754 130106957747776 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:46:22,067 log 61754 130106957747776 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:46:29,160 log 61754 130106957747776 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:46:29,169 log 61754 130106957747776 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:46:38,144 log 61754 130106957747776 Not Found: /api/v1/messaging/conversations/product/13/
+WARNING 2025-09-20 15:56:29,408 log 92420 124070954788416 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 15:56:29,412 log 92420 124070954788416 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 16:07:53,037 log 101753 136221321848384 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 16:07:53,040 log 101753 136221321848384 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 16:08:44,965 log 102686 132307876836928 Unauthorized: /api/v1/products/11/track-view/
+WARNING 2025-09-20 16:08:44,995 log 102686 132307876836928 Unauthorized: /api/v1/products/11/track-view/
+WARNING 2025-09-20 16:08:49,098 log 102686 132307876836928 Not Found: /api/v1/messaging/conversations/product/11/
+WARNING 2025-09-20 16:11:37,879 log 102686 132307876836928 Unauthorized: /api/v1/auth/login/
+WARNING 2025-09-20 16:14:55,431 log 102686 132307876836928 Bad Request: /api/v1/products/create/
+WARNING 2025-09-20 16:15:11,411 log 102686 132307876836928 Bad Request: /api/v1/products/create/
+WARNING 2025-09-20 16:15:48,385 log 102686 132307876836928 Bad Request: /api/v1/products/create/
+WARNING 2025-09-20 16:22:36,069 log 102686 132307876836928 Unauthorized: /api/v1/auth/login/
+WARNING 2025-09-20 16:24:09,420 log 102686 132307876836928 Unauthorized: /api/v1/products/15/track-view/
+WARNING 2025-09-20 16:24:09,443 log 102686 132307876836928 Unauthorized: /api/v1/products/15/track-view/
+WARNING 2025-09-20 16:24:15,898 log 102686 132307876836928 Not Found: /api/v1/messaging/conversations/product/15/
+WARNING 2025-09-20 16:41:48,370 log 102686 132307876836928 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 16:41:48,375 log 102686 132307876836928 Unauthorized: /api/v1/products/13/track-view/
+WARNING 2025-09-20 16:43:56,811 log 102686 132307876836928 Forbidden: /api/v1/products/admin/all/
+WARNING 2025-09-20 16:43:56,877 log 102686 132307876836928 Forbidden: /api/v1/products/admin/all/
+WARNING 2025-09-20 16:44:43,458 log 102686 132307876836928 Unauthorized: /api/v1/products/16/track-view/
+WARNING 2025-09-20 16:44:43,465 log 102686 132307876836928 Unauthorized: /api/v1/products/16/track-view/
+WARNING 2025-09-20 16:44:47,576 log 102686 132307876836928 Not Found: /api/v1/messaging/conversations/product/16/
+WARNING 2025-09-20 16:52:44,095 log 102686 132307876836928 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 16:53:50,137 log 102686 132307876836928 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:05:06,432 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:06:19,676 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/2ba3beb4-c4e1-4e33-a45a-d67fed075e42/messages/
+WARNING 2025-09-20 17:06:21,819 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/9727e2ef-5235-4592-bde3-6ce851ba413a/messages/
+WARNING 2025-09-20 17:06:22,647 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/9727e2ef-5235-4592-bde3-6ce851ba413a/messages/
+WARNING 2025-09-20 17:06:23,312 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/1abefb08-0f4d-42b2-8cf3-3c72c586e7d8/messages/
+WARNING 2025-09-20 17:06:24,238 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 17:06:24,963 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/9727e2ef-5235-4592-bde3-6ce851ba413a/messages/
+WARNING 2025-09-20 17:06:25,526 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/9727e2ef-5235-4592-bde3-6ce851ba413a/messages/
+WARNING 2025-09-20 17:06:26,105 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/2ba3beb4-c4e1-4e33-a45a-d67fed075e42/messages/
+WARNING 2025-09-20 17:06:26,693 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/002a497d-63c7-4e15-8df5-e0ed51c42526/messages/
+WARNING 2025-09-20 17:06:27,383 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/2ba3beb4-c4e1-4e33-a45a-d67fed075e42/messages/
+WARNING 2025-09-20 17:06:28,195 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/9727e2ef-5235-4592-bde3-6ce851ba413a/messages/
+WARNING 2025-09-20 17:06:28,289 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/9727e2ef-5235-4592-bde3-6ce851ba413a/messages/
+WARNING 2025-09-20 17:07:03,509 log 142290 138265073002048 Unauthorized: /api/v1/auth/login/
+WARNING 2025-09-20 17:46:20,989 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:51:00,037 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:51:28,491 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:51:47,009 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:52:40,781 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:54:13,384 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:54:31,551 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:54:47,549 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:55:55,945 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/002a497d-63c7-4e15-8df5-e0ed51c42526/messages/
+WARNING 2025-09-20 17:56:00,530 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 17:56:02,421 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/002a497d-63c7-4e15-8df5-e0ed51c42526/messages/
+WARNING 2025-09-20 17:56:02,946 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/2ba3beb4-c4e1-4e33-a45a-d67fed075e42/messages/
+WARNING 2025-09-20 17:56:03,749 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/002a497d-63c7-4e15-8df5-e0ed51c42526/messages/
+WARNING 2025-09-20 17:56:04,499 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 17:56:14,550 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 17:56:16,172 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 18:00:11,232 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 18:00:12,274 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 18:00:27,800 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 18:00:28,794 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 18:00:50,009 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 18:00:51,031 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-20 18:02:40,981 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/002a497d-63c7-4e15-8df5-e0ed51c42526/messages/
+WARNING 2025-09-20 18:02:43,290 log 142290 138265073002048 Unauthorized: /api/v1/messaging/conversations/2ba3beb4-c4e1-4e33-a45a-d67fed075e42/messages/
+WARNING 2025-09-20 18:03:23,994 log 142290 138265073002048 Unauthorized: /api/v1/auth/login/
+WARNING 2025-09-20 19:07:23,106 log 213212 132518139373120 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 19:07:23,164 log 213212 132518139373120 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-20 19:07:54,542 log 213212 132518139373120 Unauthorized: /api/v1/auth/login/

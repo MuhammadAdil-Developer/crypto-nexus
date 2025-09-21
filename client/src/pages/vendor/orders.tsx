@@ -406,7 +406,7 @@ export default function VendorOrders() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-8 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -420,31 +420,31 @@ export default function VendorOrders() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-white">{orders.length}</div>
               <p className="text-sm text-gray-400">Total Orders</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-blue-600">{orders.filter(order => order.status === "Processing").length}</div>
               <p className="text-sm text-gray-400">Processing</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-purple-600">{orders.filter(order => order.status === "Shipped").length}</div>
               <p className="text-sm text-gray-400">Shipped</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-green-600">{orders.filter(order => order.status === "Completed").length}</div>
               <p className="text-sm text-gray-400">Completed</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="text-2xl font-bold text-white">{orders.reduce((sum, order) => sum + parseFloat(order.amount.split(' ')[0]), 0).toFixed(8)} BTC</div>
               <p className="text-sm text-gray-400">Total Revenue</p>
@@ -453,7 +453,7 @@ export default function VendorOrders() {
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-700 bg-gray-900">
+        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -496,9 +496,9 @@ export default function VendorOrders() {
         </Card>
 
         {/* Orders Table */}
-        <Card className="border border-gray-700 bg-gray-900">
+        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-white">
+            <CardTitle className="text-xl font-bold text-pink-600">
               Orders ({filteredOrders.length})
             </CardTitle>
           </CardHeader>

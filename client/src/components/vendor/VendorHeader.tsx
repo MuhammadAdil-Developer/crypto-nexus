@@ -14,7 +14,7 @@ import {
 
 export function VendorHeader() {
   return (
-    <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+    <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Search */}
         <div className="flex-1 max-w-xl">
@@ -22,7 +22,7 @@ export function VendorHeader() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder="Search orders, products, customers..."
-              className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+              className="pl-10 bg-white/10 border-gray-600 text-white placeholder-gray-400 backdrop-blur-sm"
             />
           </div>
         </div>

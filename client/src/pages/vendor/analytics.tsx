@@ -29,7 +29,7 @@ const revenueBreakdown = [
 export default function VendorAnalytics() {
   return (
     
-      <div className="space-y-6">
+      <div className="space-y-8 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -57,7 +57,7 @@ export default function VendorAnalytics() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -76,7 +76,7 @@ export default function VendorAnalytics() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -95,7 +95,7 @@ export default function VendorAnalytics() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -114,7 +114,7 @@ export default function VendorAnalytics() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -136,9 +136,9 @@ export default function VendorAnalytics() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Sales Chart */}
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-xl font-bold text-white">Sales Over Time</CardTitle>
+              <CardTitle className="text-xl font-bold text-pink-600">Sales Over Time</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80 flex items-end justify-between space-x-2">
@@ -168,9 +168,9 @@ export default function VendorAnalytics() {
           </Card>
 
           {/* Revenue Breakdown */}
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-xl font-bold text-white">Revenue Breakdown</CardTitle>
+              <CardTitle className="text-xl font-bold text-pink-600">Revenue Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -213,9 +213,9 @@ export default function VendorAnalytics() {
         </div>
 
         {/* Top Products */}
-        <Card className="border border-gray-700 bg-gray-900">
+        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-white">Top Performing Products</CardTitle>
+            <CardTitle className="text-xl font-bold text-pink-600">Top Performing Products</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

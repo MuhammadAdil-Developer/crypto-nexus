@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -39,7 +39,7 @@
   --ring: hsl(186, 84%, 55%);
   
   /* Fonts */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
   
   /* Radius */
@@ -105,5 +105,81 @@
   
   .nav-item-inactive:hover {
     background-color: hsl(var(--secondary) / 0.5);
+  }
+
+  /* Vendor Dashboard Backgrounds */
+  .vendor-main-background {
+    background: #0a0a0f url('/images/vendor-main-bg.png') center/cover no-repeat fixed;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  .vendor-main-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .vendor-sidebar-background {
+    background: linear-gradient(135deg, #1a0a0f 0%, #2d1b2e 25%, #1a0a0f 50%, #2d1b2e 75%, #1a0a0f 100%);
+    position: relative;
+  }
+
+  .vendor-sidebar-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 20% 20%, rgba(255, 20, 147, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(255, 0, 0, 0.15) 0%, transparent 40%),
+      linear-gradient(30deg, transparent 30%, rgba(255, 20, 147, 0.08) 50%, transparent 70%),
+      linear-gradient(-30deg, transparent 30%, rgba(255, 0, 0, 0.08) 50%, transparent 70%);
+    background-size: 150px 150px, 200px 200px, 80px 80px, 80px 80px;
+    background-position: 0 0, 50px 50px, 0 0, 25px 25px;
+    pointer-events: none;
+  }
+
+  .vendor-sidebar-background::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255, 20, 147, 0.05) 3px, rgba(255, 20, 147, 0.05) 6px),
+      repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(255, 0, 0, 0.05) 3px, rgba(255, 0, 0, 0.05) 6px);
+    background-size: 15px 15px;
+    pointer-events: none;
+  }
+
+  .vendor-tech-pattern {
+    position: relative;
+  }
+
+  .vendor-tech-pattern::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(90deg, rgba(255, 20, 147, 0.1) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(255, 0, 0, 0.1) 1px, transparent 1px),
+      radial-gradient(circle at 10% 10%, rgba(255, 20, 147, 0.2) 1px, transparent 1px),
+      radial-gradient(circle at 90% 90%, rgba(255, 0, 0, 0.2) 1px, transparent 1px);
+    background-size: 20px 20px, 20px 20px, 50px 50px, 50px 50px;
+    background-position: 0 0, 0 0, 0 0, 0 0;
+    pointer-events: none;
   }
 }

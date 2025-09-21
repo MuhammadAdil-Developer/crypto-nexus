@@ -6,6 +6,8 @@ import { Plus, Eye, Edit, Trash2, TrendingUp, Package, Star, Lock, CheckCircle }
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { orderService } from "@/services/orderService";
+import { messagingService } from "@/services/messagingService";
+import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
 
 interface Order {
@@ -53,28 +55,11 @@ const topProducts = [
   }
 ];
 
-const recentMessages = [
-  {
-    id: 1,
-    buyer: "crypto_buyer_01",
-    product: "Netflix Premium Account",
-    lastMessage: "Hello, when will the account be ready?",
-    time: "2 min ago",
-    unread: true
-  },
-  {
-    id: 2,
-    buyer: "anonymous_buyer",
-    product: "Spotify Premium",
-    lastMessage: "Thanks for the quick delivery!",
-    time: "1 hour ago",
-    unread: false
-  }
-];
-
 export default function VendorOverview() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -103,8 +88,45 @@ export default function VendorOverview() {
     }
   };
 
+  // Fetch recent messages
+  const fetchRecentMessages = async () => {
+    try {
+      setIsLoadingMessages(true);
+      const messages = await messagingService.getRecentMessages();
+      setRecentMessages(messages);
+    } catch (error) {
+      console.error('Error fetching recent messages:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load recent messages",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
   useEffect(() => {
     fetchRecentOrders();
+    fetchRecentMessages();
+    
+    // Connect to real-time service
+    realtimeService.connect();
+    
+    // Subscribe to real-time updates
+    const handleRecentMessagesUpdate = (data: any) => {
+      console.log('📋 Received recent messages update:', data);
+      setRecentMessages(data);
+    };
+    
+    console.log('🔌 Subscribing to recent messages updates...');
+    realtimeService.subscribe('recent_messages_update', handleRecentMessagesUpdate);
+    
+    // Cleanup on unmount
+    return () => {
+      realtimeService.unsubscribe('recent_messages_update', handleRecentMessagesUpdate);
+      realtimeService.disconnect();
+    };
   }, []);
 
   // Navigation handlers
@@ -153,35 +175,37 @@ export default function VendorOverview() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div 
-        className="p-8 text-white border border-gray-700/50 backdrop-blur-sm relative overflow-hidden"
-        style={{ 
-          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #16213e 75%, #1a1a2e 100%)',
-          boxShadow: '0 8px 32px 0 rgba(26, 26, 46, 0.5)',
-          borderRadius: '16px',
-          border: '1px solid rgba(75, 85, 99, 0.3)'
-        }}
-      >
-        <h1 className="text-3xl font-bold mb-2">
-          Welcome back, <span 
-            className="bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent"
-          >
-            CryptoAccountsPlus!
-          </span>
-        </h1>
-        <p className="text-blue-100">Here's what's happening with your store today</p>
-        <div className="mt-4 flex space-x-4">
-          <Button 
-            variant="secondary" 
-            className="bg-gray-800 text-white hover:bg-gray-700"
-            onClick={handleAddNewProduct}
-          >
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Product
-            </Button>
+    <div className="space-y-8 relative z-10">
+      {/* AC Logo and Branding Section */}
+      <div className="flex flex-col items-center justify-center py-6">
+        {/* AC Logo Monogram */}
+        <div className="mb-4">
+          <img 
+            src="/images/ac-logo-monogram.png" 
+            alt="AC Logo Monogram" 
+            className="w-48 h-48 object-contain"
+          />
         </div>
+        
+        {/* THE ONE AND ONLY Text */}
+        <div className="mb-0">
+          <img 
+            src="/images/the-one-and-only.png" 
+            alt="THE ONE AND ONLY" 
+            className="h-12 object-contain"
+          />
+        </div>
+      </div>
+
+      {/* ADD LISTING Button - Left Positioned */}
+      <div className="flex justify-start mb-8">
+        <Button 
+          className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 text-lg font-semibold"
+          onClick={handleAddNewProduct}
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          ADD LISTING
+        </Button>
       </div>
 
       {/* Overview Cards */}
@@ -190,12 +214,12 @@ export default function VendorOverview() {
       {/* Main Dashboard Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Orders */}
-        <Card className="border border-gray-700 bg-gray-900">
+              <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-white">Recent Orders</CardTitle>
+              <CardTitle className="text-xl font-bold text-pink-600">RECENT ORDERS</CardTitle>
               <Button 
-                variant="outline" 
+                className="bg-pink-600 hover:bg-pink-700 text-white text-sm"
                 size="sm"
                 onClick={handleViewAllOrders}
               >
@@ -219,8 +243,7 @@ export default function VendorOverview() {
                           <div className="text-xs text-gray-400 mb-1">{formatDate(order.created_at)}</div>
                       <div className="flex items-center gap-1 flex-wrap">
                         <Badge 
-                          variant={getStatusDisplay(order) === "Completed" ? "default" : "secondary"}
-                          className={getStatusDisplay(order) === "Completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                          className={getStatusDisplay(order) === "Completed" ? "bg-green-500 text-white" : "bg-pink-600 text-white"}
                         >
                           {getStatusDisplay(order)}
                         </Badge>
@@ -249,7 +272,7 @@ export default function VendorOverview() {
                       <p className="text-sm text-gray-300 mb-1">{order.product.headline}</p>
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-400">by {order.buyer.username}</span>
-                        <span className="font-semibold text-blue-400">{order.total_amount} {order.crypto_currency}</span>
+                        <span className="font-semibold text-pink-600">{order.total_amount} {order.crypto_currency}</span>
                       </div>
                     </div>
                   </div>
@@ -260,11 +283,11 @@ export default function VendorOverview() {
         </Card>
 
         {/* Top Products */}
-        <Card className="border border-gray-700 bg-gray-900">
+              <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-white">Top Products</CardTitle>
-              <Button variant="outline" size="sm">
+              <CardTitle className="text-xl font-bold text-pink-600">TOP PRODUCTS</CardTitle>
+              <Button className="bg-pink-600 hover:bg-pink-700 text-white text-sm" size="sm">
                 <Package className="w-4 h-4 mr-2" />
                 Manage
               </Button>
@@ -282,8 +305,8 @@ export default function VendorOverview() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-blue-400">{product.revenue}</div>
-                    <Badge variant="outline" className="mt-1">
+                    <div className="font-semibold text-pink-600">{product.revenue}</div>
+                    <Badge className="mt-1 bg-pink-600 text-white">
                       {product.status}
                     </Badge>
                   </div>
@@ -295,11 +318,11 @@ export default function VendorOverview() {
       </div>
 
       {/* Recent Messages */}
-      <Card className="border border-gray-700 bg-gray-900">
+              <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-bold text-white">Recent Messages</CardTitle>
-            <Button variant="outline" size="sm">
+            <CardTitle className="text-xl font-bold text-pink-600">RECENT MESSAGES</CardTitle>
+            <Button className="bg-pink-600 hover:bg-pink-700 text-white text-sm" size="sm">
               View All
             </Button>
           </div>
@@ -309,7 +332,7 @@ export default function VendorOverview() {
             {recentMessages.map((message) => (
               <div key={message.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-10 h-10 bg-pink-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold">
                       {message.buyer.substring(0, 2).toUpperCase()}
                     </span>
@@ -318,7 +341,7 @@ export default function VendorOverview() {
                     <div className="flex items-center space-x-2">
                       <h4 className="font-medium text-white">{message.buyer}</h4>
                       {message.unread && (
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-pink-600 rounded-full"></div>
                       )}
                     </div>
                     <p className="text-sm text-gray-300">{message.product}</p>
@@ -335,25 +358,25 @@ export default function VendorOverview() {
       </Card>
 
       {/* Quick Actions */}
-      <Card className="border border-gray-700 bg-gray-900">
+              <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-white">Quick Actions</CardTitle>
+          <CardTitle className="text-xl font-bold text-pink-600">QUICK ACTIONS</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white h-16">
+            <Button className="bg-pink-600 hover:bg-pink-700 text-white h-16">
               <Plus className="w-5 h-5 mr-2" />
               Add Product
             </Button>
-            <Button variant="outline" className="h-16">
+            <Button className="bg-gray-800 hover:bg-gray-600 text-white h-16">
               <TrendingUp className="w-5 h-5 mr-2" />
               View Analytics
             </Button>
-            <Button variant="outline" className="h-16">
+            <Button className="bg-gray-800 hover:bg-gray-600 text-white h-16">
               <Star className="w-5 h-5 mr-2" />
               Check Reviews
             </Button>
-            <Button variant="outline" className="h-16">
+            <Button className="bg-gray-800 hover:bg-gray-600 text-white h-16">
               <Eye className="w-5 h-5 mr-2" />
               Preview Store
             </Button>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/productService';
 import PaymentModal from './PaymentModal';
@@ -156,10 +156,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
   };
 
   // Add debugging
-  console.log('ProductDetailModal render - product:', product);
 
   if (!product) {
-    console.log('ProductDetailModal: No product provided');
     return null;
   }
 
@@ -300,6 +298,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 >
                   <ShoppingCart className="w-5 h-5 mr-2" />
                   Buy Now
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Navigate to messages page with product context
+                    const productData = {
+                      id: product.id,
+                      title: product.headline || product.listing_title,
+                      image: product.main_image,
+                      vendor: product.vendor_username,
+                      vendorId: product.vendor?.id
+                    };
+                    localStorage.setItem('chatProductContext', JSON.stringify(productData));
+                    window.location.href = '/buyer/messages';
+                  }}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 shadow-lg"
+                >
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Chat with Vendor
                 </Button>
                 <Button
                   onClick={handleAddToFavorites}

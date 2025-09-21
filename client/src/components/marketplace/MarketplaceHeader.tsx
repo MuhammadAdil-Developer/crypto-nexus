@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 
 export function MarketplaceHeader() {
   return (
-    <header className="bg-surface border-b border-border">
+    <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* Logo & Navigation */}
@@ -14,21 +14,21 @@ export function MarketplaceHeader() {
               <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
                 <Shield className="text-bg w-4 h-4" />
               </div>
-              <h1 className="ml-3 text-xl font-bold text-text">CryptoMarket</h1>
+              <h1 className="ml-3 text-xl font-bold text-white">ACCOUNTZ CLUB</h1>
             </div>
             
             <nav className="hidden md:flex space-x-6">
               <Link href="/">
-                <span className="text-text hover:text-accent cursor-pointer" data-testid="nav-browse">Browse</span>
+                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium" data-testid="nav-browse">BROWSE</span>
               </Link>
               <Link href="/categories">
-                <span className="hover:text-text cursor-pointer" data-testid="nav-categories">Categories</span>
+                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium" data-testid="nav-categories">CATEGORIES</span>
               </Link>
               <Link href="/vendors">
-                <span className="hover:text-text cursor-pointer" data-testid="nav-vendors">Vendors</span>
+                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium" data-testid="nav-vendors">VENDORS</span>
               </Link>
               <Link href="/support">
-                <span className="hover:text-text cursor-pointer" data-testid="nav-support">Support</span>
+                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium" data-testid="nav-support">SUPPORT</span>
               </Link>
             </nav>
           </div>
@@ -42,7 +42,7 @@ export function MarketplaceHeader() {
               <Input
                 type="text"
                 placeholder="Search for accounts..."
-                className="pl-10 bg-surface-2 border-border text-text placeholder-muted focus:ring-accent focus:border-accent"
+                className="pl-10 bg-white/10 border-gray-600 text-white placeholder-gray-400 focus:ring-pink-500 focus:border-pink-500 backdrop-blur-sm"
                 data-testid="search-input"
               />
             </div>
@@ -50,20 +50,21 @@ export function MarketplaceHeader() {
           
           {/* User Actions */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="hover:text-text" data-testid="favorites-button">
+            <Button variant="ghost" size="sm" className="hover:text-white text-gray-300" data-testid="favorites-button">
               <Heart className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="sm" className="hover:text-text relative" data-testid="cart-button">
+            <Button variant="ghost" size="sm" className="hover:text-white text-gray-300 relative" data-testid="cart-button">
               <ShoppingCart className="w-5 h-5" />
-              <span className="absolute -top-2 -right-2 w-4 h-4 bg-accent rounded-full text-xs text-bg flex items-center justify-center">2</span>
+              <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">2</span>
             </Button>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" className="hover:text-text hover:bg-surface-2" data-testid="signin-button">
-                Sign In
-              </Button>
-              <Button size="sm" className="bg-accent text-bg hover:bg-accent-2" data-testid="join-button">
-                Join
-              </Button>
+            <Button variant="ghost" size="sm" className="hover:text-white text-gray-300 relative" data-testid="notifications-button">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+              </svg>
+              <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
+            </Button>
+            <div className="w-8 h-8 bg-pink-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">CS</span>
             </div>
           </div>
         </div>

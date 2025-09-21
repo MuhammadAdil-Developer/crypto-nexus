@@ -8,7 +8,10 @@ from .views import (
     mark_messages_read,
     report_message,
     edit_message,
-    delete_message
+    delete_message,
+    get_recent_messages,
+    get_unread_count,
+    get_recent_activity
 )
 
 urlpatterns = [
@@ -26,5 +29,10 @@ urlpatterns = [
     path('messages/<uuid:message_id>/report/', report_message, name='report-message'),
     path('messages/<uuid:message_id>/edit/', edit_message, name='edit-message'),
     path('messages/<uuid:message_id>/delete/', delete_message, name='delete-message'),
+    
+    # Home page notifications
+    path('recent-messages/', get_recent_messages, name='recent-messages'),
+    path('unread-count/', get_unread_count, name='unread-count'),
+    path('recent-activity/', get_recent_activity, name='recent-activity'),
 ]
 

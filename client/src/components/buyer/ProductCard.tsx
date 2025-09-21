@@ -47,10 +47,6 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'grid' }) => {
-  console.log('ProductCard rendered with product:', product.listing_title);
-  console.log('Full product data:', product);
-  console.log('Escrow enabled:', product.escrow_enabled);
-  console.warn('ProductCard component loaded!'); // This will show as a warning in console
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const { toast } = useToast();

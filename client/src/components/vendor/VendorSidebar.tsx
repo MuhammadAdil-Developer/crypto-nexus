@@ -95,21 +95,21 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
   return (
     <div 
       className={cn(
-        "bg-gray-800 border-r border-gray-700 transition-all duration-300 ease-in-out flex flex-col shadow-lg",
+        "vendor-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg",
         expanded ? "w-64" : "w-16"
       )}
       onMouseEnter={() => onExpandedChange(true)}
       onMouseLeave={() => onExpandedChange(false)}
     >
       {/* Logo */}
-      <div className="p-4 border-b border-gray-700">
+      <div className="p-4 border-b border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center">
             <Store className="text-white w-4 h-4" />
           </div>
           {expanded && (
             <div className="ml-3 transition-opacity duration-200">
-              <h1 className="text-lg font-bold text-white">CryptoMarket</h1>
+              <h1 className="text-lg font-bold text-white">ACCOUNTZ CLUB</h1>
               <p className="text-xs text-gray-400">Vendor Dashboard</p>
             </div>
           )}
@@ -125,7 +125,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                 open={expandedCategories.includes(category.title)}
                 onOpenChange={() => toggleCategory(category.title)}
               >
-                <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-200 transition-colors">
+                <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-white uppercase tracking-wider hover:text-pink-600 transition-colors">
                   <span>{category.title}</span>
                   {expandedCategories.includes(category.title) ? (
                     <ChevronDown className="w-4 h-4" />
@@ -144,8 +144,8 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                           className={cn(
                             "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
                             isActive 
-                              ? "text-cyan-400" 
-                              : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                              ? "text-pink-600 bg-pink-600/10" 
+                              : "text-white hover:bg-gray-800 hover:text-pink-600"
                           )}
                           data-testid={`vendor-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                         >
@@ -154,8 +154,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                             <span className="font-medium">{item.title}</span>
                             {item.badge && (
                               <Badge 
-                                variant={item.badge.type === 'danger' ? 'destructive' : 'default'}
-                                className="text-xs"
+                                className="bg-pink-600 text-white text-xs px-2 py-1 rounded-full"
                               >
                                 {item.badge.text}
                               </Badge>
@@ -179,14 +178,14 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                       className={cn(
                         "relative group flex items-center px-3 py-3 rounded-lg transition-all duration-200 cursor-pointer",
                         isActive 
-                          ? "text-cyan-400" 
-                          : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                          ? "text-pink-600 bg-pink-600/10" 
+                          : "text-white hover:bg-gray-800 hover:text-pink-600"
                       )}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
                       
                       {item.badge && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-600 rounded-full"></div>
                       )}
                       
                       {/* Tooltip */}
@@ -207,9 +206,9 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
             <Store className="text-white w-4 h-4" />
           </div>
           {expanded && (

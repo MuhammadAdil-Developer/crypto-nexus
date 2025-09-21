@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { MessagesPanel } from "@/components/buyer/MessagesPanel";
 import { MessageSquare, Users, Clock } from "lucide-react";
+import { messagingService } from "@/services/messagingService";
+import { useToast } from "@/hooks/use-toast";
 
 const messageStats = [
   { label: "Total Conversations", value: "12", color: "from-blue-500 to-purple-600" },
@@ -10,6 +13,77 @@ const messageStats = [
 ];
 
 export default function BuyerMessages() {
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [productContext, setProductContext] = useState<any>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Check for product context from ProductDetailModal
+    const context = messagingService.getProductContextFromStorage();
+    if (context) {
+      setProductContext(context);
+      handleProductConversation(context);
+    }
+    
+    loadConversations();
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      setLoading(true);
+      const data = await messagingService.getConversations();
+      setConversations(data);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversations",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [autoSelectConversation, setAutoSelectConversation] = useState<string | null>(null);
+
+  const handleProductConversation = async (context: any) => {
+    try {
+      // Try to get existing conversation for this product
+      let conversation;
+      try {
+        conversation = await messagingService.getConversationByProduct(context.id);
+      } catch (error) {
+        // If no conversation exists, create one
+        conversation = await messagingService.createProductConversation(
+          context.id,
+          context.vendorId
+        );
+      }
+      
+      // Update conversations list
+      await loadConversations();
+      
+      // Auto-select the conversation
+      if (conversation) {
+        setAutoSelectConversation(conversation.id);
+      }
+      
+      toast({
+        title: "Conversation Started",
+        description: `Chatting about ${context.title}`,
+      });
+    } catch (error) {
+      console.error('Error handling product conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <BuyerLayout>
       <div className="space-y-6">
@@ -23,6 +97,25 @@ export default function BuyerMessages() {
             </div>
           </div>
         </div>
+
+        {/* Product Context Banner */}
+        {productContext && (
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-4 text-white">
+            <div className="flex items-center space-x-3">
+              {productContext.image && (
+                <img 
+                  src={productContext.image} 
+                  alt={productContext.title}
+                  className="w-12 h-12 rounded-lg object-cover"
+                />
+              )}
+              <div>
+                <h3 className="font-semibold">Chatting about: {productContext.title}</h3>
+                <p className="text-green-100 text-sm">Vendor: {productContext.vendor}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -50,25 +143,31 @@ export default function BuyerMessages() {
         </div>
 
         {/* Messages Panel */}
-        <MessagesPanel />
+        <MessagesPanel 
+          conversations={conversations}
+          loading={loading}
+          onRefresh={loadConversations}
+          autoSelectConversation={autoSelectConversation}
+          onConversationSelected={() => setAutoSelectConversation(null)}
+        />
 
         {/* Quick Actions */}
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
           <h3 className="font-semibold text-white mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-left">
-              <h4 className="font-medium text-blue-600 dark:text-blue-400 mb-2">Contact Support</h4>
-              <p className="text-sm text-gray-400">Get help with orders or account issues</p>
+            <button className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600">
+              <h4 className="font-medium text-blue-400 mb-2">Contact Support</h4>
+              <p className="text-sm text-gray-300">Get help with orders or account issues</p>
             </button>
             
-            <button className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors text-left">
-              <h4 className="font-medium text-green-600 dark:text-green-400 mb-2">Report Issue</h4>
-              <p className="text-sm text-gray-400">Report a problem with a vendor or order</p>
+            <button className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600">
+              <h4 className="font-medium text-green-400 mb-2">Report Issue</h4>
+              <p className="text-sm text-gray-300">Report a problem with a vendor or order</p>
             </button>
             
-            <button className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors text-left">
-              <h4 className="font-medium text-purple-600 dark:text-purple-400 mb-2">Message Settings</h4>
-              <p className="text-sm text-gray-400">Configure notification preferences</p>
+            <button className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600">
+              <h4 className="font-medium text-purple-400 mb-2">Message Settings</h4>
+              <p className="text-sm text-gray-300">Configure notification preferences</p>
             </button>
           </div>
         </div>

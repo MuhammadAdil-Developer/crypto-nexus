@@ -265,3 +265,125 @@ def delete_message(request, message_id):
         
     except Message.DoesNotExist:
         return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recent_messages(request):
+    """Get recent messages for vendor home page"""
+    try:
+        user = request.user
+        
+        # Get conversations where user is a participant
+        conversations = Conversation.objects.filter(
+            participants=user
+        ).prefetch_related('participants', 'product').order_by('-updated_at')[:2]
+        
+        recent_messages = []
+        for conv in conversations:
+            # Get the other participant (buyer)
+            other_participant = conv.participants.exclude(id=user.id).first()
+            
+            # Get the last message
+            last_message = conv.messages.order_by('-created_at').first()
+            
+            if other_participant and last_message:
+                recent_messages.append({
+                    'id': conv.id,
+                    'buyer': other_participant.username,
+                    'product': conv.product.title if conv.product else 'Product',
+                    'lastMessage': last_message.content,
+                    'time': get_time_ago(last_message.created_at),
+                    'unread': conv.unread_count > 0
+                })
+        
+        return Response(recent_messages)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_unread_count(request):
+    """Get unread message count for buyer home page"""
+    try:
+        user = request.user
+        
+        # Get total unread count by counting unread messages
+        conversations = Conversation.objects.filter(participants=user)
+        total_unread = 0
+        
+        for conversation in conversations:
+            # Count unread messages in each conversation
+            unread_messages = Message.objects.filter(
+                conversation=conversation,
+                sender__isnull=False,  # Not system messages
+                is_read=False,
+                recipient=user
+            ).count()
+            total_unread += unread_messages
+        
+        return Response({'unread_count': total_unread})
+        
+    except Exception as e:
+        print(f"Error in get_unread_count: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_recent_activity(request):
+    """Get recent activity including new messages for buyer home page"""
+    try:
+        user = request.user
+        
+        # Get recent messages from vendors
+        conversations = Conversation.objects.filter(
+            participants=user
+        ).prefetch_related('participants', 'product').order_by('-updated_at')[:3]
+        
+        recent_activities = []
+        for conv in conversations:
+            # Get the other participant (vendor)
+            vendor = conv.participants.exclude(id=user.id).first()
+            
+            # Get the last message
+            last_message = conv.messages.order_by('-created_at').first()
+            
+            if vendor and last_message and last_message.sender != user:
+                recent_activities.append({
+                    'id': f"msg_{conv.id}",
+                    'type': 'message',
+                    'title': 'New message from vendor',
+                    'description': f"{vendor.username} replied to your inquiry about {conv.product.headline if conv.product else 'product'}",
+                    'time': get_time_ago(last_message.created_at),
+                    'status': 'info'
+                })
+        
+        return Response(recent_activities)
+        
+    except Exception as e:
+        print(f"Error in get_recent_activity: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def get_time_ago(timestamp):
+    """Helper function to get time ago string"""
+    now = timezone.now()
+    diff = now - timestamp
+    
+    if diff.days > 0:
+        return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+    elif diff.seconds > 3600:
+        hours = diff.seconds // 3600
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif diff.seconds > 60:
+        minutes = diff.seconds // 60
+        return f"{minutes} min ago"
+    else:
+        return "Just now"

@@ -84,6 +84,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     # Save message to database
                     message_data = await self.save_message(message_content)
                     
+                    # Send real-time notifications after message is saved
+                    if message_data:
+                        # Get conversation and recipient for notifications
+                        conversation = await self.get_conversation_for_notifications()
+                        if conversation:
+                            await self.send_realtime_notifications_async(conversation, message_data)
+                    
                     # Check if this is the first message with product reference
                     if isinstance(message_data, dict) and 'user_message' in message_data:
                         # Send both user message and product reference
@@ -240,6 +247,159 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Conversation.DoesNotExist:
             return None
 
+    async def send_realtime_notifications_async(self, conversation_data, message_data):
+        """Send real-time notifications to users (async version)"""
+        try:
+            conversation = conversation_data['conversation']
+            recipient = conversation_data['recipient']
+            
+            # Get the actual message object from the database
+            message = await self.get_latest_message(conversation)
+            if not message:
+                return
+            
+            # Send notification to recipient
+            await self.channel_layer.group_send(
+                f'realtime_{recipient.id}',
+                {
+                    'type': 'new_message_notification',
+                    'data': {
+                        'conversation_id': str(conversation.id),
+                        'sender_username': message.sender.username,
+                        'message_content': message.content,
+                        'product_title': conversation.product.headline if conversation.product else None,
+                        'timestamp': message.created_at.isoformat()
+                    }
+                }
+            )
+            
+            # Send unread count update to recipient
+            unread_count = await self.get_unread_count(conversation, recipient)
+            
+            await self.channel_layer.group_send(
+                f'realtime_{recipient.id}',
+                {
+                    'type': 'unread_count_update',
+                    'data': {
+                        'unread_count': unread_count
+                    }
+                }
+            )
+            
+            # Send recent messages update to recipient (for vendor overview)
+            recent_messages = await self.get_recent_messages_for_user(recipient)
+            await self.channel_layer.group_send(
+                f'realtime_{recipient.id}',
+                {
+                    'type': 'recent_messages_update',
+                    'data': recent_messages
+                }
+            )
+                
+        except Exception as e:
+            print(f"Error sending realtime notifications: {e}")
+            import traceback
+            traceback.print_exc()
+
+    @database_sync_to_async
+    def get_latest_message(self, conversation):
+        """Get the latest message from conversation"""
+        try:
+            return conversation.messages.select_related('sender').order_by('-created_at').first()
+        except Exception as e:
+            print(f"Error getting latest message: {e}")
+            return None
+
+    @database_sync_to_async
+    def get_unread_count(self, conversation, recipient):
+        """Get unread count for recipient in conversation"""
+        try:
+            return conversation.messages.filter(
+                recipient=recipient,
+                is_read=False
+            ).count()
+        except Exception as e:
+            print(f"Error getting unread count: {e}")
+            return 0
+
+    @database_sync_to_async
+    def get_conversation_for_notifications(self):
+        """Get conversation data for real-time notifications"""
+        try:
+            conversation = Conversation.objects.select_related('product').get(id=self.conversation_id)
+            participants = conversation.participants.all()
+            recipient = participants.exclude(id=self.scope['user'].id).first()
+            
+            if recipient:
+                return {
+                    'conversation': conversation,
+                    'recipient': recipient
+                }
+            return None
+        except Conversation.DoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def get_recent_messages_for_user(self, user):
+        """Get recent messages for user (vendor overview)"""
+        try:
+            conversations = Conversation.objects.filter(
+                participants=user
+            ).prefetch_related('participants', 'product', 'messages').order_by('-updated_at')[:2]
+            
+            recent_messages = []
+            for conv in conversations:
+                # Get other participant
+                other_participant = None
+                for participant in conv.participants.all():
+                    if participant.id != user.id:
+                        other_participant = participant
+                        break
+                
+                # Get last message
+                last_message = None
+                for message in conv.messages.all().order_by('-created_at'):
+                    last_message = message
+                    break
+                
+                if other_participant and last_message:
+                    # Calculate unread count for this conversation
+                    unread_count = conv.messages.filter(
+                        recipient=user,
+                        is_read=False
+                    ).count()
+                    
+                    recent_messages.append({
+                        'id': str(conv.id),
+                        'buyer': other_participant.username,
+                        'product': conv.product.headline if conv.product else 'Product',
+                        'lastMessage': last_message.content,
+                        'time': self.get_time_ago(last_message.created_at),
+                        'unread': unread_count > 0
+                    })
+            
+            return recent_messages
+        except Exception as e:
+            print(f"Error getting recent messages: {e}")
+            return []
+
+    def get_time_ago(self, timestamp):
+        """Helper function to get time ago string"""
+        from django.utils import timezone
+        now = timezone.now()
+        diff = now - timestamp
+        
+        if diff.days > 0:
+            return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+        elif diff.seconds > 3600:
+            hours = diff.seconds // 3600
+            return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        elif diff.seconds > 60:
+            minutes = diff.seconds // 60
+            return f"{minutes} min ago"
+        else:
+            return "Just now"
+
     async def send_conversation_info(self):
         """Send conversation information to the connected user"""
         try:
@@ -283,3 +443,117 @@ class ChatConsumer(AsyncWebsocketConsumer):
             ).update(is_read=True)
         except Conversation.DoesNotExist:
             pass
+
+
+class RealtimeConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user_id = self.scope['url_route']['kwargs']['user_id']
+        self.user_group_name = f'realtime_{self.user_id}'
+        
+        # Authenticate user
+        if not await self.authenticate_user():
+            await self.close()
+            return
+        
+        # Join user group
+        await self.channel_layer.group_add(
+            self.user_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        print(f"Realtime connection established for user {self.user_id}")
+
+    async def disconnect(self, close_code):
+        # Leave user group
+        await self.channel_layer.group_discard(
+            self.user_group_name,
+            self.channel_name
+        )
+        print(f"Realtime connection closed for user {self.user_id}")
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            message_type = data.get('type')
+            
+            if message_type == 'ping':
+                await self.send(text_data=json.dumps({
+                    'type': 'pong'
+                }))
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Invalid JSON'
+            }))
+
+    async def authenticate_user(self):
+        """Authenticate user using JWT token from query parameters"""
+        try:
+            query_string = self.scope['query_string'].decode()
+            token = None
+            
+            # Extract token from query parameters
+            for param in query_string.split('&'):
+                if param.startswith('token='):
+                    token = param.split('=')[1]
+                    break
+            
+            if not token:
+                print("No token provided for realtime connection")
+                return False
+            
+            # Validate token
+            from rest_framework_simplejwt.tokens import AccessToken
+            access_token = AccessToken(token)
+            user_id = access_token['user_id']
+            
+            # Verify user ID matches
+            if str(user_id) != self.user_id:
+                print(f"User ID mismatch: {user_id} != {self.user_id}")
+                return False
+            
+            # Set user in scope (using async database call)
+            user = await self.get_user_by_id(user_id)
+            if user:
+                self.scope['user'] = user
+                return True
+            else:
+                print(f"User not found: {user_id}")
+                return False
+            
+        except Exception as e:
+            print(f"Realtime authentication error: {e}")
+            return False
+
+    @database_sync_to_async
+    def get_user_by_id(self, user_id):
+        """Get user by ID using sync database call"""
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
+
+    # Message handlers
+    async def new_message_notification(self, event):
+        """Send new message notification to user"""
+        await self.send(text_data=json.dumps({
+            'type': 'new_message',
+            'payload': event['data']
+        }))
+
+    async def unread_count_update(self, event):
+        """Send unread count update to user"""
+        await self.send(text_data=json.dumps({
+            'type': 'unread_count_update',
+            'payload': event['data']
+        }))
+
+    async def recent_messages_update(self, event):
+        """Send recent messages update to user"""
+        await self.send(text_data=json.dumps({
+            'type': 'recent_messages_update',
+            'payload': event['data']
+        }))

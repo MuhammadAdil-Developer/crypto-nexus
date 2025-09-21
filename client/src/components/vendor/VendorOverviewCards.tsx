@@ -51,27 +51,27 @@ export function VendorOverviewCards() {
         const Icon = item.icon;
         
         return (
-          <Card key={index} className="border border-gray-700 bg-gray-900 hover:shadow-lg transition-shadow duration-200">
+                <Card key={index} className="border border-gray-700 bg-gray-900 hover:shadow-lg transition-shadow duration-200 relative z-10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">
+              <CardTitle className="text-sm font-medium text-white">
                 {item.title}
               </CardTitle>
-              <Icon className="w-4 h-4 text-gray-400" />
+              <Icon className="w-4 h-4 text-pink-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">{item.value}</div>
               <div className="flex items-center mt-1">
                 <span className={`text-sm ${
                   item.changeType === 'positive' 
-                    ? 'text-green-400' 
+                    ? 'text-pink-600' 
                     : item.changeType === 'negative'
-                      ? 'text-red-400'
-                      : 'text-gray-400'
+                      ? 'text-pink-600'
+                      : 'text-white'
                 }`}>
                   {item.change}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">{item.description}</p>
+              <p className="text-xs text-gray-300 mt-1">{item.description}</p>
             </CardContent>
           </Card>
         );

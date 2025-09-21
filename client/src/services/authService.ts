@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -33,6 +33,7 @@ api.interceptors.response.use(
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
       window.location.href = '/sign-in';
     }
     return Promise.reject(error);
@@ -107,6 +108,7 @@ class AuthService {
         localStorage.setItem('accessToken', response.data.data.tokens.access);
         localStorage.setItem('refreshToken', response.data.data.tokens.refresh);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('userId', response.data.data.user.id.toString());
       }
       
       return response.data;
@@ -129,6 +131,7 @@ class AuthService {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
     }
   }
 

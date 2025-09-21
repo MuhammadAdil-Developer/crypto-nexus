@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Bell, ChevronDown, Settings, LogOut, User } from "lucide-react";
+import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,18 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "wouter";
+import { useMessaging } from "@/contexts/MessagingContext";
 
 export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
   const [searchQuery, setSearchQuery] = useState("");
-
-  const notifications = [
-    { id: 1, title: "Order delivered", message: "Netflix Premium Account has been delivered", time: "2 min ago", unread: true },
-    { id: 2, title: "New message", message: "Vendor replied to your inquiry", time: "5 min ago", unread: true },
-    { id: 3, title: "Price drop", message: "Adobe Creative Cloud is now 20% off", time: "1 hour ago", unread: false },
-    { id: 4, title: "Order confirmed", message: "Your order #ORD-2847 has been confirmed", time: "2 hours ago", unread: false },
-  ];
-
-  const unreadCount = notifications.filter(n => n.unread).length;
+  
+  // Get real-time messaging data
+  const { unreadCount, notifications, refreshNotifications } = useMessaging();
 
   return (
     <header className={`bg-gray-950 border-b border-gray-800 px-6 py-4 ${hasBanner ? 'mt-16' : ''}`}>
@@ -56,22 +51,51 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
               <div className="p-3 border-b">
-                <h3 className="font-semibold text-white">Notifications</h3>
-                <p className="text-sm text-gray-400">{unreadCount} unread</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-white">Notifications</h3>
+                    <p className="text-sm text-gray-400">{unreadCount} unread</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={refreshNotifications}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <div className="max-h-96 overflow-y-auto">
-                {notifications.map((notification) => (
-                  <DropdownMenuItem key={notification.id} className="p-3 border-b last:border-b-0">
-                    <div className="flex items-start space-x-3 w-full">
-                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${notification.unread ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-white">{notification.title}</p>
-                        <p className="text-sm text-gray-400 truncate">{notification.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-gray-400">
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <DropdownMenuItem key={notification.id} className="p-3 border-b last:border-b-0">
+                      <div className="flex items-start space-x-3 w-full">
+                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                          notification.unread 
+                            ? notification.type === 'message' 
+                              ? 'bg-green-500' 
+                              : notification.type === 'order'
+                              ? 'bg-blue-500'
+                              : 'bg-purple-500'
+                            : 'bg-gray-300'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-white">{notification.title}</p>
+                          <p className="text-sm text-gray-400 truncate">{notification.message}</p>
+                          <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                          {notification.type === 'message' && (
+                            <p className="text-xs text-green-400 mt-1">💬 Real-time message</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+                    </DropdownMenuItem>
+                  ))
+                )}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

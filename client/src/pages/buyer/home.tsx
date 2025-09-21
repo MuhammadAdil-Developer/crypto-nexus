@@ -40,27 +40,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { orderService } from "@/services/orderService";
 import { productService, Product } from "@/services/productService";
+import { messagingService } from "@/services/messagingService";
+import { useMessaging } from "@/contexts/MessagingContext";
 
 // Add these interfaces at the top of the file (after imports)
-
-interface Product {
-  id: string | number;
-  headline?: string;
-  listing_title?: string;
-  vendor?: { username?: string };
-  vendor_username?: string;
-  price: string | number;
-  main_image?: string;
-  main_images?: string[];
-  rating?: number | string;
-  quantity_available?: number;
-  trending?: boolean;
-  category?: { name?: string };
-  is_featured?: boolean;
-  delivery_time?: string;
-  account_type?: string;
-  description?: string;
-}
 
 interface Order {
   id: string | number;
@@ -130,7 +113,6 @@ const topVendors = [
 ];
 
 function BuyerHomeContent() {
-  console.log("Hello World");
   const [currentSlide, setCurrentSlide] = useState(0);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,41 +128,12 @@ function BuyerHomeContent() {
   const [retryCount, setRetryCount] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [duplicatedProducts, setDuplicatedProducts] = useState<Product[]>([]);
-  const [recentActivity, setRecentActivity] = useState([
-    {
-      id: 1,
-      type: "order",
-      title: "Order delivered",
-      description: "Netflix Premium Account has been delivered to your account",
-      time: "2 min ago",
-      status: "success"
-    },
-    {
-      id: 2,
-      type: "message",
-      title: "New message from vendor",
-      description: "CryptoAccountsPlus replied to your inquiry about Spotify Premium",
-      time: "15 min ago",
-      status: "info"
-    },
-    {
-      id: 3,
-      type: "order",
-      title: "Order processing",
-      description: "Your Adobe Creative Cloud order is being prepared",
-      time: "1 hour ago",
-      status: "warning"
-    },
-    {
-      id: 4,
-      type: "wishlist",
-      title: "Price drop alert",
-      description: "Xbox Game Pass Ultimate is now 25% off - check your wishlist!",
-      time: "2 hours ago",
-      status: "success"
-    }
-  ]);
+  // Messaging state is now handled by MessagingProvider
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const { toast } = useToast();
+  
+  // Get messaging data from context
+  const { unreadCount, isLoading: isLoadingMessages } = useMessaging();
 
   // Enhanced smooth auto-slide effect - only when not hovered
   useEffect(() => {
@@ -214,7 +167,6 @@ function BuyerHomeContent() {
           const tripled = [...response.data, ...response.data, ...response.data];
           setDuplicatedProducts(tripled);
           
-          console.log("Trending products loaded:", response.data.length);
         } else {
           console.error("API returned success: false");
           setTrendingProducts([]);
@@ -236,23 +188,19 @@ function BuyerHomeContent() {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        console.log('No auth token found');
         setIsLoadingOrder(false);
         setIsLoadingOrdersData(false);
         return;
       }
 
-      console.log('Fetching orders data...');
       setIsLoadingOrder(true);
       setIsLoadingOrdersData(true);
       setOrdersError(null);
       
       // Direct API call with better error handling
       const ordersData = await orderService.getOrders();
-      console.log('Raw orders data:', ordersData);
       
       const orders = Array.isArray(ordersData) ? ordersData : (ordersData.results || []);
-      console.log('Processed orders:', orders.length);
       
       // Process pending orders for active order banner
       const pendingOrders = orders.filter((order) => 
@@ -293,13 +241,6 @@ function BuyerHomeContent() {
       );
       setActiveOrders(activeOrdersList.length);
 
-      console.log('Orders data loaded successfully:', {
-        total: orders.length,
-        pending: pendingOrders.length,
-        recent: recent.length,
-        active: activeOrdersList.length
-      });
-
       // Reset retry count on successful fetch
       setRetryCount(0);
 
@@ -311,11 +252,9 @@ function BuyerHomeContent() {
       if (retryCount < 2) {
         setRetryCount(prev => prev + 1);
         setTimeout(() => {
-          console.log('Retrying order data fetch...');
           fetchOrdersData();
         }, 5000); // Wait 5 seconds before retry
       } else {
-        console.log('Max retries reached, stopping...');
         setRetryCount(0); // Reset for next time
       }
       
@@ -327,7 +266,6 @@ function BuyerHomeContent() {
 
   // Immediate order fetch function - always fetch fresh data
   const fetchOrderImmediately = async () => {
-    console.log('Fetching orders immediately...');
     await fetchOrdersData();
   };
 
@@ -341,7 +279,6 @@ function BuyerHomeContent() {
     // Only poll if there are active orders or pending payments
     if (activeOrders > 0 || pendingOrdersCount > 0) {
       const interval = setInterval(() => {
-        console.log('Polling for order updates...');
         fetchOrdersData();
       }, 120000); // Every 2 minutes instead of 10 seconds
       
@@ -359,6 +296,42 @@ function BuyerHomeContent() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+
+  // Load static recent activity on component mount (messaging is handled by MessagingProvider)
+  useEffect(() => {
+    console.log('🚀 Buyer home page mounted, loading static activities...');
+    
+    // Set static activities (messaging activities are handled by MessagingProvider)
+    const staticActivities = [
+      {
+        id: 1,
+        type: "order",
+        title: "Order delivered",
+        description: "Netflix Premium Account has been delivered to your account",
+        time: "2 min ago",
+        status: "success"
+      },
+      {
+        id: 3,
+        type: "order",
+        title: "Order processing",
+        description: "Your Adobe Creative Cloud order is being prepared",
+        time: "1 hour ago",
+        status: "warning"
+      },
+      {
+        id: 4,
+        type: "wishlist",
+        title: "Price drop alert",
+        description: "Xbox Game Pass Ultimate is now 25% off - check your wishlist!",
+        time: "2 hours ago",
+        status: "success"
+      }
+    ];
+    
+    setRecentActivity(staticActivities);
   }, []);
 
   // Persist timer state
@@ -621,7 +594,9 @@ function BuyerHomeContent() {
                     <MessageSquare className="w-6 h-6 text-teal-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">5</p>
+                    <p className="text-2xl font-bold text-white min-h-[32px]">
+                      {isLoadingMessages ? <span className="inline-block animate-pulse">...</span> : unreadCount}
+                    </p>
                     <p className="text-sm text-teal-300">New Messages</p>
                   </div>
                 </div>

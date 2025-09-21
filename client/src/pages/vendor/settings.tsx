@@ -67,7 +67,7 @@ export default function VendorSettings() {
 
   return (
     
-      <div className="space-y-6">
+      <div className="space-y-8 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -102,9 +102,9 @@ export default function VendorSettings() {
 
           {/* Profile Settings */}
           <TabsContent value="profile" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900">
+            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+                <CardTitle className="flex items-center space-x-2 text-pink-600">
                   <Store className="w-5 h-5" />
                   <span>Business Information</span>
                 </CardTitle>
@@ -208,9 +208,9 @@ export default function VendorSettings() {
 
           {/* Payment Settings */}
           <TabsContent value="payments" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900">
+            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+                <CardTitle className="flex items-center space-x-2 text-pink-600">
                   <CreditCard className="w-5 h-5" />
                   <span>Payment Configuration</span>
                 </CardTitle>
@@ -287,9 +287,9 @@ export default function VendorSettings() {
 
           {/* Notification Settings */}
           <TabsContent value="notifications" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900">
+            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+                <CardTitle className="flex items-center space-x-2 text-pink-600">
                   <Bell className="w-5 h-5" />
                   <span>Notification Preferences</span>
                 </CardTitle>
@@ -373,9 +373,9 @@ export default function VendorSettings() {
 
           {/* Security Settings */}
           <TabsContent value="security" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900">
+            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
+                <CardTitle className="flex items-center space-x-2 text-pink-600">
                   <Shield className="w-5 h-5" />
                   <span>Security & Privacy</span>
                 </CardTitle>

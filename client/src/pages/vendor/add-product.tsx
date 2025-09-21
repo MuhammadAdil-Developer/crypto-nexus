@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import authService from "@/services/authService";
 
 // API Service
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 interface ProductFormData {
   // Step 1: Basic Listing Info
@@ -776,9 +776,9 @@ export default function VendorAddProduct() {
         {/* Single Form */}
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-6">
           {/* Basic Information Card */}
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-white">Basic Information</CardTitle>
+              <CardTitle className="text-pink-600">Basic Information</CardTitle>
               <CardDescription className="text-gray-400">
                 Essential details about your account listing
               </CardDescription>
@@ -878,9 +878,9 @@ export default function VendorAddProduct() {
     </Card>
 
           {/* Pricing & Delivery Card */}
-    <Card className="border border-gray-700 bg-gray-900">
+    <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
       <CardHeader>
-              <CardTitle className="text-white">Pricing & Delivery</CardTitle>
+              <CardTitle className="text-pink-600">Pricing & Delivery</CardTitle>
               <CardDescription className="text-gray-400">
                 Set your price and delivery options
               </CardDescription>
@@ -961,9 +961,9 @@ export default function VendorAddProduct() {
     </Card>
 
           {/* Optional Details Card */}
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-white">Optional Details</CardTitle>
+              <CardTitle className="text-pink-600">Optional Details</CardTitle>
               <CardDescription className="text-gray-400">
                 Additional information to enhance your listing
               </CardDescription>
@@ -1005,9 +1005,9 @@ export default function VendorAddProduct() {
           </Card>
 
           {/* Media & Documents Card */}
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-white">Media & Documents</CardTitle>
+              <CardTitle className="text-pink-600">Media & Documents</CardTitle>
               <CardDescription className="text-gray-400">
                 Upload images and documents to showcase your product
               </CardDescription>
@@ -1056,9 +1056,9 @@ export default function VendorAddProduct() {
           </Card>
 
           {/* Tags Card */}
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-white">Tags & Keywords</CardTitle>
+              <CardTitle className="text-pink-600">Tags & Keywords</CardTitle>
               <CardDescription className="text-gray-400">
                 Add tags to help buyers find your product
               </CardDescription>

@@ -220,7 +220,7 @@ export default function VendorListings() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-8 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -248,7 +248,7 @@ export default function VendorListings() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-3">
@@ -262,7 +262,7 @@ export default function VendorListings() {
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center mr-3">
@@ -276,7 +276,7 @@ export default function VendorListings() {
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-3">
@@ -290,7 +290,7 @@ export default function VendorListings() {
             </CardContent>
           </Card>
           
-          <Card className="border border-gray-700 bg-gray-900">
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mr-3">
@@ -306,7 +306,7 @@ export default function VendorListings() {
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-700 bg-gray-900">
+        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -343,9 +343,9 @@ export default function VendorListings() {
         </Card>
 
         {/* Products Table */}
-        <Card className="border border-gray-700 bg-gray-900">
+        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-white">Products ({filteredProducts.length})</CardTitle>
+            <CardTitle className="text-xl font-bold text-pink-600">Products ({filteredProducts.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">

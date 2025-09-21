@@ -335,6 +335,32 @@ class VendorService {
     }
   }
 
+  // Bulk upload simple (text format)
+  async bulkUploadSimple(products: Partial<VendorProduct>[]): Promise<any> {
+    try {
+      console.log('🔍 bulkUploadSimple called with products:', products);
+      
+      const response = await api.post('/products/bulk-upload/simple/', {
+        products: products
+      });
+      
+      console.log('🔍 Bulk upload simple response:', response);
+      console.log('🔍 Bulk upload simple data:', response.data);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ bulkUploadSimple error:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error message:', error.message);
+      
+      if (error.response?.data) {
+        console.log('🔍 Error response data:', error.response.data);
+        return error.response.data;
+      }
+      throw new Error('Failed to upload products');
+    }
+  }
+
   // Get bulk upload template
   async getBulkUploadTemplate(): Promise<Blob> {
     try {

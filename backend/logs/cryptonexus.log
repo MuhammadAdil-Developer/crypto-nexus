@@ -95374,3 +95374,36 @@ WARNING 2025-09-20 18:03:23,994 log 142290 138265073002048 Unauthorized: /api/v1
 WARNING 2025-09-20 19:07:23,106 log 213212 132518139373120 Unauthorized: /api/v1/messaging/conversations/
 WARNING 2025-09-20 19:07:23,164 log 213212 132518139373120 Unauthorized: /api/v1/messaging/conversations/
 WARNING 2025-09-20 19:07:54,542 log 213212 132518139373120 Unauthorized: /api/v1/auth/login/
+WARNING 2025-09-21 07:26:13,103 log 501241 129357929506368 Unauthorized: /api/v1/orders/
+INFO 2025-09-21 07:44:59,831 autoreload 507581 133920474685440 Watching for file changes with StatReloader
+WARNING 2025-09-21 08:56:29,058 log 515546 137797014910528 Unauthorized: /api/v1/orders/
+WARNING 2025-09-21 08:56:29,079 log 515546 137797014910528 Unauthorized: /api/v1/orders/
+WARNING 2025-09-21 09:04:05,068 log 515546 137797014910528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 09:04:07,217 log 515546 137797014910528 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-21 09:05:34,344 log 515546 137797014910528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 09:05:35,356 log 515546 137797014910528 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-21 09:07:17,247 log 515546 137797014910528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 09:07:17,329 log 515546 137797014910528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 09:07:37,780 log 515546 137797014910528 Unauthorized: /api/v1/auth/login/
+ERROR 2025-09-21 09:30:19,473 log 522829 129190972077632 Internal Server Error: /api/v1/messaging/unread-count/
+WARNING 2025-09-21 09:35:06,793 log 522829 129190972077632 Unauthorized: /api/v1/messaging/unread-count/
+ERROR 2025-09-21 09:35:41,753 log 522829 129190972077632 Internal Server Error: /api/v1/messaging/unread-count/
+WARNING 2025-09-21 09:49:42,332 log 525343 129532975633984 Unauthorized: /api/v1/messaging/unread-count/
+WARNING 2025-09-21 10:11:08,085 log 525343 129532975633984 Not Found: /messaging/recent-activity/
+WARNING 2025-09-21 10:11:13,222 log 525343 129532975633984 Not Found: /messaging/recent-activity/
+ERROR 2025-09-21 10:11:27,126 log 525343 129532975633984 Internal Server Error: /api/v1/messaging/recent-activity/
+WARNING 2025-09-21 10:20:24,519 log 529811 134552961918528 Not Found: /api/v1/unread-count/
+WARNING 2025-09-21 10:20:24,879 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 10:20:25,251 log 529811 134552961918528 Not Found: /api/v1/unread-count/
+WARNING 2025-09-21 10:20:27,412 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-21 10:20:41,294 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 10:20:42,442 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-21 10:21:02,397 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 10:21:03,469 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-21 10:21:18,064 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 10:21:19,084 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/98d16540-8d34-4a8e-a837-d9fb2b1c8e9e/messages/
+WARNING 2025-09-21 10:22:30,153 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 10:22:30,180 log 529811 134552961918528 Unauthorized: /api/v1/messaging/conversations/
+WARNING 2025-09-21 10:22:44,748 log 529811 134552961918528 Unauthorized: /api/v1/auth/login/
+ERROR 2025-09-21 10:22:48,202 log 529811 134552961918528 Internal Server Error: /api/v1/messaging/recent-messages/
+ERROR 2025-09-21 10:22:48,324 log 529811 134552961918528 Internal Server Error: /api/v1/messaging/recent-messages/

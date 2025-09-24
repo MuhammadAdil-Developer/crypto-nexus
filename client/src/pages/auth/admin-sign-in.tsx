@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, Crown, Database, Server, Key } from "lucide-react";
 import { authService } from "@/services/authService";
+import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 
 export default function AdminSignIn() {
   const navigate = useNavigate();
@@ -15,7 +16,10 @@ export default function AdminSignIn() {
     username: "",
     password: ""
   });
-  const [errors, setErrors] = useState<{ username?: string; password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; password?: string; general?: string; captcha?: string }>({});
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [showCaptchaModal, setShowCaptchaModal] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,11 +53,32 @@ export default function AdminSignIn() {
       return;
     }
 
+    // Show captcha modal instead of submitting directly
+    setShowCaptchaModal(true);
+  };
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token);
+    setCaptchaVerified(true);
+    // Proceed with login after captcha verification
+    performLogin();
+  };
+
+  const handleCaptchaError = (error: string) => {
+    setErrors(prev => ({ ...prev, captcha: error }));
+    setCaptchaVerified(false);
+    setCaptchaToken(null);
+  };
+
+  const performLogin = async () => {
     setIsLoading(true);
     setErrors({});
 
     try {
-      const response = await authService.login(formData);
+      const response = await authService.login({
+        ...formData,
+        captcha_token: captchaToken
+      } as any);
       console.log('🔐 Admin login response:', response);
       
       if (response.success) {
@@ -241,6 +266,17 @@ export default function AdminSignIn() {
           </div>
         </div>
       </div>
+
+      {/* Captcha Modal */}
+      <CircleCaptchaModal
+        isOpen={showCaptchaModal}
+        onClose={() => setShowCaptchaModal(false)}
+        onVerify={handleCaptchaVerify}
+        onError={handleCaptchaError}
+        siteKey="admin-login-captcha"
+        title="Security prompt"
+        instruction="Please click into the open circle to continue."
+      />
     </div>
   );
 } 

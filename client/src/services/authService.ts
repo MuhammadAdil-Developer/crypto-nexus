@@ -44,11 +44,13 @@ export interface UserRegistrationData {
   username: string;
   password: string;
   confirm_password: string;
+  captcha_token?: string;
 }
 
 export interface UserLoginData {
   username: string;
   password: string;
+  captcha_token?: string;
 }
 
 export interface User {
@@ -101,6 +103,12 @@ class AuthService {
   // User Login
   async login(userData: UserLoginData): Promise<ApiResponse<AuthResponse>> {
     try {
+      console.log('🔍 AuthService login called with data:', {
+        username: userData.username,
+        password: '***',
+        captcha_token: userData.captcha_token
+      });
+      
       const response = await api.post<ApiResponse<AuthResponse>>('/auth/login/', userData);
       
       if (response.data.success) {
@@ -113,6 +121,8 @@ class AuthService {
       
       return response.data;
     } catch (error: any) {
+      console.error('❌ AuthService login error:', error);
+      console.error('❌ Error response data:', error.response?.data);
       if (error.response?.data) {
         return error.response.data;
       }

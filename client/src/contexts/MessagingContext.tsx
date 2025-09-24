@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MessagingService } from '@/services/messagingService';
-import { RealtimeService } from '@/services/realtimeService';
+import { messagingService } from '@/services/messagingService';
+import { realtimeService } from '@/services/realtimeService';
 
 interface MessageNotification {
   id: string;
@@ -27,8 +27,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<MessageNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  const messagingService = new MessagingService();
-  const realtimeService = new RealtimeService();
+  // Use shared service singletons
 
   const refreshNotifications = async () => {
     try {
@@ -90,7 +89,8 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem('accessToken');
     
     if (userId && token) {
-      realtimeService.connect(userId, token);
+      // Connect using stored credentials (service reads from localStorage)
+      realtimeService.connect();
       
       // Subscribe to real-time updates
       const handleUnreadCountUpdate = (data: any) => {

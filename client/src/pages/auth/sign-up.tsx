@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
 import { authService } from "@/services/authService";
+import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -17,7 +18,10 @@ export default function SignUp() {
     password: "",
     confirm_password: ""
   });
-  const [errors, setErrors] = useState<{ username?: string; password?: string; confirm_password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; password?: string; confirm_password?: string; general?: string; captcha?: string }>({});
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [showCaptchaModal, setShowCaptchaModal] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -63,11 +67,32 @@ export default function SignUp() {
       return;
     }
 
+    // Show captcha modal instead of submitting directly
+    setShowCaptchaModal(true);
+  };
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token);
+    setCaptchaVerified(true);
+    // Proceed with registration after captcha verification
+    performRegistration();
+  };
+
+  const handleCaptchaError = (error: string) => {
+    setErrors(prev => ({ ...prev, captcha: error }));
+    setCaptchaVerified(false);
+    setCaptchaToken(null);
+  };
+
+  const performRegistration = async () => {
     setIsLoading(true);
     setErrors({});
 
     try {
-      const response = await authService.register(formData);
+      const response = await authService.register({
+        ...formData,
+        captcha_token: captchaToken
+      } as any);
       
       if (response.success) {
         // Redirect based on user type
@@ -273,6 +298,17 @@ export default function SignUp() {
           </div>
         </div>
       </div>
+
+      {/* Captcha Modal */}
+      <CircleCaptchaModal
+        isOpen={showCaptchaModal}
+        onClose={() => setShowCaptchaModal(false)}
+        onVerify={handleCaptchaVerify}
+        onError={handleCaptchaError}
+        siteKey="register-captcha"
+        title="Security prompt"
+        instruction="Please click into the open circle to continue."
+      />
     </div>
   );
 }

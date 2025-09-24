@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
 import { authService } from "@/services/authService";
+import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -15,7 +16,10 @@ export default function SignIn() {
     username: "",
     password: ""
   });
-  const [errors, setErrors] = useState<{ username?: string; password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; password?: string; general?: string; captcha?: string }>({});
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [showCaptchaModal, setShowCaptchaModal] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,11 +53,50 @@ export default function SignIn() {
       return;
     }
 
+    // Show captcha modal instead of submitting directly
+    setShowCaptchaModal(true);
+  };
+
+  const handleCaptchaVerify = (token: string) => {
+    console.log('🔍 Captcha verified with token:', token);
+    console.log('🔍 Token length:', token.length);
+    console.log('🔍 Token type:', typeof token);
+    setCaptchaToken(token);
+    setCaptchaVerified(true);
+    console.log('🔍 Captcha token set to state:', token);
+    // Proceed with login after captcha verification
+    performLogin();
+  };
+
+  const handleCaptchaError = (error: string) => {
+    setErrors(prev => ({ ...prev, captcha: error }));
+    setCaptchaVerified(false);
+    setCaptchaToken(null);
+  };
+
+  const performLogin = async () => {
     setIsLoading(true);
     setErrors({});
 
     try {
-      const response = await authService.login(formData);
+      console.log('🔍 Attempting login with data:', {
+        username: formData.username,
+        password: '***',
+        captcha_token: captchaToken
+      });
+
+      const loginData = {
+        username: formData.username,
+        password: formData.password,
+        captcha_token: captchaToken
+      };
+      
+      console.log('🔍 Final login data being sent:', loginData);
+      console.log('🔍 Current captchaToken state:', captchaToken);
+      console.log('🔍 Current captchaVerified state:', captchaVerified);
+
+      const response = await authService.login(loginData as any);
+      
       console.log('🔐 Login response:', response);
       
       if (response.success) {
@@ -67,12 +110,14 @@ export default function SignIn() {
           navigate('/buyer/');
         }
       } else {
+        console.error('❌ Login failed:', response);
         setErrors({ general: response.message || 'Login failed. Please try again.' });
       }
     } catch (error: any) {
       console.error('❌ Login error:', error);
+      console.error('❌ Error response:', error.response?.data);
       setErrors({ 
-        general: error.message || 'An unexpected error occurred. Please try again.' 
+        general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
       });
     } finally {
       setIsLoading(false);
@@ -247,6 +292,17 @@ export default function SignIn() {
           
         </div>
       </div>
+
+      {/* Captcha Modal */}
+      <CircleCaptchaModal
+        isOpen={showCaptchaModal}
+        onClose={() => setShowCaptchaModal(false)}
+        onVerify={handleCaptchaVerify}
+        onError={handleCaptchaError}
+        siteKey="login-captcha"
+        title="Security prompt"
+        instruction="Please click into the open circle to continue."
+      />
     </div>
   );
 }

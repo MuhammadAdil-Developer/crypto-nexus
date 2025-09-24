@@ -95407,3 +95407,28 @@ WARNING 2025-09-21 10:22:30,180 log 529811 134552961918528 Unauthorized: /api/v1
 WARNING 2025-09-21 10:22:44,748 log 529811 134552961918528 Unauthorized: /api/v1/auth/login/
 ERROR 2025-09-21 10:22:48,202 log 529811 134552961918528 Internal Server Error: /api/v1/messaging/recent-messages/
 ERROR 2025-09-21 10:22:48,324 log 529811 134552961918528 Internal Server Error: /api/v1/messaging/recent-messages/
+WARNING 2025-09-24 20:36:07,795 log 297182 127438315058752 Unauthorized: /api/v1/auth/login/
+ERROR 2025-09-24 20:36:17,439 log 297182 127438315058752 Internal Server Error: /api/v1/messaging/recent-messages/
+ERROR 2025-09-24 20:36:17,534 log 297182 127438315058752 Internal Server Error: /api/v1/messaging/recent-messages/
+WARNING 2025-09-24 21:38:24,231 log 304536 134646956291648 Unauthorized: /api/v1/orders/
+WARNING 2025-09-24 21:38:26,473 log 304536 134646956291648 Unauthorized: /api/v1/messaging/unread-count/
+WARNING 2025-09-24 21:38:26,496 log 304536 134646956291648 Unauthorized: /api/v1/messaging/unread-count/
+WARNING 2025-09-24 21:38:26,567 log 304536 134646956291648 Unauthorized: /api/v1/messaging/unread-count/
+WARNING 2025-09-24 21:38:26,602 log 304536 134646956291648 Unauthorized: /api/v1/messaging/unread-count/
+WARNING 2025-09-24 21:38:26,615 log 304536 134646956291648 Unauthorized: /api/v1/orders/
+WARNING 2025-09-24 21:38:26,639 log 304536 134646956291648 Unauthorized: /api/v1/orders/
+WARNING 2025-09-24 21:40:56,474 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:40:59,412 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:09,326 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:09,971 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:10,440 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:10,708 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:10,879 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:11,250 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:11,419 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:41:11,945 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:49:06,105 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:49:29,957 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 21:52:38,611 log 304536 134646956291648 Bad Request: /api/v1/auth/login/
+WARNING 2025-09-24 22:50:29,808 log 314692 135406220731968 Bad Request: /api/v1/auth/login/
+ERROR 2025-09-24 22:55:40,477 log 315316 124641628649024 Internal Server Error: /api/v1/auth/login/

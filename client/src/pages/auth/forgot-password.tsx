@@ -5,16 +5,53 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, ArrowLeft, Shield, Key, Clock, CheckCircle } from "lucide-react";
+import CircleCaptcha from "@/components/captcha/CircleCaptcha";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; captcha?: string; general?: string }>({});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle forgot password logic
-    console.log("Forgot password for:", email);
-    setIsSubmitted(true);
+    
+    // Validate form
+    const newErrors: { email?: string; captcha?: string } = {};
+    
+    if (!email) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    
+    if (!captchaVerified) {
+      newErrors.captcha = 'Please complete the security verification';
+    }
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length === 0) {
+      // Handle forgot password logic
+      console.log("Forgot password for:", email, "with captcha:", captchaToken);
+      setIsSubmitted(true);
+    }
+  };
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token);
+    setCaptchaVerified(true);
+    // Clear captcha error when verified
+    if (errors.captcha) {
+      setErrors(prev => ({ ...prev, captcha: undefined }));
+    }
+  };
+
+  const handleCaptchaError = (error: string) => {
+    setErrors(prev => ({ ...prev, captcha: error }));
+    setCaptchaVerified(false);
+    setCaptchaToken(null);
   };
 
   return (
@@ -57,6 +94,20 @@ export default function ForgotPassword() {
                         required
                       />
                     </div>
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                  </div>
+
+                  {/* Captcha Section */}
+                  <div className="space-y-2">
+                    <CircleCaptcha
+                      onVerify={handleCaptchaVerify}
+                      onError={handleCaptchaError}
+                      siteKey="forgot-password-captcha"
+                      theme="dark"
+                      size="compact"
+                      className="w-full"
+                    />
+                    {errors.captcha && <p className="text-red-500 text-xs mt-1">{errors.captcha}</p>}
                   </div>
 
                   <Button 

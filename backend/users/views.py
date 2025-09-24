@@ -11,6 +11,7 @@ from .serializers import (
     UserRegistrationSerializer, UserLoginSerializer, 
     UserSerializer, UserUpdateSerializer
 )
+from .captcha_validator import CaptchaValidator
 
 
 class IsAdminUser(BasePermission):
@@ -34,6 +35,30 @@ class IsAdminUser(BasePermission):
 def user_registration(request):
     """User registration endpoint - username + password only"""
     try:
+        # Validate captcha token
+        captcha_token = request.data.get('captcha_token')
+        print(f"🔍 Registration captcha token: {captcha_token}")  # Debug log
+        
+        if captcha_token:
+            captcha_result = CaptchaValidator.validate_captcha_token(
+                captcha_token, 
+                'register-captcha'
+            )
+            print(f"🔍 Captcha validation result: {captcha_result}")  # Debug log
+            
+            if not captcha_result['success']:
+                return Response({
+                    'success': False,
+                    'message': captcha_result['message'],
+                    'error_code': 'CAPTCHA_VALIDATION_FAILED'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({
+                'success': False,
+                'message': 'Captcha verification is required',
+                'error_code': 'CAPTCHA_REQUIRED'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         serializer = UserRegistrationSerializer(data=request.data)
         
         if serializer.is_valid():
@@ -80,6 +105,35 @@ def user_registration(request):
 def user_login(request):
     """User login endpoint - username + password only"""
     try:
+        print(f"🔍 Login request data: {request.data}")  # Debug log
+        print(f"🔍 Login request body: {request.body}")  # Debug log
+        
+        # Validate captcha token
+        captcha_token = request.data.get('captcha_token')
+        print(f"🔍 Login captcha token: {captcha_token}")  # Debug log
+        
+        if captcha_token:
+            # Determine site key based on request
+            site_key = 'admin-login-captcha' if '/admin' in request.path else 'login-captcha'
+            captcha_result = CaptchaValidator.validate_captcha_token(
+                captcha_token, 
+                site_key
+            )
+            print(f"🔍 Captcha validation result: {captcha_result}")  # Debug log
+            
+            if not captcha_result['success']:
+                return Response({
+                    'success': False,
+                    'message': captcha_result['message'],
+                    'error_code': 'CAPTCHA_VALIDATION_FAILED'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({
+                'success': False,
+                'message': 'Captcha verification is required',
+                'error_code': 'CAPTCHA_REQUIRED'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         serializer = UserLoginSerializer(data=request.data)
         
         if serializer.is_valid():

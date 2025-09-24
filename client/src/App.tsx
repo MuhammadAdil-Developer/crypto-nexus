@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ToastProvider from './components/ui/ToastContainer';
+import { MessagingProvider } from '@/contexts/MessagingContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import MarketplaceHome from './pages/marketplace/home';
 import BuyerDashboard from './pages/buyer/buyer-dashboard';
@@ -39,10 +40,11 @@ function App() {
   
   return (
     <ToastProvider>
-      <Router>
-        <RouteDebugger />
-        <div className="App">
-          <Routes>
+      <MessagingProvider>
+        <Router>
+          <RouteDebugger />
+          <div className="App">
+            <Routes>
             {/* Public Routes */}
             <Route path="/" element={<MarketplaceHome />} />
             <Route path="/sign-in" element={<SignIn />} />
@@ -97,9 +99,10 @@ function App() {
             
             {/* Catch all route */}
             <Route path="*" element={<MarketplaceHome />} />
-          </Routes>
-        </div>
-      </Router>
+            </Routes>
+          </div>
+        </Router>
+      </MessagingProvider>
     </ToastProvider>
   );
 }

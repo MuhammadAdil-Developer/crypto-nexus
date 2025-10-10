@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,32 +6,68 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { User, Store, CreditCard, Bell, Shield, Key, Save, Upload } from "lucide-react";
+import { User, Store, CreditCard, Bell, Shield, Save, Loader2, Settings as SettingsIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@/services/authService";
+
+interface VendorProfile {
+  business_name?: string;
+  username: string;
+  contact?: string;
+  description?: string;
+  category?: string;
+  website?: string;
+  location?: string;
+}
+
+interface PaymentSettings {
+  btc_address?: string;
+  xmr_address?: string;
+  escrow_enabled: boolean;
+  payout_schedule: string;
+}
+
+interface NotificationSettings {
+  new_orders: boolean;
+  messages: boolean;
+  disputes: boolean;
+  payouts: boolean;
+  marketing: boolean;
+  reviews: boolean;
+}
+
+interface SecuritySettings {
+  two_factor_enabled: boolean;
+  login_notifications: boolean;
+  suspicious_activity_alerts: boolean;
+}
 
 export default function VendorSettings() {
-  const [profileData, setProfileData] = useState({
-    businessName: "CryptoAccountsPlus",
-    username: "cryptoaccountsplus",
-    email: "vendor@cryptoaccountsplus.com",
-    contact: "+1234567890",
-    description: "Premium digital accounts and streaming services provider. Offering high-quality Netflix, Spotify, Adobe, and other premium accounts with warranty and support.",
-    category: "Streaming Accounts",
-    website: "https://cryptoaccountsplus.com",
-    location: "Global"
+  const [profile, setProfile] = useState<VendorProfile>({
+    username: "",
+    contact: "",
+    description: "",
+    category: "",
+    website: "",
+    location: ""
   });
 
-  const [paymentData, setPaymentData] = useState({
-    btcAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-    xmrAddress: "4A1BvXRJjVhHpP9ErvwMdqXHnF7VjZn2KyTpgQfGQfGQKT7bqYzLYzKvD2d3nYzNxXdpBmCdH1vWxM9xKsT2vKpWBnTnY4QvXr",
-    escrowEnabled: true,
-    commissionRate: "5%",
-    payoutSchedule: "weekly"
+  const [payment, setPayment] = useState<PaymentSettings>({
+    btc_address: "",
+    xmr_address: "",
+    escrow_enabled: true,
+    payout_schedule: "weekly"
   });
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    newOrders: true,
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: ""
+  });
+
+  const [notifications, setNotifications] = useState<NotificationSettings>({
+    new_orders: true,
     messages: true,
     disputes: true,
     payouts: true,
@@ -39,411 +75,470 @@ export default function VendorSettings() {
     reviews: true
   });
 
-  const [securitySettings, setSecuritySettings] = useState({
-    twoFactorEnabled: false,
-    loginNotifications: true,
-    suspiciousActivityAlerts: true
+  const [security, setSecurity] = useState<SecuritySettings>({
+    two_factor_enabled: false,
+    login_notifications: true,
+    suspicious_activity_alerts: true
   });
 
-  const handleProfileSave = () => {
-    // Handle profile save
-    console.log("Saving profile:", profileData);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchVendorData();
+  }, []);
+
+  const fetchVendorData = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/profile/');
+      
+      if (response.data && response.data.success) {
+        setProfile({
+          username: response.data.data.username || "",
+          contact: response.data.data.phone || "",
+          description: response.data.data.description || "",
+          category: response.data.data.category || "",
+          website: response.data.data.website || "",
+          location: response.data.data.location || "",
+          business_name: response.data.data.business_name || ""
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching vendor data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load vendor data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePaymentSave = () => {
-    // Handle payment settings save
-    console.log("Saving payment settings:", paymentData);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      
+      // Update profile
+      await api.put('/profile/update/', {
+        username: profile.username,
+        phone: profile.contact,
+        description: profile.description,
+        category: profile.category,
+        website: profile.website,
+        location: profile.location,
+        business_name: profile.business_name
+      });
+
+      toast({
+        title: "Success",
+        description: "Settings updated successfully"
+      });
+    } catch (error: any) {
+      console.error('Error saving settings:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save settings",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleNotificationSave = () => {
-    // Handle notification settings save
-    console.log("Saving notification settings:", notificationSettings);
+  const handleChangePassword = async () => {
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (passwordData.new_password.length < 8) {
+      toast({
+        title: "Error",
+        description: "New password must be at least 8 characters long",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      const response = await api.post('/profile/change-password/', {
+        current_password: passwordData.current_password,
+        new_password: passwordData.new_password
+      });
+
+      if (response.data && response.data.success) {
+        setPasswordData({
+          current_password: "",
+          new_password: "",
+          confirm_password: ""
+        });
+
+        toast({
+          title: "Success",
+          description: "Password changed successfully"
+        });
+      } else {
+        throw new Error(response.data?.message || "Failed to change password");
+      }
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || error.message || "Failed to change password",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSecuritySave = () => {
-    // Handle security settings save
-    console.log("Saving security settings:", securitySettings);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
-    
-      <div className="space-y-8 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
+        <div className="flex items-center space-x-3">
+          <SettingsIcon className="w-8 h-8" />
           <div>
-            <h1 className="text-3xl font-bold text-white">Settings</h1>
-            <p className="text-gray-400">Manage your vendor profile and preferences</p>
+            <h1 className="text-2xl font-bold">Vendor Settings</h1>
+            <p className="text-gray-300">Manage your vendor account and business preferences</p>
           </div>
-          <Badge className="bg-green-100 text-green-800">
-            Verified Vendor
-          </Badge>
         </div>
-
-        {/* Settings Tabs */}
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center space-x-2">
-              <User className="w-4 h-4" />
-              <span>Profile</span>
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="flex items-center space-x-2">
-              <CreditCard className="w-4 h-4" />
-              <span>Payments</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center space-x-2">
-              <Bell className="w-4 h-4" />
-              <span>Notifications</span>
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center space-x-2">
-              <Shield className="w-4 h-4" />
-              <span>Security</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Settings */}
-          <TabsContent value="profile" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-pink-600">
-                  <Store className="w-5 h-5" />
-                  <span>Business Information</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="businessName">Business Name</Label>
-                    <Input
-                      id="businessName"
-                      value={profileData.businessName}
-                      onChange={(e) => setProfileData({...profileData, businessName: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      value={profileData.username}
-                      onChange={(e) => setProfileData({...profileData, username: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileData.email}
-                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="contact">Contact</Label>
-                    <Input
-                      id="contact"
-                      value={profileData.contact}
-                      onChange={(e) => setProfileData({...profileData, contact: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select value={profileData.category} onValueChange={(value) => setProfileData({...profileData, category: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Streaming Accounts">Streaming Accounts</SelectItem>
-                        <SelectItem value="Digital Goods">Digital Goods</SelectItem>
-                        <SelectItem value="Gaming Accounts">Gaming Accounts</SelectItem>
-                        <SelectItem value="VPN & Security">VPN & Security</SelectItem>
-                        <SelectItem value="Educational Services">Educational Services</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="website">Website (Optional)</Label>
-                    <Input
-                      id="website"
-                      value={profileData.website}
-                      onChange={(e) => setProfileData({...profileData, website: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">Store Description</Label>
-                  <Textarea
-                    id="description"
-                    value={profileData.description}
-                    onChange={(e) => setProfileData({...profileData, description: e.target.value})}
-                    className="h-32"
-                  />
-                </div>
-                
-                <div className="space-y-4">
-                  <Label>Store Logo/Banner</Label>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                      <Store className="w-8 h-8 text-white" />
-                    </div>
-                    <Button variant="outline">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload New Logo
-                    </Button>
-                  </div>
-                </div>
-                
-                <Button onClick={handleProfileSave} className="bg-blue-500 hover:bg-blue-600">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Profile
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Payment Settings */}
-          <TabsContent value="payments" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-pink-600">
-                  <CreditCard className="w-5 h-5" />
-                  <span>Payment Configuration</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="btcAddress">Bitcoin Address</Label>
-                    <Input
-                      id="btcAddress"
-                      value={paymentData.btcAddress}
-                      onChange={(e) => setPaymentData({...paymentData, btcAddress: e.target.value})}
-                      className="font-mono text-sm"
-                    />
-                    <p className="text-xs text-gray-400">For receiving BTC payments</p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="xmrAddress">Monero Address</Label>
-                    <Input
-                      id="xmrAddress"
-                      value={paymentData.xmrAddress}
-                      onChange={(e) => setPaymentData({...paymentData, xmrAddress: e.target.value})}
-                      className="font-mono text-sm"
-                    />
-                    <p className="text-xs text-gray-400">For receiving XMR payments</p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="payoutSchedule">Payout Schedule</Label>
-                    <Select value={paymentData.payoutSchedule} onValueChange={(value) => setPaymentData({...paymentData, payoutSchedule: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="manual">Manual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="commissionRate">Commission Rate</Label>
-                    <Input
-                      id="commissionRate"
-                      value={paymentData.commissionRate}
-                      disabled
-                      className="bg-gray-700"
-                    />
-                    <p className="text-xs text-gray-400">Set by marketplace</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-white">Escrow Protection</h4>
-                    <p className="text-sm text-gray-400">Enable escrow for buyer protection</p>
-                  </div>
-                  <Switch
-                    checked={paymentData.escrowEnabled}
-                    onCheckedChange={(checked) => setPaymentData({...paymentData, escrowEnabled: checked})}
-                  />
-                </div>
-                
-                <Button onClick={handlePaymentSave} className="bg-blue-500 hover:bg-blue-600">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Payment Settings
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Notification Settings */}
-          <TabsContent value="notifications" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-pink-600">
-                  <Bell className="w-5 h-5" />
-                  <span>Notification Preferences</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">New Orders</h4>
-                      <p className="text-sm text-gray-400">Get notified when you receive new orders</p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.newOrders}
-                      onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, newOrders: checked})}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Messages</h4>
-                      <p className="text-sm text-gray-400">Get notified when customers send messages</p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.messages}
-                      onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, messages: checked})}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Disputes</h4>
-                      <p className="text-sm text-gray-400">Get notified about dispute activities</p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.disputes}
-                      onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, disputes: checked})}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Payouts</h4>
-                      <p className="text-sm text-gray-400">Get notified about payout status</p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.payouts}
-                      onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, payouts: checked})}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Reviews</h4>
-                      <p className="text-sm text-gray-400">Get notified about new reviews</p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.reviews}
-                      onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, reviews: checked})}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Marketing Updates</h4>
-                      <p className="text-sm text-gray-400">Receive marketing and promotional emails</p>
-                    </div>
-                    <Switch
-                      checked={notificationSettings.marketing}
-                      onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, marketing: checked})}
-                    />
-                  </div>
-                </div>
-                
-                <Button onClick={handleNotificationSave} className="bg-blue-500 hover:bg-blue-600">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Notification Settings
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Security Settings */}
-          <TabsContent value="security" className="space-y-6">
-            <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-pink-600">
-                  <Shield className="w-5 h-5" />
-                  <span>Security & Privacy</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Two-Factor Authentication</h4>
-                      <p className="text-sm text-gray-400">Add an extra layer of security to your account</p>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {securitySettings.twoFactorEnabled && (
-                        <Badge className="bg-green-100 text-green-800">Enabled</Badge>
-                      )}
-                      <Switch
-                        checked={securitySettings.twoFactorEnabled}
-                        onCheckedChange={(checked) => setSecuritySettings({...securitySettings, twoFactorEnabled: checked})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Login Notifications</h4>
-                      <p className="text-sm text-gray-400">Get notified when someone logs into your account</p>
-                    </div>
-                    <Switch
-                      checked={securitySettings.loginNotifications}
-                      onCheckedChange={(checked) => setSecuritySettings({...securitySettings, loginNotifications: checked})}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-white">Suspicious Activity Alerts</h4>
-                      <p className="text-sm text-gray-400">Get alerts for unusual account activity</p>
-                    </div>
-                    <Switch
-                      checked={securitySettings.suspiciousActivityAlerts}
-                      onCheckedChange={(checked) => setSecuritySettings({...securitySettings, suspiciousActivityAlerts: checked})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-white">Password & Access</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button variant="outline" className="justify-start">
-                      <Key className="w-4 h-4 mr-2" />
-                      Change Password
-                    </Button>
-                    <Button variant="outline" className="justify-start">
-                      <Shield className="w-4 h-4 mr-2" />
-                      View Login History
-                    </Button>
-                  </div>
-                </div>
-                
-                <Button onClick={handleSecuritySave} className="bg-blue-500 hover:bg-blue-600">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Security Settings
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
-    
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Business Profile */}
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Store className="w-5 h-5 text-blue-400" />
+              Business Profile
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="businessName" className="text-gray-300">Business Name</Label>
+              <Input
+                id="businessName"
+                value={profile.business_name || ""}
+                onChange={(e) => setProfile({...profile, business_name: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="username" className="text-gray-300">Username</Label>
+              <Input
+                id="username"
+                value={profile.username}
+                onChange={(e) => setProfile({...profile, username: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="contact" className="text-gray-300">Contact Number</Label>
+              <Input
+                id="contact"
+                value={profile.contact || ""}
+                onChange={(e) => setProfile({...profile, contact: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="website" className="text-gray-300">Website</Label>
+              <Input
+                id="website"
+                value={profile.website || ""}
+                onChange={(e) => setProfile({...profile, website: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="description" className="text-gray-300">Business Description</Label>
+              <Textarea
+                id="description"
+                value={profile.description || ""}
+                onChange={(e) => setProfile({...profile, description: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Settings */}
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-blue-400" />
+              Payment Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="btcAddress" className="text-gray-300">Bitcoin Address</Label>
+              <Input
+                id="btcAddress"
+                value={payment.btc_address || ""}
+                onChange={(e) => setPayment({...payment, btc_address: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+                placeholder="bc1q..."
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="xmrAddress" className="text-gray-300">Monero Address</Label>
+              <Input
+                id="xmrAddress"
+                value={payment.xmr_address || ""}
+                onChange={(e) => setPayment({...payment, xmr_address: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+                placeholder="4A1BvXRJ..."
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Escrow Protection</Label>
+                <p className="text-sm text-gray-400">Enable escrow for buyer protection</p>
+              </div>
+              <Switch
+                checked={payment.escrow_enabled}
+                onCheckedChange={(checked) => setPayment({...payment, escrow_enabled: checked})}
+              />
+            </div>
+
+
+            <div>
+              <Label className="text-gray-300">Payout Schedule</Label>
+              <Select value={payment.payout_schedule} onValueChange={(value) => setPayment({...payment, payout_schedule: value})}>
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notifications */}
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Bell className="w-5 h-5 text-blue-400" />
+              Notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">New Orders</Label>
+                <p className="text-sm text-gray-400">Get notified about new orders</p>
+              </div>
+              <Switch
+                checked={notifications.new_orders}
+                onCheckedChange={(checked) => setNotifications({...notifications, new_orders: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Messages</Label>
+                <p className="text-sm text-gray-400">Get notified about new messages</p>
+              </div>
+              <Switch
+                checked={notifications.messages}
+                onCheckedChange={(checked) => setNotifications({...notifications, messages: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Disputes</Label>
+                <p className="text-sm text-gray-400">Get notified about dispute activity</p>
+              </div>
+              <Switch
+                checked={notifications.disputes}
+                onCheckedChange={(checked) => setNotifications({...notifications, disputes: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Reviews</Label>
+                <p className="text-sm text-gray-400">Get notified about new reviews</p>
+              </div>
+              <Switch
+                checked={notifications.reviews}
+                onCheckedChange={(checked) => setNotifications({...notifications, reviews: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Marketing</Label>
+                <p className="text-sm text-gray-400">Receive promotional emails</p>
+              </div>
+              <Switch
+                checked={notifications.marketing}
+                onCheckedChange={(checked) => setNotifications({...notifications, marketing: checked})}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Security */}
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-400" />
+              Security
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Two-Factor Authentication</Label>
+                <p className="text-sm text-gray-400">Add extra security to your account</p>
+              </div>
+              <Switch
+                checked={security.two_factor_enabled}
+                onCheckedChange={(checked) => setSecurity({...security, two_factor_enabled: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Login Notifications</Label>
+                <p className="text-sm text-gray-400">Get notified about account logins</p>
+              </div>
+              <Switch
+                checked={security.login_notifications}
+                onCheckedChange={(checked) => setSecurity({...security, login_notifications: checked})}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Suspicious Activity Alerts</Label>
+                <p className="text-sm text-gray-400">Get alerted about suspicious activity</p>
+              </div>
+              <Switch
+                checked={security.suspicious_activity_alerts}
+                onCheckedChange={(checked) => setSecurity({...security, suspicious_activity_alerts: checked})}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Change Password */}
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-400" />
+              Change Password
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="currentPassword" className="text-gray-300">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={passwordData.current_password}
+                onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="newPassword" className="text-gray-300">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={passwordData.new_password}
+                onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword" className="text-gray-300">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordData.confirm_password}
+                onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                className="bg-gray-800 border-gray-600 text-white"
+              />
+            </div>
+
+            <Button 
+              onClick={handleChangePassword} 
+              disabled={saving}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Changing...
+                </>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Change Password
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Save Button */}
+        <Card className="bg-gray-900 border-gray-700 lg:col-span-2">
+          <CardContent className="p-6">
+            <Button 
+              onClick={handleSave} 
+              disabled={saving}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

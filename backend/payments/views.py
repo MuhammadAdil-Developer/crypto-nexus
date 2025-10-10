@@ -41,12 +41,38 @@ class CreatePaymentAddressView(APIView):
             payment_type = data.get('payment_type', 'wallet')
             use_escrow = data.get('use_escrow', False)
             
-            # Validate crypto currency
-            if not CryptoCurrency.objects.filter(symbol=crypto_currency).exists():
-                return Response(
-                    {'error': 'Unsupported cryptocurrency'}, 
+            # Validate and ensure crypto currency exists
+            try:
+                crypto_currency_obj = CryptoCurrency.objects.get(symbol=crypto_currency)
+            except CryptoCurrency.DoesNotExist:
+                # Create the cryptocurrency record if it doesn't exist
+                if crypto_currency == 'BTC':
+                    crypto_currency_obj = CryptoCurrency.objects.create(
+                        name='Bitcoin',
+                        symbol='BTC',
+                        logo_url='https://cryptologos.cc/logos/bitcoin-btc-logo.png',
+                        current_price=50000.00,
+                        market_cap=1000000000000.00,
+                        volume_24h=50000000000.00,
+                        price_change_24h=0.00,
+                        is_active=True
+                    )
+                elif crypto_currency == 'XMR':
+                    crypto_currency_obj = CryptoCurrency.objects.create(
+                        name='Monero',
+                        symbol='XMR',
+                        logo_url='https://cryptologos.cc/logos/monero-xmr-logo.png',
+                        current_price=150.00,
+                        market_cap=30000000000.00,
+                        volume_24h=500000000.00,
+                        price_change_24h=0.00,
+                        is_active=True
+                    )
+                else:
+                    return Response(
+                        {'error': 'Unsupported cryptocurrency'}, 
                     status=status.HTTP_400_BAD_REQUEST
-                )
+                    )
             
             # Create payment address
             payment_service = PaymentService()
@@ -146,6 +172,17 @@ class PaymentStatusView(APIView):
                 logger.warning(f"No payment address found for order {order_id}, but order status updated")
             
             logger.info(f"Order {order_id} manually confirmed as paid")
+            
+            # Schedule review prompt for buyer
+            try:
+                from orders.tasks import send_review_prompt_task
+                send_review_prompt_task.apply_async(
+                    args=[order.buyer.id, order.product.id, order.order_id],
+                    countdown=60  # 1 minute delay
+                )
+                logger.info(f"Scheduled review prompt for order {order.order_id} in 3 minutes")
+            except Exception as e:
+                logger.error(f"Failed to schedule review prompt for order {order.order_id}: {str(e)}")
             
             return Response({
                 'message': 'Payment confirmed successfully',

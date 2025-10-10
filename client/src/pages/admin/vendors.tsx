@@ -6,11 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download } from "lucide-react";
+import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square } from "lucide-react";
 import { SAMPLE_VENDORS } from "@/lib/constants";
 import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { authService } from "@/services/authService";
 
 // API Integration Types
@@ -74,6 +75,11 @@ export default function AdminVendors() {
   // Image Viewer Modal State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  
+  // Selection state for bulk operations
+  const [selectedApplications, setSelectedApplications] = useState<number[]>([]);
+  const [isSelectAll, setIsSelectAll] = useState(false);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
 
   // Fetch applications on component mount
   useEffect(() => {
@@ -255,6 +261,104 @@ export default function AdminVendors() {
   const closeImageViewer = () => {
     setIsImageViewerOpen(false);
     setSelectedImage(null);
+  };
+
+  // Bulk selection functions
+  const handleSelectAll = () => {
+    const pendingApplications = applications?.filter(app => app.status === "pending") || [];
+    
+    if (isSelectAll) {
+      // Deselect all
+      setSelectedApplications([]);
+      setIsSelectAll(false);
+    } else {
+      // Select all pending applications
+      const allPendingIds = pendingApplications.map(app => app.id);
+      setSelectedApplications(allPendingIds);
+      setIsSelectAll(true);
+    }
+  };
+
+  const handleSelectApplication = (applicationId: number) => {
+    if (selectedApplications.includes(applicationId)) {
+      setSelectedApplications(prev => prev.filter(id => id !== applicationId));
+      setIsSelectAll(false);
+    } else {
+      const newSelected = [...selectedApplications, applicationId];
+      setSelectedApplications(newSelected);
+      
+      // Check if all pending applications are now selected
+      const pendingApplications = applications?.filter(app => app.status === "pending") || [];
+      setIsSelectAll(newSelected.length === pendingApplications.length);
+    }
+  };
+
+  const handleApproveAllSelected = async () => {
+    if (selectedApplications.length === 0) return;
+    
+    try {
+      setIsApprovingAll(true);
+      
+      // Get authentication token
+      const token = authService.getToken();
+      if (!token) {
+        console.error('❌ No authentication token found');
+        toast({
+          title: "Authentication Error",
+          description: "Please login again to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Approve all selected applications
+      const approvePromises = selectedApplications.map(async (applicationId) => {
+        const response = await fetch(`http://localhost:8000/api/v1/applications/${applicationId}/approve/`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ admin_notes: 'Bulk approved by admin' })
+        });
+        return response.ok;
+      });
+
+      const results = await Promise.all(approvePromises);
+      const successCount = results.filter(result => result).length;
+
+      if (successCount === selectedApplications.length) {
+        toast({
+          title: "Bulk Approval Successful",
+          description: `${successCount} applications have been approved successfully`,
+        });
+      } else if (successCount > 0) {
+        toast({
+          title: "Partial Success",
+          description: `${successCount} out of ${selectedApplications.length} applications were approved`,
+        });
+      } else {
+        toast({
+          title: "Bulk Approval Failed",
+          description: "Failed to approve any applications",
+          variant: "destructive",
+        });
+      }
+
+      // Clear selection and refresh data
+      setSelectedApplications([]);
+      setIsSelectAll(false);
+      fetchApplications();
+    } catch (error) {
+      console.error('Error approving applications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve applications",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApprovingAll(false);
+    }
   };
 
   const handleApproveFromModal = async () => {
@@ -571,28 +675,69 @@ export default function AdminVendors() {
           <TabsContent value="pending">
             <Card className="crypto-card">
               <CardHeader>
-                <CardTitle className="text-white">Pending Vendor Applications</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white">Pending Vendor Applications</CardTitle>
+                  {applications?.filter(app => app.status === "pending").length > 0 && (
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="select-all-pending"
+                          checked={isSelectAll}
+                          onCheckedChange={handleSelectAll}
+                        />
+                        <Label htmlFor="select-all-pending" className="text-sm text-gray-300">
+                          Select All
+                        </Label>
+                      </div>
+                      {selectedApplications.length > 0 && (
+                        <Button
+                          onClick={handleApproveAllSelected}
+                          disabled={isApprovingAll}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          {isApprovingAll ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Approving...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4 mr-2" />
+                              Approve All Selected ({selectedApplications.length})
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
                   {applications?.filter(app => app.status === "pending").map((application) => (
                     <div key={application.id} className="border border-border rounded-lg p-6 bg-gray-800/50" data-testid={`pending-vendor-${application.id}`}>
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          {/* Header Section */}
-                          <div className="flex items-center mb-4">
-                            <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
-                              <Store className="w-5 h-5 text-blue-400" />
+                        <div className="flex items-center space-x-3 mb-4">
+                          <Checkbox
+                            id={`select-application-${application.id}`}
+                            checked={selectedApplications.includes(application.id)}
+                            onCheckedChange={() => handleSelectApplication(application.id)}
+                          />
+                          <div className="flex-1">
+                            {/* Header Section */}
+                            <div className="flex items-center mb-4">
+                              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
+                                <Store className="w-5 h-5 text-blue-400" />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-white">{application.business_name}</h3>
+                                <p className="text-gray-300">Owner: {application.vendor_username}</p>
+                                <p className="text-sm text-gray-400">Applied {application.created_at_formatted}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-white">{application.business_name}</h3>
-                              <p className="text-gray-300">Owner: {application.vendor_username}</p>
-                              <p className="text-sm text-gray-400">Applied {application.created_at_formatted}</p>
-                            </div>
-                          </div>
-                          
-                          {/* Basic Details Section */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            
+                            {/* Basic Details Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                               <p className="text-sm text-gray-400">Category</p>
                               <p className="text-white font-medium">{application.category_display}</p>
@@ -603,12 +748,13 @@ export default function AdminVendors() {
                             </div>
                           </div>
                           
-                          {/* Business Description */}
-                          <div>
-                            <p className="text-sm text-gray-400">Business Description</p>
-                            <p className="text-gray-300 text-sm leading-relaxed">
-                              {application.store_description}
-                            </p>
+                            {/* Business Description */}
+                            <div>
+                              <p className="text-sm text-gray-400">Business Description</p>
+                              <p className="text-gray-300 text-sm leading-relaxed">
+                                {application.store_description}
+                              </p>
+                            </div>
                           </div>
                         </div>
                         

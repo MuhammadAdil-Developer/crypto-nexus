@@ -15,7 +15,6 @@ import VendorSupport from "./support";
 import VendorPayouts from "./payouts";
 import VendorSettings from "./settings";
 import BulkUpload from "./bulk-upload";
-
 export default function VendorDashboard() {
   return (
     <VendorLayout>

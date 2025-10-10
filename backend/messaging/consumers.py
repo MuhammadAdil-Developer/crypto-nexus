@@ -232,16 +232,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     metadata=product_info
                 )
                 
-                # Serialize both messages
-                message_serializer = MessageSerializer(message)
-                product_serializer = MessageSerializer(product_message)
+                # Serialize both messages with context for is_sender field
+                # Create a mock request object for the serializer
+                mock_request = type('MockRequest', (), {
+                    'user': self.scope['user'],
+                    'is_authenticated': True
+                })()
+                message_serializer = MessageSerializer(message, context={'request': mock_request})
+                product_serializer = MessageSerializer(product_message, context={'request': mock_request})
                 return {
                     'user_message': message_serializer.data,
                     'product_reference': product_serializer.data
                 }
             
-            # Serialize message
-            serializer = MessageSerializer(message)
+            # Serialize message with context for is_sender field
+            # Create a mock request object for the serializer
+            mock_request = type('MockRequest', (), {
+                'user': self.scope['user'],
+                'is_authenticated': True
+            })()
+            serializer = MessageSerializer(message, context={'request': mock_request})
             return serializer.data
             
         except Conversation.DoesNotExist:
@@ -555,5 +565,19 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
         """Send recent messages update to user"""
         await self.send(text_data=json.dumps({
             'type': 'recent_messages_update',
+            'payload': event['data']
+        }))
+
+    async def review_prompt(self, event):
+        """Prompt buyer to leave a review"""
+        await self.send(text_data=json.dumps({
+            'type': 'review_prompt',
+            'payload': event['data']
+        }))
+
+    async def new_review(self, event):
+        """Notify vendor of a new review"""
+        await self.send(text_data=json.dumps({
+            'type': 'new_review',
             'payload': event['data']
         }))

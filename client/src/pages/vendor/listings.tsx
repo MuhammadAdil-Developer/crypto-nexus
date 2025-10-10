@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, Heart } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/ToastContainer";
 import vendorService, { VendorProduct, VendorStats } from "@/services/vendorService";
+import wishlistService from "@/services/wishlistService";
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -75,6 +76,7 @@ export default function VendorListings() {
     totalSales: 0,
     totalRevenue: 0
   });
+  const [wishlistCounts, setWishlistCounts] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,9 +96,10 @@ export default function VendorListings() {
       
       console.log('🔍 fetchVendorData called');
       
-      const [productsResponse, vendorStats] = await Promise.all([
+      const [productsResponse, vendorStats, wishlistStatsResponse] = await Promise.all([
         vendorService.getMyProducts(),
-        vendorService.getVendorStats()
+        vendorService.getVendorStats(),
+        wishlistService.getVendorWishlistStats()
       ]);
       
       console.log('🔍 Products response:', productsResponse);
@@ -112,6 +115,15 @@ export default function VendorListings() {
       }
       
       setStats(vendorStats);
+      
+      // Process wishlist counts
+      if (wishlistStatsResponse.success && wishlistStatsResponse.data) {
+        const counts: Record<number, number> = {};
+        wishlistStatsResponse.data.forEach((item: any) => {
+          counts[item.product_id] = item.wishlist_count;
+        });
+        setWishlistCounts(counts);
+      }
     } catch (err: any) {
       console.error('❌ Error fetching vendor data:', err);
       setError(err.message || 'Failed to fetch vendor data');
@@ -356,6 +368,7 @@ export default function VendorListings() {
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Status</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Price</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Views</th>
+                    <th className="text-left p-4 text-sm font-medium text-gray-300">Wishlist</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Stock</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Created</th>
                     <th className="text-right p-4 text-sm font-medium text-gray-300">Actions</th>
@@ -401,6 +414,12 @@ export default function VendorListings() {
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center space-x-1">
+                          <Heart className="w-4 h-4 text-red-400" />
+                          <span className="text-white">{wishlistCounts[product.id] || 0}</span>
+                        </div>
                       </td>
                       <td className="p-4">
                         <span className={`${product.quantity_available > 0 ? 'text-green-400' : 'text-red-400'}`}>

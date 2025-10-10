@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Pagination } from "@/components/ui/pagination";
 import { useForm } from "react-hook-form";
-import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign, Loader2, Lock } from "lucide-react";
+import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign, Loader2, Lock, CheckSquare, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // API Service
@@ -62,6 +62,11 @@ export default function AdminListings() {
   // Pagination state - Changed default to 10
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Selection state for bulk operations
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+  const [isSelectAll, setIsSelectAll] = useState(false);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
   
   const { toast } = useToast();
   
@@ -265,6 +270,101 @@ export default function AdminListings() {
     setViewListingModalOpen(true);
   };
 
+  // Bulk selection functions
+  const handleSelectAll = () => {
+    const pendingProducts = allProducts.filter(product => product.status === 'pending_approval');
+    
+    if (isSelectAll) {
+      // Deselect all
+      setSelectedProducts([]);
+      setIsSelectAll(false);
+    } else {
+      // Select all pending products
+      const allPendingIds = pendingProducts.map(product => product.id);
+      setSelectedProducts(allPendingIds);
+      setIsSelectAll(true);
+    }
+  };
+
+  const handleSelectProduct = (productId: number) => {
+    if (selectedProducts.includes(productId)) {
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+      setIsSelectAll(false);
+    } else {
+      const newSelected = [...selectedProducts, productId];
+      setSelectedProducts(newSelected);
+      
+      // Check if all pending products are now selected
+      const pendingProducts = allProducts.filter(product => product.status === 'pending_approval');
+      setIsSelectAll(newSelected.length === pendingProducts.length);
+    }
+  };
+
+  const handleApproveAllSelected = async () => {
+    if (selectedProducts.length === 0) return;
+    
+    try {
+      setIsApprovingAll(true);
+      
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access admin panel",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Approve all selected products
+      const approvePromises = selectedProducts.map(async (productId) => {
+        const response = await fetch(`${API_BASE_URL}/products/admin/${productId}/approve/`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        return response.ok;
+      });
+
+      const results = await Promise.all(approvePromises);
+      const successCount = results.filter(result => result).length;
+
+      if (successCount === selectedProducts.length) {
+        toast({
+          title: "Bulk Approval Successful",
+          description: `${successCount} products have been approved successfully`,
+        });
+      } else if (successCount > 0) {
+        toast({
+          title: "Partial Success",
+          description: `${successCount} out of ${selectedProducts.length} products were approved`,
+        });
+      } else {
+        toast({
+          title: "Bulk Approval Failed",
+          description: "Failed to approve any products",
+          variant: "destructive",
+        });
+      }
+
+      // Clear selection and refresh data
+      setSelectedProducts([]);
+      setIsSelectAll(false);
+      fetchAllProducts();
+    } catch (error) {
+      console.error('Error approving products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve products",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApprovingAll(false);
+    }
+  };
+
   // Filter products based on current filter
   const getFilteredProducts = () => {
     if (currentFilter === 'all') {
@@ -444,7 +544,42 @@ export default function AdminListings() {
         {/* Products Table */}
         <Card className="crypto-card">
           <CardHeader>
-            <CardTitle className="text-white">Products ({filteredProducts.length})</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white">Products ({filteredProducts.length})</CardTitle>
+              {currentFilter === 'pending' && allProducts.filter(p => p.status === 'pending_approval').length > 0 && (
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="select-all-pending-products"
+                      checked={isSelectAll}
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <Label htmlFor="select-all-pending-products" className="text-sm text-gray-300">
+                      Select All
+                    </Label>
+                  </div>
+                  {selectedProducts.length > 0 && (
+                    <Button
+                      onClick={handleApproveAllSelected}
+                      disabled={isApprovingAll}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isApprovingAll ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Approve All Selected ({selectedProducts.length})
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -465,7 +600,14 @@ export default function AdminListings() {
                     <tr key={product.id} className="hover:bg-surface-2/50">
                       <td className="p-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
+                          {currentFilter === 'pending' && product.status === 'pending_approval' && (
+                            <Checkbox
+                              id={`select-product-${product.id}`}
+                              checked={selectedProducts.includes(product.id)}
+                              onCheckedChange={() => handleSelectProduct(product.id)}
+                            />
+                          )}
+                            <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
                             {product.main_image ? (
                               <img
                                 src={product.main_image}

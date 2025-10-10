@@ -1,11 +1,13 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count, Avg
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Product, ProductCategory, ProductSubCategory, ProductView
+from .models import Product, ProductCategory, ProductSubCategory, ProductView, ProductReview
+from shared.models import Notification
 from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductSubCategorySerializer, ProductCategorySerializer
 from users.models import User
 import json
@@ -219,6 +221,51 @@ def get_vendor_products(request):
         return Response({
             'success': False,
             'message': 'Failed to retrieve vendor products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_vendor_public_products(request, vendor_username):
+    """Get public products for a specific vendor by username"""
+    print(f"🔍 get_vendor_public_products called with vendor_username: {vendor_username}")
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        # Get products by vendor username
+        products = Product.objects.filter(
+            vendor__username=vendor_username,
+            status='approved',
+            is_active=True,
+            is_deleted=False
+        ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
+        
+        # Pagination
+        total_count = products.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        products = products[start:end]
+        
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        
+        return Response({
+            'success': True,
+            'message': f'Products for vendor {vendor_username} retrieved successfully',
+            'data': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting vendor public products for {vendor_username}: {str(e)}")
+        return Response({
+            'success': False,
+            'message': f'Failed to retrieve products for vendor {vendor_username}',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -848,7 +895,14 @@ def bulk_upload_simple(request):
             try:
                 # Add vendor and category
                 product_data['vendor'] = request.user.id
-                product_data['category_id'] = 1  # Default category
+                # Get the first available category (default category)
+                from .models import ProductCategory
+                default_category = ProductCategory.objects.filter(is_active=True, is_deleted=False).first()
+                if default_category:
+                    product_data['category_id'] = default_category.id
+                else:
+                    errors.append("No active category found")
+                    continue
                 
                 serializer = ProductCreateSerializer(data=product_data)
                 if serializer.is_valid():
@@ -1142,3 +1196,535 @@ def product_detail(request, product_id):
             'message': 'Failed to retrieve product details',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_reviews(request, product_id):
+    """List reviews for a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
+        reviews = ProductReview.objects.filter(product=product).select_related('user').order_by('-created_at')
+        data = [
+            {
+                'id': str(r.id),
+                'rating': r.rating,
+                'comment': r.comment,
+                'images': r.images,
+                'user': {
+                    'id': r.user.id,
+                    'username': getattr(r.user, 'username', ''),
+                },
+                'created_at': r.created_at.isoformat(),
+            }
+            for r in reviews
+        ]
+        return Response({
+            'success': True,
+            'message': 'Reviews retrieved successfully',
+            'data': data,
+        })
+    except Exception as e:
+        logger.error(f"Error listing reviews: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_review(request, product_id):
+    """Create a review for a purchased product, then notify vendor in realtime"""
+    try:
+        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
+        rating = int(request.data.get('rating', 0))
+        comment = (request.data.get('comment') or '').strip()
+        images = request.data.get('images') or []
+
+        if rating < 1 or rating > 5:
+            return Response({'success': False, 'message': 'Rating must be between 1 and 5'}, status=status.HTTP_400_BAD_REQUEST)
+        if not comment:
+            return Response({'success': False, 'message': 'Comment is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Optional: ensure the user bought this product
+        from orders.models import Order
+        # Use product_id explicitly to avoid any potential FK instance casting issues
+        has_order = Order.objects.filter(
+            buyer=request.user,
+            product_id=product.id,
+            order_status__in=['paid','delivered','confirmed']
+        ).exists()
+        if not has_order:
+            return Response({'success': False, 'message': 'You can only review products you purchased'}, status=status.HTTP_403_FORBIDDEN)
+
+        review, created = ProductReview.objects.update_or_create(
+            product=product,
+            user=request.user,
+            defaults={'rating': rating, 'comment': comment, 'images': images}
+        )
+
+        # Update product aggregates
+        try:
+            agg = ProductReview.objects.filter(product=product).aggregate(
+                avg=Avg('rating'),
+                cnt=Count('id')
+            )
+            product.rating = (agg.get('avg') or 0) or 0
+            product.review_count = agg.get('cnt') or 0
+            product.save(update_fields=['rating', 'review_count'])
+        except Exception:
+            pass
+
+        # Notify vendor (DB notification)
+        try:
+            Notification.objects.create(
+                user=product.vendor,
+                type='system',
+                title='New product review',
+                message=f"{getattr(request.user,'username','Buyer')} reviewed {product.headline}",
+                data={'product_id': product.id, 'rating': rating}
+            )
+        except Exception as _:
+            pass
+
+        # Realtime notify vendor via channel layer
+        try:
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'realtime_{product.vendor.id}',
+                {
+                    'type': 'new_review',
+                    'data': {
+                        'product_id': product.id,
+                        'product_title': product.headline,
+                        'rating': rating,
+                        'comment': comment,
+                        'buyer_username': getattr(request.user,'username','Buyer')
+                    }
+                }
+            )
+        except Exception as _:
+            pass
+
+        return Response({'success': True, 'message': 'Review submitted', 'data': {'id': str(review.id)}})
+    except Exception as e:
+        logger.error(f"Error creating review: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to submit review', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsVendorOrAdmin])
+def list_vendor_reviews(request):
+    """List all reviews for the authenticated vendor's products"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+
+        product_id = request.GET.get('product_id')
+        search = (request.GET.get('search') or '').strip()
+        min_rating = request.GET.get('min_rating')
+        max_rating = request.GET.get('max_rating')
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+        ordering = request.GET.get('ordering', '-created_at')
+
+        reviews_qs = ProductReview.objects.filter(product__vendor=request.user)
+        if product_id:
+            reviews_qs = reviews_qs.filter(product_id=product_id)
+        if search:
+            reviews_qs = reviews_qs.filter(
+                Q(comment__icontains=search) |
+                Q(product__headline__icontains=search) |
+                Q(user__username__icontains=search)
+            )
+        if min_rating:
+            reviews_qs = reviews_qs.filter(rating__gte=min_rating)
+        if max_rating:
+            reviews_qs = reviews_qs.filter(rating__lte=max_rating)
+        if date_from:
+            df = parse_date(date_from)
+            if df:
+                reviews_qs = reviews_qs.filter(created_at__date__gte=df)
+        if date_to:
+            dt = parse_date(date_to)
+            if dt:
+                reviews_qs = reviews_qs.filter(created_at__date__lte=dt)
+
+        if ordering not in ['created_at', '-created_at', 'rating', '-rating']:
+            ordering = '-created_at'
+        reviews_qs = reviews_qs.select_related('user', 'product').order_by(ordering)
+
+        total_count = reviews_qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        reviews = reviews_qs[start:end]
+
+        data = [
+            {
+                'id': str(r.id),
+                'rating': r.rating,
+                'comment': r.comment,
+                'images': r.images,
+                'product': {
+                    'id': r.product.id,
+                    'headline': r.product.headline,
+                },
+                'buyer': {
+                    'id': r.user.id,
+                    'username': getattr(r.user, 'username', ''),
+                },
+                'created_at': r.created_at.isoformat(),
+            }
+            for r in reviews
+        ]
+
+        return Response({
+            'success': True,
+            'message': 'Vendor product reviews retrieved successfully',
+            'data': data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error listing vendor reviews: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve vendor reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_buyer_reviews(request):
+    """List all reviews written by the authenticated buyer"""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+
+        product_id = request.GET.get('product_id')
+        search = (request.GET.get('search') or '').strip()
+        min_rating = request.GET.get('min_rating')
+        max_rating = request.GET.get('max_rating')
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+        ordering = request.GET.get('ordering', '-created_at')
+
+        reviews_qs = ProductReview.objects.filter(user=request.user)
+        if product_id:
+            reviews_qs = reviews_qs.filter(product_id=product_id)
+        if search:
+            reviews_qs = reviews_qs.filter(
+                Q(comment__icontains=search) |
+                Q(product__headline__icontains=search)
+            )
+        if min_rating:
+            reviews_qs = reviews_qs.filter(rating__gte=min_rating)
+        if max_rating:
+            reviews_qs = reviews_qs.filter(rating__lte=max_rating)
+        if date_from:
+            df = parse_date(date_from)
+            if df:
+                reviews_qs = reviews_qs.filter(created_at__date__gte=df)
+        if date_to:
+            dt = parse_date(date_to)
+            if dt:
+                reviews_qs = reviews_qs.filter(created_at__date__lte=dt)
+
+        if ordering not in ['created_at', '-created_at', 'rating', '-rating']:
+            ordering = '-created_at'
+        reviews_qs = reviews_qs.select_related('product').order_by(ordering)
+
+        total_count = reviews_qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        reviews = reviews_qs[start:end]
+
+        data = [
+            {
+                'id': str(r.id),
+                'rating': r.rating,
+                'comment': r.comment,
+                'images': r.images,
+                'product': {
+                    'id': r.product.id,
+                    'headline': r.product.headline,
+                },
+                'created_at': r.created_at.isoformat(),
+            }
+            for r in reviews
+        ]
+
+        return Response({
+            'success': True,
+            'message': 'Buyer reviews retrieved successfully',
+            'data': data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error listing buyer reviews: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve buyer reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsVendorOrAdmin])
+def vendor_product_reviews_simple(request, product_id):
+    """UI-friendly: list reviews for a specific vendor product by product_id.
+    Ensures the product belongs to the authenticated vendor.
+    """
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        ordering = request.GET.get('ordering', '-created_at')
+
+        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+
+        if ordering not in ['created_at', '-created_at', 'rating', '-rating']:
+            ordering = '-created_at'
+
+        qs = ProductReview.objects.filter(product=product).select_related('user').order_by(ordering)
+        total_count = qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = qs[start:end]
+
+        data = [
+            {
+                'id': str(r.id),
+                'rating': r.rating,
+                'comment': r.comment,
+                'images': r.images,
+                'buyer': {
+                    'id': r.user.id,
+                    'username': getattr(r.user, 'username', ''),
+                },
+                'product': {
+                    'id': product.id,
+                    'headline': product.headline,
+                },
+                'created_at': r.created_at.isoformat(),
+            }
+            for r in items
+        ]
+
+        return Response({
+            'success': True,
+            'message': 'Product reviews retrieved successfully',
+            'data': data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error in vendor_product_reviews_simple: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve product reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def buyer_reviews_simple(request):
+    """UI-friendly: list reviews created by the authenticated buyer."""
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        ordering = request.GET.get('ordering', '-created_at')
+
+        if ordering not in ['created_at', '-created_at', 'rating', '-rating']:
+            ordering = '-created_at'
+
+        qs = ProductReview.objects.filter(user=request.user).select_related('product').order_by(ordering)
+        total_count = qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = qs[start:end]
+
+        data = [
+            {
+                'id': str(r.id),
+                'rating': r.rating,
+                'comment': r.comment,
+                'images': r.images,
+                'product': {
+                    'id': r.product.id,
+                    'headline': r.product.headline,
+                },
+                'created_at': r.created_at.isoformat(),
+            }
+            for r in items
+        ]
+
+        return Response({
+            'success': True,
+            'message': 'My reviews retrieved successfully',
+            'data': data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error in buyer_reviews_simple: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve my reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def product_reviews_summary(request, product_id):
+    """Get summary stats for a product's reviews (rating dist, avg, count)"""
+    try:
+        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
+        qs = ProductReview.objects.filter(product=product)
+        total = qs.count()
+        avg = qs.aggregate(a=Avg('rating'))['a'] or 0
+        # Distribution 1..5
+        dist = {i: 0 for i in range(1, 6)}
+        for row in qs.values('rating').annotate(c=Count('id')):
+            dist[row['rating']] = row['c']
+        return Response({
+            'success': True,
+            'message': 'Review summary retrieved',
+            'data': {
+                'product_id': product.id,
+                'average_rating': avg,
+                'review_count': total,
+                'distribution': dist,
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting product reviews summary: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve summary', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def products_reviews_summary_bulk(request):
+    """Get review summaries for multiple product IDs in one call"""
+    try:
+        product_ids = request.data.get('product_ids', [])
+        if not isinstance(product_ids, list) or not product_ids:
+            return Response({'success': False, 'message': 'product_ids (list) is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Preload counts and averages
+        qs = ProductReview.objects.filter(product_id__in=product_ids)
+        counts = qs.values('product_id').annotate(c=Count('id'))
+        avgs = qs.values('product_id').annotate(a=Avg('rating'))
+        dists = qs.values('product_id', 'rating').annotate(c=Count('id'))
+
+        count_map = {row['product_id']: row['c'] for row in counts}
+        avg_map = {row['product_id']: row['a'] for row in avgs}
+        dist_map = {pid: {i: 0 for i in range(1, 6)} for pid in product_ids}
+        for row in dists:
+            dist_map[row['product_id']][row['rating']] = row['c']
+
+        result = []
+        for pid in product_ids:
+            result.append({
+                'product_id': pid,
+                'average_rating': avg_map.get(pid, 0) or 0,
+                'review_count': count_map.get(pid, 0) or 0,
+                'distribution': dist_map.get(pid, {i: 0 for i in range(1, 6)}),
+            })
+
+        return Response({'success': True, 'message': 'Bulk review summaries retrieved', 'data': result})
+    except Exception as e:
+        logger.error(f"Error getting bulk reviews summary: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve summaries', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_product_reviews(request, product_id):
+    """Get reviews for a specific product for the product modal"""
+    try:
+        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
+        
+        # Get reviews with pagination
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+        
+        reviews = ProductReview.objects.filter(product=product).order_by('-created_at')
+        
+        # Calculate pagination
+        total_count = reviews.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_reviews = reviews[start:end]
+        
+        # Format reviews data
+        reviews_data = []
+        for review in paginated_reviews:
+            reviews_data.append({
+                'id': review.id,
+                'rating': review.rating,
+                'comment': review.comment,
+                'images': review.images or [],
+                'buyer_username': review.user.username if review.user else 'Anonymous',
+                'created_at': review.created_at.strftime('%Y-%m-%d %H:%M'),
+                'time_ago': _get_time_ago(review.created_at)
+            })
+        
+        # Calculate product statistics
+        product_stats = {
+            'average_rating': product.rating or 0,
+            'total_reviews': product.review_count or 0,
+            'rating_distribution': _get_rating_distribution(product.id)
+        }
+        
+        return Response({
+            'success': True,
+            'data': {
+                'reviews': reviews_data,
+                'product_stats': product_stats,
+                'pagination': {
+                    'page': page,
+                    'page_size': page_size,
+                    'total_count': total_count,
+                    'has_next': end < total_count,
+                    'has_previous': page > 1
+                }
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting product reviews: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to fetch reviews',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _get_time_ago(created_at):
+    """Helper function to format time ago"""
+    from django.utils import timezone
+    now = timezone.now()
+    diff = now - created_at
+    
+    if diff.days > 0:
+        return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+    elif diff.seconds > 3600:
+        hours = diff.seconds // 3600
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif diff.seconds > 60:
+        minutes = diff.seconds // 60
+        return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+    else:
+        return "Just now"
+
+
+def _get_rating_distribution(product_id):
+    """Helper function to get rating distribution for a product"""
+    from django.db.models import Count
+    distribution = ProductReview.objects.filter(product_id=product_id).values('rating').annotate(count=Count('id')).order_by('rating')
+    dist_map = {i: 0 for i in range(1, 6)}
+    for item in distribution:
+        dist_map[item['rating']] = item['count']
+    return dist_map

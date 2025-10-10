@@ -47,6 +47,9 @@ INSTALLED_APPS = [
     'payments',
     'notifications',
     'messaging',
+    'disputes',
+    'tickets',
+    'wishlist',
 ]
 
 MIDDLEWARE = [
@@ -84,11 +87,11 @@ WSGI_APPLICATION = 'cryptonexus.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'cryptonexus'),
-        'USER': os.environ.get('DB_USER', 'cryptonexus_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'admin@123'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'NAME': os.environ.get('DB_NAME', 'defaultdb'),
+        'USER': os.environ.get('DB_USER', 'avnadmin'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'AVNS_MVpDJ4Ocg3gpXxYEydM'),
+        'HOST': os.environ.get('DB_HOST', 'pg-34e6acea-adilinbox4-8b41.k.aivencloud.com'),
+        'PORT': os.environ.get('DB_PORT', '28770'),
     }
 }
 
@@ -200,7 +203,7 @@ else:
 CORS_ALLOW_CREDENTIALS = True
 
 # Redis Configuration
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://:6379')
+REDIS_URL = os.environ.get('REDIS_URL', 'rediss://default:AU7zAAIncDI2YjYzZDY3NTc1MmQ0NGI1OGNmNjI0OTAzNWMxN2Y2YXAyMjAyMTE@integral-spider-20211.upstash.io:6379')
 
 # Celery Configuration
 CELERY_BROKER_URL = REDIS_URL
@@ -209,6 +212,16 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# Redis SSL Configuration for Celery
+CELERY_REDIS_SSL_CERT_REQS = 'CERT_NONE'  # For Upstash Redis
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_RETRY = True
+CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
+
+# Windows-specific Celery configuration
+CELERY_WORKER_POOL = 'solo'  # Use solo pool for Windows to avoid multiprocessing issues
+CELERY_WORKER_CONCURRENCY = 1
 
 # Logging Configuration
 LOGGING = {
@@ -316,7 +329,8 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+            "hosts": [os.environ.get('REDIS_URL', 'rediss://default:AU7zAAIncDI2YjYzZDY3NTc1MmQ0NGI1OGNmNjI0OTAzNWMxN2Y2YXAyMjAyMTE@integral-spider-20211.upstash.io:6379')],
         },
     },
 }  
+

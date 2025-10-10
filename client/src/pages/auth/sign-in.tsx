@@ -64,8 +64,8 @@ export default function SignIn() {
     setCaptchaToken(token);
     setCaptchaVerified(true);
     console.log('🔍 Captcha token set to state:', token);
-    // Proceed with login after captcha verification
-    performLogin();
+    // Proceed with login after captcha verification, passing the token directly
+    performLogin(token);
   };
 
   const handleCaptchaError = (error: string) => {
@@ -74,26 +74,30 @@ export default function SignIn() {
     setCaptchaToken(null);
   };
 
-  const performLogin = async () => {
+  const performLogin = async (token?: string) => {
     setIsLoading(true);
     setErrors({});
 
     try {
+      // Use the passed token or fall back to state
+      const finalToken = token || captchaToken;
+      
       console.log('🔍 Attempting login with data:', {
         username: formData.username,
         password: '***',
-        captcha_token: captchaToken
+        captcha_token: finalToken
       });
 
       const loginData = {
         username: formData.username,
         password: formData.password,
-        captcha_token: captchaToken
+        captcha_token: finalToken
       };
       
       console.log('🔍 Final login data being sent:', loginData);
       console.log('🔍 Current captchaToken state:', captchaToken);
       console.log('🔍 Current captchaVerified state:', captchaVerified);
+      console.log('🔍 Final token being used:', finalToken);
 
       const response = await authService.login(loginData as any);
       

@@ -63,11 +63,11 @@ WSGI_APPLICATION = 'marketplace_service.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='cryptonexus'),
-        'USER': config('DB_USER', default='cryptonexus_user'),
-        'PASSWORD': config('DB_PASSWORD', default='cryptonexus_password'),
-        'HOST': config('DB_HOST', default='postgres'),
-        'PORT': config('DB_PORT', default='5432'),
+        'NAME': config('DB_NAME', default='defaultdb'),
+        'USER': config('DB_USER', default='avnadmin'),
+        'PASSWORD': config('DB_PASSWORD', default='AVNS_MVpDJ4Ocg3gpXxYEydM'),
+        'HOST': config('DB_HOST', default='pg-34e6acea-adilinbox4-8b41.k.aivencloud.com'),
+        'PORT': config('DB_PORT', default='28770'),
     }
 }
 

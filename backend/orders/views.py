@@ -308,6 +308,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         elif crypto_currency == 'XMR':
             return MoneroRPCService()
         return None 
+    
     @action(detail=True, methods=['post'])
     def confirm_payment_success(self, request, pk=None):
         """Handle payment success and reveal credentials"""
@@ -322,7 +323,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             
             # Handle credentials based on escrow status
             if order.use_escrow:
-                # For escrow orders, credentials are revealed immediately but payment is held
                 if order.product.credentials:
                     order.product_credentials = {
                         'credentials': order.product.credentials,
@@ -333,23 +333,21 @@ class OrderViewSet(viewsets.ModelViewSet):
                         'escrow_status': 'Payment held in escrow until buyer confirmation'
                     }
                     order.save()
-                    
-                    # Mark product credentials as visible for this order
                     order.product.credentials_visible = True
                     order.product.save()
                 
                 logger.info(f"Payment confirmed for escrow order {order.order_id} - credentials revealed, payment held")
                 
-                return Response({
+                response_data = {
                     'success': True,
                     'message': 'Payment confirmed and credentials delivered. Payment held in escrow until you confirm receipt.',
                     'order_id': order.order_id,
                     'credentials': order.product_credentials,
                     'order_status': order.order_status,
                     'escrow_enabled': True
-                })
+                }
+
             else:
-                # For non-escrow orders, credentials are revealed and payment goes directly to vendor
                 if order.product.credentials:
                     order.product_credentials = {
                         'credentials': order.product.credentials,
@@ -359,33 +357,78 @@ class OrderViewSet(viewsets.ModelViewSet):
                         'notes': order.product.notes_for_buyer or ''
                     }
                     order.save()
-                    
-                    # Mark product credentials as visible for this order
                     order.product.credentials_visible = True
                     order.product.save()
                 
                 logger.info(f"Payment confirmed and credentials revealed for non-escrow order {order.order_id}")
                 
-                return Response({
+                response_data = {
                     'success': True,
                     'message': 'Payment confirmed and credentials delivered',
                     'order_id': order.order_id,
                     'credentials': order.product_credentials,
                     'order_status': order.order_status,
                     'escrow_enabled': False
-                })
-            
+                }
+
+            # Return success response
+            return Response(response_data)
+
         except Order.DoesNotExist:
             return Response(
                 {'success': False, 'error': 'Order not found'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+
         except Exception as e:
             logger.error(f"Payment confirmation error: {str(e)}")
             return Response(
                 {'success': False, 'error': 'Failed to confirm payment'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+        finally:
+            # After response prep, schedule review prompt in ~3 minutes for buyer using Celery
+            try:
+                from .tasks import send_review_prompt_task
+                send_review_prompt_task.apply_async(
+                    args=[order.buyer.id, order.product.id, order.order_id],
+                    countdown=60  # 1 minute delay
+                )
+                logger.info(f"Scheduled review prompt for order {order.order_id} in 3 minutes")
+            except Exception as e:
+                logger.error(f"Failed to schedule review prompt for order {order.order_id}: {str(e)}")
+
+
+    @action(detail=False, methods=['post'])
+    def test_review_notification(self, request):
+        """Test endpoint to manually trigger review notification"""
+        try:
+            order_id = request.data.get('order_id')
+            if not order_id:
+                return Response({'error': 'order_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            order = Order.objects.get(order_id=order_id)
+            
+            # Schedule review prompt immediately (no delay for testing)
+            from .tasks import send_review_prompt_task
+            send_review_prompt_task.apply_async(
+                args=[order.buyer.id, order.product.id, order.order_id],
+                countdown=5  # 5 seconds delay for testing
+            )
+            
+            return Response({
+                'success': True,
+                'message': f'Review notification scheduled for order {order_id}',
+                'buyer_id': order.buyer.id,
+                'product_id': order.product.id
+            })
+            
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error testing review notification: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['get'])
     def get_credentials(self, request, pk=None):

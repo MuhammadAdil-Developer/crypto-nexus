@@ -83,6 +83,26 @@ class RealtimeService {
         console.log('📋 Triggering recent_messages_update callbacks');
         this.triggerCallbacks('recent_messages_update', actualPayload);
         break;
+      case 'new_review':
+        console.log('⭐ Triggering new_review callbacks');
+        this.triggerCallbacks('new_review', actualPayload);
+        break;
+      case 'review_prompt':
+        console.log('🔔 Triggering review_prompt callbacks');
+        this.triggerCallbacks('review_prompt', actualPayload);
+        break;
+      case 'new_dispute':
+        console.log('⚖️ Triggering new_dispute callbacks');
+        this.triggerCallbacks('new_dispute', actualPayload);
+        break;
+      case 'dispute_message':
+        console.log('⚖️ Triggering dispute_message callbacks');
+        this.triggerCallbacks('dispute_message', actualPayload);
+        break;
+      case 'dispute_resolved':
+        console.log('⚖️ Triggering dispute_resolved callbacks');
+        this.triggerCallbacks('dispute_resolved', actualPayload);
+        break;
       default:
         console.log('❓ Unknown realtime message type:', type);
     }

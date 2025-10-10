@@ -86,22 +86,51 @@ export interface ViewTrackingResponse {
 }
 
 class ProductService {
-  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = localStorage.getItem('token');
+  private async makeRequest<T>(endpoint: string, options: Omit<RequestInit, 'body' | 'headers'> & { body?: any; headers?: Record<string, string> } = {}): Promise<T> {
+    const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token');
+    
+    // Handle body serialization before setting headers
+    let serializedBody = options.body;
+    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+      serializedBody = JSON.stringify(options.body);
+    }
+    
+    // Create headers object explicitly
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
+    // Merge any additional headers from options
+    if (options.headers) {
+      Object.assign(headers, options.headers);
+    }
     
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
       ...options,
+      headers,
+      body: serializedBody as unknown as BodyInit,
     };
+
+    console.log('🔍 Making request to:', `${API_BASE_URL}/products${endpoint}`);
+    console.log('🔍 Request config:', {
+      url: `${API_BASE_URL}/products${endpoint}`,
+      method: config.method,
+      headers: config.headers,
+      body: config.body,
+      bodyType: typeof config.body,
+      bodyLength: typeof config.body === 'string' ? config.body.length : 0
+    });
 
     const response = await fetch(`${API_BASE_URL}/products${endpoint}`, config);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('🔍 Request failed:', errorData);
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
@@ -155,11 +184,18 @@ class ProductService {
     return this.makeRequest<ProductListResponse>('/vendor/products/');
   }
 
+  // Get public vendor products by username
+  async getVendorPublicProducts(vendorUsername: string): Promise<ProductListResponse> {
+    console.log('🔍 getVendorPublicProducts called with vendorUsername:', vendorUsername);
+    console.log('🔍 Full URL will be:', `${API_BASE_URL}/products/vendor-public/${vendorUsername}/`);
+    return this.makeRequest<ProductListResponse>(`/vendor-public/${vendorUsername}/`);
+  }
+
   // Create product
   async createProduct(productData: Partial<Product>): Promise<ProductDetailResponse> {
     return this.makeRequest<ProductDetailResponse>('/create/', {
       method: 'POST',
-      body: JSON.stringify(productData),
+      body: productData,
     });
   }
 
@@ -167,7 +203,7 @@ class ProductService {
   async updateProduct(productId: number, productData: Partial<Product>): Promise<ProductDetailResponse> {
     return this.makeRequest<ProductDetailResponse>(`/update/${productId}/`, {
       method: 'PUT',
-      body: JSON.stringify(productData),
+      body: productData,
     });
   }
 
@@ -250,7 +286,7 @@ class ProductService {
   }> {
     return this.makeRequest('/bulk-upload/simple/', {
       method: 'POST',
-      body: JSON.stringify({ products }),
+      body: { products },
     });
   }
 
@@ -269,6 +305,77 @@ class ProductService {
     }
 
     return response.blob();
+  }
+
+  // Reviews
+  async getReviews(productId: number): Promise<{ success: boolean; message: string; data: any[] }> {
+    return this.makeRequest<{ success: boolean; message: string; data: any[] }>(`/${productId}/reviews/`);
+  }
+
+  async postReview(productId: number, payload: { rating: number; comment: string; images?: string[] }): Promise<{ success: boolean; message: string; data?: any }> {
+    return this.makeRequest<{ success: boolean; message: string; data?: any }>(`/${productId}/reviews/create/`, {
+      method: 'POST',
+      body: payload, // Let makeRequest handle JSON serialization
+    });
+  }
+
+  // Vendor reviews (all for vendor)
+  async getVendorReviews(params: { page?: number; page_size?: number; product_id?: number; search?: string; min_rating?: number; max_rating?: number; date_from?: string; date_to?: string; ordering?: string } = {}): Promise<{ success: boolean; message: string; data: any[]; pagination: any }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/reviews/vendor/?${qs}` : '/reviews/vendor/';
+    return this.makeRequest(endpoint);
+  }
+
+  // Vendor product-specific reviews (simple for UI)
+  async getVendorProductReviewsSimple(productId: number, params: { page?: number; page_size?: number; ordering?: string } = {}): Promise<{ success: boolean; message: string; data: any[]; pagination: any }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/vendor/products/${productId}/reviews/?${qs}` : `/vendor/products/${productId}/reviews/`;
+    return this.makeRequest(endpoint);
+  }
+
+  // Buyer own reviews (simple for UI)
+  async getMyReviewsSimple(params: { page?: number; page_size?: number; ordering?: string } = {}): Promise<{ success: boolean; message: string; data: any[]; pagination: any }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/reviews/mine/simple/?${qs}` : '/reviews/mine/simple/';
+    return this.makeRequest(endpoint);
+  }
+
+  // Product reviews for modal
+  async getProductReviewsModal(productId: number, params: { page?: number; page_size?: number } = {}): Promise<{ 
+    success: boolean; 
+    data: { 
+      reviews: any[]; 
+      product_stats: any; 
+      pagination: any 
+    } 
+  }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/${productId}/reviews/modal/?${qs}` : `/${productId}/reviews/modal/`;
+    return this.makeRequest(endpoint);
   }
 }
 

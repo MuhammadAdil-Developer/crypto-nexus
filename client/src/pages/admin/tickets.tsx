@@ -6,10 +6,222 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Filter, Eye, MessageSquare, Clock, User, Ticket as TicketIcon } from "lucide-react";
-import { SAMPLE_TICKETS } from "@/lib/constants";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Search, Filter, Eye, MessageSquare, Clock, User, Ticket as TicketIcon, Plus, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import ticketService from "@/services/ticketService";
+import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
 
 export default function AdminTickets() {
+  const { toast } = useToast();
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+    priority: 'all',
+    assigned: 'all'
+  });
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    subject: '',
+    category: '',
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    description: ''
+  });
+
+  useEffect(() => {
+    fetchTickets();
+    fetchStatistics();
+  }, [filters]);
+
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const params: any = {};
+      
+      if (filters.search) params.search = filters.search;
+      if (filters.status !== 'all') params.status = filters.status;
+      if (filters.priority !== 'all') params.priority = filters.priority;
+      if (filters.assigned !== 'all') params.assigned_to = filters.assigned;
+
+      const response = await ticketService.getTickets(params);
+      if (response.success) {
+        setTickets(response.data || []);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to fetch tickets",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch tickets",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    try {
+      const response = await ticketService.getTicketStatistics();
+      if (response.success) {
+        setStatistics(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+    }
+  };
+
+  const handleCreateTicket = async () => {
+    if (!newTicket.subject || !newTicket.description || !newTicket.category) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingTicket(true);
+      const response = await ticketService.createTicket(newTicket);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket created successfully"
+        });
+        setNewTicket({ subject: '', category: '', priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent', description: '' });
+        fetchTickets();
+        fetchStatistics();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to create ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create ticket",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingTicket(false);
+    }
+  };
+
+  const handleUpdateStatus = async (ticketId: string, status: string) => {
+    try {
+      const response = await ticketService.updateTicketStatus(ticketId, status);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket status updated successfully"
+        });
+        fetchTickets();
+        fetchStatistics();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to update ticket status",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update ticket status",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAssignTicket = async (ticketId: string, assignedTo: string) => {
+    try {
+      const response = await ticketService.assignTicket(ticketId, assignedTo);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket assigned successfully"
+        });
+        fetchTickets();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to assign ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to assign ticket",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCloseTicket = async (ticketId: string) => {
+    try {
+      const response = await ticketService.closeTicket(ticketId);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket closed successfully"
+        });
+        fetchTickets();
+        fetchStatistics();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to close ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error closing ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to close ticket",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'open': return 'Open';
+      case 'in_progress': return 'In Progress';
+      case 'waiting_response': return 'Waiting for Response';
+      case 'resolved': return 'Resolved';
+      case 'closed': return 'Closed';
+      default: return status;
+    }
+  };
+
+  const getPriorityDisplay = (priority: string) => {
+    switch (priority) {
+      case 'low': return 'Low';
+      case 'medium': return 'Medium';
+      case 'high': return 'High';
+      case 'urgent': return 'Urgent';
+      default: return priority;
+    }
+  };
 
   return (
     
@@ -20,9 +232,78 @@ export default function AdminTickets() {
             <h1 className="text-2xl font-bold text-white">Support Tickets</h1>
             <p className="text-gray-300 mt-1">Manage customer support requests and inquiries</p>
           </div>
-          <Button className="bg-accent text-bg hover:bg-accent-2">
-            Create Ticket
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-bg hover:bg-accent-2">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Ticket
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create Support Ticket</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Subject</label>
+                  <Input
+                    placeholder="Brief description of the issue"
+                    value={newTicket.subject}
+                    onChange={(e) => setNewTicket({...newTicket, subject: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Category</label>
+                    <Select value={newTicket.category} onValueChange={(value) => setNewTicket({...newTicket, category: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="account">Account</SelectItem>
+                        <SelectItem value="payment">Payment</SelectItem>
+                        <SelectItem value="technical">Technical</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="vendor_application">Vendor Application</SelectItem>
+                        <SelectItem value="order_issue">Order Issue</SelectItem>
+                        <SelectItem value="listing">Listing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Priority</label>
+                    <Select value={newTicket.priority} onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => setNewTicket({...newTicket, priority: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Description</label>
+                  <Textarea
+                    placeholder="Describe the issue in detail..."
+                    value={newTicket.description}
+                    onChange={(e) => setNewTicket({...newTicket, description: e.target.value})}
+                    className="min-h-32"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <Button variant="outline">Cancel</Button>
+                  <Button onClick={handleCreateTicket} disabled={isCreatingTicket}>
+                    {isCreatingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Create Ticket
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Cards */}
@@ -33,7 +314,9 @@ export default function AdminTickets() {
                 <TicketIcon className="w-8 h-8 text-danger mr-4" />
                 <div>
                   <p className="text-sm text-gray-400">Open Tickets</p>
-                  <p className="text-2xl font-bold text-white">12</p>
+                  <p className="text-2xl font-bold text-white">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (statistics?.open_tickets || 0)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -45,7 +328,9 @@ export default function AdminTickets() {
                 <Clock className="w-8 h-8 text-warning mr-4" />
                 <div>
                   <p className="text-sm text-gray-400">In Progress</p>
-                  <p className="text-2xl font-bold text-white">5</p>
+                  <p className="text-2xl font-bold text-white">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (statistics?.in_progress_tickets || 0)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -58,8 +343,10 @@ export default function AdminTickets() {
                   <TicketIcon className="w-5 h-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Resolved Today</p>
-                  <p className="text-2xl font-bold text-white">23</p>
+                  <p className="text-sm text-gray-400">Resolved</p>
+                  <p className="text-2xl font-bold text-white">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (statistics?.resolved_tickets || 0)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -69,9 +356,12 @@ export default function AdminTickets() {
             <CardContent className="p-6">
               <div className="flex items-center">
                 <User className="w-8 h-8 text-accent mr-4" />
-                <div>
+                <div
+                >
                   <p className="text-sm text-gray-400">Avg Response Time</p>
-                  <p className="text-2xl font-bold text-white">2.3h</p>
+                  <p className="text-2xl font-bold text-white">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : `${statistics?.avg_response_time || 0}h`}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -89,39 +379,42 @@ export default function AdminTickets() {
                     placeholder="Search tickets by ID, user, or subject..." 
                     className="pl-10 bg-surface-2 border-border text-white"
                     data-testid="search-tickets"
+                    value={filters.search}
+                    onChange={(e) => setFilters({...filters, search: e.target.value})}
                   />
                 </div>
               </div>
-              <Select>
+              <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
                 <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="progress">In Progress</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="waiting_response">Waiting Response</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
-              <Select>
+              <Select value={filters.priority} onValueChange={(value) => setFilters({...filters, priority: value})}>
                 <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
-              <Select>
+              <Select value={filters.assigned} onValueChange={(value) => setFilters({...filters, assigned: value})}>
                 <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
                   <SelectValue placeholder="Assigned" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Agents</SelectItem>
-                  <SelectItem value="agent1">support_agent_1</SelectItem>
-                  <SelectItem value="agent2">support_agent_2</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                 </SelectContent>
               </Select>
@@ -150,63 +443,124 @@ export default function AdminTickets() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {SAMPLE_TICKETS.map((ticket) => (
-                    <tr key={ticket.id} className="hover:bg-surface-2/50" data-testid={`ticket-row-${ticket.id}`}>
-                      <td className="p-4">
-                        <span className="font-mono text-accent">{ticket.ticketId}</span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                            <span className="text-accent text-sm">{ticket.user[0].toUpperCase()}</span>
-                          </div>
-                          <span className="text-white">{ticket.user}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="max-w-xs">
-                          <p className="text-white truncate">{ticket.subject}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <StatusBadge status={ticket.status} type={ticket.statusType} />
-                      </td>
-                      <td className="p-4">
-                        <Badge 
-                          variant={
-                            ticket.priority === "High" ? "destructive" :
-                            ticket.priority === "Medium" ? "secondary" :
-                            "outline"
-                          }
-                          className="text-xs"
-                        >
-                          {ticket.priority}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-gray-300">{ticket.assignedTo}</td>
-                      <td className="p-4 text-gray-300">{ticket.created}</td>
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`view-ticket-${ticket.id}`}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`reply-ticket-${ticket.id}`}>
-                            <MessageSquare className="w-4 h-4" />
-                          </Button>
-                          {ticket.status === "Open" && (
-                            <Button variant="ghost" size="sm" className="text-accent hover:text-blue-400" data-testid={`assign-ticket-${ticket.id}`}>
-                              Assign
-                            </Button>
-                          )}
-                          {ticket.status !== "Closed" && (
-                            <Button variant="ghost" size="sm" className="text-success hover:text-green-400" data-testid={`close-ticket-${ticket.id}`}>
-                              Close
-                            </Button>
-                          )}
-                        </div>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center">
+                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+                        <p className="text-gray-400">Loading tickets...</p>
                       </td>
                     </tr>
-                  ))}
+                  ) : tickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center">
+                        <p className="text-gray-400">No tickets found</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    tickets.map((ticket) => (
+                      <tr key={ticket.id} className="hover:bg-surface-2/50" data-testid={`ticket-row-${ticket.id}`}>
+                        <td className="p-4">
+                          <span className="font-mono text-accent">{ticket.ticket_id}</span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
+                              <span className="text-accent text-sm">{ticket.user_username?.[0]?.toUpperCase() || 'U'}</span>
+                            </div>
+                            <div>
+                              <span className="text-white">{ticket.user_username || 'Unknown User'}</span>
+                              <p className="text-xs text-gray-400">{ticket.user_type}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="max-w-xs">
+                            <p className="text-white truncate">{ticket.subject}</p>
+                            <p className="text-xs text-gray-400 truncate">{ticket.category}</p>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <Badge 
+                            variant={
+                              ticket.status === "open" ? "secondary" :
+                              ticket.status === "in_progress" ? "default" :
+                              ticket.status === "waiting_response" ? "destructive" :
+                              ticket.status === "resolved" ? "outline" :
+                              "secondary"
+                            }
+                            className="text-xs whitespace-nowrap"
+                          >
+                            {getStatusDisplay(ticket.status)}
+                          </Badge>
+                        </td>
+                        <td className="p-4">
+                          <Badge 
+                            variant={
+                              ticket.priority === "urgent" ? "destructive" :
+                              ticket.priority === "high" ? "destructive" :
+                              ticket.priority === "medium" ? "secondary" :
+                              "outline"
+                            }
+                            className="text-xs whitespace-nowrap"
+                          >
+                            {getPriorityDisplay(ticket.priority)}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-gray-300">
+                          {ticket.assigned_to_username || 'Unassigned'}
+                        </td>
+                        <td className="p-4 text-gray-300">
+                          {new Date(ticket.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-gray-400 hover:text-white" 
+                              onClick={() => {
+                                setSelectedTicketId(ticket.id);
+                                setIsTicketModalOpen(true);
+                              }}
+                              data-testid={`view-ticket-${ticket.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-gray-400 hover:text-white" 
+                              data-testid={`reply-ticket-${ticket.id}`}
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </Button>
+                            {ticket.status === "open" && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-accent hover:text-blue-400" 
+                                onClick={() => handleAssignTicket(ticket.id, 'current-user')}
+                                data-testid={`assign-ticket-${ticket.id}`}
+                              >
+                                Assign
+                              </Button>
+                            )}
+                            {ticket.status !== "closed" && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-success hover:text-green-400" 
+                                onClick={() => handleCloseTicket(ticket.id)}
+                                data-testid={`close-ticket-${ticket.id}`}
+                              >
+                                Close
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -254,6 +608,18 @@ export default function AdminTickets() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Ticket Detail Modal */}
+        <TicketDetailModal
+          isOpen={isTicketModalOpen}
+          onClose={() => setIsTicketModalOpen(false)}
+          ticketId={selectedTicketId}
+          isAdmin={true}
+          onTicketUpdated={() => {
+            fetchTickets();
+            fetchStatistics();
+          }}
+        />
       </main>
     
   );

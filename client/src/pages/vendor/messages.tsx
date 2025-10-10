@@ -27,6 +27,7 @@ export default function VendorMessages() {
   const [showProductReference, setShowProductReference] = useState(false);
   const [productReferenceData, setProductReferenceData] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyToMessage, setReplyToMessage] = useState<any>(null);
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [editMessageContent, setEditMessageContent] = useState('');
@@ -35,6 +36,7 @@ export default function VendorMessages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+  const [autoSelectConversation, setAutoSelectConversation] = useState<string | null>(null);
 
   // Get current user ID on component mount
   useEffect(() => {
@@ -43,6 +45,7 @@ export default function VendorMessages() {
       try {
         const user = JSON.parse(userStr);
         setCurrentUserId(user.id);
+        console.log('🔍 Vendor currentUserId set to:', user.id);
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
@@ -50,7 +53,12 @@ export default function VendorMessages() {
   }, []);
 
   useEffect(() => {
-    loadConversations();
+    const context = messagingService.getProductContextFromStorage();
+    if (context && context.id) {
+      handleProductConversation(context);
+    } else {
+      loadConversations();
+    }
     
     // Restore selected conversation from localStorage
     const savedConversation = localStorage.getItem('selectedConversation');
@@ -71,7 +79,19 @@ export default function VendorMessages() {
     
     // WebSocket event handlers
     messagingService.onMessage((message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        // If it's a temporary message, just add it
+        if (message.isTemporary) {
+          return [...prev, message];
+        }
+        
+        // If it's a real message from server, replace any temporary message with same content
+        const updatedMessages = prev.filter(msg => 
+          !(msg.isTemporary && msg.content === message.content && msg.sender?.id === message.sender?.id)
+        );
+        
+        return [...updatedMessages, message];
+      });
     });
 
     messagingService.onTyping((data) => {
@@ -86,6 +106,62 @@ export default function VendorMessages() {
       messagingService.disconnect();
     };
   }, []);
+
+  const loadConversations = async () => {
+    try {
+      setLoading(true);
+      const data = await messagingService.getConversations();
+      setConversations(data);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      toast({ title: 'Error', description: 'Failed to load conversations', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductConversation = async (context: any) => {
+    try {
+      let convo: any = null;
+      try {
+        convo = await messagingService.getConversationByProduct(context.id);
+      } catch (e) {
+        // If not found and we have a recipient, create it
+        if (context.recipientId) {
+          convo = await messagingService.createProductConversation(context.id, context.recipientId);
+        } else {
+          throw e;
+        }
+      }
+      await loadConversations();
+      // Prefer exact match: same product AND same buyer (recipient)
+      const exact = conversations.find((c: any) =>
+        (c.product?.id === context.id || c.product === context.id) &&
+        (Array.isArray(c.participants) && c.participants.some((p: any) => p.id === context.recipientId))
+      );
+      if (exact) {
+        setAutoSelectConversation(exact.id);
+      } else if (convo) {
+        setAutoSelectConversation(convo.id);
+      }
+      if (context.isDispute) {
+        toast({ title: 'Dispute Chat', description: `Opened chat for dispute ${context.disputeId}` });
+      }
+    } catch (error) {
+      console.error('Error handling product conversation:', error);
+      await loadConversations();
+    }
+  };
+
+  useEffect(() => {
+    if (autoSelectConversation && conversations.length > 0) {
+      const convo = conversations.find(c => c.id === autoSelectConversation);
+      if (convo) {
+        handleConversationSelect(convo);
+        setAutoSelectConversation(null);
+      }
+    }
+  }, [autoSelectConversation, conversations]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -230,26 +306,12 @@ export default function VendorMessages() {
     setEditMessageContent('');
   };
 
-  const loadConversations = async () => {
-    try {
-      setLoading(true);
-      const data = await messagingService.getConversations();
-      setConversations(data);
-    } catch (error) {
-      console.error('Error loading conversations:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load conversations",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // duplicate definition removed; using the one defined earlier in the file
 
   const handleConversationSelect = async (conversation: any) => {
     try {
       setSelectedConversation(conversation);
+      setLoadingMessages(true);
       
       // Store selected conversation in localStorage
       localStorage.setItem('selectedConversation', JSON.stringify(conversation));
@@ -289,7 +351,24 @@ export default function VendorMessages() {
         description: "Failed to load conversation",
         variant: "destructive",
       });
+    } finally {
+      setLoadingMessages(false);
     }
+  };
+
+  // Dispute badge in chat header
+  const renderChatHeader = () => {
+    return (
+      <div className="flex items-center justify-between p-3 border-b border-gray-700">
+        <div className="flex items-center space-x-3">
+          <MessageSquare className="w-5 h-5 text-blue-400" />
+          <span className="text-white font-semibold">Conversation</span>
+        </div>
+        {selectedConversation?.product && (
+          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+        )}
+      </div>
+    );
   };
 
   const handleSendMessage = async () => {
@@ -509,12 +588,44 @@ export default function VendorMessages() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-semibold text-white">
-                        {getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}
+                        <h3 className="font-semibold text-white flex items-center space-x-2">
+                          <span>{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
+                          {/* Dispute badge - show if this conversation was opened from dispute */}
+                          {(() => {
+                            // Check if this conversation was opened with dispute context
+                            const disputeContext = localStorage.getItem('disputeContext');
+                            const productContext = localStorage.getItem('productContext');
+                            
+                            if (disputeContext && selectedConversation?.product) {
+                              try {
+                                const context = JSON.parse(disputeContext);
+                                // Show badge if this is a dispute-related conversation
+                                return context.disputeId ? (
+                                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                ) : null;
+                              } catch (e) {
+                                return null;
+                              }
+                            }
+                            
+                            // Also check productContext for dispute flag
+                            if (productContext && selectedConversation?.product) {
+                              try {
+                                const context = JSON.parse(productContext);
+                                return context.isDispute ? (
+                                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                ) : null;
+                              } catch (e) {
+                                return null;
+                              }
+                            }
+                            
+                            return null;
+                          })()}
                         </h3>
-                      <p className="text-sm text-gray-400 flex items-center">
-                        <Package className="w-3 h-3 mr-1" />
-                        {selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}
+                        <p className="text-sm text-gray-400 flex items-center">
+                          <Package className="w-3 h-3 mr-1" />
+                          {selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}
                         </p>
                       </div>
                     </div>
@@ -537,9 +648,55 @@ export default function VendorMessages() {
 
                 {/* Messages */}
               <CardContent className="flex-1 p-4 flex flex-col min-h-0">
+                {loadingMessages ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                      <p className="text-gray-400 text-sm">Loading messages...</p>
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[400px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                   {messages.map((message) => {
-                    const isOwnMessage = currentUserId && message.sender?.id === currentUserId;
+                    // Improved sender detection logic
+                    let isOwnMessage = false;
+                    
+                    // Get current user info
+                    const userStr = localStorage.getItem('user');
+                    let currentUser = null;
+                    if (userStr) {
+                      try {
+                        currentUser = JSON.parse(userStr);
+                      } catch (error) {
+                        console.error('Error parsing user data:', error);
+                      }
+                    }
+                    
+                    // Method 1: Direct ID comparison (most reliable)
+                    if (currentUserId && message.sender?.id) {
+                      isOwnMessage = String(message.sender.id) === String(currentUserId);
+                    }
+                    
+                    // Method 2: Username comparison (fallback)
+                    if (!isOwnMessage && currentUser && message.sender?.username) {
+                      isOwnMessage = message.sender.username === currentUser.username;
+                    }
+                    
+                    // Method 3: Check if sender ID matches current user ID from localStorage
+                    if (!isOwnMessage && currentUser && message.sender?.id) {
+                      isOwnMessage = String(message.sender.id) === String(currentUser.id);
+                    }
+                    
+                    console.log('🔍 Vendor message debug:', {
+                      messageId: message.id,
+                      senderId: message.sender?.id,
+                      senderUsername: message.sender?.username,
+                      currentUserId,
+                      currentUserFromStorage: currentUser?.id,
+                      currentUserUsername: currentUser?.username,
+                      isOwnMessage,
+                      messageContent: message.content?.substring(0, 50)
+                    });
                     
                     // Special handling for product reference messages
                     if (message.message_type === 'product_reference') {
@@ -687,6 +844,7 @@ export default function VendorMessages() {
                   
                   <div ref={messagesEndRef} />
                 </div>
+                )}
 
                 {/* Scroll to bottom button */}
                 {showScrollButton && (
@@ -701,9 +859,9 @@ export default function VendorMessages() {
                   </div>
                 )}
 
-                {/* Product Reference Preview (WhatsApp-style) - Show when auto-opening chat */}
+                {/* Dispute reference banner for vendor (light red) */}
                 {showProductReference && productReferenceData && (
-                  <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg mb-4 border border-green-500">
+                  <div className="bg-red-800/30 text-red-200 px-4 py-3 rounded-lg mb-4 border border-red-600/40">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
                         {productReferenceData.product_image ? (
@@ -713,20 +871,20 @@ export default function VendorMessages() {
                             className="w-12 h-12 rounded-lg object-cover"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-600 flex items-center justify-center">
+                          <div className="w-12 h-12 rounded-lg bg-red-900/50 flex items-center justify-center">
                             <Package className="w-6 h-6 text-gray-300" />
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-green-100 mb-1">This message is related to:</p>
+                        <p className="text-sm font-medium text-red-200 mb-1">Dispute conversation about:</p>
                         <h4 className="font-semibold text-white truncate">{productReferenceData.product_title}</h4>
-                        <p className="text-xs text-green-200">${productReferenceData.product_price} • {productReferenceData.vendor_username}</p>
+                        <p className="text-xs text-red-300">Dispute ID: {productReferenceData.disputeId || 'Active Dispute'}</p>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-green-100 hover:text-white hover:bg-green-700 p-1"
+                        className="text-red-200 hover:text-white hover:bg-red-700/40 p-1"
                         onClick={() => {
                           setShowProductReference(false);
                           setProductReferenceData(null);

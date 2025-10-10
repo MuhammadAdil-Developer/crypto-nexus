@@ -223,60 +223,60 @@ export const ADMIN_GROUPED_NAV = [
       }
     ]
   },
-  {
-    category: "Content & Marketing",
-    icon: Megaphone,
-    items: [
-      {
-        title: "Ads",
-        icon: Megaphone,
-        href: "/admin/ads",
-        badge: { text: "8", type: "success" }
-      },
-      {
-        title: "Categories",
-        icon: Tags,
-        href: "/admin/categories",
-        badge: null
-      },
-      {
-        title: "Gift Cards",
-        icon: Gift,
-        href: "/admin/gift-cards",
-        badge: { text: "45", type: "accent" }
-      }
-    ]
-  },
-  {
-    category: "System & Security",
-    icon: Shield,
-    items: [
-      {
-        title: "Alerts",
-        icon: Bell,
-        href: "/admin/alerts",
-        badge: { text: "5", type: "danger" }
-      },
-      {
-        title: "Roles & Permissions",
-        icon: Shield,
-        href: "/admin/roles",
-        badge: null
-      },
-      {
-        title: "Security",
-        icon: Lock,
-        href: "/admin/security",
-        badge: null
-      },
-      {
-        title: "Branding",
-        icon: Palette,
-        href: "/admin/branding",
-        badge: null
-      }
-    ]
-  }
+  // {
+  //   category: "Content & Marketing",
+  //   icon: Megaphone,
+  //   items: [
+  //     {
+  //       title: "Ads",
+  //       icon: Megaphone,
+  //       href: "/admin/ads",
+  //       badge: { text: "8", type: "success" }
+  //     },
+  //     {
+  //       title: "Categories",
+  //       icon: Tags,
+  //       href: "/admin/categories",
+  //       badge: null
+  //     },
+  //     {
+  //       title: "Gift Cards",
+  //       icon: Gift,
+  //       href: "/admin/gift-cards",
+  //       badge: { text: "45", type: "accent" }
+  //     }
+  //   ]
+  // },
+  // {
+  //   category: "System & Security",
+  //   icon: Shield,
+  //   items: [
+  //     {
+  //       title: "Alerts",
+  //       icon: Bell,
+  //       href: "/admin/alerts",
+  //       badge: { text: "5", type: "danger" }
+  //     },
+  //     {
+  //       title: "Roles & Permissions",
+  //       icon: Shield,
+  //       href: "/admin/roles",
+  //       badge: null
+  //     },
+  //     {
+  //       title: "Security",
+  //       icon: Lock,
+  //       href: "/admin/security",
+  //       badge: null
+  //     },
+  //     {
+  //       title: "Branding",
+  //       icon: Palette,
+  //       href: "/admin/branding",
+  //       badge: null
+  //     }
+  //   ]
+  // }
 ];
 
 export const SAMPLE_ORDERS = [

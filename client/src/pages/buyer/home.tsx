@@ -37,6 +37,7 @@ import {
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import wishlistService from "@/services/wishlistService";
 import { Label } from "@/components/ui/label";
 import { orderService } from "@/services/orderService";
 import { productService, Product } from "@/services/productService";
@@ -112,7 +113,11 @@ const topVendors = [
   }
 ];
 
+// API base for public endpoints
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+
 function BuyerHomeContent() {
+  const [topVendorsData, setTopVendorsData] = useState<any[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,12 +129,17 @@ function BuyerHomeContent() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [activeOrders, setActiveOrders] = useState(0);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewProductId, setReviewProductId] = useState<number | null>(null);
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewComment, setReviewComment] = useState<string>("");
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [duplicatedProducts, setDuplicatedProducts] = useState<Product[]>([]);
   // Messaging state is now handled by MessagingProvider
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const { toast } = useToast();
   
   // Get messaging data from context
@@ -148,6 +158,22 @@ function BuyerHomeContent() {
     
     return () => clearInterval(interval);
   }, [trendingProducts.length, isHovered]);
+
+  // Fetch wishlist count
+  useEffect(() => {
+    const fetchWishlistCount = async () => {
+      try {
+        const response = await wishlistService.getWishlistStats();
+        if (response.success && response.data) {
+          setWishlistCount(response.data.total_items || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching wishlist count:', error);
+      }
+    };
+    
+    fetchWishlistCount();
+  }, []);
 
   // Fetch trending products with enhancement
   useEffect(() => {
@@ -181,6 +207,37 @@ function BuyerHomeContent() {
       }
     };
     fetchTrendingProducts();
+  }, []);
+
+  // Fetch approved vendors for Top Vendors section (public endpoint)
+  useEffect(() => {
+    const loadTopVendors = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/approved/?limit=4`);
+        if (!res.ok) return; // keep static fallback silently
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.data)) {
+          const mapped = data.data.map((v: any, idx: number) => {
+            const initials = (v.business_name || v.vendor_username || 'VN').slice(0, 2).toUpperCase();
+            return {
+              id: idx + 1,
+              name: v.business_name || v.vendor_username,
+              rating: 4.8, // placeholder rating since not tracked
+              totalSales: 0, // placeholder; real metric not available here
+              verified: true,
+              specialization: v.category || 'Marketplace Vendor',
+              avatar: initials,
+              responseTime: '< 2 hours',
+              vendor_username: v.vendor_username,
+            };
+          });
+          setTopVendorsData(mapped);
+        }
+      } catch (_) {
+        // ignore and keep static fallback
+      }
+    };
+    loadTopVendors();
   }, []);
 
   // Simplified and immediate order fetch function
@@ -332,6 +389,19 @@ function BuyerHomeContent() {
     ];
     
     setRecentActivity(staticActivities);
+  }, []);
+
+  // Review prompt (realtime) -> toast/CTA
+  useEffect(() => {
+    const handler = (e: any) => {
+      const detail = e.detail || {};
+      toast({
+        title: 'Share your review',
+        description: `Please review your purchase: ${detail.product_title || 'Product'}`,
+      });
+    };
+    window.addEventListener('review_prompt', handler as any);
+    return () => window.removeEventListener('review_prompt', handler as any);
   }, []);
 
   // Persist timer state
@@ -579,7 +649,7 @@ function BuyerHomeContent() {
                     <Heart className="w-6 h-6 text-green-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">5</p>
+                    <p className="text-2xl font-bold text-white">{wishlistCount}</p>
                     <p className="text-sm text-green-300">Wishlist Items</p>
                   </div>
                 </div>
@@ -614,7 +684,7 @@ function BuyerHomeContent() {
                     <p className="text-2xl font-bold text-white min-h-[32px]">
                       {isLoadingOrdersData ? <span className="inline-block animate-pulse">... </span> : activeOrders}
                     </p>
-                    <p className="text-sm text-orange-300">Active Orders</p>
+                    <p className="text-sm text-orange-300">Active Orders{!isLoadingOrdersData && pendingOrdersCount > 0 ? ` (Pending: ${pendingOrdersCount})` : ''}</p>
                   </div>
                 </div>
               </CardContent>
@@ -909,8 +979,23 @@ function BuyerHomeContent() {
                         </div>
                         
                         <div className="flex space-x-3">
-                          {order.status === 'delivered' && order.canRate ? (
-                            <Button variant="outline" size="sm" className="border-gray-600 hover:border-gray-500">
+                          {(order.status === 'paid' || order.status === 'delivered' || order.status === 'confirmed') && order.canRate ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-gray-600 hover:border-gray-500"
+                              onClick={() => {
+                                const pid = (order as any)?.product?.id;
+                                if (pid) {
+                                  setReviewProductId(pid);
+                                  setReviewRating(5);
+                                  setReviewComment("");
+                                  setIsReviewOpen(true);
+                                } else {
+                                  toast({ title: 'Cannot open review', description: 'Missing product reference for this order.' });
+                                }
+                              }}
+                            >
                               <Star className="w-4 h-4 mr-2" />
                               Rate Order
                             </Button>
@@ -943,6 +1028,62 @@ function BuyerHomeContent() {
             </div>
           </section>
 
+          {/* Review Modal */}
+          {isReviewOpen && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md">
+                <div className="p-5 border-b border-gray-700 flex items-center justify-between">
+                  <h3 className="text-white font-semibold">Share your review</h3>
+                  <button className="text-gray-400 hover:text-gray-200" onClick={() => setIsReviewOpen(false)}>✕</button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div>
+                    <Label className="text-gray-300">Rating</Label>
+                    <div className="flex space-x-2 mt-2">
+                      {[1,2,3,4,5].map(n => (
+                        <button
+                          key={n}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center border ${reviewRating >= n ? 'bg-yellow-500 text-black border-yellow-400' : 'bg-gray-800 text-gray-300 border-gray-700'}`}
+                          onClick={() => setReviewRating(n)}
+                        >{n}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-gray-300">Comment</Label>
+                    <textarea
+                      className="mt-2 w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white"
+                      rows={4}
+                      placeholder="Share your experience..."
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="p-5 border-t border-gray-700 flex items-center justify-end space-x-3">
+                  <Button variant="outline" className="border-gray-600" onClick={() => setIsReviewOpen(false)}>Cancel</Button>
+                  <Button
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={async () => {
+                      if (!reviewProductId) return;
+                      try {
+                        const res = await productService.postReview(reviewProductId, { rating: reviewRating, comment: reviewComment });
+                        if (res?.success) {
+                          toast({ title: 'Thank you!', description: 'Your review has been submitted.' });
+                          setIsReviewOpen(false);
+                        } else {
+                          toast({ title: 'Review failed', description: res?.message || 'Please try again.' });
+                        }
+                      } catch (err: any) {
+                        toast({ title: 'Review failed', description: err?.message || 'Please try again.' });
+                      }
+                    }}
+                  >Submit Review</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Top Vendors Section */}
           <section>
             <div className="flex items-center justify-between mb-6">
@@ -957,7 +1098,7 @@ function BuyerHomeContent() {
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {topVendors.map((vendor) => (
+              {(topVendorsData.length ? topVendorsData : topVendors).map((vendor) => (
                 <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                   <CardContent className="p-6 text-center">
                     <div className="relative mb-4">
@@ -981,7 +1122,17 @@ function BuyerHomeContent() {
                       <Clock className="w-3 h-3 text-green-400" />
                       <span className="text-xs text-green-400">{vendor.responseTime}</span>
                     </div>
-                    <Button variant="outline" size="sm" className="w-full border-gray-600">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-gray-600"
+                      onClick={() => {
+                        const username = (vendor as any).vendor_username || (vendor.name || '').toLowerCase().replace(/\s+/g, '_');
+                        if (username) {
+                          window.location.href = `/vendor/public/${username}`;
+                        }
+                      }}
+                    >
                       <Eye className="w-3 h-3 mr-2" />
                       View Store
                     </Button>

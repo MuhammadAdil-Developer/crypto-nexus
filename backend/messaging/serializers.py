@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'user_type']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -26,11 +26,35 @@ class MessageSerializer(serializers.ModelSerializer):
     recipient = UserSerializer(read_only=True)
     id = serializers.CharField(read_only=True)
     conversation = serializers.CharField(read_only=True)
+    is_sender = serializers.SerializerMethodField()
+    other_participant = serializers.SerializerMethodField()
     
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at']
+        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant']
         read_only_fields = ['id', 'created_at']
+    
+    def get_is_sender(self, obj):
+        """Check if the current user is the sender of this message"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.sender.id == request.user.id
+        return False
+    
+    def get_other_participant(self, obj):
+        """Get the other participant (not the current user) in the conversation"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # Get the other participant from the conversation
+            other_participants = obj.conversation.participants.exclude(id=request.user.id)
+            if other_participants.exists():
+                other_user = other_participants.first()
+                return {
+                    'id': str(other_user.id),
+                    'username': other_user.username,
+                    'user_type': getattr(other_user, 'user_type', 'buyer')  # Default to buyer if no user_type
+                }
+        return None
 
 
 class ConversationSerializer(serializers.ModelSerializer):

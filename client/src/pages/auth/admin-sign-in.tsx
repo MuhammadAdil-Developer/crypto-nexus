@@ -60,8 +60,8 @@ export default function AdminSignIn() {
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
     setCaptchaVerified(true);
-    // Proceed with login after captcha verification
-    performLogin();
+    // Proceed with login after captcha verification, passing the token directly
+    performLogin(token);
   };
 
   const handleCaptchaError = (error: string) => {
@@ -70,14 +70,17 @@ export default function AdminSignIn() {
     setCaptchaToken(null);
   };
 
-  const performLogin = async () => {
+  const performLogin = async (token?: string) => {
     setIsLoading(true);
     setErrors({});
 
     try {
+      // Use the passed token or fall back to state
+      const finalToken = token || captchaToken;
+      
       const response = await authService.login({
         ...formData,
-        captcha_token: captchaToken
+        captcha_token: finalToken
       } as any);
       console.log('🔐 Admin login response:', response);
       

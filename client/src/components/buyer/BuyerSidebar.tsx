@@ -9,9 +9,10 @@ import {
   HelpCircle,
   User,
   Store,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -47,6 +48,18 @@ const BUYER_NAV_ITEMS = [
     badge: { text: "5", type: "danger" }
   },
   {
+    title: "My Disputes",
+    icon: AlertTriangle,
+    href: "/buyer/my-disputes",
+    badge: null
+  },
+  {
+    title: "My Reviews",
+    icon: User,
+    href: "/buyer/my-reviews",
+    badge: null
+  },
+  {
     title: "Wishlist",
     icon: Heart,
     href: "/buyer/wishlist",
@@ -67,7 +80,7 @@ const BUYER_NAV_ITEMS = [
 ];
 
 export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: BuyerSidebarProps) {
-  const [location] = useLocation();
+  const location = useLocation();
 
   return (
     <div 
@@ -82,15 +95,19 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       {/* Logo */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-fuchsia-500 rounded-xl flex items-center justify-center">
-            <User className="text-white w-4 h-4" />
-          </div>
-          {expanded && (
-            <div className="ml-3 transition-opacity duration-200">
-              <h1 className="text-lg font-bold text-white">CryptoMarket</h1>
-              <p className="text-xs text-gray-400">Buyer Dashboard</p>
-            </div>
-          )}
+          <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+              <img 
+                src="/images/logo.png" 
+                alt="AccountzClub Logo" 
+                className="h-16 w-auto"
+                style={{ 
+                  imageRendering: '-webkit-optimize-contrast',
+                  transform: 'scale(1.5) translateY(3px)',
+                  transformOrigin: 'left center'
+                }}
+              />
+            </Link>
+         
         </div>
       </div>
 
@@ -98,10 +115,10 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       <nav className="flex-1 p-2 space-y-1">
         {BUYER_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = location === item.href || (item.href !== "/buyer" && location.startsWith(item.href));
+          const isActive = location.pathname === item.href || (item.href !== "/buyer" && location.pathname.startsWith(item.href));
           
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} to={item.href}>
               <div 
                 className={cn(
                   "relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer",
@@ -152,7 +169,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
 
       {/* Apply as Vendor Section */}
       <div className="p-2 border-t border-gray-800">
-        <Link href="/vendor/apply">
+        <Link to="/vendor/apply">
           <div 
             className="relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer text-gray-400 hover:text-white border border-gray-700 hover:border-fuchsia-400"
             style={{

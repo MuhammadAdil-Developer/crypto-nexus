@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import {
 import { Order } from "@/services/orderService";
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
+import { ReviewModal } from "./ReviewModal";
+import { useNavigate } from "react-router-dom";
 
 const getStatusIcon = (status: string) => {
   switch (status.toLowerCase()) {
@@ -74,11 +76,15 @@ interface OrdersTableProps {
 }
 
 export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) {
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApproving, setIsApproving] = useState<string | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewProductId, setReviewProductId] = useState<number | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
+
 
   const handleViewDetails = (order: Order) => {
     setSelectedProduct(order);
@@ -88,6 +94,23 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedProduct(null);
+  };
+
+  const handleLeaveReview = (order: Order) => {
+    if (order.product && order.product.id) {
+      setReviewProductId(order.product.id);
+      setIsReviewOpen(true);
+    } else {
+      toast({
+        title: "Error",
+        description: "Cannot find product information for this order",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateDispute = (order: Order) => {
+    navigate(`/buyer/create-dispute?orderId=${order.id}`);
   };
 
   const handleApproveOrder = async (order: Order) => {
@@ -136,9 +159,20 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
       <Card className="border border-gray-700 bg-gray-900">
         {!compact && (
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-white">
-              Your Orders
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-bold text-white">
+                Your Orders
+              </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/buyer/my-reviews')}
+                className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
+              >
+                <Star className="w-4 h-4 mr-2" />
+                My Reviews
+              </Button>
+            </div>
           </CardHeader>
         )}
         <CardContent className={compact ? "p-0" : ""}>
@@ -312,17 +346,17 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                                   if (isVisible) {
                                     credentialsText?.classList.remove('credentials-hidden');
                                     credentialsText?.classList.add('credentials-visible');
-                                    blurOverlay.style.display = 'none';
-                                    toggleText.textContent = 'Hide';
-                                    eyeIcon.innerHTML = `
+                                    (blurOverlay as HTMLElement).style.display = 'none';
+                                    (toggleText as HTMLElement).textContent = 'Hide';
+                                    (eyeIcon as HTMLElement).innerHTML = `
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
                                     `;
                                   } else {
                                     credentialsText?.classList.remove('credentials-visible');
                                     credentialsText?.classList.add('credentials-hidden');
-                                    blurOverlay.style.display = 'flex';
-                                    toggleText.textContent = 'Show';
-                                    eyeIcon.innerHTML = `
+                                    (blurOverlay as HTMLElement).style.display = 'flex';
+                                    (toggleText as HTMLElement).textContent = 'Show';
+                                    (eyeIcon as HTMLElement).innerHTML = `
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                     `;
@@ -391,7 +425,7 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                                 });
                                 
                                 // Click outside to close
-                                modal.addEventListener('click', (e) => {
+                                modal.addEventListener('click', (e: Event) => {
                                   if (e.target === modal) {
                                     modal.remove();
                                     style.remove();
@@ -399,7 +433,7 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                                 });
                                 
                                 // Escape key to close
-                                const handleEscape = (e) => {
+                                const handleEscape = (e: KeyboardEvent) => {
                                   if (e.key === 'Escape') {
                                     modal.remove();
                                     style.remove();
@@ -456,7 +490,7 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-4">
                       <div className="text-right">
                         <p className="font-semibold text-white">
                           {order.total_amount} {order.crypto_currency}
@@ -467,6 +501,18 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                         >
                           {getStatusDisplay(order.order_status)}
                         </Badge>
+                        {/* Quick Review Button for completed orders */}
+                        {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+                            onClick={() => handleLeaveReview(order)}
+                          >
+                            <Star className="w-3 h-3 mr-1" />
+                            Review
+                          </Button>
+                        )}
                       </div>
 
                       <DropdownMenu>
@@ -478,8 +524,17 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleViewDetails(order)}>View Details</DropdownMenuItem>
                           <DropdownMenuItem>Track Order</DropdownMenuItem>
-                          {order.order_status === "completed" && (
-                            <DropdownMenuItem>Leave Review</DropdownMenuItem>
+                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
+                            <DropdownMenuItem onClick={() => handleLeaveReview(order)}>
+                              <Star className="w-4 h-4 mr-2" />
+                              Leave Review
+                            </DropdownMenuItem>
+                          )}
+                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
+                            <DropdownMenuItem onClick={() => handleCreateDispute(order)} className="text-orange-600">
+                              <AlertTriangle className="w-4 h-4 mr-2" />
+                              Create Dispute
+                            </DropdownMenuItem>
                           )}
                           {(order.order_status === "processing" || order.order_status === "pending") && (
                             <DropdownMenuItem className="text-red-600">Cancel Order</DropdownMenuItem>
@@ -501,6 +556,26 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
           order={selectedProduct}
           isOpen={isModalOpen}
           onClose={handleCloseModal}
+        />
+      )}
+
+      {/* Review Modal */}
+      {isReviewOpen && reviewProductId && (
+        <ReviewModal
+          productId={reviewProductId}
+          isOpen={isReviewOpen}
+          onClose={() => {
+            setIsReviewOpen(false);
+            setReviewProductId(null);
+          }}
+          onSuccess={() => {
+            setIsReviewOpen(false);
+            setReviewProductId(null);
+            toast({
+              title: "Review Submitted!",
+              description: "Thank you for your feedback. The vendor will be notified.",
+            });
+          }}
         />
       )}
     </>

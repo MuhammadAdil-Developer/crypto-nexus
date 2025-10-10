@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ToastProvider from './components/ui/ToastContainer';
+import { Toaster } from '@/components/ui/toaster';
 import { MessagingProvider } from '@/contexts/MessagingContext';
+import { CartProvider } from '@/contexts/CartContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import MarketplaceHome from './pages/marketplace/home';
 import BuyerDashboard from './pages/buyer/buyer-dashboard';
@@ -12,6 +14,7 @@ import SignUp from './pages/auth/sign-up';
 import AdminSignIn from './pages/auth/admin-sign-in';
 import VendorApply from './pages/vendor/apply';
 import VendorApplySuccess from './pages/vendor/apply-success';
+import VendorPublicListings from './pages/vendor/public-listings';
 import BuyerListings from "./pages/buyer/listings";
 import BuyerOrders from "./pages/buyer/orders";
 import BuyerMessages from "./pages/buyer/messages";
@@ -21,6 +24,7 @@ import BuyerSupport from "./pages/buyer/support";
 import BuyerHome from "./pages/buyer/home";
 import ProductDetailPage from "./pages/buyer/product-detail";
 import PaymentTest from "./pages/buyer/payment-test";
+import BuyerMyReviews from "./pages/buyer/my-reviews";
 import './index.css';
 
 // Debug component to track route changes
@@ -41,9 +45,12 @@ function App() {
   return (
     <ToastProvider>
       <MessagingProvider>
-        <Router>
+        <CartProvider>
+          <Router>
           <RouteDebugger />
           <div className="App">
+            {/* Shadcn Toaster to ensure useToast toasts render */}
+            <Toaster />
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<MarketplaceHome />} />
@@ -53,7 +60,7 @@ function App() {
             <Route path="/payment-test" element={<PaymentTest />} />
             
             {/* Buyer Dashboard Routes */}
-            <Route path="/buyer" element={
+            <Route path="/buyer/*" element={
               <ProtectedRoute requiredUserType="buyer">
                 <BuyerDashboard />
               </ProtectedRoute>
@@ -69,6 +76,7 @@ function App() {
               <Route path="support" element={<BuyerSupport />} />
               <Route path="product/:id" element={<ProductDetailPage />} />
               <Route path="payment-test" element={<PaymentTest />} />
+              <Route path="my-reviews" element={<BuyerMyReviews />} />
             </Route>
             
             {/* Vendor Apply Routes (Standalone) - MUST come BEFORE /vendor/* */}
@@ -82,6 +90,9 @@ function App() {
                 <VendorApplySuccess />
               </ProtectedRoute>
             } />
+            
+            {/* Public Vendor Listings Route - MUST come BEFORE /vendor/* */}
+            <Route path="/vendor/public/:vendorUsername" element={<VendorPublicListings />} />
             
             {/* Vendor Dashboard Routes (Nested) - MUST come AFTER specific routes */}
             <Route path="/vendor/*" element={
@@ -101,7 +112,8 @@ function App() {
             <Route path="*" element={<MarketplaceHome />} />
             </Routes>
           </div>
-        </Router>
+          </Router>
+        </CartProvider>
       </MessagingProvider>
     </ToastProvider>
   );

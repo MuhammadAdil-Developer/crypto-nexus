@@ -381,6 +381,81 @@ class VendorService {
       throw new Error('Failed to download template');
     }
   }
+
+  // Get vendor statistics for product modal
+  async getVendorStatistics(vendorUsername: string): Promise<{ 
+    success: boolean; 
+    data: { 
+      username: string;
+      member_since: string;
+      total_sales: string;
+      vendor_rating: string;
+      completion_rate: string;
+      total_views: number;
+      total_favorites: number;
+      total_reviews: number;
+    } 
+  }> {
+    try {
+      console.log('🔍 getVendorStatistics called for:', vendorUsername);
+      
+      const response = await api.get(`/vendors/statistics/${vendorUsername}/`);
+      
+      console.log('🔍 Vendor statistics response:', response);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ getVendorStatistics error:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error message:', error.message);
+      
+      // Return default stats if vendor not found
+      return {
+        success: true,
+        data: {
+          username: vendorUsername,
+          member_since: "Unknown",
+          total_sales: "0 products",
+          vendor_rating: "No rating",
+          completion_rate: "100%",
+          total_views: 0,
+          total_favorites: 0,
+          total_reviews: 0
+        }
+      };
+    }
+  }
+
+  // Get approved vendors for home page
+  async getApprovedVendors(limit: number = 4): Promise<{ 
+    success: boolean; 
+    data: Array<{
+      vendor_username: string;
+      business_name: string;
+      category: string;
+      store_description: string;
+      logo_url: string;
+    }> 
+  }> {
+    try {
+      console.log('🔍 getApprovedVendors called with limit:', limit);
+      
+      const response = await api.get(`/vendors/approved/?limit=${limit}`);
+      
+      console.log('🔍 Approved vendors response:', response);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ getApprovedVendors error:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error message:', error.message);
+      
+      return {
+        success: false,
+        data: []
+      };
+    }
+  }
 }
 
 export default new VendorService();

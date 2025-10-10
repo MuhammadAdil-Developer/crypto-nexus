@@ -51,6 +51,7 @@ export function MessagesPanel({
       try {
         const user = JSON.parse(userStr);
         setCurrentUserId(user.id);
+        console.log('🔍 Buyer currentUserId set to:', user.id);
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
@@ -208,7 +209,19 @@ export function MessagesPanel({
   // WebSocket event handlers
   useEffect(() => {
     messagingService.onMessage((message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        // If it's a temporary message, just add it
+        if (message.isTemporary) {
+          return [...prev, message];
+        }
+        
+        // If it's a real message from server, replace any temporary message with same content
+        const updatedMessages = prev.filter(msg => 
+          !(msg.isTemporary && msg.content === message.content && msg.sender?.id === message.sender?.id)
+        );
+        
+        return [...updatedMessages, message];
+      });
     });
 
     messagingService.onTyping((data) => {
@@ -405,7 +418,7 @@ export function MessagesPanel({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-400px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
       {/* Conversations List */}
       <Card className="lg:col-span-1 border border-gray-700 bg-gray-900 overflow-hidden h-full flex flex-col">
         <CardHeader>
@@ -512,9 +525,47 @@ export function MessagesPanel({
 
             {/* Messages */}
             <CardContent className="flex-1 p-4 flex flex-col min-h-0">
-              <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[400px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
+              <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[800px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                 {messages.map((message) => {
-                  const isOwnMessage = currentUserId && message.sender?.id === currentUserId;
+                  // Improved sender detection logic
+                  let isOwnMessage = false;
+                  
+                  // Get current user info
+                  const userStr = localStorage.getItem('user');
+                  let currentUser = null;
+                  if (userStr) {
+                    try {
+                      currentUser = JSON.parse(userStr);
+                    } catch (error) {
+                      console.error('Error parsing user data:', error);
+                    }
+                  }
+                  
+                  // Method 1: Direct ID comparison (most reliable)
+                  if (currentUserId && message.sender?.id) {
+                    isOwnMessage = String(message.sender.id) === String(currentUserId);
+                  }
+                  
+                  // Method 2: Username comparison (fallback)
+                  if (!isOwnMessage && currentUser && message.sender?.username) {
+                    isOwnMessage = message.sender.username === currentUser.username;
+                  }
+                  
+                  // Method 3: Check if sender ID matches current user ID from localStorage
+                  if (!isOwnMessage && currentUser && message.sender?.id) {
+                    isOwnMessage = String(message.sender.id) === String(currentUser.id);
+                  }
+                  
+                  console.log('🔍 Buyer message debug:', {
+                    messageId: message.id,
+                    senderId: message.sender?.id,
+                    senderUsername: message.sender?.username,
+                    currentUserId,
+                    currentUserFromStorage: currentUser?.id,
+                    currentUserUsername: currentUser?.username,
+                    isOwnMessage,
+                    messageContent: message.content?.substring(0, 50)
+                  });
                   
                   // Special handling for product reference messages
                   if (message.message_type === 'product_reference') {

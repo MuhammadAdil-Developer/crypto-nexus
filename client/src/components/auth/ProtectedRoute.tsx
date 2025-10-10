@@ -36,6 +36,14 @@ export function ProtectedRoute({
           if (user.user_type === requiredUserType) {
             setIsAuthorized(true);
           } else {
+            // Check if this is a vendor trying to access buyer dashboard with switch flag
+            if (requiredUserType === 'buyer' && user.user_type === 'vendor' && localStorage.getItem('switchToBuyer') === 'true') {
+              // Allow vendor to access buyer dashboard temporarily
+              setIsAuthorized(true);
+              localStorage.removeItem('switchToBuyer');
+              return;
+            }
+            
             // Redirect based on user type
             if (user.user_type === 'admin') {
               navigate('/admin/dashboard');

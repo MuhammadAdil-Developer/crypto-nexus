@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MoreVertical, Eye, MessageSquare, Package, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle } from "lucide-react";
+import { Search, MoreVertical, Eye, MessageSquare, Package, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle, Star } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,8 @@ import {
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/components/ui/ToastContainer";
 import { OrderProductModal } from "@/components/buyer/OrderProductModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { productService } from "@/services/productService";
 
 // Transform API data to match existing structure
 const transformOrderData = (apiOrder: Order) => {
@@ -191,6 +193,9 @@ export default function VendorOrders() {
   const [orderToUpdate, setOrderToUpdate] = useState<any>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [updatingStatusType, setUpdatingStatusType] = useState<string | null>(null);
+  const [isReviewsOpen, setIsReviewsOpen] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const { showToast } = useToast();
 
   // Pagination state
@@ -231,6 +236,23 @@ export default function VendorOrders() {
       message: "Order status updated",
       type: "success"
     });
+  };
+
+  const openReviewsForProduct = async (productId: number, productTitle: string) => {
+    try {
+      setReviewsLoading(true);
+      setIsReviewsOpen(true);
+      // Clear previous reviews first
+      setReviews([]);
+      const res = await productService.getVendorProductReviewsSimple(productId, { page: 1, page_size: 10 });
+      console.log('🔍 Loading reviews for product:', productId, 'Title:', productTitle, 'Reviews:', res.data);
+      setReviews(res.data || []);
+    } catch (e) {
+      console.error('Failed to load reviews', e);
+      showToast({ title: 'Error', message: 'Failed to load reviews', type: 'error' });
+    } finally {
+      setReviewsLoading(false);
+    }
   };
 
   // Modal handlers
@@ -608,6 +630,10 @@ export default function VendorOrders() {
                             <Package className="w-4 h-4 mr-2" />
                             Update Status
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)}>
+                            <Star className="w-4 h-4 mr-2" />
+                            View Reviews
+                          </DropdownMenuItem>
                           {order.status === "Processing" && (
                             <>
                               <DropdownMenuItem className="text-green-600">
@@ -849,6 +875,39 @@ export default function VendorOrders() {
           </div>
         </div>
       )}
+
+      {/* Product Reviews Modal */}
+      <Dialog open={isReviewsOpen} onOpenChange={setIsReviewsOpen}>
+        <DialogContent className="bg-gray-900 border border-gray-700 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">Product Reviews</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-auto">
+            {reviewsLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading reviews...
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="text-center py-10 text-gray-400">No reviews yet for this product.</div>
+            ) : (
+              reviews.map((r) => (
+                <div key={r.id} className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {[1,2,3,4,5].map(i => (
+                        <Star key={i} className={`w-4 h-4 ${i <= r.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} />
+                      ))}
+                    </div>
+                    <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleString()}</span>
+                  </div>
+                  <div className="text-sm text-gray-200 mb-1">{r.comment}</div>
+                  <div className="text-xs text-gray-400">Buyer: {r.buyer?.username || 'Unknown'}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

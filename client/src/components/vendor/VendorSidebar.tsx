@@ -53,12 +53,13 @@ const VENDOR_NAV_CATEGORIES = [
       { title: "Reviews", icon: Star, href: "/vendor/reviews", badge: { text: "5", type: "warning" } }
     ]
   },
-  {
-    title: "Marketing",
-    items: [
-      { title: "Advertisements", icon: Megaphone, href: "/vendor/ads", badge: null }
-    ]
-  },
+  // Commented out Marketing section temporarily
+  // {
+  //   title: "Marketing",
+  //   items: [
+  //     { title: "Advertisements", icon: Megaphone, href: "/vendor/ads", badge: null }
+  //   ]
+  // },
   {
     title: "Support",
     items: [
@@ -104,15 +105,19 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
       {/* Logo */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center">
-            <Store className="text-white w-4 h-4" />
-          </div>
-          {expanded && (
-            <div className="ml-3 transition-opacity duration-200">
-              <h1 className="text-lg font-bold text-white">ACCOUNTZ CLUB</h1>
-              <p className="text-xs text-gray-400">Vendor Dashboard</p>
-            </div>
-          )}
+          <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+              <img 
+                src="/images/logo.png" 
+                alt="AccountzClub Logo" 
+                className="h-16 w-auto"
+                style={{ 
+                  imageRendering: '-webkit-optimize-contrast',
+                  transform: 'scale(1.5) translateY(3px)',
+                  transformOrigin: 'left center'
+                }}
+              />
+            </Link>
+      
         </div>
       </div>
 

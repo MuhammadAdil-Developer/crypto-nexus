@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { HelpCircle, MessageSquare, FileText, Phone, Mail, ChevronDown, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { HelpCircle, MessageSquare, FileText, Phone, Mail, ChevronDown, Search, Loader2, MoreVertical, Plus } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+import ticketService from "@/services/ticketService";
+import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
 
 const faqData = [
   {
@@ -51,23 +61,163 @@ const faqData = [
 ];
 
 export default function BuyerSupport() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const [ticketForm, setTicketForm] = useState({
     subject: "",
     category: "",
-    priority: "",
+    priority: "medium",
     description: ""
   });
+  
+  // Ticket management state
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
 
   const filteredFAQ = faqData.filter(item =>
     item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.answer.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchTickets();
+    fetchStatistics();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const response = await ticketService.getTickets();
+      if (response.success) {
+        setTickets(response.data || []);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to fetch tickets",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch tickets",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    try {
+      const response = await ticketService.getTicketStatistics();
+      if (response.success) {
+        setStatistics(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+    }
+  };
+
+  const filteredTickets = tickets.filter(ticket => {
+    if (statusFilter === "all") return true;
+    return ticket.status === statusFilter;
+  });
+
+  const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle ticket submission
-    console.log("Ticket submitted:", ticketForm);
+    
+    if (!ticketForm.subject || !ticketForm.description || !ticketForm.category) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsSubmittingTicket(true);
+      const response = await ticketService.createTicket(ticketForm);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket submitted successfully! We'll get back to you soon."
+        });
+        setTicketForm({
+          subject: "",
+          category: "",
+          priority: "medium",
+          description: ""
+        });
+        // Refresh tickets list
+        await fetchTickets();
+        await fetchStatistics();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to submit ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit ticket",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
+
+  // Helper functions for ticket display
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'open':
+        return 'text-green-400 bg-green-900/20';
+      case 'in_progress':
+        return 'text-blue-400 bg-blue-900/20';
+      case 'waiting_response':
+        return 'text-yellow-400 bg-yellow-900/20';
+      case 'resolved':
+        return 'text-gray-400 bg-gray-900/20';
+      case 'closed':
+        return 'text-red-400 bg-red-900/20';
+      default:
+        return 'text-gray-400 bg-gray-900/20';
+    }
+  };
+
+  const getStatusDisplay = (status: string) => {
+    return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'urgent':
+        return 'bg-red-500';
+      case 'high':
+        return 'bg-orange-500';
+      case 'medium':
+        return 'bg-yellow-500';
+      case 'low':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getPriorityDisplay = (priority: string) => {
+    return priority.charAt(0).toUpperCase() + priority.slice(1);
   };
 
   return (
@@ -202,12 +352,11 @@ export default function BuyerSupport() {
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="order">Order Issue</SelectItem>
+                          <SelectItem value="order_issue">Order Issue</SelectItem>
                           <SelectItem value="payment">Payment Problem</SelectItem>
                           <SelectItem value="account">Account Access</SelectItem>
-                          <SelectItem value="vendor">Vendor Dispute</SelectItem>
                           <SelectItem value="technical">Technical Issue</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="general">General</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -240,7 +389,8 @@ export default function BuyerSupport() {
                     />
                   </div>
 
-                  <Button type="submit" className="w-full bg-gray-700">
+                  <Button type="submit" disabled={isSubmittingTicket} className="w-full bg-gray-700">
+                    {isSubmittingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Submit Ticket
                   </Button>
                 </form>
@@ -248,6 +398,117 @@ export default function BuyerSupport() {
             </Card>
           </div>
         </div>
+
+        {/* My Support Tickets */}
+        <Card className="border border-gray-700 bg-gray-900">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2">
+                <MessageSquare className="w-5 h-5" />
+                <span>My Support Tickets</span>
+              </CardTitle>
+              <div className="flex items-center space-x-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="waiting_response">Waiting Response</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={() => setIsCreatingTicket(true)}
+                  size="sm"
+                  className="bg-gray-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Ticket
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-400">Loading tickets...</p>
+                </div>
+              ) : filteredTickets.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400 mb-2">No tickets found</p>
+                  <p className="text-sm text-gray-500">Create your first support ticket above</p>
+                </div>
+              ) : (
+                filteredTickets.map((ticket) => (
+                  <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
+                        <span className="text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-1">
+                          <h3 className="font-semibold text-white">{ticket.ticket_id}</h3>
+                          <Badge className={`border ${getStatusColor(getStatusDisplay(ticket.status))}`}>
+                            {getStatusDisplay(ticket.status)}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {ticket.category}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-1">{ticket.subject}</p>
+                        <div className="flex items-center space-x-4 text-xs text-gray-400">
+                          <span>Created: {new Date(ticket.created_at).toLocaleDateString()}</span>
+                          <span>Last update: {new Date(ticket.updated_at).toLocaleDateString()}</span>
+                          <span>{ticket.response_count} responses</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedTicketId(ticket.id);
+                          setIsTicketModalOpen(true);
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        View Conversation
+                      </Button>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedTicketId(ticket.id);
+                            setIsTicketModalOpen(true);
+                          }}>
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Support Resources */}
         <Card className="border border-gray-700 bg-gray-900">
@@ -279,6 +540,18 @@ export default function BuyerSupport() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Ticket Detail Modal */}
+        <TicketDetailModal
+          isOpen={isTicketModalOpen}
+          onClose={() => setIsTicketModalOpen(false)}
+          ticketId={selectedTicketId}
+          isAdmin={false}
+          onTicketUpdated={() => {
+            fetchTickets();
+            fetchStatistics();
+          }}
+        />
       </div>
     </BuyerLayout>
   );

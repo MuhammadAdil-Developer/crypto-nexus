@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Package, Filter, Calendar, Download, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { OrdersTable } from "@/components/buyer/OrdersTable";
@@ -35,10 +36,25 @@ export default function BuyerOrders() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { toast } = useToast();
+  const location = useLocation();
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Show toast if navigated with state
+  useEffect(() => {
+    const navToast: any = (location.state as any)?.toast;
+    if (navToast) {
+      toast({
+        title: navToast.title,
+        description: navToast.description,
+        variant: navToast.variant,
+      });
+      // Clean the state so it doesn't show again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     filterOrders();

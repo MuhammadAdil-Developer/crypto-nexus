@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HelpCircle, Plus, Search, MoreVertical, MessageSquare, FileText, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { HelpCircle, Plus, Search, MoreVertical, MessageSquare, FileText, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import ticketService from "@/services/ticketService";
+import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
 
 const tickets = [
   {
@@ -138,38 +141,137 @@ const getPriorityColor = (priority: string) => {
 };
 
 export default function VendorSupport() {
+  const { toast } = useToast();
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
   const [newTicket, setNewTicket] = useState({
     subject: "",
     category: "",
-    priority: "Medium",
+    priority: "medium",
     description: ""
   });
+
+  useEffect(() => {
+    fetchTickets();
+    fetchStatistics();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const response = await ticketService.getTickets();
+      if (response.success) {
+        setTickets(response.data || []);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to fetch tickets",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch tickets",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    try {
+      const response = await ticketService.getTicketStatistics();
+      if (response.success) {
+        setStatistics(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+    }
+  };
+
+  const handleCreateTicket = async () => {
+    if (!newTicket.subject || !newTicket.description || !newTicket.category) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingTicket(true);
+      const response = await ticketService.createTicket(newTicket);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket created successfully"
+        });
+        setNewTicket({ subject: '', category: '', priority: 'medium', description: '' });
+        fetchTickets();
+        fetchStatistics();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to create ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create ticket",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingTicket(false);
+    }
+  };
 
   const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = 
       ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.ticket_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateTicket = () => {
-    // Handle ticket creation
-    console.log("Creating ticket:", newTicket);
-    setNewTicket({
-      subject: "",
-      category: "",
-      priority: "Medium",
-      description: ""
-    });
+  const totalTickets = statistics?.total_tickets || 0;
+  const openTickets = statistics?.open_tickets || 0;
+  const waitingResponse = statistics?.waiting_response_tickets || 0;
+  const resolvedTickets = statistics?.resolved_tickets || 0;
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'open': return 'Open';
+      case 'in_progress': return 'In Progress';
+      case 'waiting_response': return 'Waiting for Response';
+      case 'resolved': return 'Resolved';
+      case 'closed': return 'Closed';
+      default: return status;
+    }
   };
 
-  const totalTickets = tickets.length;
-  const openTickets = tickets.filter(t => t.status === "Open" || t.status === "In Progress").length;
-  const waitingResponse = tickets.filter(t => t.status === "Waiting for Response").length;
+  const getPriorityDisplay = (priority: string) => {
+    switch (priority) {
+      case 'low': return 'Low';
+      case 'medium': return 'Medium';
+      case 'high': return 'High';
+      case 'urgent': return 'Urgent';
+      default: return priority;
+    }
+  };
 
   return (
     
@@ -208,11 +310,13 @@ export default function VendorSupport() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Account">Account</SelectItem>
-                        <SelectItem value="Payments">Payments</SelectItem>
-                        <SelectItem value="Listings">Listings</SelectItem>
-                        <SelectItem value="Technical">Technical</SelectItem>
-                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="account">Account</SelectItem>
+                        <SelectItem value="payment">Payments</SelectItem>
+                        <SelectItem value="listing">Listings</SelectItem>
+                        <SelectItem value="technical">Technical</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="vendor_application">Vendor Application</SelectItem>
+                        <SelectItem value="order_issue">Order Issue</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -223,9 +327,10 @@ export default function VendorSupport() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -241,7 +346,8 @@ export default function VendorSupport() {
                 </div>
                 <div className="flex justify-end space-x-3">
                   <Button variant="outline">Cancel</Button>
-                  <Button onClick={handleCreateTicket} className="bg-blue-500 hover:bg-blue-600">
+                  <Button onClick={handleCreateTicket} disabled={isCreatingTicket} className="bg-blue-500 hover:bg-blue-600">
+                    {isCreatingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Create Ticket
                   </Button>
                 </div>
@@ -256,7 +362,9 @@ export default function VendorSupport() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-white">{totalTickets}</div>
+                  <div className="text-2xl font-bold text-white">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : totalTickets}
+                  </div>
                   <p className="text-sm text-gray-400">Total Tickets</p>
                 </div>
                 <HelpCircle className="w-8 h-8 text-gray-400" />
@@ -268,7 +376,9 @@ export default function VendorSupport() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-yellow-600">{openTickets}</div>
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : openTickets}
+                  </div>
                   <p className="text-sm text-gray-400">Open Tickets</p>
                 </div>
                 <Clock className="w-8 h-8 text-yellow-400" />
@@ -280,7 +390,9 @@ export default function VendorSupport() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-purple-600">{waitingResponse}</div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : waitingResponse}
+                  </div>
                   <p className="text-sm text-gray-400">Waiting Response</p>
                 </div>
                 <AlertCircle className="w-8 h-8 text-purple-400" />
@@ -293,7 +405,7 @@ export default function VendorSupport() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-green-600">
-                    {tickets.filter(t => t.status === "Resolved").length}
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : resolvedTickets}
                   </div>
                   <p className="text-sm text-gray-400">Resolved</p>
                 </div>
@@ -324,10 +436,11 @@ export default function VendorSupport() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Waiting for Response">Waiting for Response</SelectItem>
-                    <SelectItem value="Resolved">Resolved</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="waiting_response">Waiting for Response</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -335,72 +448,84 @@ export default function VendorSupport() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredTickets.map((ticket) => (
-                <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
-                      <span className="text-xs text-gray-400 uppercase">{ticket.priority}</span>
-                    </div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-1">
-                        <h3 className="font-semibold text-white">{ticket.id}</h3>
-                        <Badge className={`border ${getStatusColor(ticket.status)}`}>
-                          {ticket.status}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {ticket.category}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-400 mb-1">{ticket.subject}</p>
-                      <div className="flex items-center space-x-4 text-xs text-gray-400">
-                        <span>Created: {ticket.created}</span>
-                        <span>Last update: {ticket.lastUpdate}</span>
-                        <span>{ticket.responses} responses</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <Button size="sm" variant="outline">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      View
-                    </Button>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <FileText className="w-4 h-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        {ticket.status !== "Resolved" && (
-                          <DropdownMenuItem>
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Add Response
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+              {loading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-400">Loading tickets...</p>
                 </div>
-              ))}
+              ) : filteredTickets.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-400">No tickets found</p>
+                </div>
+              ) : (
+                filteredTickets.map((ticket) => (
+                  <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
+                        <span className="text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-1">
+                          <h3 className="font-semibold text-white">{ticket.ticket_id}</h3>
+                          <Badge className={`border ${getStatusColor(getStatusDisplay(ticket.status))}`}>
+                            {getStatusDisplay(ticket.status)}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {ticket.category}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-1">{ticket.subject}</p>
+                        <div className="flex items-center space-x-4 text-xs text-gray-400">
+                          <span>Created: {new Date(ticket.created_at).toLocaleDateString()}</span>
+                          <span>Last update: {new Date(ticket.updated_at).toLocaleDateString()}</span>
+                          <span>{ticket.response_count} responses</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedTicketId(ticket.id);
+                          setIsTicketModalOpen(true);
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        View
+                      </Button>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedTicketId(ticket.id);
+                            setIsTicketModalOpen(true);
+                          }}>
+                            <FileText className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          {ticket.status !== "resolved" && (
+                            <DropdownMenuItem>
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Add Response
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
-            {filteredTickets.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <HelpCircle className="w-12 h-12 mx-auto" />
-                </div>
-                <h3 className="text-lg font-medium text-white mb-2">No tickets found</h3>
-                <p className="text-gray-400">Try adjusting your search criteria or create a new ticket.</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -458,6 +583,18 @@ export default function VendorSupport() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Ticket Detail Modal */}
+        <TicketDetailModal
+          isOpen={isTicketModalOpen}
+          onClose={() => setIsTicketModalOpen(false)}
+          ticketId={selectedTicketId}
+          isAdmin={false}
+          onTicketUpdated={() => {
+            fetchTickets();
+            fetchStatistics();
+          }}
+        />
       </div>
     
   );

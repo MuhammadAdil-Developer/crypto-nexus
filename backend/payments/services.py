@@ -467,6 +467,18 @@ class PaymentService:
                 order.save()
                 
                 logger.info(f"Order {order_id} status updated to PROCESSING after payment")
+                
+                # Schedule review prompt for buyer
+                try:
+                    from orders.tasks import send_review_prompt_task
+                    send_review_prompt_task.apply_async(
+                        args=[order.buyer.id, order.product.id, order.order_id],
+                        countdown=60  # 1 minute delay
+                    )
+                    logger.info(f"Scheduled review prompt for order {order.order_id} in 3 minutes")
+                except Exception as e:
+                    logger.error(f"Failed to schedule review prompt for order {order.order_id}: {str(e)}")
+                    
             else:
                 logger.info(f"Order {order_id} is already marked as paid, skipping status update")
             

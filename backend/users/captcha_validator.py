@@ -53,20 +53,20 @@ class CaptchaValidator:
                     }
                 
                 timestamp = int(parts[1])
-                current_time = int(time.time())
+                current_time = int(time.time() * 1000)  # Convert to milliseconds to match frontend
                 
                 print(f"🔍 Token timestamp: {timestamp}, Current time: {current_time}")  # Debug log
                 
                 # Check if token is not too old (5 minutes max)
-                if current_time - timestamp > 300:
+                if current_time - timestamp > 300000:  # 5 minutes in milliseconds
                     print("❌ Token expired")  # Debug log
                     return {
                         'success': False,
                         'message': 'Captcha token has expired'
                     }
                 
-                # Check if token is not from the future
-                if timestamp > current_time + 60:
+                # Check if token is not from the future (allow 1 minute tolerance)
+                if timestamp > current_time + 60000:  # 1 minute in milliseconds
                     print("❌ Token from future")  # Debug log
                     return {
                         'success': False,
@@ -174,12 +174,13 @@ def validate_captcha_middleware(view_func):
     def wrapper(request, *args, **kwargs):
         # Only validate captcha for POST requests to auth endpoints
         if request.method == 'POST':
-            captcha_token = request.data.get('captcha_token')
+            request_data = request.data
+            captcha_token = request_data.get('captcha_token')
             
             if captcha_token:
                 validation_result = CaptchaValidator.validate_captcha_token(
                     captcha_token, 
-                    request.data.get('site_key')
+                    request_data.get('site_key')
                 )
                 
                 if not validation_result['success']:

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/productService';
+import vendorService from '@/services/vendorService';
+import wishlistService from '@/services/wishlistService';
 import PaymentModal from './PaymentModal';
 
 interface Product {
@@ -67,17 +70,127 @@ interface ProductDetailModalProps {
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen, onClose }) => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showFullAdditionalInfo, setShowFullAdditionalInfo] = useState(false);
+  const [vendorStats, setVendorStats] = useState<any>(null);
+  const [productReviews, setProductReviews] = useState<any>(null);
+  const [loadingVendorStats, setLoadingVendorStats] = useState(false);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isOpen && product?.id) {
       // Track product view
-      productService.trackProductView(product.id.toString());
+      productService.trackProductView(Number(product.id));
+      
+      // Fetch vendor statistics
+      fetchVendorStats();
+      
+      // Fetch product reviews
+      fetchProductReviews();
+      
+      // Check wishlist status
+      checkWishlistStatus();
     }
   }, [isOpen, product?.id]);
+
+  const fetchVendorStats = async () => {
+    if (!product?.vendor_username) return;
+    
+    setLoadingVendorStats(true);
+    try {
+      const response = await vendorService.getVendorStatistics(product.vendor_username);
+      if (response.success) {
+        setVendorStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor stats:', error);
+    } finally {
+      setLoadingVendorStats(false);
+    }
+  };
+
+  const fetchProductReviews = async () => {
+    if (!product?.id) return;
+    
+    setLoadingReviews(true);
+    try {
+      const response = await productService.getProductReviewsModal(product.id, { page_size: 5 });
+      if (response.success) {
+        setProductReviews(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching product reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const checkWishlistStatus = async () => {
+    if (!product?.id) return;
+    
+    try {
+      const inWishlist = await wishlistService.isInWishlist(product.id);
+      setIsInWishlist(inWishlist);
+    } catch (error) {
+      console.error('Error checking wishlist status:', error);
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    if (!product?.id) return;
+    
+    setWishlistLoading(true);
+    try {
+      if (isInWishlist) {
+        // Remove from wishlist
+        const response = await wishlistService.removeFromWishlist(product.id);
+        if (response.success) {
+          setIsInWishlist(false);
+          toast({
+            title: "Removed from Wishlist",
+            description: "Product has been removed from your wishlist",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: response.message || "Failed to remove from wishlist",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Add to wishlist
+        const response = await wishlistService.addToWishlist(product.id);
+        if (response.success) {
+          setIsInWishlist(true);
+          toast({
+            title: "Added to Wishlist",
+            description: "Product has been added to your wishlist",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: response.message || "Failed to add to wishlist",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update wishlist",
+        variant: "destructive",
+      });
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
@@ -146,8 +259,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     setIsFavorited(!isFavorited);
     toast({
       title: isFavorited ? "Removed from Favorites" : "Added to Favorites",
-      message: isFavorited ? "Product removed from your favorites" : "Product added to your favorites",
-      type: "success"
+      description: isFavorited ? "Product removed from your favorites" : "Product added to your favorites"
     });
   };
 
@@ -179,12 +291,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 <p className="text-gray-400 text-sm">{product.website || 'No website'}</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
+            <div className="flex items-center space-x-3">
+              {/* Always-visible link to vendor public listings */}
+              <button
+                onClick={() => {
+                  const vendorUsername = (product.vendor && product.vendor.username) || product.vendor_username;
+                  if (vendorUsername) {
+                    navigate(`/vendor/public/${vendorUsername}`);
+                  }
+                }}
+                className="flex items-center text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                title="View all products of this vendor"
+              >
+                <ExternalLink className="w-4 h-4 mr-1" /> View vendor listings
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -318,11 +445,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   Chat with Vendor
                 </Button>
                 <Button
-                  onClick={handleAddToFavorites}
+                  onClick={handleWishlistToggle}
                   variant="outline"
                   className="border-border text-gray-300 hover:bg-surface-2 py-3"
+                  disabled={wishlistLoading}
                 >
-                  <Heart className={`w-5 h-5 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
+                  {wishlistLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
+                  )}
                 </Button>
               </div>
 
@@ -394,6 +526,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                     <Users className="w-5 h-5 mr-2 text-blue-400" />
                     Vendor Details
+                    {loadingVendorStats && <Loader2 className="w-4 h-4 ml-2 animate-spin text-blue-400" />}
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-3">
@@ -403,11 +536,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Member Since:</span>
-                        <span className="text-white">2 years ago</span>
+                        <span className="text-white">
+                          {vendorStats ? vendorStats.member_since : "Loading..."}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Total Sales:</span>
-                        <span className="text-green-400 font-medium">47 products</span>
+                        <span className="text-green-400 font-medium">
+                          {vendorStats ? vendorStats.total_sales : "Loading..."}
+                        </span>
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -415,12 +552,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                         <span className="text-gray-400">Vendor Rating:</span>
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                          <span className="text-white">4.8/5</span>
+                          <span className="text-white">
+                            {vendorStats ? vendorStats.vendor_rating : "Loading..."}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Completion Rate:</span>
-                        <span className="text-green-400 font-medium">98%</span>
+                        <span className="text-green-400 font-medium">
+                          {vendorStats ? vendorStats.completion_rate : "Loading..."}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -507,16 +648,108 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   <p className="text-gray-300">{product.credentials_display || 'N/A'}</p>
                 </div>
 
-                {/* Reviews Section - Write Review button removed */}
+                {/* Reviews Section */}
                 <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                  <h3 className="text-lg font-semibold text-white mb-3">Reviews</h3>
-                  <div className="text-center py-8">
-                    <Star className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-400 text-lg">No reviews</p>
-                    <p className="text-gray-500 text-sm">Be the first to review this product</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white flex items-center">
+                      <Star className="w-5 h-5 mr-2 text-yellow-400" />
+                      Reviews
+                      {loadingReviews && <Loader2 className="w-4 h-4 ml-2 animate-spin text-yellow-400" />}
+                    </h3>
+                    {productReviews && productReviews.reviews.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowReviews(!showReviews)}
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700/50"
+                      >
+                        {showReviews ? 'Hide Reviews' : 'Show Reviews'}
+                      </Button>
+                    )}
                   </div>
+                  
+                  {loadingReviews ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
+                      <p className="text-gray-400">Loading reviews...</p>
+                    </div>
+                  ) : productReviews && productReviews.reviews.length > 0 ? (
+                    <div>
+                      {/* Review Stats */}
+                      <div className="mb-4 p-3 bg-gray-800/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                            <span className="text-white font-medium">
+                              {productReviews.product_stats.average_rating.toFixed(1)}
+                            </span>
+                            <span className="text-gray-400">
+                              ({productReviews.product_stats.total_reviews} reviews)
+                            </span>
+                          </div>
+                          <span className="text-gray-400 text-sm">
+                            {productReviews.pagination.total_count} total reviews
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Reviews List */}
+                      {showReviews && (
+                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                          {productReviews.reviews.map((review: any) => (
+                            <div key={review.id} className="p-3 bg-gray-800/30 rounded-lg border border-gray-600/20">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="flex">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`w-4 h-4 ${
+                                          i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-white font-medium">{review.buyer_username}</span>
+                                </div>
+                                <span className="text-gray-400 text-sm">{review.time_ago}</span>
+                              </div>
+                              <p className="text-gray-300 text-sm leading-relaxed">{review.comment}</p>
+                              {review.images && review.images.length > 0 && (
+                                <div className="mt-2 flex space-x-2">
+                                  {review.images.map((image: string, index: number) => (
+                                    <img
+                                      key={index}
+                                      src={image}
+                                      alt={`Review image ${index + 1}`}
+                                      className="w-16 h-16 object-cover rounded border border-gray-600/20"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Star className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-400 text-lg">No reviews yet</p>
+                      <p className="text-gray-500 text-sm">Be the first to review this product</p>
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* View all products of this vendor */}
+              <a
+                href={`/vendor/public/${(product.vendor && product.vendor.username) || product.vendor_username}`}
+                className="flex items-center text-blue-400 hover:text-blue-300 text-sm"
+                title="View all products of this vendor"
+              >
+              </a>
             </div>
           </div>
         </div>
@@ -525,9 +758,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
       {/* Payment Modal */}
       {isPaymentModalOpen && (
         <PaymentModal
-          product={product}
+          product={{
+            ...product,
+            listing_title: product.headline || product.listing_title || 'Untitled Product'
+          }}
           isOpen={isPaymentModalOpen}
           onClose={handleClosePaymentModal}
+          onBack={() => setIsPaymentModalOpen(false)}
         />
       )}
     </>

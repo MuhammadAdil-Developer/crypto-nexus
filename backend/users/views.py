@@ -35,8 +35,12 @@ class IsAdminUser(BasePermission):
 def user_registration(request):
     """User registration endpoint - username + password only"""
     try:
+        # Store request data in a variable to avoid multiple reads
+        request_data = request.data
+        print(f"🔍 Registration request data: {request_data}")  # Debug log
+        
         # Validate captcha token
-        captcha_token = request.data.get('captcha_token')
+        captcha_token = request_data.get('captcha_token')
         print(f"🔍 Registration captcha token: {captcha_token}")  # Debug log
         
         if captcha_token:
@@ -59,7 +63,7 @@ def user_registration(request):
                 'error_code': 'CAPTCHA_REQUIRED'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer = UserRegistrationSerializer(data=request.data)
+        serializer = UserRegistrationSerializer(data=request_data)
         
         if serializer.is_valid():
                 user = serializer.save()
@@ -105,11 +109,15 @@ def user_registration(request):
 def user_login(request):
     """User login endpoint - username + password only"""
     try:
-        print(f"🔍 Login request data: {request.data}")  # Debug log
-        print(f"🔍 Login request body: {request.body}")  # Debug log
+        print(f"🔍 Request method: {request.method}")
+        print(f"🔍 Request content type: {request.content_type}")
+        
+        # Store request data in a variable to avoid multiple reads
+        request_data = request.data
+        print(f"🔍 Login request data: {request_data}")  # Debug log
         
         # Validate captcha token
-        captcha_token = request.data.get('captcha_token')
+        captcha_token = request_data.get('captcha_token')
         print(f"🔍 Login captcha token: {captcha_token}")  # Debug log
         
         if captcha_token:
@@ -134,7 +142,7 @@ def user_login(request):
                 'error_code': 'CAPTCHA_REQUIRED'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer = UserLoginSerializer(data=request.data)
+        serializer = UserLoginSerializer(data=request_data)
         
         if serializer.is_valid():
             username = serializer.validated_data['username']
@@ -187,6 +195,10 @@ def user_login(request):
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
+        import traceback
+        print(f"❌ Login error: {str(e)}")
+        print(f"❌ Error type: {type(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         return Response({
             'success': False,
             'message': 'Login failed',

@@ -2,11 +2,12 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from shared.models import BaseModel
+import uuid
 
 
 class ProductCategory(models.Model):
     """Product categories for the marketplace"""
-    id = models.BigAutoField(primary_key=True)
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True)
     description = models.TextField(blank=True)
@@ -28,7 +29,7 @@ class ProductCategory(models.Model):
 
 class ProductSubCategory(models.Model):
     """Product sub-categories"""
-    id = models.BigAutoField(primary_key=True)
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
     name = models.CharField(max_length=100)
     category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE, related_name='sub_categories', db_column='category_id')
     slug = models.SlugField()
@@ -269,3 +270,20 @@ class ProductView(BaseModel):
     
     def __str__(self):
         return f"{self.user.username} viewed {self.product.headline}"
+
+
+class ProductReview(BaseModel):
+    """Product reviews for the products app"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_reviews')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='product_reviews')
+    rating = models.PositiveIntegerField(choices=[(i, i) for i in range(1, 6)])
+    comment = models.TextField()
+    images = models.JSONField(default=list)
+    
+    class Meta:
+        db_table = 'product_reviews'
+        unique_together = ['product', 'user']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Review by {self.user.username} for {self.product.headline}"

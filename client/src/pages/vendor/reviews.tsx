@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { productService } from "@/services/productService";
+import { useToast } from "@/components/ui/ToastContainer";
 
-const reviews = [
+// Placeholder removed; load from API
+const staticReviews = [
   {
     id: 1,
     buyer: "crypto_buyer_01",
@@ -103,6 +106,39 @@ export default function VendorReviews() {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [replyText, setReplyText] = useState("");
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await productService.getVendorReviews({ page: 1, page_size: 20 });
+        const raw = (res as any)?.data || [];
+        const mapped = raw.map((r: any) => ({
+          id: r.id,
+          buyer: r.buyer?.username || 'Anonymous',
+          product: r.product?.headline || 'Product',
+          rating: r.rating || 0,
+          title: r.title || '',
+          content: r.comment || '',
+          date: r.created_at || '',
+          verified: true,
+          helpful: r.helpful || 0,
+          reply: null,
+        }));
+        setReviews(mapped);
+      } catch (e) {
+        console.error('Failed to load reviews', e);
+        setReviews([]);
+        showToast({ title: 'Error', message: 'Failed to load reviews', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const filteredReviews = reviews.filter(review => {
     const matchesSearch = 
@@ -113,10 +149,8 @@ export default function VendorReviews() {
     return matchesSearch && matchesRating;
   });
 
-  const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
-  const ratingCounts = [1, 2, 3, 4, 5].map(rating => 
-    reviews.filter(review => review.rating === rating).length
-  );
+  const averageRating = reviews.length ? reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length : 0;
+  const ratingCounts = [1, 2, 3, 4, 5].map(rating => reviews.filter(review => review.rating === rating).length);
 
   const handleReply = (reviewId: number) => {
     // Handle reply submission
@@ -247,7 +281,11 @@ export default function VendorReviews() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {filteredReviews.map((review) => (
+              {loading ? (
+                <div className="text-gray-400">Loading reviews...</div>
+              ) : filteredReviews.length === 0 ? (
+                <div className="text-gray-400">No reviews found</div>
+              ) : filteredReviews.map((review) => (
                 <div key={review.id} className="border-b border-gray-700 bg-gray-900 pb-6 last:border-b-0 last:pb-0">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-4">
@@ -265,8 +303,8 @@ export default function VendorReviews() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-400">{review.product}</p>
-                        <p className="text-xs text-gray-400">{review.date}</p>
+                        <p className="text-sm text-gray-400">{review.product?.headline || ''}</p>
+                        <p className="text-xs text-gray-400">{new Date(review.created_at).toLocaleString()}</p>
                       </div>
                     </div>
                     
@@ -288,9 +326,8 @@ export default function VendorReviews() {
                   <div className="mb-4">
                     <div className="flex items-center space-x-3 mb-2">
                       {renderStars(review.rating)}
-                      <h3 className="font-semibold text-white">{review.title}</h3>
                     </div>
-                    <p className="text-gray-700">{review.content}</p>
+                    <p className="text-gray-200">{review.comment}</p>
                   </div>
 
                   <div className="flex items-center justify-between">

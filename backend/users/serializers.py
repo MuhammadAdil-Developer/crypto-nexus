@@ -12,6 +12,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['username', 'password', 'confirm_password']
     
     def validate(self, attrs):
+        print(f"🔍 Serializer validation - Password: {attrs.get('password', 'MISSING')}")
+        print(f"🔍 Serializer validation - Confirm Password: {attrs.get('confirm_password', 'MISSING')}")
+        print(f"🔍 Serializer validation - Passwords match: {attrs.get('password') == attrs.get('confirm_password')}")
+        
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError("Passwords don't match")
         

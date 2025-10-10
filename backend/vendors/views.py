@@ -1,12 +1,45 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.contrib.auth.models import User
+from django.db.models import Count, Avg, Q
+from datetime import timedelta
 
 from .models import VendorApplication
 from .serializers import VendorApplicationSerializer
+from products.models import Product, ProductReview
+from orders.models import Order
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_approved_vendors(request):
+    """Public: list approved vendors for discovery sections"""
+    try:
+        limit = int(request.GET.get('limit', 8))
+        vendors = VendorApplication.objects.filter(status='approved').order_by('-updated_at')[:limit]
+        data = []
+        for v in vendors:
+            # Safely build logo URL (avoid returning File objects)
+            logo_url = ''
+            try:
+                if getattr(v, 'logo', None) and getattr(v.logo, 'url', ''):
+                    logo_url = v.logo.url
+            except Exception:
+                logo_url = ''
+
+            data.append({
+                'vendor_username': v.vendor_username or '',
+                'business_name': v.business_name or v.vendor_username or '',
+                'category': v.category or '',
+                'store_description': v.store_description or '',
+                'logo_url': logo_url,
+            })
+        return Response({'success': True, 'data': data})
+    except Exception as e:
+        return Response({'success': False, 'message': 'Failed to load vendors', 'errors': str(e)}, status=500)
+
 
 
 @api_view(['GET'])
@@ -349,5 +382,64 @@ def check_application_status(request, username):
         return Response({
             'success': False,
             'message': 'Failed to check application status',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_vendor_statistics(request, vendor_username):
+    """Get vendor statistics for product modal"""
+    try:
+        # Get vendor user
+        try:
+            vendor_user = User.objects.get(username=vendor_username)
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Vendor not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Get vendor's products
+        vendor_products = Product.objects.filter(vendor=vendor_user, status='approved')
+        
+        # Calculate statistics
+        total_products = vendor_products.count()
+        total_views = vendor_products.aggregate(total=Count('views_count'))['total'] or 0
+        total_favorites = vendor_products.aggregate(total=Count('favorites_count'))['total'] or 0
+        
+        # Calculate vendor rating from all product reviews
+        vendor_reviews = ProductReview.objects.filter(product__vendor=vendor_user)
+        avg_rating = vendor_reviews.aggregate(avg=Avg('rating'))['avg'] or 0
+        total_reviews = vendor_reviews.count()
+        
+        # Calculate completion rate (completed orders / total orders)
+        vendor_orders = Order.objects.filter(product__vendor=vendor_user)
+        total_orders = vendor_orders.count()
+        completed_orders = vendor_orders.filter(status__in=['delivered', 'confirmed']).count()
+        completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 100
+        
+        # Calculate member since
+        member_since = vendor_user.date_joined
+        years_since = (timezone.now() - member_since).days / 365.25
+        
+        return Response({
+            'success': True,
+            'data': {
+                'username': vendor_username,
+                'member_since': f"{years_since:.1f} years ago" if years_since >= 1 else f"{(years_since * 12):.0f} months ago",
+                'total_sales': f"{total_products} products",
+                'vendor_rating': f"{avg_rating:.1f}/5" if avg_rating > 0 else "No rating",
+                'completion_rate': f"{completion_rate:.0f}%",
+                'total_views': total_views,
+                'total_favorites': total_favorites,
+                'total_reviews': total_reviews
+            }
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Failed to fetch vendor statistics',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -29,20 +29,26 @@ export function Sidebar() {
     <div className="hidden md:flex md:w-64 md:flex-col">
       <div className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto bg-surface border-r border-border">
         {/* Logo/Brand */}
-        <div className="flex items-center flex-shrink-0 px-4">
+        <div className="flex items-center flex-shrink-0 px-4 py-6">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Shield className="text-bg w-4 h-4" />
-            </div>
-            <div className="ml-3">
-              <h1 className="text-lg font-semibold text-text">CryptoMarket</h1>
-              <p className="text-xs text-muted">Admin Panel</p>
-            </div>
+           <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+              <img 
+                src="/images/logo.png" 
+                alt="AccountzClub Logo" 
+                className="h-14 w-auto"
+                style={{ 
+                  imageRendering: '-webkit-optimize-contrast',
+                  transform: 'scale(1.8) translateY(3px)',
+                  transformOrigin: 'left center'
+                }}
+              />
+            </Link>
+        
           </div>
         </div>
         
         {/* Navigation */}
-        <nav className="mt-8 flex-1 px-2 space-y-1">
+        <nav className="mt-6 flex-1 px-3 space-y-2">
           {ADMIN_GROUPED_NAV.map((group) => {
             const CategoryIcon = group.icon;
             const isExpanded = isCategoryExpanded(group.category);
@@ -54,7 +60,7 @@ export function Sidebar() {
                 <button
                   onClick={() => toggleCategory(group.category)}
                   className={cn(
-                    "w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                    "w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
                     isCatActive
                       ? "bg-accent/10 text-accent border border-accent/20"
                       : "text-gray-300 hover:bg-surface-2 hover:text-white"
@@ -74,13 +80,13 @@ export function Sidebar() {
                 {/* Category Items */}
                 <div 
                   className={cn(
-                    "ml-4 border-l border-border pl-4 overflow-hidden transition-all duration-500 ease-in-out",
+                    "ml-6 border-l border-border pl-4 overflow-hidden transition-all duration-500 ease-in-out",
                     isExpanded 
                       ? "max-h-96 opacity-100 transform translate-y-0" 
                       : "max-h-0 opacity-0 transform -translate-y-2"
                   )}
                 >
-                  <div className="space-y-1 py-1">
+                  <div className="space-y-1 py-2">
                     {group.items.map((item) => {
                       const ItemIcon = item.icon;
                       const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
@@ -89,12 +95,12 @@ export function Sidebar() {
                         <Link key={item.href} href={item.href}>
                           <span 
                             className={cn(
-                              "nav-item cursor-pointer text-sm transition-all duration-300 ease-in-out",
+                              "nav-item cursor-pointer text-sm transition-all duration-300 ease-in-out px-3 py-2 rounded-md",
                               isActive ? "nav-item-active" : "nav-item-inactive"
                             )}
                             data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                           >
-                            <ItemIcon className="w-3.5 h-3.5 mr-2" />
+                            <ItemIcon className="w-4 h-4 mr-3" />
                             {item.title}
                             {item.badge && (
                               <StatusBadge
@@ -115,10 +121,10 @@ export function Sidebar() {
         </nav>
         
         {/* User Profile */}
-        <div className="flex-shrink-0 flex border-t border-border p-4">
+        <div className="flex-shrink-0 flex border-t border-border p-6">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center">
-              <User className="text-accent w-4 h-4" />
+            <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center">
+              <User className="text-accent w-5 h-5" />
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-text">admin_user</p>

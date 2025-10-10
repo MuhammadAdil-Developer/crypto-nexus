@@ -11,12 +11,14 @@ from .views import (
     delete_message,
     get_recent_messages,
     get_unread_count,
-    get_recent_activity
+    get_recent_activity,
+    get_all_conversations_admin
 )
 
 urlpatterns = [
     # Conversations
     path('conversations/', ConversationListCreateView.as_view(), name='conversation-list-create'),
+    path('conversations/admin/', get_all_conversations_admin, name='conversation-list-admin'),
     path('conversations/<uuid:pk>/', ConversationDetailView.as_view(), name='conversation-detail'),
     path('conversations/<uuid:conversation_id>/messages/', MessageListCreateView.as_view(), name='message-list-create'),
     

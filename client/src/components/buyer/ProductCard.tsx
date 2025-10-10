@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import ProductDetailModal from './ProductDetailModal';
 import PaymentModal from './PaymentModal';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/contexts/CartContext';
+import wishlistService from '@/services/wishlistService';
 
 interface Product {
   id: number;
@@ -48,9 +49,15 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'grid' }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const { toast } = useToast();
   const { addToCart, isInCart, removeFromCart } = useCart();
+
+  useEffect(() => {
+    checkWishlistStatus();
+  }, [product.id]);
 
   const formatPrice = (price: string) => {
     return parseFloat(price).toFixed(8);
@@ -101,17 +108,83 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   };
 
   const handleBuyNow = () => {
+    if (product.quantity_available <= 0) {
+      toast({
+        title: "Out of Stock",
+        message: "This product is currently out of stock and cannot be purchased",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsPaymentModalOpen(true);
   };
 
-  const handleAddToFavorites = () => {
-    toast({
-      title: "Added to Favorites",
-      message: "Product added to your favorites"
-    });
+  const checkWishlistStatus = async () => {
+    try {
+      const inWishlist = await wishlistService.isInWishlist(product.id);
+      setIsInWishlist(inWishlist);
+    } catch (error) {
+      console.error('Error checking wishlist status:', error);
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    setWishlistLoading(true);
+    try {
+      if (isInWishlist) {
+        // Remove from wishlist
+        const response = await wishlistService.removeFromWishlist(product.id);
+        if (response.success) {
+          setIsInWishlist(false);
+          toast({
+            title: "Removed from Wishlist",
+            message: "Product has been removed from your wishlist"
+          });
+        } else {
+          toast({
+            title: "Error",
+            message: response.message || "Failed to remove from wishlist",
+            variant: "destructive"
+          });
+        }
+      } else {
+        // Add to wishlist
+        const response = await wishlistService.addToWishlist(product.id);
+        if (response.success) {
+          setIsInWishlist(true);
+          toast({
+            title: "Added to Wishlist",
+            message: "Product has been added to your wishlist"
+          });
+        } else {
+          toast({
+            title: "Error",
+            message: response.message || "Failed to add to wishlist",
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+      toast({
+        title: "Error",
+        message: "Failed to update wishlist",
+        variant: "destructive"
+      });
+    } finally {
+      setWishlistLoading(false);
+    }
   };
 
   const handleAddToCart = () => {
+    if (product.quantity_available <= 0) {
+      toast({
+        title: "Out of Stock",
+        message: "This product is currently out of stock and cannot be added to cart",
+        variant: "destructive"
+      });
+      return;
+    }
     addToCart(product);
     toast({
       title: "Added to Cart",
@@ -180,6 +253,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               {/* Tags and Features */}
               <div className="mt-3 space-y-1">
                 <div className="flex gap-1">
+                  {/* Stock Status Badge */}
+                  {product.quantity_available > 0 ? (
+                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1.5 py-0.5">
+                      In Stock
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs px-1.5 py-0.5">
+                      Out of Stock
+                    </Badge>
+                  )}
+                  
                   {product.account_type && (
                     <Badge className={`${getAccountTypeColor(product.account_type)} text-xs px-1.5 py-0.5`}>
                       {product.account_type.replace('_', ' ').toUpperCase()}
@@ -217,14 +301,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                   <Eye className="w-4 h-4 mr-1" />
                   View
                 </Button>
+                
+                {/* Buy Now Button - Disabled if out of stock */}
                 <Button
                   onClick={handleBuyNow}
                   size="sm"
-                  className="bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white shadow-lg"
+                  disabled={product.quantity_available <= 0}
+                  className={`${
+                    product.quantity_available > 0 
+                      ? 'bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white shadow-lg' 
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }`}
                 >
                   <ShoppingCart className="w-4 h-4 mr-1" />
-                  Buy Now
+                  {product.quantity_available > 0 ? 'Buy Now' : 'Out of Stock'}
                 </Button>
+                
+                {/* Cart Button - Disabled if out of stock */}
                 {isInCart(product.id) ? (
                   <Button
                     onClick={handleRemoveFromCart}
@@ -238,19 +331,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                   <Button
                     onClick={handleAddToCart}
                     size="sm"
-                    className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg"
+                    disabled={product.quantity_available <= 0}
+                    className={`${
+                      product.quantity_available > 0 
+                        ? 'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg' 
+                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    }`}
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    Add
+                    {product.quantity_available > 0 ? 'Add' : 'Out of Stock'}
                   </Button>
                 )}
+                
                 <Button
-                  onClick={handleAddToFavorites}
+                  onClick={handleWishlistToggle}
                   variant="outline"
                   size="sm"
                   className="border-gray-600 text-gray-300 hover:bg-gray-700/50"
+                  disabled={wishlistLoading}
                 >
-                  <Heart className="w-4 h-4" />
+                  <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                 </Button>
               </div>
             </div>
@@ -279,6 +379,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           
           {/* Status Badges - Smaller */}
           <div className="absolute top-1 left-1 flex flex-col space-y-0.5">
+            {/* Stock Status Badge */}
+            {product.quantity_available > 0 ? (
+              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1 py-0.5">
+                In Stock
+              </Badge>
+            ) : (
+              <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs px-1 py-0.5">
+                Out of Stock
+              </Badge>
+            )}
+            
             {product.account_type && (
               <Badge className={`${getAccountTypeColor(product.account_type)} text-xs px-1 py-0.5`}>
                 {product.account_type.replace('_', ' ').toUpperCase()}
@@ -300,12 +411,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           {/* Quick Actions */}
           <div className="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <Button
-              onClick={handleAddToFavorites}
+              onClick={handleWishlistToggle}
               size="sm"
               variant="outline"
               className="h-6 w-6 p-0 bg-black/50 border-gray-500/50 text-white hover:bg-red-500/20 hover:border-red-500/50"
+              disabled={wishlistLoading}
             >
-              <Heart className="w-3 h-3" />
+              <Heart className={`w-3 h-3 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
             </Button>
           </div>
         </div>
@@ -364,14 +476,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <Eye className="w-3 h-3 mr-1" />
               View
             </Button>
+            
+            {/* Buy Button - Disabled if out of stock */}
             <Button
               onClick={handleBuyNow}
               size="sm"
-              className="flex-1 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white text-xs py-1 shadow-lg"
+              disabled={product.quantity_available <= 0}
+              className={`flex-1 text-xs py-1 shadow-lg ${
+                product.quantity_available > 0 
+                  ? 'bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white' 
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
             >
               <ShoppingCart className="w-3 h-3 mr-1" />
-              Buy
+              {product.quantity_available > 0 ? 'Buy' : 'Out of Stock'}
             </Button>
+            
+            {/* Cart Button - Disabled if out of stock */}
             {isInCart(product.id) ? (
               <Button
                 onClick={handleRemoveFromCart}
@@ -385,10 +506,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <Button
                 onClick={handleAddToCart}
                 size="sm"
-                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white text-xs py-1 shadow-lg"
+                disabled={product.quantity_available <= 0}
+                className={`flex-1 text-xs py-1 shadow-lg ${
+                  product.quantity_available > 0 
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white' 
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
               >
                 <Plus className="w-3 h-3 mr-1" />
-                Add
+                {product.quantity_available > 0 ? 'Add' : 'Out of Stock'}
               </Button>
             )}
           </div>

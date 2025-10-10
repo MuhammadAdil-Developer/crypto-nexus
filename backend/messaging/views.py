@@ -65,17 +65,28 @@ class MessageListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         conversation_id = self.kwargs.get('conversation_id')
-        return Message.objects.filter(
-            conversation_id=conversation_id,
-            conversation__participants=self.request.user
-        ).select_related('sender', 'recipient')
+        
+        # Check if user is admin - admins can access any conversation's messages
+        is_admin = hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'admin'
+        
+        if is_admin:
+            # Admin can access messages from any conversation
+            return Message.objects.filter(
+                conversation_id=conversation_id
+            ).select_related('sender', 'recipient')
+        else:
+            # Regular users can only access messages from conversations they're part of
+            return Message.objects.filter(
+                conversation_id=conversation_id,
+                conversation__participants=self.request.user
+            ).select_related('sender', 'recipient')
     
     def list(self, request, *args, **kwargs):
         # Mark messages as read when fetching
         queryset = self.get_queryset()
         queryset.filter(recipient=request.user).update(is_read=True)
         
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
         return Response(serializer.data)
     
     def create(self, request, *args, **kwargs):
@@ -91,7 +102,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
         )
         if serializer.is_valid():
             message = serializer.save()
-            response_serializer = MessageSerializer(message)
+            response_serializer = MessageSerializer(message, context={'request': request})
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -151,12 +162,23 @@ def get_conversation_by_product(request, product_id):
             status=status.HTTP_404_NOT_FOUND
         )
     
+    # Check if user is admin - admins can access any conversation
+    is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+    
     # Use Django ORM to find conversation
-    conversation = Conversation.objects.filter(
-        product_id=product.id,
-        participants=request.user,
-        is_active=True
-    ).first()
+    if is_admin:
+        # Admin can access any conversation for this product
+        conversation = Conversation.objects.filter(
+            product_id=product.id,
+            is_active=True
+        ).first()
+    else:
+        # Regular users can only access conversations they're part of
+        conversation = Conversation.objects.filter(
+            product_id=product.id,
+            participants=request.user,
+            is_active=True
+        ).first()
     
     if not conversation:
         return Response(
@@ -236,7 +258,7 @@ def edit_message(request, message_id):
         message.metadata['edited_at'] = timezone.now().isoformat()
         message.save()
         
-        serializer = MessageSerializer(message)
+        serializer = MessageSerializer(message, context={'request': request})
         return Response(serializer.data)
         
     except Message.DoesNotExist:
@@ -387,3 +409,30 @@ def get_time_ago(timestamp):
         return f"{minutes} min ago"
     else:
         return "Just now"
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_conversations_admin(request):
+    """Get all conversations for admin (admin only)"""
+    from shared.utils import is_admin_user
+    
+    if not is_admin_user(request.user):
+        return Response(
+            {'error': 'Admin access required'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get all active conversations with related data
+    conversations = Conversation.objects.filter(
+        is_active=True
+    ).prefetch_related(
+        'participants', 
+        'product', 
+        'last_message',
+        'messages'
+    ).order_by('-updated_at')
+    
+    # Serialize the conversations
+    serializer = ConversationSerializer(conversations, many=True, context={'request': request})
+    return Response(serializer.data)

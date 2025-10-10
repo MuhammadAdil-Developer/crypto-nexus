@@ -4,9 +4,13 @@ from . import views
 urlpatterns = [
     # Product listing and details
     path('', views.list_products, name='list_products'),
+    path('<int:product_id>/', views.product_detail, name='product_detail'),
     
     # Buyer listings
     path('buyer/listings/', views.buyer_listings, name='buyer_listings'),
+    
+    # Public vendor listings (must come before vendor/products to avoid conflicts)
+    path('vendor-public/<str:vendor_username>/', views.get_vendor_public_products, name='get_vendor_public_products'),
     
     # Vendor product management
     path('vendor/products/', views.vendor_products, name='vendor_products'),
@@ -29,6 +33,18 @@ urlpatterns = [
     
     # View tracking
     path('<int:product_id>/track-view/', views.track_product_view, name='track_product_view'),
+
+    # Reviews
+    path('<int:product_id>/reviews/', views.list_reviews, name='list_reviews'),
+    path('<int:product_id>/reviews/create/', views.create_review, name='create_review'),
+    path('<int:product_id>/reviews/modal/', views.get_product_reviews, name='get_product_reviews'),
+    path('reviews/vendor/', views.list_vendor_reviews, name='list_vendor_reviews'),
+    path('reviews/mine/', views.list_buyer_reviews, name='list_buyer_reviews'),
+    # UI-friendly simple review endpoints
+    path('vendor/products/<int:product_id>/reviews/', views.vendor_product_reviews_simple, name='vendor_product_reviews_simple'),
+    path('reviews/mine/simple/', views.buyer_reviews_simple, name='buyer_reviews_simple'),
+    path('<int:product_id>/reviews/summary/', views.product_reviews_summary, name='product_reviews_summary'),
+    path('reviews/summary/bulk/', views.products_reviews_summary_bulk, name='products_reviews_summary_bulk'),
     
     # Admin endpoints
     path('admin/all/', views.admin_list_all_products, name='admin_list_all_products'),

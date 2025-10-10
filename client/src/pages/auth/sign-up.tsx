@@ -74,8 +74,8 @@ export default function SignUp() {
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
     setCaptchaVerified(true);
-    // Proceed with registration after captcha verification
-    performRegistration();
+    // Proceed with registration after captcha verification, passing the token directly
+    performRegistration(token);
   };
 
   const handleCaptchaError = (error: string) => {
@@ -84,15 +84,28 @@ export default function SignUp() {
     setCaptchaToken(null);
   };
 
-  const performRegistration = async () => {
+  const performRegistration = async (token?: string) => {
     setIsLoading(true);
     setErrors({});
 
     try {
-      const response = await authService.register({
+      // Use the passed token or fall back to state
+      const finalToken = token || captchaToken;
+      
+      const registrationData = {
         ...formData,
-        captcha_token: captchaToken
-      } as any);
+        captcha_token: finalToken
+      };
+      
+      console.log('🔍 Registration data being sent:', {
+        username: registrationData.username,
+        password: '***',
+        confirm_password: '***',
+        captcha_token: registrationData.captcha_token,
+        passwords_match: registrationData.password === registrationData.confirm_password
+      });
+      
+      const response = await authService.register(registrationData as any);
       
       if (response.success) {
         // Redirect based on user type

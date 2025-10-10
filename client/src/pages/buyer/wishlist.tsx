@@ -1,59 +1,51 @@
-import { useState } from "react";
-import { Heart, Trash2, ShoppingCart, Share2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Heart, Trash2, ShoppingCart, Share2, Loader2, User, Star, Eye } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
-import { ProductCard } from "@/components/buyer/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import wishlistService, { WishlistItem, WishlistStats } from "@/services/wishlistService";
 
-const wishlistItems = [
-  {
-    id: 1,
-    title: "Netflix Premium Account (1 Year)",
-    vendor: "CryptoAccountsPlus",
-    price: "0.0012 BTC",
-    image: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400",
-    rating: 4.9,
-    inStock: true,
-    addedDate: "2024-01-10",
-    priceChange: "down"
-  },
-  {
-    id: 2,
-    title: "Adobe Creative Cloud (1 Year)",
-    vendor: "PremiumSoft",
-    price: "0.0034 BTC",
-    image: "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400", 
-    rating: 4.8,
-    inStock: false,
-    addedDate: "2024-01-08",
-    priceChange: "up"
-  },
-  {
-    id: 3,
-    title: "Spotify Premium (6 Months)",
-    vendor: "DigitalVault",
-    price: "0.0008 BTC", 
-    image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400",
-    rating: 4.7,
-    inStock: true,
-    addedDate: "2024-01-05",
-    priceChange: "same"
-  },
-  {
-    id: 4,
-    title: "Discord Nitro (1 Year)",
-    vendor: "GamersVault",
-    price: "0.0009 BTC",
-    image: "https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400",
-    rating: 4.6,
-    inStock: true,
-    addedDate: "2024-01-03",
-    priceChange: "down"
-  }
-];
+// Remove static data - we'll use dynamic data from API
 
 export default function BuyerWishlist() {
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
+  const [stats, setStats] = useState<WishlistStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [removingItems, setRemovingItems] = useState<number[]>([]);
+  const { toast } = useToast();
+
+  const fetchWishlistData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [wishlistResponse, statsResponse] = await Promise.all([
+        wishlistService.getWishlist(),
+        wishlistService.getWishlistStats()
+      ]);
+
+      if (wishlistResponse.success) {
+        setWishlistItems(wishlistResponse.data || []);
+      }
+
+      if (statsResponse.success) {
+        setStats(statsResponse.data || null);
+      }
+    } catch (error) {
+      console.error('Error fetching wishlist data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch wishlist data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchWishlistData();
+  }, [fetchWishlistData]);
 
   const toggleItemSelection = (itemId: number) => {
     setSelectedItems(prev => 
@@ -64,21 +56,46 @@ export default function BuyerWishlist() {
   };
 
   const selectAllItems = () => {
-    setSelectedItems(wishlistItems.map(item => item.id));
+    setSelectedItems(wishlistItems.map(item => parseInt(item.id)));
   };
 
   const clearSelection = () => {
     setSelectedItems([]);
   };
 
-  const removeSelectedItems = () => {
-    // Handle remove selected items
-    setSelectedItems([]);
+  const removeSelectedItems = async () => {
+    try {
+      setRemovingItems(selectedItems);
+      
+      const removePromises = selectedItems.map(itemId => 
+        wishlistService.removeFromWishlist(itemId)
+      );
+      
+      await Promise.all(removePromises);
+      
+      // Refresh wishlist data
+      await fetchWishlistData();
+      
+      setSelectedItems([]);
+      toast({
+        title: "Success",
+        description: "Selected items removed from wishlist",
+      });
+    } catch (error) {
+      console.error('Error removing items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove some items",
+        variant: "destructive"
+      });
+    } finally {
+      setRemovingItems([]);
+    }
   };
 
   return (
     <BuyerLayout>
-      <div className="space-y-6">
+      <div className="min-h-screen bg-gray-950 -m-6 p-6 space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center justify-between">
@@ -102,7 +119,7 @@ export default function BuyerWishlist() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400 mb-1">Total Items</p>
-                <p className="text-2xl font-bold text-white">{wishlistItems.length}</p>
+                <p className="text-2xl font-bold text-white">{stats?.total_items || wishlistItems.length}</p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
                 <Heart className="w-6 h-6 text-white" />
@@ -115,7 +132,7 @@ export default function BuyerWishlist() {
               <div>
                 <p className="text-sm text-gray-400 mb-1">In Stock</p>
                 <p className="text-2xl font-bold text-white">
-                  {wishlistItems.filter(item => item.inStock).length}
+                  {stats?.in_stock_items || wishlistItems.filter(item => item.product_data?.quantity_available > 0).length}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
@@ -129,7 +146,7 @@ export default function BuyerWishlist() {
               <div>
                 <p className="text-sm text-gray-400 mb-1">Price Drops</p>
                 <p className="text-2xl font-bold text-white">
-                  {wishlistItems.filter(item => item.priceChange === "down").length}
+                  {stats?.price_drops || 0}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
@@ -142,7 +159,9 @@ export default function BuyerWishlist() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400 mb-1">Total Value</p>
-                <p className="text-2xl font-bold text-white">0.0063 BTC</p>
+                <p className="text-2xl font-bold text-white">
+                  {stats?.total_value ? `${stats.total_value.toFixed(8)} BTC` : '0.00000000 BTC'}
+                </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">₿</span>
@@ -189,48 +208,128 @@ export default function BuyerWishlist() {
         </div>
 
         {/* Wishlist Items */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {wishlistItems.map((item) => (
-            <div key={item.id} className="relative">
-              {/* Selection Checkbox */}
-              <div className="absolute top-3 left-3 z-10">
-                <input
-                  type="checkbox"
-                  checked={selectedItems.includes(item.id)}
-                  onChange={() => toggleItemSelection(item.id)}
-                  className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Price Change Indicator */}
-              {item.priceChange !== "same" && (
-                <div className="absolute top-3 right-3 z-10">
-                  <Badge 
-                    className={`text-xs ${
-                      item.priceChange === "down" 
-                        ? "bg-green-100 text-green-800" 
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {item.priceChange === "down" ? "↓ Price Drop" : "↑ Price Up"}
-                  </Badge>
-                </div>
-              )}
-
-              <ProductCard product={item} />
-
-              {/* Added Date */}
-              <div className="mt-2 text-center">
-                <p className="text-xs text-gray-400">
-                  Added on {new Date(item.addedDate).toLocaleDateString()}
-                </p>
-              </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-4" />
+              <p className="text-gray-400">Loading your wishlist...</p>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {wishlistItems.map((item) => (
+              <div key={item.id} className="relative">
+                {/* Selection Checkbox */}
+                <div className="absolute top-3 left-3 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.includes(parseInt(item.id))}
+                    onChange={() => toggleItemSelection(parseInt(item.id))}
+                    className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Loading indicator for removing items */}
+                {removingItems.includes(parseInt(item.id)) && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20 rounded-lg">
+                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                  </div>
+                )}
+
+                <div className="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
+                  <div className="relative">
+                    {item.product_data?.main_image ? (
+                      <img
+                        src={item.product_data.main_image}
+                        alt={item.product_data?.headline || 'Product'}
+                        className="w-full h-48 object-cover"
+                        onError={(e) => {
+                          // Hide the broken image and show default icon instead
+                          e.currentTarget.style.display = 'none';
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-48 bg-gray-800 flex items-center justify-center">
+                                <span class="text-gray-400 text-4xl">📦</span>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gray-800 flex items-center justify-center">
+                        <span className="text-gray-400 text-4xl">📦</span>
+                      </div>
+                    )}
+                    
+                    {/* Price Badge */}
+                    <div className="absolute top-3 right-3">
+                      <Badge className="bg-black/70 text-white border-gray-500">
+                        {parseFloat(item.product_data?.price || '0').toFixed(8)} BTC
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4">
+                    <h3 className="text-white font-semibold mb-2 line-clamp-2">
+                      {item.product_data?.headline || item.product_data?.listing_title || 'Unknown Product'}
+                    </h3>
+                    
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-300 text-sm">{item.vendor_username}</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <span className="text-gray-300 text-sm">4.5</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {item.product_data?.quantity_available > 0 ? (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            In Stock
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                            Out of Stock
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                        onClick={() => {
+                          // Navigate to product detail page
+                          const productId = item.product_data?.id || item.product;
+                          window.location.href = `/buyer/product/${productId}`;
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Added Date */}
+                <div className="mt-2 text-center">
+                  <p className="text-xs text-gray-400">
+                    Added on {item.added_at ? new Date(item.added_at).toLocaleDateString() : 'Unknown Date'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Empty State */}
-        {wishlistItems.length === 0 && (
+        {!loading && wishlistItems.length === 0 && (
           <div className="bg-gray-900 rounded-xl p-12 border border-gray-700 text-center">
             <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">

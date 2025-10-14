@@ -21,13 +21,13 @@ export function ProtectedRoute({
       try {
         // Check if user is authenticated
         if (!authService.isAuthenticated()) {
-          navigate('/auth/sign-in');
+          navigate('/sign-in');
           return;
         }
 
         const user = authService.getCurrentUser();
         if (!user) {
-          navigate('/auth/sign-in');
+          navigate('/sign-in');
           return;
         }
 
@@ -60,7 +60,7 @@ export function ProtectedRoute({
         }
       } catch (error) {
         console.error('Error checking access:', error);
-        navigate('/auth/sign-in');
+        navigate('/sign-in');
       } finally {
         setIsLoading(false);
       }

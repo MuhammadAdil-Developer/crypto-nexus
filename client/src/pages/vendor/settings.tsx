@@ -105,6 +105,21 @@ export default function VendorSettings() {
           business_name: response.data.data.business_name || ""
         });
       }
+
+      // Fetch vendor application data for BTC/XMR addresses
+      try {
+        const vendorResponse = await api.get(`/vendors/applications/check/${response.data.data.username}/`);
+        if (vendorResponse.data && vendorResponse.data.success && vendorResponse.data.data.has_application) {
+          setPayment(prev => ({
+            ...prev,
+            btc_address: vendorResponse.data.data.btc_address || "",
+            xmr_address: vendorResponse.data.data.xmr_address || ""
+          }));
+        }
+      } catch (vendorError) {
+        console.warn('Could not fetch vendor application data:', vendorError);
+        // Don't show error for this, just use empty addresses
+      }
     } catch (error) {
       console.error('Error fetching vendor data:', error);
       toast({
@@ -129,12 +144,17 @@ export default function VendorSettings() {
         category: profile.category,
         website: profile.website,
         location: profile.location,
-        business_name: profile.business_name
+        business_name: profile.business_name,
+        // Include payment addresses for vendor applications
+        btc_address: payment.btc_address,
+        xmr_address: payment.xmr_address
       });
 
       toast({
         title: "Success",
-        description: "Settings updated successfully"
+        description: "Settings updated successfully" + 
+          (payment.btc_address || payment.xmr_address ? 
+            " (including payment addresses)" : "")
       });
     } catch (error: any) {
       console.error('Error saving settings:', error);

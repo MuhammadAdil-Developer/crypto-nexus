@@ -62,8 +62,8 @@ class OrderSerializer(serializers.ModelSerializer):
         return dict(PaymentStatus.__members__).get(obj.payment_status, obj.payment_status)
     
     def get_product_credentials(self, obj):
-        """Get product credentials only for paid orders"""
-        if obj.order_status == 'paid' and obj.product_credentials:
+        """Get product credentials for paid, confirmed, and delivered orders"""
+        if obj.product_credentials and (obj.order_status == 'paid' or obj.order_status == 'confirmed' or obj.order_status == 'completed'):
             return obj.product_credentials
         return None
 
@@ -74,7 +74,7 @@ class CreateOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'product', 'quantity', 'crypto_currency', 'use_escrow'
+            'product', 'quantity', 'crypto_currency'
         ]
     
     def validate(self, data):

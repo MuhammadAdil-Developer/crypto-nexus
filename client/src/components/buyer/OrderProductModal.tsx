@@ -387,8 +387,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               </div>
             </div>
 
-            {/* Credentials Section - Only for paid orders */}
-            {(order.payment_status === 'paid' || order.order_status === 'paid') && order.product_credentials && Object.keys(order.product_credentials).length > 0 && (
+            {/* Credentials Section - For paid, confirmed, and delivered orders */}
+            {(order.payment_status === 'paid' || order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && order.product_credentials && Object.keys(order.product_credentials).length > 0 && (
               <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white flex items-center">

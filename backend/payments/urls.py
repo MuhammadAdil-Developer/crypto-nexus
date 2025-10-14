@@ -7,7 +7,15 @@ from .views import (
     MoneroWebhookView,
     SupportedCurrenciesView,
     AdminEscrowView,
-    PaymentAnalyticsView
+    PaymentAnalyticsView,
+    AdminPayoutView,
+    PayoutStatsView,
+    CreateEscrowPayoutView,
+    VendorPayoutsView,
+    TransactionHistoryView,
+    BuyerTransactionHistoryView,
+    VendorTransactionHistoryView,
+    DirectPaymentMonitorView
 )
 
 urlpatterns = [
@@ -31,4 +39,18 @@ urlpatterns = [
     path('admin/escrows/', AdminEscrowView.as_view(), name='admin_escrows'),
     path('admin/escrows/<int:escrow_id>/', AdminEscrowView.as_view(), name='admin_escrow_action'),
     path('admin/analytics/', PaymentAnalyticsView.as_view(), name='payment_analytics'),
+    path('admin/payouts/', AdminPayoutView.as_view(), name='admin_payouts'),
+    path('admin/payouts/stats/', PayoutStatsView.as_view(), name='payout_stats'),
+    path('admin/payouts/create-escrow/', CreateEscrowPayoutView.as_view(), name='create_escrow_payout'),
+    
+    # Vendor endpoints
+    path('vendor/payouts/', VendorPayoutsView.as_view(), name='vendor_payouts'),
+    
+    # Transaction history
+    path('admin/transaction-history/', TransactionHistoryView.as_view(), name='transaction_history'),
+    path('buyer/transaction-history/', BuyerTransactionHistoryView.as_view(), name='buyer_transaction_history'),
+    path('vendor/transaction-history/', VendorTransactionHistoryView.as_view(), name='vendor_transaction_history'),
+    
+    # Direct payment monitoring
+    path('admin/direct-payment-monitor/', DirectPaymentMonitorView.as_view(), name='direct_payment_monitor'),
 ] 

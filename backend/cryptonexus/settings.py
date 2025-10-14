@@ -285,16 +285,20 @@ os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True)
 
 # Payment System Configuration - REAL INTEGRATION
 # BTCPay Server (Real Bitcoin)
-BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://94.130.201.44:23000')
-BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'AKwDcGXvXRfKkVD3uTD7cK2Yv3jbnidDhwihfxBGyUN3')  # Correct Store ID from BTCPay dashboard
-BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', '3022e72fdddc7106a5bb2c3da83bbdc9a75e68f3')    # Working Greenfield API key
-BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', 'cryptonexus_webhook_secret_2024')
+BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://88.99.143.151:23000')
+BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'C7x377KvvYorCvnjtXAzbrtQY7Jj8a4Ly4ZZ3BRdUXkp')  # Correct Store ID from BTCPay dashboard
+BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', '74bf19502aeed4a1da5669182d015d2b269cc2bb')    # Working Greenfield API key
+BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '3CZB3qpXXhoDWqVxg5KjypRPf1ui')
 
 # Monero RPC (Real Monero)
-MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://localhost:18082/json_rpc')
-MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', '')
-MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'cryptonexus123')
-MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'cryptonexus123')
+MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://88.99.143.151:28083/json_rpc')
+MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', 'monerouser')
+MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'moneropass123')
+MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'testwallet')
+
+# Admin Wallet Addresses (for direct payments)
+ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'tb1quyfk5rtvttyzmz7k9eepdlkmg9uxh8n48kch9c')
+ADMIN_XMR_ADDRESS = os.environ.get('ADMIN_XMR_ADDRESS', '4AdUndXHHZ6cFd8VZJ3x4L9eDz3r7gHhKkLmNnPpQqRrSsTtUuVvWwXxYyZz')
 
 # Bitcoin Core RPC (for direct Bitcoin operations)
 BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://localhost:18332')

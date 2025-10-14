@@ -81,6 +81,8 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
   const [isApproving, setIsApproving] = useState<string | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewProductId, setReviewProductId] = useState<number | null>(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [orderToConfirm, setOrderToConfirm] = useState<Order | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
@@ -111,6 +113,11 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
 
   const handleCreateDispute = (order: Order) => {
     navigate(`/buyer/create-dispute?orderId=${order.id}`);
+  };
+
+  const handleApproveOrderClick = (order: Order) => {
+    setOrderToConfirm(order);
+    setConfirmModalOpen(true);
   };
 
   const handleApproveOrder = async (order: Order) => {
@@ -152,6 +159,14 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
     } finally {
       setIsApproving(null);
     }
+  };
+
+  const confirmOrderApproval = async () => {
+    if (!orderToConfirm) return;
+    
+    await handleApproveOrder(orderToConfirm);
+    setConfirmModalOpen(false);
+    setOrderToConfirm(null);
   };
 
   return (
@@ -210,8 +225,9 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                           {order.vendor.username} • {formattedDate}
                         </p>
                         
-                        {/* Credentials Display - Only for paid orders */}
-                        {order.product_credentials && Object.keys(order.product_credentials).length > 0 && order.order_status === 'paid' && (
+                        {/* Credentials Display - For paid, confirmed, and delivered orders */}
+                        {order.product_credentials && Object.keys(order.product_credentials).length > 0 && 
+                         (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered' || order.order_status === 'completed') && (
                           <div className="mt-2">
                             <button 
                               onClick={() => {
@@ -468,7 +484,7 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                                 <span className="text-xs font-medium text-green-300">Escrow Active</span>
                               </div>
                               <Button
-                                onClick={() => handleApproveOrder(order)}
+                                onClick={() => handleApproveOrderClick(order)}
                                 disabled={isApproving === order.order_id}
                                 className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-6"
                               >
@@ -577,6 +593,79 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
             });
           }}
         />
+      )}
+
+      {/* Order Confirmation Modal */}
+      {confirmModalOpen && orderToConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Confirm Order Approval</h3>
+                <p className="text-sm text-gray-400">Release escrow payment to vendor</p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
+                <span className="text-yellow-300 font-semibold text-sm">⚠️ Important</span>
+              </div>
+              <p className="text-yellow-200 text-sm">
+                This action will send real cryptocurrency from the admin wallet to the vendor's wallet.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Vendor:</span>
+                <span className="text-white font-semibold">{orderToConfirm.product?.vendor?.username}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Order ID:</span>
+                <span className="text-white font-mono">{orderToConfirm.order_id}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Product:</span>
+                <span className="text-white">{orderToConfirm.product?.headline}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Amount:</span>
+                <span className="text-green-400 font-bold">
+                  {orderToConfirm.total_amount} {orderToConfirm.crypto_currency}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button 
+                variant="outline"
+                onClick={() => setConfirmModalOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                onClick={confirmOrderApproval}
+                disabled={isApproving === orderToConfirm.order_id}
+              >
+                {isApproving === orderToConfirm.order_id ? (
+                  <Clock className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                )}
+                Confirm Release
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

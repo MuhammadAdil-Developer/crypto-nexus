@@ -10,6 +10,7 @@ import BuyerMyReviews from "./my-reviews";
 import BuyerMyDisputes from "./my-disputes";
 import CreateDispute from "./create-dispute";
 import ProductDetailPage from "./product-detail";
+import BuyerTransactionHistory from "./transaction-history";
 
 export default function BuyerDashboard() {
   return (
@@ -27,6 +28,7 @@ export default function BuyerDashboard() {
       <Route path="my-disputes" element={<BuyerMyDisputes />} />
       <Route path="create-dispute" element={<CreateDispute />} />
       <Route path="product/:id" element={<ProductDetailPage />} />
+      <Route path="transaction-history" element={<BuyerTransactionHistory />} />
     </Routes>
   );
 }

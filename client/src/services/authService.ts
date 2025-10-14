@@ -27,15 +27,54 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('userId');
-      window.location.href = '/sign-in';
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      console.log('🔐 401 Unauthorized - attempting token refresh');
+      
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          console.log('🔐 Refreshing token...');
+          const response = await api.post('/auth/refresh/', {
+            refresh: refreshToken
+          });
+          
+          if (response.data.success) {
+            const { access, refresh } = response.data.data.tokens;
+            localStorage.setItem('accessToken', access);
+            localStorage.setItem('refreshToken', refresh);
+            
+            console.log('🔐 Token refreshed successfully');
+            
+            // Retry the original request with new token
+            originalRequest.headers.Authorization = `Bearer ${access}`;
+            return api(originalRequest);
+          }
+        }
+      } catch (refreshError) {
+        console.log('🔐 Token refresh failed');
+        // Relaxed behavior: clear tokens, do NOT force redirect; let caller handle UX
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userId');
+        return Promise.reject(refreshError);
+      }
     }
+    
+    // Log other errors for debugging
+    if (error.response?.status === 401) {
+      console.log('🔐 401 Error - Token might be invalid:', {
+        url: originalRequest.url,
+        hasToken: !!localStorage.getItem('accessToken'),
+        tokenPreview: localStorage.getItem('accessToken')?.substring(0, 20) + '...'
+      });
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -161,28 +200,46 @@ class AuthService {
 
   // Check if user is authenticated
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
+    const user = localStorage.getItem('user');
+    return !!(token && user);
   }
 
-  // Get auth token
-  getToken(): string | null {
+  // Get access token
+  getAccessToken(): string | null {
     return localStorage.getItem('accessToken');
   }
 
-  // Refresh token
+  // Validate token (check if it's expired)
+  isTokenValid(): boolean {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return false;
+
+    try {
+      // Decode JWT token to check expiration
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      return payload.exp > currentTime;
+    } catch (error) {
+      console.error('Error validating token:', error);
+      return false;
+    }
+  }
+
+  // Refresh token manually (single implementation)
   async refreshToken(): Promise<boolean> {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        return false;
-      }
+      if (!refreshToken) return false;
 
-      const response = await api.post<ApiResponse<{ access: string }>>('/auth/refresh/', {
+      const response = await api.post('/auth/refresh/', {
         refresh: refreshToken
       });
 
       if (response.data.success) {
-        localStorage.setItem('accessToken', response.data.data.access);
+        const { access, refresh } = response.data.data.tokens ?? response.data.data ?? {};
+        if (access) localStorage.setItem('accessToken', access);
+        if (refresh) localStorage.setItem('refreshToken', refresh);
         return true;
       }
       return false;
@@ -191,6 +248,14 @@ class AuthService {
       return false;
     }
   }
+
+
+  // Get auth token
+  getToken(): string | null {
+    return localStorage.getItem('accessToken');
+  }
+
+  // (removed duplicate refreshToken implementation)
 
   // Update user profile
   async updateProfile(profileData: Partial<User>): Promise<ApiResponse<User>> {

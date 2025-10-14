@@ -34,9 +34,10 @@ import {
   Bitcoin,
   Wallet
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/services/authService";
 import wishlistService from "@/services/wishlistService";
 import { Label } from "@/components/ui/label";
 import { orderService } from "@/services/orderService";
@@ -144,6 +145,7 @@ function BuyerHomeContent() {
   
   // Get messaging data from context
   const { unreadCount, isLoading: isLoadingMessages } = useMessaging();
+
 
   // Enhanced smooth auto-slide effect - only when not hovered
   useEffect(() => {
@@ -878,7 +880,8 @@ function BuyerHomeContent() {
                               <span>•</span>
                               <span>{order.created_at || order.orderDate ? new Date(order.created_at || order.orderDate!).toLocaleDateString() : ""}</span>
                             </div>
-                            {order.product_credentials && Object.keys(order.product_credentials).length > 0 && order.order_status === 'paid' && (
+                            {order.product_credentials && Object.keys(order.product_credentials).length > 0 && 
+                             (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && (
                               <div className="mt-2">
                                 <button 
                                   onClick={() => {
@@ -1027,6 +1030,7 @@ function BuyerHomeContent() {
               )}
             </div>
           </section>
+
 
           {/* Review Modal */}
           {isReviewOpen && (
@@ -1182,7 +1186,7 @@ function BuyerHomeContent() {
                 Quick Actions
               </h2>
               <div className="space-y-4">
-                <Link href="/buyer/orders">
+                <Link to="/buyer/orders">
                   <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-4">
@@ -1198,7 +1202,7 @@ function BuyerHomeContent() {
                   </Card>
                 </Link>
                 
-                <Link href="/buyer/messages">
+                <Link to="/buyer/messages">
                   <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-4">
@@ -1214,7 +1218,23 @@ function BuyerHomeContent() {
                   </Card>
                 </Link>
                 
-                <Link href="/buyer/support">
+                <Link to="/buyer/transaction-history">
+                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
+                    <CardContent className="p-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                          <Bitcoin className="w-6 h-6 text-orange-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-white">Transaction History</h3>
+                          <p className="text-sm text-gray-400">View all payments</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+                
+                <Link to="/buyer/support">
                   <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-4">

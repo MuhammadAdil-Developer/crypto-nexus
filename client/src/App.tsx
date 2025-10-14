@@ -40,7 +40,7 @@ function RouteDebugger() {
 }
 
 function App() {
-  console.log('🚀 App component rendering with React Router...'); // Debug log
+  console.log('🚀 App component rendering with React Router...');
   
   return (
     <ToastProvider>

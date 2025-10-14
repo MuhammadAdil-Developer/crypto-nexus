@@ -365,7 +365,9 @@ def check_application_status(request, username):
                     'has_application': True,
                     'status': application.status,
                     'application_id': application.id,
-                    'created_at': application.created_at
+                    'created_at': application.created_at,
+                    'btc_address': application.btc_address,
+                    'xmr_address': application.xmr_address
                 }
             }, status=status.HTTP_200_OK)
         except VendorApplication.DoesNotExist:
@@ -374,7 +376,9 @@ def check_application_status(request, username):
                 'message': 'No application found',
                 'data': {
                     'has_application': False,
-                    'status': None
+                    'status': None,
+                    'btc_address': '',
+                    'xmr_address': ''
                 }
             }, status=status.HTTP_200_OK)
             

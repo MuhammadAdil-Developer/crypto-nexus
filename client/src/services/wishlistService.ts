@@ -39,14 +39,34 @@ export interface WishlistNotification {
 }
 
 class WishlistService {
-  // Get user's wishlist
-  async getWishlist(): Promise<{ success: boolean; data?: WishlistItem[]; message?: string }> {
+  private wishlistCache: { data: WishlistItem[]; timestamp: number } | null = null;
+  private readonly CACHE_DURATION = 30000; // 30 seconds cache
+
+  // Get user's wishlist with caching
+  async getWishlist(forceRefresh: boolean = false): Promise<{ success: boolean; data?: WishlistItem[]; message?: string }> {
     try {
+      // Check cache first
+      if (!forceRefresh && this.wishlistCache && 
+          (Date.now() - this.wishlistCache.timestamp) < this.CACHE_DURATION) {
+        return {
+          success: true,
+          data: this.wishlistCache.data
+        };
+      }
+
       // console.log('🔍 Fetching wishlist');
       
       const response = await api.get('/wishlist/');
       
       // console.log('🔍 Get wishlist response:', response);
+      
+      // Update cache
+      if (response.data.success && response.data.data) {
+        this.wishlistCache = {
+          data: response.data.data,
+          timestamp: Date.now()
+        };
+      }
       
       return response.data;
     } catch (error: any) {
@@ -72,6 +92,11 @@ class WishlistService {
       
       console.log('🔍 Add to wishlist response:', response);
       
+      // Invalidate cache after successful add
+      if (response.data.success) {
+        this.wishlistCache = null;
+      }
+      
       return response.data;
     } catch (error: any) {
       console.error('❌ Add to wishlist error:', error);
@@ -95,6 +120,11 @@ class WishlistService {
       const response = await api.delete('/wishlist/', { data: { product_id: productId } });
       
       console.log('🔍 Remove from wishlist response:', response);
+      
+      // Invalidate cache after successful remove
+      if (response.data.success) {
+        this.wishlistCache = null;
+      }
       
       return response.data;
     } catch (error: any) {

@@ -57,7 +57,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   useEffect(() => {
     checkWishlistStatus();
-  }, [product.id]);
+  }, [product.id]); // Only run when product.id changes
 
   const formatPrice = (price: string) => {
     return parseFloat(price).toFixed(8);
@@ -120,11 +120,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   };
 
   const checkWishlistStatus = async () => {
+    if (wishlistLoading) return; // Prevent multiple simultaneous calls
+    
     try {
+      setWishlistLoading(true);
       const inWishlist = await wishlistService.isInWishlist(product.id);
       setIsInWishlist(inWishlist);
     } catch (error) {
       console.error('Error checking wishlist status:', error);
+    } finally {
+      setWishlistLoading(false);
     }
   };
 

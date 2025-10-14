@@ -37,6 +37,40 @@ def update_profile(request):
         
         if serializer.is_valid():
             serializer.save()
+            
+            # If user is a vendor and has BTC/XMR addresses in the request, update VendorApplication
+            if user.user_type == 'vendor':
+                btc_address = request.data.get('btc_address')
+                xmr_address = request.data.get('xmr_address')
+                
+                if btc_address or xmr_address:
+                    try:
+                        from vendors.models import VendorApplication
+                        
+                        # Get or create vendor application
+                        vendor_app, created = VendorApplication.objects.get_or_create(
+                            vendor_username=user.username,
+                            defaults={
+                                'business_name': user.username,
+                                'vendor_username': user.username,
+                                'status': 'approved'  # Assume approved if updating settings
+                            }
+                        )
+                        
+                        # Update addresses if provided
+                        if btc_address:
+                            vendor_app.btc_address = btc_address
+                        if xmr_address:
+                            vendor_app.xmr_address = xmr_address
+                        
+                        vendor_app.save()
+                        
+                    except Exception as e:
+                        # Log error but don't fail the profile update
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Failed to update vendor application for {user.username}: {str(e)}")
+            
             return create_success_response(serializer.data, "Profile updated successfully")
         else:
             return create_error_response("Invalid data", serializer.errors)

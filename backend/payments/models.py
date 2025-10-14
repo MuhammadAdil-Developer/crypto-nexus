@@ -117,6 +117,112 @@ class EscrowPayment(BaseModel):
         return f"Escrow {self.payment_address.order_id} - {self.status}"
 
 
+class Payout(BaseModel):
+    """Model for tracking vendor payouts"""
+    
+    PAYOUT_TYPES = [
+        ('escrow', 'Escrow Release'),
+        ('direct', 'Direct Payment'),
+    ]
+    
+    PAYOUT_STATUS = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    order = models.ForeignKey('orders.Order', on_delete=models.CASCADE, related_name='payouts')
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='payouts')
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_payouts')
+    
+    payout_type = models.CharField(max_length=10, choices=PAYOUT_TYPES)
+    crypto_currency = models.ForeignKey('shared.CryptoCurrency', on_delete=models.CASCADE)
+    
+    # Amount details
+    gross_amount = models.DecimalField(max_digits=20, decimal_places=8)  # Total amount before fees
+    net_amount = models.DecimalField(max_digits=20, decimal_places=8)    # Amount to vendor after fees
+    platform_fee = models.DecimalField(max_digits=20, decimal_places=8)  # Our commission
+    escrow_fee = models.DecimalField(max_digits=20, decimal_places=8, default=0)  # Escrow fee if applicable
+    
+    # Payment details
+    vendor_address = models.CharField(max_length=255)  # Vendor's wallet address
+    transaction_hash = models.CharField(max_length=255, blank=True, null=True)
+    
+    status = models.CharField(max_length=20, choices=PAYOUT_STATUS, default='pending')
+    
+    # Timestamps
+    requested_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Admin actions
+    processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_payouts')
+    admin_notes = models.TextField(blank=True)
+    
+    # Auto-release for escrow
+    auto_release_enabled = models.BooleanField(default=True)
+    auto_release_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        db_table = 'payouts'
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['payout_type']),
+            models.Index(fields=['auto_release_at']),
+            models.Index(fields=['vendor', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"Payout {self.order.order_id} - {self.net_amount} {self.crypto_currency.symbol}"
+
+
+class DirectPayment(BaseModel):
+    """Model for tracking direct payments to vendor addresses"""
+    
+    PAYMENT_STATUS = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('failed', 'Failed'),
+        ('expired', 'Expired'),
+    ]
+    
+    order = models.OneToOneField('orders.Order', on_delete=models.CASCADE, related_name='direct_payment')
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='direct_payments')
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_direct_payments')
+    
+    crypto_currency = models.ForeignKey('shared.CryptoCurrency', on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=20, decimal_places=8)
+    
+    # Fee tracking
+    platform_fee = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    escrow_fee = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    net_amount = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    
+    vendor_address = models.CharField(max_length=255)  # Vendor's wallet address
+    transaction_hash = models.CharField(max_length=255, blank=True, null=True)
+    confirmations = models.IntegerField(default=0)
+    
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='pending')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    confirmed_at = models.DateTimeField(blank=True, null=True)
+    expires_at = models.DateTimeField()  # Payment expiration time
+    
+    class Meta:
+        db_table = 'direct_payments'
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['expires_at']),
+            models.Index(fields=['vendor_address']),
+        ]
+    
+    def __str__(self):
+        return f"Direct Payment {self.order.order_id} - {self.amount} {self.crypto_currency.symbol}"
+
+
 class PaymentWebhook(BaseModel):
     """Model for storing payment webhooks from BTCPay/Monero"""
     

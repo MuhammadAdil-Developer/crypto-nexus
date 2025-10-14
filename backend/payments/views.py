@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse
@@ -10,9 +10,10 @@ import json
 import logging
 from django.utils import timezone
 
-from .services import PaymentService, EscrowService
+from .services import PaymentService, EscrowService, PayoutService
 from .mock_services import get_payment_service
-from .models import PaymentAddress, EscrowPayment
+from .models import PaymentAddress, EscrowPayment, Payout, DirectPayment
+from .direct_payment_monitor import direct_payment_monitor
 from shared.models import CryptoCurrency
 
 logger = logging.getLogger(__name__)
@@ -260,6 +261,15 @@ class BTCPayWebhookView(APIView):
     authentication_classes = []
     permission_classes = []
     
+    def get(self, request):
+        """Handle GET requests (webhook testing from BTCPay)"""
+        logger.info("BTCPay webhook endpoint reached via GET request (webhook test)")
+        return Response({
+            'status': 'ok',
+            'message': 'BTCPay webhook endpoint is working',
+            'timestamp': timezone.now().isoformat()
+        })
+    
     def post(self, request):
         try:
             # Get webhook signature
@@ -463,3 +473,702 @@ class PaymentAnalyticsView(APIView):
                 {'error': 'Failed to fetch analytics'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             ) 
+
+
+class AdminPayoutView(APIView):
+    """Admin API for managing payouts"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get all payouts with filtering"""
+        try:
+            from .models import Payout, DirectPayment
+            
+            # Get query parameters
+            payout_type = request.query_params.get('type', 'all')  # escrow, direct, all
+            status_filter = request.query_params.get('status', 'all')
+            search = request.query_params.get('search', '')
+            
+            # Build queryset
+            if payout_type == 'escrow':
+                queryset = Payout.objects.select_related(
+                    'order', 'vendor', 'buyer', 'crypto_currency'
+                ).filter(payout_type='escrow')
+            elif payout_type == 'direct':
+                queryset = DirectPayment.objects.select_related(
+                    'order', 'vendor', 'buyer', 'crypto_currency'
+                )
+            else:
+                # Get both types
+                payouts = Payout.objects.select_related(
+                    'order', 'vendor', 'buyer', 'crypto_currency'
+                )
+                direct_payments = DirectPayment.objects.select_related(
+                    'order', 'vendor', 'buyer', 'crypto_currency'
+                )
+                
+                # Combine and format data
+                payout_data = []
+                
+                for payout in payouts:
+                    payout_data.append({
+                        'id': payout.id,
+                        'type': 'escrow',
+                        'order_id': payout.order.order_id,
+                        'vendor_name': payout.vendor.username,
+                        'buyer_name': payout.buyer.username,
+                        'crypto_currency': payout.crypto_currency.symbol,
+                        'amount': str(payout.net_amount),
+                        'gross_amount': str(payout.gross_amount),
+                        'platform_fee': str(payout.platform_fee),
+                        'escrow_fee': str(payout.escrow_fee),
+                        'vendor_address': payout.vendor_address,
+                        'transaction_hash': payout.transaction_hash,
+                        'status': payout.status,
+                        'requested_at': payout.requested_at,
+                        'processed_at': payout.processed_at,
+                        'completed_at': payout.completed_at,
+                        'auto_release_at': payout.auto_release_at,
+                    })
+                
+                for direct in direct_payments:
+                    payout_data.append({
+                        'id': direct.id,
+                        'type': 'direct',
+                        'order_id': direct.order.order_id,
+                        'vendor_name': direct.vendor.username,
+                        'buyer_name': direct.buyer.username,
+                        'crypto_currency': direct.crypto_currency.symbol,
+                        'amount': str(direct.amount),
+                        'vendor_address': direct.vendor_address,
+                        'transaction_hash': direct.transaction_hash,
+                        'status': direct.status,
+                        'created_at': direct.created_at,
+                        'confirmed_at': direct.confirmed_at,
+                        'expires_at': direct.expires_at,
+                    })
+                
+                return Response({
+                    'success': True,
+                    'data': payout_data
+                })
+            
+            # Apply status filter
+            if status_filter != 'all':
+                if payout_type == 'escrow':
+                    queryset = queryset.filter(status=status_filter)
+                else:
+                    queryset = queryset.filter(status=status_filter)
+            
+            # Apply search filter
+            if search:
+                if payout_type == 'escrow':
+                    queryset = queryset.filter(
+                        Q(vendor__username__icontains=search) |
+                        Q(order__order_id__icontains=search)
+                    )
+                else:
+                    queryset = queryset.filter(
+                        Q(vendor__username__icontains=search) |
+                        Q(order__order_id__icontains=search)
+                    )
+            
+            # Format data based on type
+            if payout_type == 'escrow':
+                data = []
+                for payout in queryset:
+                    data.append({
+                        'id': payout.id,
+                        'type': 'escrow',
+                        'order_id': payout.order.order_id,
+                        'vendor_name': payout.vendor.username,
+                        'buyer_name': payout.buyer.username,
+                        'crypto_currency': payout.crypto_currency.symbol,
+                        'amount': str(payout.net_amount),
+                        'gross_amount': str(payout.gross_amount),
+                        'platform_fee': str(payout.platform_fee),
+                        'escrow_fee': str(payout.escrow_fee),
+                        'vendor_address': payout.vendor_address,
+                        'transaction_hash': payout.transaction_hash,
+                        'status': payout.status,
+                        'requested_at': payout.requested_at,
+                        'processed_at': payout.processed_at,
+                        'completed_at': payout.completed_at,
+                        'auto_release_at': payout.auto_release_at,
+                    })
+            else:
+                data = []
+                for direct in queryset:
+                    data.append({
+                        'id': direct.id,
+                        'type': 'direct',
+                        'order_id': direct.order.order_id,
+                        'vendor_name': direct.vendor.username,
+                        'buyer_name': direct.buyer.username,
+                        'crypto_currency': direct.crypto_currency.symbol,
+                        'amount': str(direct.amount),
+                        'vendor_address': direct.vendor_address,
+                        'transaction_hash': direct.transaction_hash,
+                        'status': direct.status,
+                        'created_at': direct.created_at,
+                        'confirmed_at': direct.confirmed_at,
+                        'expires_at': direct.expires_at,
+                    })
+            
+            return Response({
+                'success': True,
+                'data': data
+            })
+            
+        except Exception as e:
+            logger.error(f"Admin payout list error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch payouts'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def post(self, request):
+        """Process payout action (release, cancel, etc.)"""
+        try:
+            payout_id = request.data.get('payout_id')
+            action = request.data.get('action')  # release, cancel
+            notes = request.data.get('notes', '')
+            
+            if not payout_id or not action:
+                return Response(
+                    {'error': 'Missing required fields'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            payout_service = PayoutService()
+            
+            if action == 'release':
+                success = payout_service.process_escrow_payout(payout_id, request.user)
+                if success:
+                    return Response({
+                        'success': True,
+                        'message': 'Payout released successfully'
+                    })
+                else:
+                    return Response(
+                        {'error': 'Failed to release payout. Check logs for details.'}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            
+            elif action == 'cancel':
+                # Cancel payout logic
+                from .models import Payout
+                payout = Payout.objects.get(id=payout_id)
+                payout.status = 'cancelled'
+                payout.admin_notes = notes
+                payout.save()
+                
+                return Response({
+                    'success': True,
+                    'message': 'Payout cancelled'
+                })
+            
+            else:
+                return Response(
+                    {'error': 'Invalid action'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            logger.error(f"Admin payout action error: {str(e)}")
+            return Response(
+                {'error': 'Failed to process payout action'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PayoutStatsView(APIView):
+    """API for payout statistics"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get payout statistics"""
+        try:
+            from .models import Payout, DirectPayment
+            from django.db.models import Sum, Count
+            
+            # Escrow payout stats
+            escrow_stats = Payout.objects.aggregate(
+                total_pending=Count('id', filter=Q(status='pending')),
+                total_processing=Count('id', filter=Q(status='processing')),
+                total_completed=Count('id', filter=Q(status='completed')),
+                total_failed=Count('id', filter=Q(status='failed')),
+                total_amount_pending=Sum('net_amount', filter=Q(status='pending')),
+                total_amount_completed=Sum('net_amount', filter=Q(status='completed')),
+            )
+            
+            # Direct payment stats
+            direct_stats = DirectPayment.objects.aggregate(
+                total_pending=Count('id', filter=Q(status='pending')),
+                total_confirmed=Count('id', filter=Q(status='confirmed')),
+                total_failed=Count('id', filter=Q(status='failed')),
+                total_expired=Count('id', filter=Q(status='expired')),
+                total_amount_confirmed=Sum('amount', filter=Q(status='confirmed')),
+            )
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'escrow': escrow_stats,
+                    'direct': direct_stats,
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Payout stats error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch payout stats'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CreateEscrowPayoutView(APIView):
+    """API for manually creating escrow payouts (for testing)"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Create escrow payout for a specific order"""
+        try:
+            order_id = request.data.get('order_id')
+            if not order_id:
+                return Response(
+                    {'error': 'order_id is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            from payments.services import PayoutService
+            from payments.tasks import create_escrow_payout
+            
+            # Create escrow payout asynchronously
+            task = create_escrow_payout.apply_async(args=[order_id])
+            
+            return Response({
+                'success': True,
+                'message': f'Escrow payout creation queued for order {order_id}',
+                'task_id': task.id
+            })
+            
+        except Exception as e:
+            logger.error(f"Create escrow payout error: {str(e)}")
+            return Response(
+                {'error': 'Failed to create escrow payout'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class VendorPayoutsView(APIView):
+    """API view for vendor to view their payouts and earnings"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get vendor's payouts and pending earnings"""
+        try:
+            vendor = request.user
+            
+            # Get all payouts for this vendor
+            payouts = Payout.objects.filter(vendor=vendor).order_by('-created_at')
+            direct_payments = DirectPayment.objects.filter(vendor=vendor).order_by('-created_at')
+            
+            # Convert to API format
+            payout_data = []
+            
+            # Process escrow payouts
+            for payout in payouts:
+                payout_data.append({
+                    'id': str(payout.id),
+                    'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
+                    'usdAmount': f"${payout.net_amount * 40000:.2f}",  # Mock USD conversion
+                    'address': payout.vendor_address,
+                    'method': payout.crypto_currency.symbol,
+                    'status': payout.status.title(),
+                    'date': payout.created_at.strftime('%Y-%m-%d'),
+                    'txHash': payout.transaction_hash,
+                    'order_id': payout.order.order_id,
+                    'type': 'escrow'
+                })
+            
+            # Process direct payments
+            for payment in direct_payments:
+                payout_data.append({
+                    'id': str(payment.id),
+                    'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
+                    'usdAmount': f"${payment.amount * 40000:.2f}",  # Mock USD conversion
+                    'address': payment.vendor_address,
+                    'method': payment.crypto_currency.symbol,
+                    'status': payment.status.title(),
+                    'date': payment.created_at.strftime('%Y-%m-%d'),
+                    'txHash': payment.transaction_hash,
+                    'order_id': payment.order.order_id,
+                    'type': 'direct'
+                })
+            
+            # Calculate pending earnings
+            pending_btc = Decimal('0')
+            pending_xmr = Decimal('0')
+            btc_orders = 0
+            xmr_orders = 0
+            
+            # Get pending escrow payouts
+            pending_escrow = Payout.objects.filter(
+                vendor=vendor,
+                status__in=['pending', 'ready']
+            )
+            
+            for payout in pending_escrow:
+                if payout.crypto_currency.symbol == 'BTC':
+                    pending_btc += payout.net_amount
+                    btc_orders += 1
+                elif payout.crypto_currency.symbol == 'XMR':
+                    pending_xmr += payout.net_amount
+                    xmr_orders += 1
+            
+            # Get pending direct payments
+            pending_direct = DirectPayment.objects.filter(
+                vendor=vendor,
+                status='pending'
+            )
+            
+            for payment in pending_direct:
+                if payment.crypto_currency.symbol == 'BTC':
+                    pending_btc += payment.amount
+                    btc_orders += 1
+                elif payment.crypto_currency.symbol == 'XMR':
+                    pending_xmr += payment.amount
+                    xmr_orders += 1
+            
+            # Calculate total USD value
+            btc_usd = float(pending_btc) * 40000  # Mock BTC price
+            xmr_usd = float(pending_xmr) * 2000   # Mock XMR price
+            total_usd = btc_usd + xmr_usd
+            
+            pending_earnings = {
+                'btc': {
+                    'amount': str(pending_btc),
+                    'usd': f"${btc_usd:.2f}",
+                    'orders': btc_orders
+                },
+                'xmr': {
+                    'amount': str(pending_xmr),
+                    'usd': f"${xmr_usd:.2f}",
+                    'orders': xmr_orders
+                },
+                'total': {
+                    'usd': f"${total_usd:.2f}",
+                    'orders': btc_orders + xmr_orders
+                }
+            }
+            
+            return Response({
+                'success': True,
+                'data': payout_data,
+                'pending_earnings': pending_earnings
+            })
+            
+        except Exception as e:
+            logger.error(f"Vendor payouts error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch vendor payouts'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TransactionHistoryView(APIView):
+    """API view for comprehensive transaction history"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get all transaction history for admin view"""
+        try:
+            # Get all transactions from different sources
+            transactions = []
+            
+            # Get all payouts (escrow and direct)
+            payouts = Payout.objects.all().order_by('-created_at')
+            direct_payments = DirectPayment.objects.all().order_by('-created_at')
+            
+            # Process escrow payouts
+            for payout in payouts:
+                transactions.append({
+                    'id': str(payout.id),
+                    'type': 'escrow_payout',
+                    'description': f'Escrow payout to {payout.vendor.username}',
+                    'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
+                    'usd_amount': f"${float(payout.net_amount) * 40000:.2f}",
+                    'from_address': 'Admin Wallet',
+                    'to_address': payout.vendor_address,
+                    'transaction_hash': payout.transaction_hash,
+                    'status': payout.status,
+                    'timestamp': payout.created_at,
+                    'order_id': payout.order.order_id,
+                    'vendor_name': payout.vendor.username,
+                    'buyer_name': payout.buyer.username,
+                    'crypto_symbol': payout.crypto_currency.symbol,
+                    'fee': f"{payout.platform_fee} {payout.crypto_currency.symbol}"
+                })
+            
+            # Process direct payments
+            for payment in direct_payments:
+                transactions.append({
+                    'id': str(payment.id),
+                    'type': 'direct_payment',
+                    'description': f'Direct payment from {payment.buyer.username} to {payment.vendor.username}',
+                    'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
+                    'usd_amount': f"${float(payment.amount) * 40000:.2f}",
+                    'from_address': 'Buyer Wallet',
+                    'to_address': payment.vendor_address,
+                    'transaction_hash': payment.transaction_hash,
+                    'status': payment.status,
+                    'timestamp': payment.created_at,
+                    'order_id': payment.order.order_id,
+                    'vendor_name': payment.vendor.username,
+                    'buyer_name': payment.buyer.username,
+                    'crypto_symbol': payment.crypto_currency.symbol,
+                    'fee': '0.00000000'
+                })
+            
+            # Get payment addresses (incoming payments)
+            payment_addresses = PaymentAddress.objects.filter(
+                status__in=['paid', 'overpaid']
+            ).order_by('-confirmed_at')
+            
+            for payment_addr in payment_addresses:
+                transactions.append({
+                    'id': f"payment_{payment_addr.id}",
+                    'type': 'incoming_payment',
+                    'description': f'Payment received for order {payment_addr.order_id}',
+                    'amount': f"{payment_addr.received_amount} {payment_addr.crypto_currency.symbol}",
+                    'usd_amount': f"${float(payment_addr.received_amount) * 40000:.2f}",
+                    'from_address': 'External',
+                    'to_address': payment_addr.payment_address,
+                    'transaction_hash': payment_addr.transaction_hash,
+                    'status': 'confirmed',
+                    'timestamp': payment_addr.confirmed_at or payment_addr.created_at,
+                    'order_id': payment_addr.order_id,
+                    'vendor_name': 'N/A',
+                    'buyer_name': 'N/A',
+                    'crypto_symbol': payment_addr.crypto_currency.symbol,
+                    'fee': '0.00000000'
+                })
+            
+            # Sort by timestamp (newest first)
+            transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+            
+            return Response({
+                'success': True,
+                'data': transactions,
+                'total': len(transactions)
+            })
+            
+        except Exception as e:
+            logger.error(f"Transaction history error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch transaction history'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class BuyerTransactionHistoryView(APIView):
+    """API view for buyer's transaction history"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get buyer's transaction history"""
+        try:
+            buyer = request.user
+            transactions = []
+            
+            # Get buyer's orders and related payments
+            from orders.models import Order
+            orders = Order.objects.filter(buyer=buyer).order_by('-created_at')
+            
+            for order in orders:
+                # Add order payment transactions
+                if order.payment_address:
+                    # Get the actual PaymentAddress object
+                    try:
+                        from payments.models import PaymentAddress
+                        payment_addr = PaymentAddress.objects.get(order_id=order.order_id)
+                        
+                        transactions.append({
+                            'id': f"order_payment_{order.id}",
+                            'type': 'payment',
+                            'description': f'Payment for order {order.order_id}',
+                            'amount': f"{payment_addr.received_amount} {payment_addr.crypto_currency.symbol}",
+                            'usd_amount': f"${float(payment_addr.received_amount) * 40000:.2f}",
+                            'from_address': 'Your Wallet',
+                            'to_address': payment_addr.payment_address,
+                            'transaction_hash': payment_addr.transaction_hash,
+                            'status': payment_addr.status,
+                            'timestamp': payment_addr.confirmed_at or order.created_at,
+                            'order_id': order.order_id,
+                            'vendor_name': order.product.vendor.username,
+                            'crypto_symbol': payment_addr.crypto_currency.symbol
+                        })
+                    except PaymentAddress.DoesNotExist:
+                        # Skip if no payment address found
+                        continue
+                
+                # Add escrow release transactions if buyer confirmed
+                if order.use_escrow and order.order_status in ['confirmed', 'completed']:
+                    payouts = Payout.objects.filter(order=order)
+                    for payout in payouts:
+                        transactions.append({
+                            'id': f"escrow_release_{payout.id}",
+                            'type': 'escrow_release',
+                            'description': f'Escrow released for order {order.order_id}',
+                            'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
+                            'usd_amount': f"${float(payout.net_amount) * 40000:.2f}",
+                            'from_address': 'Admin Escrow',
+                            'to_address': payout.vendor_address,
+                            'transaction_hash': payout.transaction_hash,
+                            'status': payout.status,
+                            'timestamp': payout.processed_at or payout.created_at,
+                            'order_id': order.order_id,
+                            'vendor_name': payout.vendor.username,
+                            'crypto_symbol': payout.crypto_currency.symbol
+                        })
+            
+            # Sort by timestamp (newest first)
+            transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+            
+            return Response({
+                'success': True,
+                'data': transactions,
+                'total': len(transactions)
+            })
+            
+        except Exception as e:
+            logger.error(f"Buyer transaction history error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch buyer transaction history'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class VendorTransactionHistoryView(APIView):
+    """API view for vendor's transaction history"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get vendor's transaction history"""
+        try:
+            vendor = request.user
+            transactions = []
+            
+            # Get vendor's payouts
+            payouts = Payout.objects.filter(vendor=vendor).order_by('-created_at')
+            for payout in payouts:
+                transactions.append({
+                    'id': f"payout_{payout.id}",
+                    'type': 'payout',
+                    'description': f'Payout received for order {payout.order.order_id}',
+                    'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
+                    'usd_amount': f"${float(payout.net_amount) * 40000:.2f}",
+                    'from_address': 'Admin Wallet' if payout.payout_type == 'escrow' else 'Buyer Wallet',
+                    'to_address': payout.vendor_address,
+                    'transaction_hash': payout.transaction_hash,
+                    'status': payout.status,
+                    'timestamp': payout.processed_at or payout.created_at,
+                    'order_id': payout.order.order_id,
+                    'buyer_name': payout.buyer.username,
+                    'crypto_symbol': payout.crypto_currency.symbol,
+                    'payout_type': payout.payout_type
+                })
+            
+            # Get vendor's direct payments
+            direct_payments = DirectPayment.objects.filter(vendor=vendor).order_by('-created_at')
+            for payment in direct_payments:
+                transactions.append({
+                    'id': f"direct_{payment.id}",
+                    'type': 'direct_payment',
+                    'description': f'Direct payment from buyer for order {payment.order.order_id}',
+                    'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
+                    'usd_amount': f"${float(payment.amount) * 40000:.2f}",
+                    'from_address': 'Buyer Wallet',
+                    'to_address': payment.vendor_address,
+                    'transaction_hash': payment.transaction_hash,
+                    'status': payment.status,
+                    'timestamp': payment.created_at,
+                    'order_id': payment.order.order_id,
+                    'buyer_name': payment.buyer.username,
+                    'crypto_symbol': payment.crypto_currency.symbol,
+                    'payout_type': 'direct'
+                })
+            
+            # Sort by timestamp (newest first)
+            transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+            
+            return Response({
+                'success': True,
+                'data': transactions,
+                'total': len(transactions)
+            })
+            
+        except Exception as e:
+            logger.error(f"Vendor transaction history error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch vendor transaction history'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class DirectPaymentMonitorView(APIView):
+    """API view for direct payment monitoring and testing"""
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    
+    def post(self, request):
+        """Simulate payment detection for testing"""
+        try:
+            payment_id = request.data.get('payment_id')
+            transaction_hash = request.data.get('transaction_hash')
+            
+            if not payment_id:
+                return Response(
+                    {'error': 'payment_id is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Simulate payment detection
+            success = direct_payment_monitor.simulate_payment_detection(payment_id, transaction_hash)
+            
+            if success:
+                return Response({
+                    'success': True,
+                    'message': f'Payment {payment_id} marked as confirmed',
+                    'payment_id': payment_id,
+                    'transaction_hash': transaction_hash
+                })
+            else:
+                return Response(
+                    {'error': f'Failed to simulate payment detection for {payment_id}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            logger.error(f"Direct payment monitor error: {str(e)}")
+            return Response(
+                {'error': 'Failed to simulate payment detection'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def get(self, request):
+        """Get direct payment monitoring statistics"""
+        try:
+            stats = direct_payment_monitor.get_direct_payment_stats()
+            
+            return Response({
+                'success': True,
+                'data': stats
+            })
+            
+        except Exception as e:
+            logger.error(f"Direct payment stats error: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch direct payment statistics'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

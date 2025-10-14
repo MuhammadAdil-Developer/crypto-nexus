@@ -128,9 +128,21 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Buyer confirms receipt and releases payment to vendor"""
         order = self.get_object()
         
-        if order.order_status != OrderStatus.DELIVERED.value:
+        # Allow confirmation if order is paid and has credentials (for digital products)
+        # Or if order is delivered (for physical products)
+        if order.order_status == OrderStatus.PAID.value:
+            # For paid orders, check if credentials are available
+            if not order.product_credentials:
+                return Response(
+                    {"error": "Product credentials not available yet"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif order.order_status == OrderStatus.DELIVERED.value:
+            # For delivered orders, allow confirmation
+            pass
+        else:
             return Response(
-                {"error": "Order must be delivered before confirmation"},
+                {"error": "Order must be paid (with credentials) or delivered before confirmation"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -142,11 +154,34 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Release payment to vendor if escrow was used
         if order.use_escrow:
             try:
-                # TODO: Implement actual payment release logic
-                # This would involve calling the payment service to release funds
-                logger.info(f"Payment released to vendor for escrow order {order.order_id}")
+                from payments.services import PayoutService
+                
+                # First ensure escrow payout exists
+                payout_service = PayoutService()
+                payout_created = payout_service.create_escrow_payout(order.order_id)
+                
+                if payout_created:
+                    # Find the payout and process it immediately
+                    from payments.models import Payout
+                    payout = Payout.objects.filter(
+                        order__order_id=order.order_id,
+                        status__in=['pending', 'ready']
+                    ).first()
+                    
+                    if payout:
+                        # Process the payout immediately (same as admin release)
+                        success = payout_service.process_escrow_payout(payout.id, request.user)
+                        if success:
+                            logger.info(f"Escrow payout processed immediately for order {order.order_id}")
+                        else:
+                            logger.error(f"Failed to process escrow payout for order {order.order_id}")
+                    else:
+                        logger.error(f"Payout not found for order {order.order_id}")
+                else:
+                    logger.error(f"Failed to create escrow payout for order {order.order_id}")
+                    
             except Exception as e:
-                logger.error(f"Failed to release payment for order {order.order_id}: {str(e)}")
+                logger.error(f"Failed to process escrow payout for order {order.order_id}: {str(e)}")
                 # Order is still confirmed, but payment release failed
                 # This should be handled by admin or retry mechanism
         

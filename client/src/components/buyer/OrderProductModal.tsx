@@ -93,7 +93,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `http://localhost:8000${url}`;
+    return `http://88.99.143.151:8000${url}`;
   };
 
   const formatPrice = (price: string) => {
@@ -222,6 +222,38 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
           <div className="p-6 space-y-6">
+            {/* Product Images - Moved to top */}
+            <div className="space-y-4">
+              <div className="h-48 bg-gray-800/30 rounded-xl overflow-hidden border border-gray-600/20">
+                {order.product.main_image ? (
+                  <img
+                    src={order.product.main_image}
+                    alt={order.product.headline || 'Product'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-gray-400 text-4xl">📦</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Gallery Images */}
+              {order.product.gallery_images && order.product.gallery_images.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {order.product.gallery_images.map((image, index) => (
+                    <div key={index} className="aspect-square bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20">
+                      <img
+                        src={image}
+                        alt={`${order.product.headline || 'Product'} ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Order Status & Payment Status */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
@@ -301,37 +333,6 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               </div>
             )}
 
-            {/* Product Images */}
-            <div className="space-y-4">
-              <div className="h-48 bg-gray-800/30 rounded-xl overflow-hidden border border-gray-600/20">
-                {order.product.main_image ? (
-                  <img
-                    src={order.product.main_image}
-                    alt={order.product.headline || 'Product'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-gray-400 text-4xl">📦</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Gallery Images */}
-              {order.product.gallery_images && order.product.gallery_images.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {order.product.gallery_images.map((image, index) => (
-                    <div key={index} className="aspect-square bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20">
-                      <img
-                        src={image}
-                        alt={`${order.product.headline || 'Product'} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* Product Info */}
             <div className="space-y-4">
@@ -480,15 +481,20 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Username:</span>
-                      <span className="text-white font-medium">{order.product.vendor_username}</span>
+                      <span className="text-white font-medium">{order.product.vendor?.username || order.product.vendor_username}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Member Since:</span>
-                      <span className="text-white">2 years ago</span>
+                      <span className="text-white">
+                        {order.product.vendor?.date_joined ? 
+                          new Date(order.product.vendor.date_joined).toLocaleDateString() : 
+                          'N/A'
+                        }
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Total Sales:</span>
-                      <span className="text-green-400 font-medium">47 products</span>
+                      <span className="text-green-400 font-medium">{order.product.vendor?.total_sales || 'N/A'} products</span>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -496,13 +502,49 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       <span className="text-gray-400">Vendor Rating:</span>
                       <div className="flex items-center space-x-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-white">4.8/5</span>
+                        <span className="text-white">{order.product.vendor?.rating || order.product.rating || 'N/A'}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Completion Rate:</span>
-                      <span className="text-green-400 font-medium">98%</span>
+                      <span className="text-green-400 font-medium">{order.product.vendor?.completion_rate || 'N/A'}%</span>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reviews Section */}
+              <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  <Star className="w-5 h-5 mr-2 text-yellow-400" />
+                  Reviews & Ratings
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Product Rating:</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star 
+                            key={star} 
+                            className={`w-4 h-4 ${
+                              star <= parseFloat(order.product.rating || '0') ? 
+                                'text-yellow-400 fill-current' : 
+                                'text-gray-400'
+                            }`} 
+                          />
+                        ))}
+                      </div>
+                      <span className="text-white">{order.product.rating || 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Total Reviews:</span>
+                    <span className="text-white">{order.product.review_count || '0'} reviews</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Views:</span>
+                    <span className="text-white">{order.product.views_count || '0'} views</span>
                   </div>
                 </div>
               </div>

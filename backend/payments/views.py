@@ -511,6 +511,13 @@ class AdminPayoutView(APIView):
                 payout_data = []
                 
                 for payout in payouts:
+                    # Calculate commission percentages
+                    platform_fee_rate = 0
+                    escrow_fee_rate = 0
+                    if payout.gross_amount > 0:
+                        platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
+                        escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
+                    
                     payout_data.append({
                         'id': payout.id,
                         'type': 'escrow',
@@ -522,9 +529,13 @@ class AdminPayoutView(APIView):
                         'gross_amount': str(payout.gross_amount),
                         'platform_fee': str(payout.platform_fee),
                         'escrow_fee': str(payout.escrow_fee),
+                        'platform_fee_rate': round(platform_fee_rate, 2),  # Add percentage
+                        'escrow_fee_rate': round(escrow_fee_rate, 2),      # Add percentage
                         'vendor_address': payout.vendor_address,
                         'transaction_hash': payout.transaction_hash,
                         'status': payout.status,
+                        'payment_status': payout.order.payment_status,  # Add payment status
+                        'order_status': payout.order.order_status,      # Add order status
                         'requested_at': payout.requested_at,
                         'processed_at': payout.processed_at,
                         'completed_at': payout.completed_at,
@@ -543,6 +554,8 @@ class AdminPayoutView(APIView):
                         'vendor_address': direct.vendor_address,
                         'transaction_hash': direct.transaction_hash,
                         'status': direct.status,
+                        'payment_status': direct.order.payment_status,  # Add payment status
+                        'order_status': direct.order.order_status,      # Add order status
                         'created_at': direct.created_at,
                         'confirmed_at': direct.confirmed_at,
                         'expires_at': direct.expires_at,
@@ -779,6 +792,13 @@ class VendorPayoutsView(APIView):
             
             # Process escrow payouts
             for payout in payouts:
+                # Calculate commission percentages
+                platform_fee_rate = 0
+                escrow_fee_rate = 0
+                if payout.gross_amount > 0:
+                    platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
+                    escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
+                
                 payout_data.append({
                     'id': str(payout.id),
                     'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
@@ -789,7 +809,12 @@ class VendorPayoutsView(APIView):
                     'date': payout.created_at.strftime('%Y-%m-%d'),
                     'txHash': payout.transaction_hash,
                     'order_id': payout.order.order_id,
-                    'type': 'escrow'
+                    'type': 'escrow',
+                    'gross_amount': str(payout.gross_amount),
+                    'platform_fee': str(payout.platform_fee),
+                    'escrow_fee': str(payout.escrow_fee),
+                    'platform_fee_rate': round(platform_fee_rate, 2),
+                    'escrow_fee_rate': round(escrow_fee_rate, 2),
                 })
             
             # Process direct payments

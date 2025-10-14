@@ -103,16 +103,16 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
       onMouseLeave={() => onExpandedChange(false)}
     >
       {/* Logo */}
-      <div className="p-4 border-b border-gray-800">
+      <div className="p-3 border-b border-gray-800">
         <div className="flex items-center">
           <Link href="/" className="flex items-center flex-shrink-0 pr-8">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
-                className="h-16 w-auto"
+                className="h-12 w-auto"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.5) translateY(3px)',
+                  transform: 'scale(1.9) translateY(3px)',
                   transformOrigin: 'left center'
                 }}
               />
@@ -122,7 +122,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-2 space-y-2 overflow-y-auto mt-1">
         {VENDOR_NAV_CATEGORIES.map((category) => (
           <div key={category.title}>
             {expanded ? (

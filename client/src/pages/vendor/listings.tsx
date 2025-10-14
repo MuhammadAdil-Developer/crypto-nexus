@@ -243,14 +243,14 @@ export default function VendorListings() {
             <Button
               variant="outline"
               className="border-border text-gray-300 hover:bg-surface-2"
-              onClick={() => navigate('/vendor/bulk-upload')}
+              onClick={() => navigate('/vendor/listings/bulk-upload')}
             >
               <Upload className="w-4 h-4 mr-2" />
               Bulk Upload
             </Button>
             <Button
               className="bg-accent text-bg hover:bg-accent-2"
-              onClick={() => navigate('/vendor/add-product')}
+              onClick={() => navigate('/vendor/listings/add')}
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Product
@@ -445,7 +445,7 @@ export default function VendorListings() {
                             variant="ghost"
                             size="sm"
                             className="text-gray-400 hover:text-white"
-                            onClick={() => navigate(`/vendor/products/edit/${product.id}`)}
+                            onClick={() => navigate(`/vendor/listings/edit/${product.id}`)}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>

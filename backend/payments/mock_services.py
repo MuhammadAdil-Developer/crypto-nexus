@@ -18,7 +18,7 @@ class MockBTCPayService:
         # Generate mock data
         mock_invoice = {
             'id': f'mock_invoice_{order_id}',
-            'checkoutLink': f'http://localhost:3000/mock-payment/{order_id}',
+            'checkoutLink': f'http://88.99.143.151:3000/mock-payment/{order_id}',
             'addresses': {
                 'BTC': f'tb1q{random.randint(1000000000000000000, 9999999999999999999)}'
             },

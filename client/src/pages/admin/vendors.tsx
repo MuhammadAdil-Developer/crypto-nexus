@@ -90,7 +90,7 @@ export default function AdminVendors() {
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const apiUrl = 'http://localhost:8000/api/v1/applications/';
+      const apiUrl = 'http://88.99.143.151:8000/api/v1/applications/';
       console.log('🔍 Fetching applications from:', apiUrl);
       
       // Get authentication token
@@ -181,7 +181,7 @@ export default function AdminVendors() {
       }
       
       const endpoint = confirmAction === 'approve' ? 'approve' : 'reject';
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${confirmApplication.id}/${endpoint}/`, {
+      const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${confirmApplication.id}/${endpoint}/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ export default function AdminVendors() {
 
       // Approve all selected applications
       const approvePromises = selectedApplications.map(async (applicationId) => {
-        const response = await fetch(`http://localhost:8000/api/v1/applications/${applicationId}/approve/`, {
+        const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${applicationId}/approve/`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -377,7 +377,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${selectedApplication.id}/approve/`, {
+      const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${selectedApplication.id}/approve/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -427,7 +427,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${selectedApplication.id}/reject/`, {
+      const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${selectedApplication.id}/reject/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

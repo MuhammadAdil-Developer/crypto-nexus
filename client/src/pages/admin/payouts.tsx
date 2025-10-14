@@ -24,9 +24,13 @@ interface PayoutData {
   gross_amount?: string;
   platform_fee?: string;
   escrow_fee?: string;
+  platform_fee_rate?: number;  // Add commission rates
+  escrow_fee_rate?: number;     // Add commission rates
   vendor_address: string;
   transaction_hash?: string;
   status: string;
+  payment_status: string;  // Add payment status
+  order_status: string;    // Add order status
   requested_at?: string;
   processed_at?: string;
   completed_at?: string;
@@ -195,11 +199,14 @@ export default function AdminPayouts() {
   const getStatusType = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending':
+      case 'awaiting':
         return 'warning';
+      case 'ready':
       case 'processing':
         return 'accent';
       case 'completed':
       case 'confirmed':
+      case 'paid':
         return 'success';
       case 'failed':
       case 'expired':
@@ -516,10 +523,25 @@ export default function AdminPayouts() {
                             )}
                           </td>
                           <td className="p-4">
-                            <StatusBadge status={payout.status} type={getStatusType(payout.status)} />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Type: {payout.type}
-                            </p>
+                            <div className="space-y-1">
+                              <div>
+                                <span className="text-xs text-gray-400">Payment:</span>
+                                <StatusBadge 
+                                  status={payout.payment_status === 'paid' ? 'Paid' : payout.payment_status} 
+                                  type={payout.payment_status === 'paid' ? 'success' : 'warning'} 
+                                />
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-400">Payout:</span>
+                                <StatusBadge 
+                                  status={payout.status === 'pending' ? 'Awaiting' : payout.status} 
+                                  type={getStatusType(payout.status)} 
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Type: {payout.type.toUpperCase()}
+                              </p>
+                            </div>
                           </td>
                           <td className="p-4">
                             <Badge variant="outline" className="text-gray-300">
@@ -926,13 +948,13 @@ export default function AdminPayouts() {
                         )}
                         {selectedPayout.platform_fee && (
                           <div className="flex justify-between">
-                            <span className="text-gray-400">Platform Fee (5%):</span>
+                            <span className="text-gray-400">Platform Fee ({selectedPayout.platform_fee_rate || 0}%):</span>
                             <span className="font-mono text-accent">{selectedPayout.platform_fee} {selectedPayout.crypto_currency}</span>
                           </div>
                         )}
                         {selectedPayout.escrow_fee && (
                           <div className="flex justify-between">
-                            <span className="text-gray-400">Escrow Fee (1%):</span>
+                            <span className="text-gray-400">Escrow Fee ({selectedPayout.escrow_fee_rate || 0}%):</span>
                             <span className="font-mono text-accent">{selectedPayout.escrow_fee} {selectedPayout.crypto_currency}</span>
                           </div>
                         )}

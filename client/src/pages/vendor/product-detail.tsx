@@ -207,7 +207,7 @@ export default function VendorProductDetail() {
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <img
-                src={product.main_image ? `http://localhost:8000${product.main_image}` : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400"}
+                src={product.main_image ? `http://88.99.143.151:8000${product.main_image}` : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400"}
                 alt={product.headline || product.listing_title || "Product"}
                 className="w-full h-64 object-cover rounded-lg"
                 onError={(e) => {

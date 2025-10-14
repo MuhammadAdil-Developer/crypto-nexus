@@ -116,31 +116,47 @@ def user_login(request):
         request_data = request.data
         print(f"🔍 Login request data: {request_data}")  # Debug log
         
-        # Validate captcha token
+        # Smart CAPTCHA system - only require after suspicious activity
         captcha_token = request_data.get('captcha_token')
-        print(f"🔍 Login captcha token: {captcha_token}")  # Debug log
+        username = request_data.get('username', '')
+        client_ip = request.META.get('REMOTE_ADDR', '')
         
-        if captcha_token:
-            # Determine site key based on request
-            site_key = 'admin-login-captcha' if '/admin' in request.path else 'login-captcha'
-            captcha_result = CaptchaValidator.validate_captcha_token(
-                captcha_token, 
-                site_key
-            )
-            print(f"🔍 Captcha validation result: {captcha_result}")  # Debug log
-            
-            if not captcha_result['success']:
+        # Check failed login attempts in last 15 minutes
+        from django.core.cache import cache
+        failed_attempts_key = f"failed_login_attempts_{client_ip}_{username}"
+        failed_attempts = cache.get(failed_attempts_key, 0)
+        
+        # Require captcha after 3 failed attempts (more lenient)
+        captcha_required = failed_attempts >= 3
+        
+        print(f"🔍 Failed attempts: {failed_attempts}, Captcha required: {captcha_required}")
+        
+        # Only validate CAPTCHA if it's required AND provided
+        if captcha_required:
+            if captcha_token:
+                # Determine site key based on request
+                site_key = 'admin-login-captcha' if '/admin' in request.path else 'login-captcha'
+                captcha_result = CaptchaValidator.validate_captcha_token(
+                    captcha_token, 
+                    site_key
+                )
+                print(f"🔍 Captcha validation result: {captcha_result}")  # Debug log
+                
+                if not captcha_result['success']:
+                    return Response({
+                        'success': False,
+                        'message': captcha_result['message'],
+                        'error_code': 'CAPTCHA_VALIDATION_FAILED',
+                        'captcha_required': True
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            else:
                 return Response({
                     'success': False,
-                    'message': captcha_result['message'],
-                    'error_code': 'CAPTCHA_VALIDATION_FAILED'
+                    'message': 'Captcha verification is required after multiple failed attempts',
+                    'error_code': 'CAPTCHA_REQUIRED',
+                    'captcha_required': True
                 }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({
-                'success': False,
-                'message': 'Captcha verification is required',
-                'error_code': 'CAPTCHA_REQUIRED'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # If captcha is not required, proceed without validation
         
         serializer = UserLoginSerializer(data=request_data)
         
@@ -152,9 +168,12 @@ def user_login(request):
             user = authenticate(request, username=username, password=password)
             
             if not user:
+                # Increment failed attempts
+                cache.set(failed_attempts_key, failed_attempts + 1, 900)  # 15 minutes
                 return Response({
                     'success': False,
-                    'message': 'Invalid credentials'
+                    'message': 'Invalid credentials',
+                    'captcha_required': (failed_attempts + 1) >= 2
                 }, status=status.HTTP_401_UNAUTHORIZED)
             
             if not user.is_active:
@@ -167,6 +186,9 @@ def user_login(request):
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
+            
+            # Clear failed attempts on successful login
+            cache.delete(failed_attempts_key)
             
             # Update last login
             user.save()

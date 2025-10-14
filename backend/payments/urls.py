@@ -17,6 +17,7 @@ from .views import (
     VendorTransactionHistoryView,
     DirectPaymentMonitorView
 )
+from .commission_views import CommissionSettingsView, CommissionHistoryView
 
 urlpatterns = [
     # Payment address creation
@@ -53,4 +54,8 @@ urlpatterns = [
     
     # Direct payment monitoring
     path('admin/direct-payment-monitor/', DirectPaymentMonitorView.as_view(), name='direct_payment_monitor'),
+    
+    # Commission settings
+    path('admin/commission-settings/', CommissionSettingsView.as_view(), name='commission_settings'),
+    path('admin/commission-history/', CommissionHistoryView.as_view(), name='commission_history'),
 ] 

@@ -125,7 +125,7 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
       setIsApproving(order.order_id);
       
       // Call the order confirmation API
-      const response = await fetch(`http://localhost:8000/api/v1/orders/${order.id}/confirm/`, {
+      const response = await fetch(`http://88.99.143.151:8000/api/v1/orders/${order.id}/confirm/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,

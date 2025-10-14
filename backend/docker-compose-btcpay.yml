@@ -21,7 +21,7 @@ services:
       - BTCPAY_BTCRPCPASSWORD=bitcoinpass123
       
       # External URL (change this to your domain)
-      - BTCPAY_HOST=localhost:23000
+      - BTCPAY_HOST=88.99.143.151:23000
       - BTCPAY_PROTOCOL=http
       
       # Security

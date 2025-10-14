@@ -622,11 +622,15 @@ class PaymentService:
         """Create escrow payment record and payout record immediately"""
         from orders.models import Order
         from vendors.models import VendorApplication
+        from .commission_models import CommissionSettings
         
         # Get order details
         order = Order.objects.get(order_id=payment_address.order_id)
         
-        escrow_fee = amount * Decimal('0.02')  # 2% escrow fee
+        # Get dynamic commission rates from database
+        commission_settings = CommissionSettings.get_settings()
+        escrow_fee_rate = commission_settings.escrow_fee_rate / Decimal('100')
+        escrow_fee = amount * escrow_fee_rate
         
         # Create escrow payment record
         escrow = EscrowPayment.objects.create(
@@ -657,10 +661,17 @@ class PaymentService:
                 logger.info(f"Using XMR address: {vendor_address}")
             
             if vendor_address:
-                # Calculate amounts
+                # Get dynamic commission rates from database
+                from .commission_models import CommissionSettings
+                commission_settings = CommissionSettings.get_settings()
+                
+                # Calculate amounts using dynamic rates
                 gross_amount = amount
-                platform_fee = gross_amount * Decimal('0.05')  # 5% platform fee
+                platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                platform_fee = gross_amount * platform_fee_rate
                 net_amount = gross_amount - platform_fee - escrow_fee
+                
+                logger.info(f"Using dynamic commission rates for escrow: Platform={commission_settings.platform_fee_rate}%, Escrow={commission_settings.escrow_fee_rate}%")
                 
                 # Create payout record with pending status
                 from .models import Payout
@@ -835,6 +846,9 @@ class PaymentService:
                     escrow = payment_address.escrow
                     escrow.status = 'funded'
                     escrow.save()
+                    
+                    # Update escrow payout status to 'ready'
+                    self._update_escrow_payout_status(payment_address.order_id)
                 
                 # Process direct payment if applicable (NEW APPROACH)
                 if mapped_status == 'paid':
@@ -869,11 +883,20 @@ class PaymentService:
             
             logger.info(f"Processing direct payment webhook for order {payment_address.order_id}")
             
-            # Calculate fees
+            # Get dynamic commission rates from database
+            from .commission_models import CommissionSettings
+            commission_settings = CommissionSettings.get_settings()
+            
+            # Calculate fees using dynamic rates
             amount = direct_payment.amount
-            platform_fee = amount * Decimal('0.05')  # 5% platform fee
-            escrow_fee = amount * Decimal('0.01')    # 1% escrow fee
+            platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+            escrow_fee_rate = commission_settings.escrow_fee_rate / Decimal('100')
+            
+            platform_fee = amount * platform_fee_rate
+            escrow_fee = amount * escrow_fee_rate
             net_amount = amount - platform_fee - escrow_fee
+            
+            logger.info(f"Using dynamic commission rates: Platform={commission_settings.platform_fee_rate}%, Escrow={commission_settings.escrow_fee_rate}%")
             
             # Update direct payment record with fees
             direct_payment.platform_fee = platform_fee

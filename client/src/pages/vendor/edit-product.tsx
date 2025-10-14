@@ -126,11 +126,11 @@ export default function VendorEditProduct() {
             // Set existing images
             if (foundProduct.main_image) {
               console.log('🔍 Setting main image preview:', foundProduct.main_image);
-              setMainImagePreview(`http://localhost:8000${foundProduct.main_image}`);
+              setMainImagePreview(`http://88.99.143.151:8000${foundProduct.main_image}`);
             }
             if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
               console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-              setGalleryImagePreviews(foundProduct.gallery_images.map(img => `http://localhost:8000${img}`));
+              setGalleryImagePreviews(foundProduct.gallery_images.map(img => `http://88.99.143.151:8000${img}`));
             }
           } else {
           console.error('❌ Edit product error:', response);
@@ -399,7 +399,7 @@ export default function VendorEditProduct() {
               {(mainImagePreview || (product?.main_image && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview || (product?.main_image ? `http://localhost:8000${product.main_image}` : '')}
+                    src={mainImagePreview || (product?.main_image ? `http://88.99.143.151:8000${product.main_image}` : '')}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
                     onError={(e) => {

@@ -64,6 +64,11 @@ interface PayoutData {
   txHash?: string;
   order_id?: string;
   type?: 'escrow' | 'direct';
+  gross_amount?: string;
+  platform_fee?: string;
+  escrow_fee?: string;
+  platform_fee_rate?: number;
+  escrow_fee_rate?: number;
 }
 
 interface PendingEarnings {
@@ -719,16 +724,16 @@ export default function VendorPayouts() {
                     <div className="border-t border-gray-700 pt-4 space-y-3">
                       <div className="flex justify-between">
                         <span className="text-gray-400">Gross Amount:</span>
-                        <span className="text-white">0.10000000 {selectedPayout.method}</span>
+                        <span className="text-white">{selectedPayout.gross_amount || '0.00000000'} {selectedPayout.method}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Platform Fee (5%):</span>
-                        <span className="text-red-400">-0.00500000 {selectedPayout.method}</span>
+                        <span className="text-gray-400">Platform Fee ({selectedPayout.platform_fee_rate || 0}%):</span>
+                        <span className="text-red-400">-{selectedPayout.platform_fee || '0.00000000'} {selectedPayout.method}</span>
                       </div>
                       {selectedPayout.type === 'escrow' && (
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Escrow Fee (1%):</span>
-                          <span className="text-red-400">-0.00200000 {selectedPayout.method}</span>
+                          <span className="text-gray-400">Escrow Fee ({selectedPayout.escrow_fee_rate || 0}%):</span>
+                          <span className="text-red-400">-{selectedPayout.escrow_fee || '0.00000000'} {selectedPayout.method}</span>
                         </div>
                       )}
                       <div className="border-t border-gray-600 pt-3">

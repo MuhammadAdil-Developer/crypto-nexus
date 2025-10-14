@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Star } from "lucide-react";
 import { productService } from "@/services/productService";
 import { useToast } from "@/components/ui/ToastContainer";
+import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 
 export default function BuyerMyReviews() {
   const [reviews, setReviews] = useState<any[]>([]);
@@ -37,7 +38,8 @@ export default function BuyerMyReviews() {
   });
 
   return (
-    <div className="space-y-6 p-6">
+    <BuyerLayout>
+      <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white mb-2">My Reviews</h1>
@@ -104,7 +106,8 @@ export default function BuyerMyReviews() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </BuyerLayout>
   );
 }
 

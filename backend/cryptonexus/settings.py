@@ -13,8 +13,8 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 # CORS Configuration - Production settings
 CORS_ALLOWED_ORIGINS = [
     "http://94.130.201.44:5000",
-    "http://localhost:5000",
-    "http://localhost:3000",
+    "http://88.99.143.151:5000",
+    "http://88.99.143.151:3000",
     "http://127.0.0.1:5000",
     "http://127.0.0.1:3000",
 ]
@@ -195,8 +195,8 @@ else:
     # Default origins if not set in environment
     CORS_ALLOWED_ORIGINS = [
         "http://94.130.201.44:5000",
-        "http://localhost:5000",
-        "http://localhost:3000",
+        "http://88.99.143.151:5000",
+        "http://88.99.143.151:3000",
         "http://127.0.0.1:5000",
         "http://127.0.0.1:3000",
     ]
@@ -301,7 +301,7 @@ ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'tb1quyfk5rtvttyzmz7k9ee
 ADMIN_XMR_ADDRESS = os.environ.get('ADMIN_XMR_ADDRESS', '4AdUndXHHZ6cFd8VZJ3x4L9eDz3r7gHhKkLmNnPpQqRrSsTtUuVvWwXxYyZz')
 
 # Bitcoin Core RPC (for direct Bitcoin operations)
-BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://localhost:18332')
+BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://88.99.143.151:18332')
 BITCOIN_RPC_USER = os.environ.get('BITCOIN_RPC_USER', 'bitcoinuser')
 BITCOIN_RPC_PASSWORD = os.environ.get('BITCOIN_RPC_PASSWORD', 'bitcoinpass123')
 
@@ -309,7 +309,7 @@ BITCOIN_RPC_PASSWORD = os.environ.get('BITCOIN_RPC_PASSWORD', 'bitcoinpass123')
 BITCOIN_NETWORK = os.environ.get('BITCOIN_NETWORK', 'testnet')  # testnet for development
 MONERO_NETWORK = os.environ.get('MONERO_NETWORK', 'testnet')    # testnet for development
 
-SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
+SITE_URL = os.environ.get('SITE_URL', 'http://88.99.143.151:8000')
 PAYMENT_EXPIRY_HOURS = int(os.environ.get('PAYMENT_EXPIRY_HOURS', '2'))
 DEFAULT_ESCROW_FEE_PERCENTAGE = float(os.environ.get('DEFAULT_ESCROW_FEE_PERCENTAGE', '2.0'))
 

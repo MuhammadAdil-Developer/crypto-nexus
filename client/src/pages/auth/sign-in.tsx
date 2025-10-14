@@ -53,8 +53,8 @@ export default function SignIn() {
       return;
     }
 
-    // Show captcha modal instead of submitting directly
-    setShowCaptchaModal(true);
+    // Try login without captcha first - smart system will request if needed
+    await performLogin();
   };
 
   const handleCaptchaVerify = (token: string) => {
@@ -91,7 +91,7 @@ export default function SignIn() {
       const loginData = {
         username: formData.username,
         password: formData.password,
-        captcha_token: finalToken
+        ...(finalToken && { captcha_token: finalToken })  // Only include if token exists
       };
       
       console.log('🔍 Final login data being sent:', loginData);
@@ -115,14 +115,28 @@ export default function SignIn() {
         }
       } else {
         console.error('❌ Login failed:', response);
-        setErrors({ general: response.message || 'Login failed. Please try again.' });
+        
+        // Check if captcha is required
+        if (response.captcha_required || response.error_code === 'CAPTCHA_REQUIRED') {
+          setShowCaptchaModal(true);
+          setErrors({ captcha: 'Please complete the security verification to continue' });
+        } else {
+          setErrors({ general: response.message || 'Login failed. Please try again.' });
+        }
       }
     } catch (error: any) {
       console.error('❌ Login error:', error);
       console.error('❌ Error response:', error.response?.data);
-      setErrors({ 
-        general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
-      });
+      
+      // Check if captcha is required in error response
+      if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
+        setShowCaptchaModal(true);
+        setErrors({ captcha: 'Please complete the security verification to continue' });
+      } else {
+        setErrors({ 
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
+        });
+      }
     } finally {
       setIsLoading(false);
     }

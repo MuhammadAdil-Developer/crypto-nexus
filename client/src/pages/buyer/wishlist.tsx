@@ -160,7 +160,7 @@ export default function BuyerWishlist() {
               <div>
                 <p className="text-sm text-gray-400 mb-1">Total Value</p>
                 <p className="text-2xl font-bold text-white">
-                  {stats?.total_value ? `${stats.total_value.toFixed(8)} BTC` : '0.00000000 BTC'}
+                  {stats?.total_value ? `${Number(stats.total_value).toFixed(8)} BTC` : '0.00000000 BTC'}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">

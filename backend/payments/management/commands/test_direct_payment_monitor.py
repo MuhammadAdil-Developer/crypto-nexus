@@ -130,3 +130,4 @@ Total Fees Collected: {stats.get('total_fees_collected', 0)}
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'❌ Failed to get stats: {e}'))
 
+

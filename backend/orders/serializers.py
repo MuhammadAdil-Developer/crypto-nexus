@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db.models import Avg
 from .models import Order, OrderDispute, OrderStatus
 from products.serializers import ProductSerializer
 from users.serializers import UserSerializer
@@ -22,7 +23,7 @@ class OrderSerializer(serializers.ModelSerializer):
     # Related data
     product = ProductSerializer(read_only=True)
     buyer = UserSerializer(read_only=True)
-    vendor = UserSerializer(read_only=True)
+    vendor = serializers.SerializerMethodField()  # Custom vendor serializer
     dispute = OrderDisputeSerializer(read_only=True)
     
     # Computed fields
@@ -61,6 +62,52 @@ class OrderSerializer(serializers.ModelSerializer):
         from payments.models import PaymentStatus
         return dict(PaymentStatus.__members__).get(obj.payment_status, obj.payment_status)
     
+    def get_vendor(self, obj):
+        """Get vendor information with statistics"""
+        if obj.vendor:
+            # Get basic vendor info
+            vendor_data = {
+                'id': obj.vendor.id,
+                'username': obj.vendor.username,
+                'user_type': obj.vendor.user_type,
+                'is_verified': obj.vendor.is_verified,
+                'date_joined': obj.vendor.date_joined,
+            }
+            
+            # Calculate vendor statistics
+            try:
+                from products.models import Product
+                from orders.models import Order
+                
+                # Get vendor's products
+                vendor_products = Product.objects.filter(vendor=obj.vendor, status='approved')
+                total_products = vendor_products.count()
+                
+                # Calculate completion rate (completed orders / total orders)
+                vendor_orders = Order.objects.filter(product__vendor=obj.vendor)
+                total_orders = vendor_orders.count()
+                completed_orders = vendor_orders.filter(order_status__in=['completed', 'delivered']).count()
+                completion_rate = round((completed_orders / total_orders * 100) if total_orders > 0 else 100, 1)
+                
+                # Calculate average rating from products
+                avg_rating = vendor_products.aggregate(avg=Avg('rating'))['avg'] or 0
+                
+                vendor_data.update({
+                    'total_sales': total_products,
+                    'completion_rate': completion_rate,
+                    'rating': round(float(avg_rating), 1)
+                })
+            except Exception:
+                # Fallback values if calculation fails
+                vendor_data.update({
+                    'total_sales': 0,
+                    'completion_rate': 100,
+                    'rating': 0
+                })
+            
+            return vendor_data
+        return None
+
     def get_product_credentials(self, obj):
         """Get product credentials for paid, confirmed, and delivered orders"""
         if obj.product_credentials and (obj.order_status == 'paid' or obj.order_status == 'confirmed' or obj.order_status == 'completed'):

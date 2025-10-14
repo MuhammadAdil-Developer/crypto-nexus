@@ -29,16 +29,16 @@ export function Sidebar() {
     <div className="hidden md:flex md:w-64 md:flex-col">
       <div className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto bg-surface border-r border-border">
         {/* Logo/Brand */}
-        <div className="flex items-center flex-shrink-0 px-4 py-6">
+        <div className="flex items-center flex-shrink-0 px-4 py-3">
           <div className="flex items-center">
            <Link href="/" className="flex items-center flex-shrink-0 pr-8">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
-                className="h-14 w-auto"
+                className="h-12 w-auto"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.8) translateY(3px)',
+                  transform: 'scale(1.9) translateY(3px)',
                   transformOrigin: 'left center'
                 }}
               />
@@ -48,7 +48,7 @@ export function Sidebar() {
         </div>
         
         {/* Navigation */}
-        <nav className="mt-6 flex-1 px-3 space-y-2">
+        <nav className="mt-2 flex-1 px-3 space-y-2">
           {ADMIN_GROUPED_NAV.map((group) => {
             const CategoryIcon = group.icon;
             const isExpanded = isCategoryExpanded(group.category);

@@ -136,7 +136,7 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const apiUrl = 'http://localhost:8000/api/v1/users/';
+      const apiUrl = 'http://88.99.143.151:8000/api/v1/users/';
       console.log('🔍 Fetching users from:', apiUrl);
       
       // Get authentication token

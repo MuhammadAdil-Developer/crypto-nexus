@@ -93,16 +93,16 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       onMouseLeave={() => onExpandedChange(false)}
     >
       {/* Logo */}
-      <div className="p-4 border-b border-gray-800">
+      <div className="px-3 py-2 border-b border-gray-800">
         <div className="flex items-center">
           <Link href="/" className="flex items-center flex-shrink-0 pr-8">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
-                className="h-16 w-auto"
+                className="h-10 w-auto"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.5) translateY(3px)',
+                  transform: 'scale(1.9) translateY(3px)',
                   transformOrigin: 'left center'
                 }}
               />

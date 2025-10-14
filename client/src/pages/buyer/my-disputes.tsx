@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertTriangle, Search, Clock, CheckCircle, XCircle, MessageSquare, Eye, Loader2, User, Package, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import disputeService, { Dispute } from "@/services/disputeService";
+import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 
 export default function BuyerMyDisputes() {
   const { toast } = useToast();
@@ -124,7 +125,8 @@ export default function BuyerMyDisputes() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <BuyerLayout>
+      <div className="min-h-screen bg-gray-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
           {/* Header */}
@@ -511,6 +513,7 @@ export default function BuyerMyDisputes() {
       </Dialog>
         </div>
       </div>
-    </div>
+      </div>
+    </BuyerLayout>
   );
 }

@@ -53,8 +53,8 @@ export default function AdminSignIn() {
       return;
     }
 
-    // Show captcha modal instead of submitting directly
-    setShowCaptchaModal(true);
+    // Try login without captcha first - smart system will request if needed
+    await performLogin();
   };
 
   const handleCaptchaVerify = (token: string) => {
@@ -78,10 +78,12 @@ export default function AdminSignIn() {
       // Use the passed token or fall back to state
       const finalToken = token || captchaToken;
       
-      const response = await authService.login({
+      const loginData = {
         ...formData,
-        captcha_token: finalToken
-      } as any);
+        ...(finalToken && { captcha_token: finalToken })  // Only include if token exists
+      };
+      
+      const response = await authService.login(loginData as any);
       console.log('🔐 Admin login response:', response);
       
       if (response.success) {
@@ -99,13 +101,26 @@ export default function AdminSignIn() {
           localStorage.removeItem('user');
         }
       } else {
-        setErrors({ general: response.message || 'Login failed. Please try again.' });
+        // Check if captcha is required
+        if (response.captcha_required || response.error_code === 'CAPTCHA_REQUIRED') {
+          setShowCaptchaModal(true);
+          setErrors({ captcha: 'Please complete the security verification to continue' });
+        } else {
+          setErrors({ general: response.message || 'Login failed. Please try again.' });
+        }
       }
     } catch (error: any) {
       console.error('❌ Admin login error:', error);
-      setErrors({ 
-        general: error.message || 'An unexpected error occurred. Please try again.' 
-      });
+      
+      // Check if captcha is required in error response
+      if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
+        setShowCaptchaModal(true);
+        setErrors({ captcha: 'Please complete the security verification to continue' });
+      } else {
+        setErrors({ 
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
+        });
+      }
     } finally {
       setIsLoading(false);
     }

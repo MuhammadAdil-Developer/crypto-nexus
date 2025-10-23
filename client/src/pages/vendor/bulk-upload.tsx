@@ -39,8 +39,14 @@ export default function BulkUpload() {
     try {
       const response = await vendorService.getBulkUploadTemplate();
       if (response.success) {
+        // Convert template data to CSV format
+        const template = response.data;
+        const headers = template.headers.join(',');
+        const sampleRow = template.sample_data.join(',');
+        const csvContent = `${headers}\n${sampleRow}`;
+        
         // Create and download the template file
-        const blob = new Blob([response.data], { type: 'text/csv' });
+        const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -96,11 +102,20 @@ export default function BulkUpload() {
       }
 
       if (response.success) {
-        setResult(response.data);
+        // Transform the response to match the expected format
+        const transformedResult = {
+          success: response.success,
+          message: response.message,
+          total: response.products_created + (response.errors?.length || 0),
+          successful: response.products_created,
+          failed: response.errors?.length || 0,
+          errors: response.errors || []
+        };
+        setResult(transformedResult);
         showToast({
           type: 'success',
           title: 'Upload Successful',
-          message: `Successfully uploaded ${response.data.successful} products.`,
+          message: `Successfully uploaded ${response.products_created} products.`,
         });
       } else {
         showToast({

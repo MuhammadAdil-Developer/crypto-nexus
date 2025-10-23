@@ -878,6 +878,10 @@ def bulk_upload_simple(request):
             # If it's a string, parse it as text format
             text_data = request.data
             products_data = parse_text_format(text_data)
+        elif 'text_data' in request.data:
+            # Handle JSON with text_data field
+            text_data = request.data['text_data']
+            products_data = parse_text_format(text_data)
         else:
             # If it's already an array, use it directly
             products_data = request.data.get('products', [])
@@ -893,8 +897,6 @@ def bulk_upload_simple(request):
         
         for product_data in products_data:
             try:
-                # Add vendor and category
-                product_data['vendor'] = request.user.id
                 # Get the first available category (default category)
                 from .models import ProductCategory
                 default_category = ProductCategory.objects.filter(is_active=True, is_deleted=False).first()
@@ -904,7 +906,15 @@ def bulk_upload_simple(request):
                     errors.append("No active category found")
                     continue
                 
-                serializer = ProductCreateSerializer(data=product_data)
+                # Ensure credentials field is not empty for bulk upload
+                if not product_data.get('credentials', '').strip():
+                    product_data['credentials'] = 'Credentials will be provided after purchase'
+                
+                # Add vendor ID to product data
+                product_data['vendor'] = request.user.id
+                
+                # Create serializer with request context for vendor validation
+                serializer = ProductCreateSerializer(data=product_data, context={'request': request})
                 if serializer.is_valid():
                     serializer.save()
                     products_created += 1
@@ -939,39 +949,57 @@ def parse_text_format(text_data):
         line = line.strip()
         if not line:
             continue
+        
+        # Skip header lines and comments
+        if line.startswith('#') or line.startswith('##') or line.startswith('Format:'):
+            continue
             
         # Try different parsing methods
         if '|' in line:
-            # Format: Product Name | Website | Account Type | Price | Description
+            # Format: Product Name | Website | Account Type | Price | Description | Credentials
+            # Handle numbered lists like "1. Product Name | Website | ..."
+            if line[0].isdigit() and '. ' in line:
+                line = line.split('. ', 1)[1]  # Remove "1. " prefix
+            
             parts = [part.strip() for part in line.split('|')]
             if len(parts) >= 5:
+                # Handle credentials field (6th field if present)
+                credentials = parts[5] if len(parts) > 5 and parts[5].strip() else 'Credentials will be provided after purchase'
+                
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
                     'account_type': parts[2],
                     'price': parts[3],
                     'description': parts[4],
+                    'credentials': credentials,
                     'access_type': 'full_ownership',
                     'delivery_time': 'instant_auto',
                     'additional_info': '',
-                    'credentials': '',
                     'account_balance': ''
                 }
                 products.append(product)
         elif ',' in line:
-            # Format: Product Name, Website, Account Type, Price, Description
+            # Format: Product Name, Website, Account Type, Price, Description, Credentials
+            # Handle numbered lists like "1. Product Name, Website, ..."
+            if line[0].isdigit() and '. ' in line:
+                line = line.split('. ', 1)[1]  # Remove "1. " prefix
+            
             parts = [part.strip() for part in line.split(',')]
             if len(parts) >= 5:
+                # Handle credentials field (6th field if present)
+                credentials = parts[5] if len(parts) > 5 and parts[5].strip() else 'Credentials will be provided after purchase'
+                
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
                     'account_type': parts[2],
                     'price': parts[3],
                     'description': parts[4],
+                    'credentials': credentials,
                     'access_type': 'full_ownership',
                     'delivery_time': 'instant_auto',
                     'additional_info': '',
-                    'credentials': '',
                     'account_balance': ''
                 }
                 products.append(product)
@@ -1025,7 +1053,7 @@ def debug_csv_columns(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsVendorOrAdmin])
 def get_bulk_upload_template(request):
     """Get bulk upload template"""
     try:

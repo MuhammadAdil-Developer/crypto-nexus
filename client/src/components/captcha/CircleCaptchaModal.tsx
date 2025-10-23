@@ -152,8 +152,8 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
         circle.y, 
         circle.radius
       );
-      gradient.addColorStop(0, '#ff1a8c');
-      gradient.addColorStop(1, '#d61674');
+      gradient.addColorStop(0, '#d11372c2');
+      gradient.addColorStop(1, '#aa0a57c5');
       
       ctx.fillStyle = gradient;
       ctx.beginPath();
@@ -292,6 +292,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
               }}
             >
               <source src="/assets/captcha/devil-video.mp4" type="video/mp4" />
+              <source src="/assets/captcha/devil-video.gif" type="image/gif" />
               <source src="/assets/captcha/devil-video.webm" type="video/webm" />
             </video>
             <div className="w-full h-full bg-gradient-to-br from-red-500 via-pink-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold" style={{ display: 'none' }}>
@@ -304,7 +305,8 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       </div>
 
       {/* Main Captcha Modal - Centered */}
-      <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border-2 border-pink-500/30 rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden" style={{
+      <div className="relative border-2 border-pink-500/30 rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden" style={{
+        background: '#aa0a57c5',
         boxShadow: '0 0 50px rgba(236, 72, 153, 0.3), 0 20px 50px rgba(0, 0, 0, 0.5)',
         marginTop: '40px'
       }}>
@@ -321,8 +323,6 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-2 border-pink-500/40 mb-3">
             <Shield className="w-7 h-7 text-pink-500" />
           </div>
-          <h3 className="text-white text-xl font-bold mb-2 bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">{title}</h3>
-          <p className="text-gray-300 text-xs">{instruction}</p>
         </div>
         
         {/* Captcha Canvas */}
@@ -411,6 +411,18 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
           75% { transform: translate(-10px, 10px) rotate(-5deg); }
         }
       `}</style>
+
+      {/* Logo Below Modal */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-40">
+        <img 
+          src="/images/logo.png" 
+          alt="AccountzClub Logo" 
+          className="h-12 w-auto"
+          style={{ 
+            opacity: 0.8
+          }}
+        />
+      </div>
     </div>
   );
 };

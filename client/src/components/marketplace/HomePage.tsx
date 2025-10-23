@@ -306,7 +306,6 @@ export function HomePage() {
                 className="h-18 w-auto"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.5) translateY(3px)',
                   transformOrigin: 'left center'
                 }}
               />
@@ -349,10 +348,9 @@ export function HomePage() {
                 <img 
                   src="/images/logo.png" 
                   alt="AccountzClub Logo" 
-                  className="h-20 w-auto"
+                  className="h-10 w-auto"
                   style={{ 
                     imageRendering: '-webkit-optimize-contrast',
-                    transform: 'translateY(8px)',
                   }}
                 />
               </Link>

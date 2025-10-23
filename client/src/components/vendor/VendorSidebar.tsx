@@ -109,10 +109,10 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
-                className="h-12 w-auto"
+                className="h-10 w-auto"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.9) translateY(3px)',
+                  transform: 'scale(1.0) translateY(0px)',
                   transformOrigin: 'left center'
                 }}
               />

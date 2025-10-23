@@ -193,7 +193,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://88.99.143.151:8000/api/v1/users/', {
+      const response = await fetch('http://localhost:8000/api/v1/users/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -219,7 +219,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://88.99.143.151:8000/api/v1/applications/', {
+      const response = await fetch('http://localhost:8000/api/v1/applications/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -245,7 +245,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://88.99.143.151:8000/api/v1/products/admin/all/', {
+      const response = await fetch('http://localhost:8000/api/v1/products/admin/all/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

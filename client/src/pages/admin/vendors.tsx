@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square } from "lucide-react";
+import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2 } from "lucide-react";
 import { SAMPLE_VENDORS } from "@/lib/constants";
 import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -90,7 +90,7 @@ export default function AdminVendors() {
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const apiUrl = 'http://88.99.143.151:8000/api/v1/applications/';
+      const apiUrl = 'http://localhost:8000/api/v1/applications/';
       console.log('🔍 Fetching applications from:', apiUrl);
       
       // Get authentication token
@@ -181,7 +181,7 @@ export default function AdminVendors() {
       }
       
       const endpoint = confirmAction === 'approve' ? 'approve' : 'reject';
-      const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${confirmApplication.id}/${endpoint}/`, {
+      const response = await fetch(`http://localhost:8000/api/v1/applications/${confirmApplication.id}/${endpoint}/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ export default function AdminVendors() {
 
       // Approve all selected applications
       const approvePromises = selectedApplications.map(async (applicationId) => {
-        const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${applicationId}/approve/`, {
+        const response = await fetch(`http://localhost:8000/api/v1/applications/${applicationId}/approve/`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -377,7 +377,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${selectedApplication.id}/approve/`, {
+      const response = await fetch(`http://localhost:8000/api/v1/applications/${selectedApplication.id}/approve/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -427,7 +427,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://88.99.143.151:8000/api/v1/applications/${selectedApplication.id}/reject/`, {
+      const response = await fetch(`http://localhost:8000/api/v1/applications/${selectedApplication.id}/reject/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

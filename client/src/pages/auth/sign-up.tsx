@@ -135,10 +135,19 @@ export default function SignUp() {
         {/* Header */}
           <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-              <Shield className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 flex items-center justify-center mr-3">
+              <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+              <img 
+                src="/images/logo.png" 
+                alt="AccountzClub Logo" 
+                className="h-16 w-auto"
+                style={{ 
+                  imageRendering: '-webkit-optimize-contrast',
+                  transformOrigin: 'left center'
+                }}
+              />
+            </Link>
             </div>
-            <h1 className="text-2xl font-bold text-white">CryptoNexus</h1>
           </div>
           <p className="text-gray-400">Create your secure account</p>
               </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,15 @@ export default function AdminSignIn() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+  const [pendingLoginAttempt, setPendingLoginAttempt] = useState(false);
+  
+  // Reset CAPTCHA state on page load
+  useEffect(() => {
+    setCaptchaVerified(false);
+    setCaptchaToken(null);
+    setShowCaptchaModal(false);
+    setPendingLoginAttempt(false);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -53,15 +62,31 @@ export default function AdminSignIn() {
       return;
     }
 
-    // Try login without captcha first - smart system will request if needed
+    // Check if CAPTCHA is already verified
+    if (!captchaVerified || !captchaToken) {
+      // Show CAPTCHA modal first and mark that there's a pending login attempt
+      setShowCaptchaModal(true);
+      setPendingLoginAttempt(true);
+      setErrors({ captcha: 'Please complete the security verification to continue' });
+      return;
+    }
+
+    // Proceed with login if CAPTCHA is verified
     await performLogin();
   };
 
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
     setCaptchaVerified(true);
-    // Proceed with login after captcha verification, passing the token directly
-    performLogin(token);
+    setShowCaptchaModal(false); // Close CAPTCHA modal
+    // Only clear captcha error, keep other errors
+    setErrors(prev => ({ ...prev, captcha: undefined }));
+    
+    // If there was a pending login attempt, proceed with login automatically
+    if (pendingLoginAttempt) {
+      setPendingLoginAttempt(false);
+      performLogin(token);
+    }
   };
 
   const handleCaptchaError = (error: string) => {
@@ -104,7 +129,7 @@ export default function AdminSignIn() {
         // Check if captcha is required
         if (response.captcha_required || response.error_code === 'CAPTCHA_REQUIRED') {
           setShowCaptchaModal(true);
-          setErrors({ captcha: 'Please complete the security verification to continue' });
+          setErrors({ captcha: 'incorrect username or password' });
         } else {
           setErrors({ general: response.message || 'Login failed. Please try again.' });
         }
@@ -115,7 +140,7 @@ export default function AdminSignIn() {
       // Check if captcha is required in error response
       if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
         setShowCaptchaModal(true);
-        setErrors({ captcha: 'Please complete the security verification to continue' });
+        setErrors({ captcha: 'incorrect username or passwor' });
       } else {
         setErrors({ 
           general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
@@ -157,12 +182,17 @@ export default function AdminSignIn() {
           </div>
 
           <div className="max-w-lg mx-auto text-center">
-            <h1 className="text-4xl lg:text-6xl font-black mb-6 bg-gradient-to-r from-white via-red-100 to-purple-200 bg-clip-text text-transparent leading-none tracking-tight font-sans">
-              Admin<br />
-              <span className="bg-gradient-to-r from-red-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
-                Control Center
-              </span>
-            </h1>
+            {/* Logo */}
+            <div className="mb-6">
+              <img 
+                src="/images/logo.png" 
+                alt="AccountzClub Logo" 
+                className="h-20 w-auto mx-auto"
+                style={{ 
+                  opacity: 0.9
+                }}
+              />
+            </div>
             <p className="text-lg text-purple-100/90 leading-relaxed font-medium font-sans">
               Secure administrative access to manage the entire crypto marketplace ecosystem
             </p>
@@ -268,10 +298,11 @@ export default function AdminSignIn() {
                   className="w-full bg-gradient-to-r from-red-500 to-purple-600 hover:from-red-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Authenticating...' : 'Access Admin Panel'}
+                  {isLoading ? 'Authenticating...' : 'Sign In'}
                 </Button>
 
                 {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
+                {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
 
               </form>
             </CardContent>

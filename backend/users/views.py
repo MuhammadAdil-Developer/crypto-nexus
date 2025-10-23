@@ -116,7 +116,7 @@ def user_login(request):
         request_data = request.data
         print(f"🔍 Login request data: {request_data}")  # Debug log
         
-        # Smart CAPTCHA system - only require after suspicious activity
+        # Always require CAPTCHA for login (client requirement)
         captcha_token = request_data.get('captcha_token')
         username = request_data.get('username', '')
         client_ip = request.META.get('REMOTE_ADDR', '')
@@ -126,37 +126,32 @@ def user_login(request):
         failed_attempts_key = f"failed_login_attempts_{client_ip}_{username}"
         failed_attempts = cache.get(failed_attempts_key, 0)
         
-        # Require captcha after 3 failed attempts (more lenient)
-        captcha_required = failed_attempts >= 3
+        print(f"🔍 Failed attempts: {failed_attempts}")
         
-        print(f"🔍 Failed attempts: {failed_attempts}, Captcha required: {captcha_required}")
+        # Always require CAPTCHA token for login
+        if not captcha_token:
+            return Response({
+                'success': False,
+                'message': 'Security verification is required to continue',
+                'error_code': 'CAPTCHA_REQUIRED',
+                'captcha_required': True
+            }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Only validate CAPTCHA if it's required AND provided
-        if captcha_required:
-            if captcha_token:
-                # Determine site key based on request
-                site_key = 'admin-login-captcha' if '/admin' in request.path else 'login-captcha'
-                captcha_result = CaptchaValidator.validate_captcha_token(
-                    captcha_token, 
-                    site_key
-                )
-                print(f"🔍 Captcha validation result: {captcha_result}")  # Debug log
-                
-                if not captcha_result['success']:
-                    return Response({
-                        'success': False,
-                        'message': captcha_result['message'],
-                        'error_code': 'CAPTCHA_VALIDATION_FAILED',
-                        'captcha_required': True
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                return Response({
-                    'success': False,
-                    'message': 'Captcha verification is required after multiple failed attempts',
-                    'error_code': 'CAPTCHA_REQUIRED',
-                    'captcha_required': True
-                }, status=status.HTTP_400_BAD_REQUEST)
-        # If captcha is not required, proceed without validation
+        # Validate CAPTCHA token
+        site_key = 'admin-login-captcha' if '/admin' in request.path else 'login-captcha'
+        captcha_result = CaptchaValidator.validate_captcha_token(
+            captcha_token, 
+            site_key
+        )
+        print(f"🔍 Captcha validation result: {captcha_result}")  # Debug log
+        
+        if not captcha_result['success']:
+            return Response({
+                'success': False,
+                'message': captcha_result['message'],
+                'error_code': 'CAPTCHA_VALIDATION_FAILED',
+                'captcha_required': True
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         serializer = UserLoginSerializer(data=request_data)
         
@@ -169,18 +164,22 @@ def user_login(request):
             
             if not user:
                 # Increment failed attempts
-                cache.set(failed_attempts_key, failed_attempts + 1, 900)  # 15 minutes
+                new_failed_attempts = failed_attempts + 1
+                cache.set(failed_attempts_key, new_failed_attempts, 900)  # 15 minutes
                 return Response({
                     'success': False,
-                    'message': 'Invalid credentials',
-                    'captcha_required': (failed_attempts + 1) >= 2
-                }, status=status.HTTP_401_UNAUTHORIZED)
+                    'message': 'Invalid username or password.',
+                    'error_code': 'INVALID_CREDENTIALS',
+                    'captcha_required': False  # Don't require CAPTCHA again since it was already provided
+                }, status=status.HTTP_400_BAD_REQUEST)
             
             if not user.is_active:
                 return Response({
                     'success': False,
-                    'message': 'Account is deactivated'
-                }, status=status.HTTP_403_FORBIDDEN)
+                    'message': 'Account is deactivated. Please contact support.',
+                    'error_code': 'ACCOUNT_DEACTIVATED',
+                    'captcha_required': False
+                }, status=status.HTTP_400_BAD_REQUEST)
             
             # Generate tokens
             refresh = RefreshToken.for_user(user)
@@ -212,8 +211,10 @@ def user_login(request):
         else:
             return Response({
                 'success': False,
-                'message': 'Login failed',
-                'errors': serializer.errors
+                'message': 'Invalid input data. Please check your username and password.',
+                'error_code': 'VALIDATION_ERROR',
+                'errors': serializer.errors,
+                'captcha_required': False
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
@@ -223,8 +224,9 @@ def user_login(request):
         print(f"❌ Traceback: {traceback.format_exc()}")
         return Response({
             'success': False,
-            'message': 'Login failed',
-            'errors': str(e)
+            'message': 'An unexpected error occurred. Please try again.',
+            'error_code': 'INTERNAL_ERROR',
+            'captcha_required': False
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

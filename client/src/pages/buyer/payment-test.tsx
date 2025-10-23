@@ -51,7 +51,7 @@ export default function PaymentTest() {
         return;
       }
 
-      const response = await fetch('http://88.99.143.151:8000/api/v1/orders/', {
+      const response = await fetch('http://localhost:8000/api/v1/orders/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -165,7 +165,7 @@ export default function PaymentTest() {
       console.log("DEBUG: Address being sent:", address);
       console.log("DEBUG: Encoded address:", encodeURIComponent(address));
       console.log("DEBUG: Full URL:", );
-      const response = await fetch('http://88.99.143.151:8000/api/v1/orders/find_by_payment_address/', {
+      const response = await fetch('http://localhost:8000/api/v1/orders/find_by_payment_address/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -365,7 +365,7 @@ export default function PaymentTest() {
       if (isSuccess) {
         // Update backend order status
         try {
-          const response = await fetch(`http://88.99.143.151:8000/api/v1/payments/status/${foundOrder.orderId}/`, {
+          const response = await fetch(`http://localhost:8000/api/v1/payments/status/${foundOrder.orderId}/`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

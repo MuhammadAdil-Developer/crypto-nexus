@@ -87,11 +87,11 @@ WSGI_APPLICATION = 'cryptonexus.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'defaultdb'),
-        'USER': os.environ.get('DB_USER', 'avnadmin'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'AVNS_MVpDJ4Ocg3gpXxYEydM'),
-        'HOST': os.environ.get('DB_HOST', 'pg-34e6acea-adilinbox4-8b41.k.aivencloud.com'),
-        'PORT': os.environ.get('DB_PORT', '28770'),
+        'NAME': os.environ.get('DB_NAME', 'accountzclub'),
+        'USER': os.environ.get('DB_USER', 'admin'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'admin123'),
+        'HOST': os.environ.get('DB_HOST', '88.99.143.151'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 

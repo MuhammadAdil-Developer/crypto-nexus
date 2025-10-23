@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import authService from "@/services/authService";
 
 // API Service
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://88.99.143.151:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 interface ProductFormData {
   // Step 1: Basic Listing Info
@@ -331,7 +331,7 @@ export default function VendorAddProduct() {
       }
 
       // Submit to API
-      const response = await fetch('http://88.99.143.151:8000/api/v1/products/create/', {
+      const response = await fetch('http://localhost:8000/api/v1/products/create/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

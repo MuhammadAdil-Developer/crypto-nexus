@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://88.99.143.151:8000/api/v1';
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 class MessagingService {
   private ws: WebSocket | null = null;
@@ -209,7 +209,7 @@ class MessagingService {
   connectToConversation(conversationId: string): void {
     this.conversationId = conversationId;
     const token = localStorage.getItem('accessToken');
-    const wsUrl = `ws://88.99.143.151:8000/ws/chat/${conversationId}/?token=${token}`;
+    const wsUrl = `ws://localhost:8000/ws/chat/${conversationId}/?token=${token}`;
     
     this.ws = new WebSocket(wsUrl);
     

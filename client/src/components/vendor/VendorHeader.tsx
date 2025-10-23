@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export function VendorHeader() {
   const [loading, setLoading] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const reviewNotifications = notifications.filter(n => n.type === 'review');
   const disputeNotifications = notifications.filter(n => n.type === 'dispute' || n.type === 'dispute_message' || n.type === 'dispute_resolved');
@@ -65,6 +66,7 @@ export function VendorHeader() {
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await api.post('/auth/logout/');
       localStorage.removeItem('accessToken');
@@ -74,14 +76,16 @@ export function VendorHeader() {
         description: "You have been successfully logged out"
       });
       setShowLogoutDialog(false);
-      navigate('/');
+      navigate('/sign-in');
     } catch (error) {
       console.error('Logout error:', error);
       // Still clear local storage and redirect even if API call fails
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setShowLogoutDialog(false);
-      navigate('/');
+      navigate('/sign-in');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -220,10 +224,20 @@ export function VendorHeader() {
             </Button>
             <Button 
               onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isLoggingOut}
+              className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
             >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Logging out...
+                </>
+              ) : (
+                <>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -83,7 +83,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
         use_escrow: useEscrow
       };
 
-      const orderResponse = await fetch("http://88.99.143.151:8000/api/v1/orders/", {
+      const orderResponse = await fetch("http://localhost:8000/api/v1/orders/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -100,7 +100,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
       const orderIdGenerated = order.order_id;
       setOrderId(orderIdGenerated);
 
-      // Update order with payment address\n      await fetch(`http://88.99.143.151:8000/api/v1/orders/${orderIdGenerated}/`, {\n        method: "PATCH",\n        headers: {\n          "Content-Type": "application/json",\n          "Authorization": `Bearer ${localStorage.getItem("accessToken")}`\n        },\n        body: JSON.stringify({\n          payment_address: paymentData.payment_address\n        })\n      });
+      // Update order with payment address\n      await fetch(`http://localhost:8000/api/v1/orders/${orderIdGenerated}/`, {\n        method: "PATCH",\n        headers: {\n          "Content-Type": "application/json",\n          "Authorization": `Bearer ${localStorage.getItem("accessToken")}`\n        },\n        body: JSON.stringify({\n          payment_address: paymentData.payment_address\n        })\n      });
       
       // Then create payment address
       const paymentData = await paymentService.createPaymentAddress({

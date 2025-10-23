@@ -336,12 +336,12 @@ class VendorService {
   }
 
   // Bulk upload simple (text format)
-  async bulkUploadSimple(products: Partial<VendorProduct>[]): Promise<any> {
+  async bulkUploadSimple(textData: string): Promise<any> {
     try {
-      console.log('🔍 bulkUploadSimple called with products:', products);
+      console.log('🔍 bulkUploadSimple called with textData:', textData);
       
       const response = await api.post('/products/bulk-upload/simple/', {
-        products: products
+        text_data: textData
       });
       
       console.log('🔍 Bulk upload simple response:', response);
@@ -362,13 +362,11 @@ class VendorService {
   }
 
   // Get bulk upload template
-  async getBulkUploadTemplate(): Promise<Blob> {
+  async getBulkUploadTemplate(): Promise<any> {
     try {
       console.log('🔍 getBulkUploadTemplate called');
       
-      const response = await api.get('/products/bulk-upload/template/', {
-        responseType: 'blob'
-      });
+      const response = await api.get('/products/bulk-upload/template/');
       
       console.log('�� Template response:', response);
       

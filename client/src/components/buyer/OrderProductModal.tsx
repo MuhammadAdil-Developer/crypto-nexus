@@ -93,7 +93,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `http://88.99.143.151:8000${url}`;
+    return `http://localhost:8000${url}`;
   };
 
   const formatPrice = (price: string) => {

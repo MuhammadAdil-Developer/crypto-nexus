@@ -25,7 +25,7 @@ class RealtimeService {
     console.log('🔌 Connecting to realtime WebSocket...', { userId: this.userId });
 
     try {
-      this.ws = new WebSocket(`ws://88.99.143.151:8000/ws/realtime/${this.userId}/?token=${token}`);
+      this.ws = new WebSocket(`ws://localhost:8000/ws/realtime/${this.userId}/?token=${token}`);
       
       this.ws.onopen = () => {
         console.log('✅ Realtime WebSocket connected successfully');

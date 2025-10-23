@@ -1,4 +1,4 @@
-# Django Backend Dockerfile
+  GNU nano 6.2                                                               Dockerfile.backend                                                                         # Django Backend Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -19,12 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source
 COPY backend/ ./
 
-# Create media and logs directories
-RUN mkdir -p media logs
+# Create media directory only
+RUN mkdir -p media
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app
+
 USER appuser
 
 # Expose port
@@ -32,7 +33,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000/admin/ || exit 1
+  CMD curl -f http://localhost:8000/api/ || exit 1
 
-# Run migrations and start server
-CMD ["sh", "-c", "python manage.py collectstatic --noinput && uvicorn mysite.asgi:application --host 0.0.0.0 --port 8000 --reload"]
+# Start server WITHOUT collectstatic (no static files needed for API)
+CMD ["uvicorn", "cryptonexus.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,15 @@ export default function SignIn() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+  const [pendingLoginAttempt, setPendingLoginAttempt] = useState(false);
+  
+  // Reset CAPTCHA state on page load
+  useEffect(() => {
+    setCaptchaVerified(false);
+    setCaptchaToken(null);
+    setShowCaptchaModal(false);
+    setPendingLoginAttempt(false);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -53,7 +62,16 @@ export default function SignIn() {
       return;
     }
 
-    // Try login without captcha first - smart system will request if needed
+    // Check if CAPTCHA is already verified
+    if (!captchaVerified || !captchaToken) {
+      // Show CAPTCHA modal first and mark that there's a pending login attempt
+      setShowCaptchaModal(true);
+      setPendingLoginAttempt(true);
+      setErrors({ captcha: 'Please complete the security verification to continue' });
+      return;
+    }
+
+    // Proceed with login if CAPTCHA is verified
     await performLogin();
   };
 
@@ -63,9 +81,16 @@ export default function SignIn() {
     console.log('🔍 Token type:', typeof token);
     setCaptchaToken(token);
     setCaptchaVerified(true);
+    setShowCaptchaModal(false); // Close CAPTCHA modal
+    // Only clear captcha error, keep other errors
+    setErrors(prev => ({ ...prev, captcha: undefined }));
     console.log('🔍 Captcha token set to state:', token);
-    // Proceed with login after captcha verification, passing the token directly
-    performLogin(token);
+    
+    // If there was a pending login attempt, proceed with login automatically
+    if (pendingLoginAttempt) {
+      setPendingLoginAttempt(false);
+      performLogin(token);
+    }
   };
 
   const handleCaptchaError = (error: string) => {
@@ -119,7 +144,7 @@ export default function SignIn() {
         // Check if captcha is required
         if (response.captcha_required || response.error_code === 'CAPTCHA_REQUIRED') {
           setShowCaptchaModal(true);
-          setErrors({ captcha: 'Please complete the security verification to continue' });
+          setErrors({ captcha: 'incorrect username or password' });
         } else {
           setErrors({ general: response.message || 'Login failed. Please try again.' });
         }
@@ -131,7 +156,7 @@ export default function SignIn() {
       // Check if captcha is required in error response
       if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
         setShowCaptchaModal(true);
-        setErrors({ captcha: 'Please complete the security verification to continue' });
+        setErrors({ captcha: 'incorrect username or password' });
       } else {
         setErrors({ 
           general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
@@ -173,22 +198,32 @@ export default function SignIn() {
           </div>
 
           <div className="max-w-lg mx-auto text-center">
-            <h1 className="text-4xl lg:text-6xl font-black mb-6 bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent leading-none tracking-tight font-sans">
-              Welcome to<br />
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
-                CryptoMarket
-              </span>
-            </h1>
+            {/* Logo */}
+            <div className="">
+              <img 
+                src="/images/logo.png" 
+                className="h-32 w-auto mx-auto"
+                style={{ 
+                  opacity: 1,
+                  imageRendering: 'auto',
+                  WebkitFontSmoothing: 'antialiased',
+                  filter: 'brightness(1.1) contrast(1.2)',
+                  maxWidth: '100%',
+                  height: 'auto'
+                }}
+                alt="AccountzClub Logo"
+              />
+            </div>
             <p className="text-lg text-blue-100/90 leading-relaxed font-medium font-sans">
               The most secure and anonymous marketplace for digital assets and premium accounts
             </p>
           </div>
-          <div className="flex flex-col space-y-4 text-blue-200">
+          <div className="flex flex-col space-y-4 text-blue-200 mt-2">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
                 <Shield className="w-5 h-5 text-blue-400" />
               </div>
-              <span className="text-lg">Military-Grade Security</span>
+              <span className="text-lg mt-2">Military-Grade Security</span>
             </div>
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
@@ -210,9 +245,8 @@ export default function SignIn() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">User Sign In</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
             <p className="text-gray-400">Welcome back to your crypto marketplace</p>
-            <p className="text-xs text-gray-500 mt-2">For buyers and vendors only</p>
           </div>
 
           <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
@@ -287,10 +321,11 @@ export default function SignIn() {
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Signing In...' : 'Sign In to Account'}
+                  {isLoading ? 'Signing In...' : 'Sign In'}
                 </Button>
 
                 {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
+                {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
 
                 <div className="text-center">
                   <span className="text-gray-400">Don't have an account? </span>

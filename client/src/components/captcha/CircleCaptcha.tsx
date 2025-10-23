@@ -240,12 +240,6 @@ export const CircleCaptcha: React.FC<CircleCaptchaProps> = ({
 
   return (
     <div className={`captcha-container ${className}`}>
-      <div className="captcha-header">
-        <h3 className="text-white text-lg font-semibold mb-2">Security prompt</h3>
-        <p className="text-gray-300 text-sm mb-4">
-          Please click into the open circle to continue.
-        </p>
-      </div>
       
       <div className="captcha-canvas-container relative">
         <canvas

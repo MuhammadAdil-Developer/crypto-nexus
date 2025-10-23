@@ -95,6 +95,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 class ProductCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new products"""
+    vendor = serializers.UUIDField(required=False)  # Make vendor optional for bulk uploads - UUID field
     main_image = serializers.ImageField(required=False)
     account_age = serializers.CharField(required=False, allow_blank=True)
     category = serializers.IntegerField(required=False)
@@ -126,13 +127,23 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create product with file handling"""
-        # Get vendor from context
-        vendor = self.context.get('request').user if self.context.get('request') else None
-        if not vendor:
+        # Always ensure 'vendor' is a User instance
+        request = self.context.get('request') if self.context else None
+        vendor_from_context = getattr(request, 'user', None) if request else None
+
+        if 'vendor' in validated_data and validated_data['vendor']:
+            # Convert UUID to actual User instance if needed
+            from users.models import User
+            vendor_value = validated_data['vendor']
+            if not isinstance(vendor_value, User):
+                try:
+                    validated_data['vendor'] = User.objects.get(id=vendor_value)
+                except User.DoesNotExist:
+                    raise serializers.ValidationError("Vendor not found")
+        elif vendor_from_context:
+            validated_data['vendor'] = vendor_from_context
+        else:
             raise serializers.ValidationError("Vendor information is required")
-        
-        # Set vendor
-        validated_data['vendor'] = vendor
         
         # Auto-set listing_title from headline
         if 'headline' in validated_data and not validated_data.get('listing_title'):

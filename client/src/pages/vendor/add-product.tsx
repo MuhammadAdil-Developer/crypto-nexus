@@ -298,25 +298,26 @@ export default function VendorAddProduct() {
         submitData.append('main_image', formData.main_image);
       }
       
-      formData.gallery_images.forEach((file) => {
-        submitData.append('gallery_images', file);
-      });
+      // Handle gallery images - only append if files exist
+      if (formData.gallery_images.length > 0) {
+        formData.gallery_images.forEach((file) => {
+          submitData.append('gallery_images', file);
+        });
+      }
       
-      formData.documents.forEach((file) => {
-        submitData.append('documents', file);
-      });
+      // Handle documents - only append if files exist
+      if (formData.documents.length > 0) {
+        formData.documents.forEach((file) => {
+          submitData.append('documents', file);
+        });
+      }
       
       // JSON fields - send as JSON strings
       if (formData.tags.length > 0) {
-      submitData.append('tags', JSON.stringify(formData.tags));
+        submitData.append('tags', JSON.stringify(formData.tags));
       } else {
         submitData.append('tags', JSON.stringify([]));
       }
-      
-      // Set empty arrays for other JSON fields
-      submitData.append('gallery_images', JSON.stringify([]));
-      submitData.append('main_images', JSON.stringify([]));
-      submitData.append('documents', JSON.stringify([]));
       
       // Get JWT token from localStorage
       const token = localStorage.getItem('accessToken');

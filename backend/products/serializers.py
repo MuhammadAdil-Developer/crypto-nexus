@@ -61,7 +61,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'gallery_images', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
-            'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled'
+            'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
@@ -97,6 +97,18 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new products"""
     vendor = serializers.UUIDField(required=False)  # Make vendor optional for bulk uploads - UUID field
     main_image = serializers.ImageField(required=False)
+    gallery_images = serializers.ListField(
+        child=serializers.FileField(required=False),
+        required=False,
+        allow_empty=True,
+        default=list
+    )
+    documents = serializers.ListField(
+        child=serializers.FileField(required=False),
+        required=False,
+        allow_empty=True,
+        default=list
+    )
     account_age = serializers.CharField(required=False, allow_blank=True)
     category = serializers.IntegerField(required=False)
     sub_category = serializers.IntegerField(required=False)  # Sub-category ID
@@ -185,8 +197,6 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'region_restrictions': '',
             'quantity_available': 1,
             'main_images': [],
-            'gallery_images': [],
-            'documents': [],
             'tags': [],
             'auto_delivery_script': '',
             'notes_for_buyer': '',
@@ -233,14 +243,69 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         else:
             validated_data['account_age'] = None
         
+        # Process gallery images and documents - handle file uploads from request.FILES if not in validated_data
+        gallery_images = []
+        documents = []
+        
+        # Check request.FILES if available (multipart/form-data)
+        request = self.context.get('request') if self.context else None
+        if request and hasattr(request, 'FILES'):
+            gallery_images = request.FILES.getlist('gallery_images', [])
+            documents = request.FILES.getlist('documents', [])
+        
+        # Also check validated_data as fallback
+        if 'gallery_images' in validated_data:
+            validated_gallery = validated_data.pop('gallery_images', [])
+            if not gallery_images:
+                gallery_images = validated_gallery
+        
+        if 'documents' in validated_data:
+            validated_docs = validated_data.pop('documents', [])
+            if not documents:
+                documents = validated_docs
+        
+        gallery_image_paths = []
+        document_paths = []
+        
+        # Process gallery images
+        if gallery_images and len(gallery_images) > 0:
+            for image in gallery_images:
+                if hasattr(image, 'name'):  # It's a file upload
+                    from django.core.files.storage import default_storage
+                    path = default_storage.save(f'products/gallery/{image.name}', image)
+                    gallery_image_paths.append(path)
+                elif isinstance(image, str) and image.strip():  # It's already a path
+                    gallery_image_paths.append(image)
+        
+        # Process documents
+        if documents and len(documents) > 0:
+            for doc in documents:
+                if hasattr(doc, 'name'):  # It's a file upload
+                    from django.core.files.storage import default_storage
+                    path = default_storage.save(f'products/documents/{doc.name}', doc)
+                    document_paths.append(path)
+                elif isinstance(doc, str) and doc.strip():  # It's already a path
+                    document_paths.append(doc)
+        
+        # Set the processed file paths (empty lists if no files)
+        # If no files were provided, set empty lists
+        if 'gallery_images' not in validated_data:
+            validated_data['gallery_images'] = []
+        else:
+            validated_data['gallery_images'] = gallery_image_paths
+            
+        if 'documents' not in validated_data:
+            validated_data['documents'] = []
+        else:
+            validated_data['documents'] = document_paths
+        
         # Process JSON fields - ensure they are proper lists
-        json_fields = ['gallery_images', 'main_images', 'documents', 'tags', 'special_features']
+        json_fields = ['main_images', 'tags', 'special_features']
         for field in json_fields:
             if field in validated_data:
                 value = validated_data[field]
                 if isinstance(value, str):
-                    if value.strip() == '':
-                        # Empty string should be empty list
+                    if value.strip() == '':  # Empty string should be empty list
                         validated_data[field] = []
                     else:
                         try:

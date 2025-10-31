@@ -223,6 +223,20 @@ class Product(BaseModel):
         self.approved_by = approved_by_user
         self.approved_at = timezone.now()
         self.save()
+        
+        # Create notification for vendor
+        from shared.models import Notification
+        notification = Notification.objects.create(
+            user=self.vendor,
+            type='listing_approval',
+            title='Listing Approved',
+            message=f'Your product "{self.headline}" has been approved and is now live!',
+            data={
+                'product_id': self.id,
+                'product_headline': self.headline,
+                'approved_by': approved_by_user.username if approved_by_user else None
+            }
+        )
 
     def reject_product(self, rejection_notes, rejected_by_user):
         """Reject product listing"""
@@ -231,6 +245,21 @@ class Product(BaseModel):
         self.rejected_by = rejected_by_user
         self.rejected_at = timezone.now()
         self.save()
+        
+        # Create notification for vendor
+        from shared.models import Notification
+        notification = Notification.objects.create(
+            user=self.vendor,
+            type='listing_rejection',
+            title='Listing Rejected',
+            message=f'Your product "{self.headline}" has been rejected. Reason: {rejection_notes}',
+            data={
+                'product_id': self.id,
+                'product_headline': self.headline,
+                'rejection_reason': rejection_notes,
+                'rejected_by': rejected_by_user.username if rejected_by_user else None
+            }
+        )
 
     def reveal_credentials(self):
         """Reveal credentials after payment confirmation"""

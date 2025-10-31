@@ -5,13 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, Heart } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, Heart, CheckCircle, AlertCircle, Info } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,6 +101,10 @@ export default function VendorListings() {
   // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<VendorProduct | null>(null);
+
+  // Rejection reason dialog state
+  const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
+  const [selectedRejectionProduct, setSelectedRejectionProduct] = useState<VendorProduct | null>(null);
 
   // Fetch vendor products and stats
   const fetchVendorData = async () => {
@@ -398,9 +416,36 @@ export default function VendorListings() {
                       </td>
                       <td className="p-4">
                         <div className="space-y-1">
-                          <Badge className={getStatusColor(product.status)}>
-                            {getStatusDisplayName(product.status)}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge className={getStatusColor(product.status)}>
+                                    {getStatusDisplayName(product.status)}
+                                  </Badge>
+                                </TooltipTrigger>
+                                {product.status === 'rejected' && product.rejection_reason && (
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="font-semibold mb-1">Rejection Reason:</p>
+                                    <p className="text-sm">{product.rejection_reason}</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                            {product.status === 'rejected' && product.rejection_reason && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedRejectionProduct(product);
+                                  setRejectionDialogOpen(true);
+                                }}
+                                className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              >
+                                <Info className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
                           {product.escrow_enabled && (
                             <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 text-xs px-1.5 py-0.5">
                               <Lock className="w-2.5 h-2.5 mr-0.5" />
@@ -470,6 +515,22 @@ export default function VendorListings() {
                                 <Edit className="w-4 h-4 mr-2" />
                                 Edit Product
                               </DropdownMenuItem>
+                              {product.status === 'rejected' && (
+                                <DropdownMenuItem
+                                  className="text-blue-400 hover:bg-blue-500/10"
+                                  onClick={() => {
+                                    showToast({
+                                      type: 'info',
+                                      title: 'Edit Required',
+                                      message: 'Please edit the product to address the rejection reason before resubmitting.',
+                                    });
+                                    navigate(`/vendor/listings/edit/${product.id}`);
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit & Resubmit
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 className="text-red-400 hover:bg-red-500/10"
                                 onClick={() => {
@@ -573,6 +634,55 @@ export default function VendorListings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
+        <DialogContent className="bg-card border-gray-600 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              Listing Rejected
+            </DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Your product "{selectedRejectionProduct?.headline}" was rejected for the following reason:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <h4 className="text-red-300 font-semibold mb-2">Rejection Reason:</h4>
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {selectedRejectionProduct?.rejection_reason}
+              </p>
+            </div>
+            <div className="mt-4 text-xs text-gray-400">
+              <p><strong>Product:</strong> {selectedRejectionProduct?.headline}</p>
+              <p><strong>Website:</strong> {selectedRejectionProduct?.website}</p>
+              <p><strong>Price:</strong> {selectedRejectionProduct?.price} BTC</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRejectionDialogOpen(false)}
+              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedRejectionProduct) {
+                  handleResubmitProduct(selectedRejectionProduct.id);
+                  setRejectionDialogOpen(false);
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Resubmit for Review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

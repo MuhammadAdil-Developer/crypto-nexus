@@ -27,7 +27,7 @@ def list_notifications(request):
             qs = qs.filter(is_read=False)
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(message__icontains=search))
-        if type_filter in ['order', 'payment', 'message', 'system']:
+        if type_filter in ['order', 'payment', 'message', 'system', 'listing_approval', 'listing_rejection']:
             qs = qs.filter(type=type_filter)
         if date_from:
             df = parse_date(date_from)

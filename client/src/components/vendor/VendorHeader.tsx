@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2 } from "lucide-react";
+import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,9 +24,10 @@ import { useEffect, useMemo, useState } from "react";
 import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import notificationService from "@/services/notificationService";
 
 export function VendorHeader() {
-  const { notifications, unreadCount } = useMessaging();
+  const { notifications, allNotifications, unreadCount, refreshNotifications } = useMessaging() as any;
   const [userData, setUserData] = useState({
     username: "",
     email: "",
@@ -36,13 +37,87 @@ export function VendorHeader() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   
-  const reviewNotifications = notifications.filter(n => n.type === 'review');
-  const disputeNotifications = notifications.filter(n => n.type === 'dispute' || n.type === 'dispute_message' || n.type === 'dispute_resolved');
-  const allRelevantNotifications = [...reviewNotifications, ...disputeNotifications];
+  // Use allNotifications from MessagingContext as the source of truth
+  const reviewNotifications = allNotifications.filter((n: any) => n.type === 'review');
+  const disputeNotifications = allNotifications.filter((n: any) => n.type === 'dispute' || n.type === 'dispute_message' || n.type === 'dispute_resolved');
+  const listingNotifications = allNotifications.filter((n: any) => n.type === 'listing_approval' || n.type === 'listing_rejection');
+  const allRelevantNotifications = [...reviewNotifications, ...disputeNotifications, ...listingNotifications];
+  
+  // Show only 3 notifications by default, more on load more
+  const displayedNotifications = allRelevantNotifications.slice(0, 3 * notificationPage);
+  
+  // Calculate badge count outside JSX for better reactivity
+  const badgeCount = unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : null;
+  
   
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleLoadMoreNotifications = async () => {
+    setLoadingMoreNotifications(true);
+    try {
+      const currentPageNum = notificationPage;
+      const nextPageNum = currentPageNum + 1;
+      
+      // Calculate which notifications will be newly loaded (next batch of 3)
+      const startIndex = 3 * currentPageNum;
+      const endIndex = 3 * nextPageNum;
+      const newNotifications = allRelevantNotifications.slice(startIndex, endIndex);
+      
+      // Mark only the newly loaded notifications as read
+      for (const notification of newNotifications) {
+        try {
+          await notificationService.markAsRead(notification.id);
+        } catch (error) {
+          console.error('Error marking notification as read:', error);
+        }
+      }
+      
+      // Increment page after marking as read
+      setNotificationPage(nextPageNum);
+      
+      // Refresh to update the count
+      if (refreshNotifications) {
+        await refreshNotifications();
+      }
+    } catch (error) {
+      console.error('Error loading more notifications:', error);
+    } finally {
+      setLoadingMoreNotifications(false);
+    }
+  };
+
+  const handleNotificationClick = async (notification: any) => {
+    // Just show notification details, don't mark as read
+    // The notification will be marked as read when bell icon is clicked
+  };
+
+  const handleNotificationDropdownOpen = async (open: boolean) => {
+    setNotificationDropdownOpen(open);
+    if (open) {
+      // Mark only the currently displayed notifications as read (the ones visible on this page)
+      try {
+        for (const notification of displayedNotifications) {
+          try {
+            await notificationService.markAsRead(notification.id);
+          } catch (error) {
+            console.error('Error marking notification as read:', error);
+          }
+        }
+        
+        // Refresh to update the count
+        if (refreshNotifications) {
+          await refreshNotifications();
+        }
+      } catch (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     fetchUserData();
@@ -123,36 +198,79 @@ export function VendorHeader() {
         {/* Right Side */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={handleNotificationDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="relative">
                 <Bell className="w-5 h-5 text-gray-300" />
-                {(unreadCount > 0 || allRelevantNotifications.length > 0) && (
+                {badgeCount && (
                   <Badge className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-xs p-0 flex items-center justify-center">
-                    {unreadCount > 0 ? unreadCount : allRelevantNotifications.length}
+                    {badgeCount}
                   </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuContent align="end" className="w-80 max-h-96">
               <div className="px-2 py-1 text-sm text-gray-400">Notifications</div>
               <DropdownMenuSeparator />
-              {allRelevantNotifications.length === 0 ? (
-                <div className="px-3 py-4 text-sm text-gray-400">No notifications</div>
-              ) : (
-                allRelevantNotifications.slice(0, 10).map((n: any) => (
-                  <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-1">
-                    <div className="flex items-center gap-2 text-sm text-white">
-                      {n.type === 'review' && <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />}
-                      {n.type === 'dispute' && <span className="inline-block w-2 h-2 rounded-full bg-red-400" />}
-                      {n.type === 'dispute_message' && <span className="inline-block w-2 h-2 rounded-full bg-orange-400" />}
-                      {n.type === 'dispute_resolved' && <span className="inline-block w-2 h-2 rounded-full bg-green-400" />}
-                      <div>{n.title}</div>
-                    </div>
-                    <div className="text-xs text-gray-400">{n.message}</div>
-                  </DropdownMenuItem>
-                ))
-              )}
+              <div className="max-h-80 overflow-y-auto">
+                {displayedNotifications.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-gray-400">No notifications</div>
+                ) : (
+                  displayedNotifications.map((n: any) => (
+                    <DropdownMenuItem 
+                      key={n.id} 
+                      className="flex flex-col items-start gap-1 cursor-pointer"
+                      onClick={() => handleNotificationClick(n)}
+                    >
+                      <div className="flex items-center gap-2 text-sm text-white">
+                        {n.type === 'review' && <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />}
+                        {n.type === 'dispute' && <span className="inline-block w-2 h-2 rounded-full bg-red-400" />}
+                        {n.type === 'dispute_message' && <span className="inline-block w-2 h-2 rounded-full bg-orange-400" />}
+                        {n.type === 'dispute_resolved' && <span className="inline-block w-2 h-2 rounded-full bg-green-400" />}
+                        {n.type === 'listing_approval' && <span className="inline-block w-2 h-2 rounded-full bg-green-400" />}
+                        {n.type === 'listing_rejection' && <span className="inline-block w-2 h-2 rounded-full bg-red-400" />}
+                        <div>{n.title}</div>
+                      </div>
+                      <div 
+                        className="text-xs text-gray-400 w-full break-words" 
+                        title={n.message}
+                      >
+                        {(() => {
+                          // Only truncate rejection reasons over 80 chars
+                          if (n.type === 'listing_rejection' && n.message && n.message.length > 80) {
+                            return n.message.substring(0, 80) + '...';
+                          }
+                          return n.message;
+                        })()}
+                      </div>
+                      <div className="text-xs text-gray-500">{n.time}</div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+                {allRelevantNotifications.length > 3 * notificationPage && (
+                  <div className="px-3 py-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleLoadMoreNotifications}
+                      disabled={loadingMoreNotifications}
+                      className="w-full text-xs"
+                    >
+                      {loadingMoreNotifications ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3 h-3 mr-1" />
+                          Load More
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 

@@ -51,6 +51,9 @@ urlpatterns = [
     path('admin/<int:product_id>/approve/', views.admin_approve_product, name='admin_approve_product'),
     path('admin/<int:product_id>/reject/', views.admin_reject_product, name='admin_reject_product'),
     
+    # Resubmit endpoint
+    path('<int:product_id>/resubmit/', views.resubmit_product, name='resubmit_product'),
+    
     # Product detail (must be last to avoid conflicts)
     path('<int:product_id>/', views.product_detail, name='product_detail'),
 ]

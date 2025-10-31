@@ -43,7 +43,9 @@ interface Product {
   delivery_method: string;
   status: string;
   created_at: string;
+  main_image?: string | null;
   main_images: string[];
+  gallery_images: string[];
   tags: string[];
   special_features: string[];
   quantity_available: number;
@@ -56,7 +58,8 @@ function BuyerListingsContent() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
+  // Default to server-provided ordering (personalized) so different buyers see different orders
+  const [sortBy, setSortBy] = useState("server");
   const [viewMode, setViewMode] = useState("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{id: string, name: string, count: number}[]>([]);
@@ -91,32 +94,35 @@ function BuyerListingsContent() {
       );
     }
 
-    // Apply sorting
-    switch (sortBy) {
-      case "newest":
-        filtered = [...filtered].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        break;
-      case "oldest":
-        filtered = [...filtered].sort((a, b) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-        break;
-      case "price-low":
-        filtered = [...filtered].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        break;
-      case "price-high":
-        filtered = [...filtered].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-        break;
-      case "rating":
-        filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case "popular":
-        filtered = [...filtered].sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
-        break;
-      default:
-        break;
+    // Apply client-side sorting only if user explicitly selected a sort option.
+    // Default 'server' preserves the order returned by the API (personalized ordering).
+    if (sortBy && sortBy !== 'server') {
+      switch (sortBy) {
+        case "newest":
+          filtered = [...filtered].sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          break;
+        case "oldest":
+          filtered = [...filtered].sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          break;
+        case "price-low":
+          filtered = [...filtered].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+          break;
+        case "price-high":
+          filtered = [...filtered].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+          break;
+        case "rating":
+          filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+          break;
+        case "popular":
+          filtered = [...filtered].sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+          break;
+        default:
+          break;
+      }
     }
 
     setFilteredProducts(filtered);
@@ -304,6 +310,7 @@ function BuyerListingsContent() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setSortBy("server")}>Personalized (Recommended)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy("newest")}>Newest First</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy("oldest")}>Oldest First</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy("price-low")}>Price: Low to High</DropdownMenuItem>

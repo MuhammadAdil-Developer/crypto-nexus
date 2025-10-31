@@ -33,7 +33,9 @@ interface Product {
   delivery_method?: string | null;
   status: string;
   created_at: string;
+  main_image?: string | null;
   main_images: string[];
+  gallery_images: string[];
   tags: string[];
   special_features: string[];
   quantity_available: number;
@@ -61,6 +63,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const formatPrice = (price: string) => {
     return parseFloat(price).toFixed(8);
+  };
+
+  const getProductImage = () => {
+    // Priority: main_image > gallery_images[0] > main_images[0] > null
+    if (product.main_image) {
+      return product.main_image;
+    }
+    if (product.gallery_images && product.gallery_images.length > 0) {
+      return product.gallery_images[0];
+    }
+    if (product.main_images && product.main_images.length > 0) {
+      return product.main_images[0];
+    }
+    return null;
   };
 
   const getAccountTypeColor = (type: string | null | undefined) => {
@@ -220,9 +236,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           <div className="flex space-x-4">
             {/* Product Image */}
             <div className="w-24 h-24 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 flex-shrink-0">
-              {product.main_images && product.main_images.length > 0 ? (
+              {getProductImage() ? (
                 <img
-                  src={product.main_images[0]}
+                  src={getProductImage()}
                   alt={product.listing_title}
                   className="w-full h-full object-cover"
                 />
@@ -370,9 +386,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       <CardContent className="p-0">
         {/* Product Image - Reduced height */}
         <div className="relative h-32 bg-gray-800/30 overflow-hidden border-b border-gray-600/20">
-          {product.main_images && product.main_images.length > 0 ? (
+          {getProductImage() ? (
             <img
-              src={product.main_images[0]}
+              src={getProductImage()}
               alt={product.listing_title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />

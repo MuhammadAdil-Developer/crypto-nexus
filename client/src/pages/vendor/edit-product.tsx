@@ -261,6 +261,47 @@ export default function VendorEditProduct() {
     }
   };
 
+  const handleResubmit = async () => {
+    if (!id) return;
+    
+    try {
+      setSaving(true);
+      setError(null);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products/${id}/resubmit/`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          message: 'Product resubmitted for review',
+        });
+        navigate('/vendor/listings');
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: 'Failed to resubmit product',
+        });
+      }
+    } catch (error) {
+      console.error('Error resubmitting product:', error);
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to resubmit product',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -701,6 +742,28 @@ export default function VendorEditProduct() {
                 </>
               )}
             </Button>
+            
+            {product?.status === 'rejected' && (
+              <Button
+                type="button"
+                onClick={handleResubmit}
+                disabled={saving}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Resubmitting...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Resubmit for Review
+                  </>
+                )}
+              </Button>
+            )}
+            
             <Button
               type="button"
               variant="outline"

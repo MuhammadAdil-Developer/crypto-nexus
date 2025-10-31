@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { messagingService } from '@/services/messagingService';
 import { realtimeService } from '@/services/realtimeService';
+import notificationService from '@/services/notificationService';
 
 interface MessageNotification {
   id: string;
-  type: 'message' | 'order' | 'price_drop' | 'system' | 'review' | 'dispute' | 'dispute_message' | 'dispute_resolved';
+  type: 'message' | 'order' | 'price_drop' | 'system' | 'review' | 'dispute' | 'dispute_message' | 'dispute_resolved' | 'listing_approval' | 'listing_rejection';
   title: string;
   message: string;
   time: string;
@@ -20,6 +21,7 @@ interface MessageNotification {
 interface MessagingContextType {
   unreadCount: number;
   notifications: MessageNotification[];
+  allNotifications: MessageNotification[];
   isLoading: boolean;
   refreshNotifications: () => void;
 }
@@ -29,6 +31,7 @@ const MessagingContext = createContext<MessagingContextType | undefined>(undefin
 export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<MessageNotification[]>([]);
+  const [allNotifications, setAllNotifications] = useState<MessageNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
   // Use shared service singletons
@@ -37,15 +40,28 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Get unread count
-      const count = await messagingService.getUnreadCount();
+      // Get unread count from notification service
+      const count = await notificationService.getUnreadCount();
       setUnreadCount(count);
+      
+      // Get recent notifications (system, listings, etc.)
+      const notificationsResponse = await notificationService.getRecentNotifications(20);
+      const systemNotifications: MessageNotification[] = (notificationsResponse.data || []).map((n: any) => ({
+        id: n.id,
+        type: n.type as any,
+        title: n.title,
+        message: n.message,
+        time: new Date(n.created_at).toLocaleString(),
+        unread: !n.is_read,
+        productId: n.data?.product_id,
+        productTitle: n.data?.product_headline || n.data?.productTitle
+      }));
       
       // Get recent activity (messages)
       const recentActivity = await messagingService.getRecentActivity();
       
       // Convert to notification format
-      const messageNotifications: MessageNotification[] = recentActivity.map((activity: any) => ({
+      const messageNotifications: MessageNotification[] = (recentActivity || []).map((activity: any) => ({
         id: activity.id,
         type: 'message',
         title: activity.title,
@@ -56,15 +72,33 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         product: activity.description.split(' replied about ')[1]?.split(':')[0]
       }));
       
-      // Merge with existing notifications without duplicating by id
-      setNotifications((prev) => {
-        const byId = new Map(prev.map(n => [n.id, n]));
+      
+      // Merge all notifications without duplicating by id
+      const allMergedNotifications = (() => {
+        // Create a fresh Map for each update
+        const byId = new Map<string, MessageNotification>();
+        
+        // Add system notifications
+        systemNotifications.forEach(n => byId.set(n.id, n));
+        
+        // Add message notifications
         messageNotifications.forEach(n => byId.set(n.id, n));
-        const merged = Array.from(byId.values());
-        try { (window as any).debugNotifications = merged; } catch {}
-        console.log('🔎 MessagingContext refresh merged notifications:', merged);
-        return merged;
-      });
+        
+        // Convert to array and sort by time (most recent first)
+        return Array.from(byId.values()).sort((a, b) => {
+          const aTime = new Date(a.time).getTime();
+          const bTime = new Date(b.time).getTime();
+          return bTime - aTime;
+        });
+      })();
+      
+      // Set all notifications (both read and unread)
+      setAllNotifications(() => allMergedNotifications);
+      
+      // Set only unread notifications for the main notifications array
+      const unreadOnly = allMergedNotifications.filter(n => n.unread);
+      setNotifications(unreadOnly);
+      
       
     } catch (error) {
       console.error('Error refreshing notifications:', error);
@@ -112,6 +146,27 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     
     realtimeService.subscribe('unread_count_update', handleUnreadCountUpdate);
     realtimeService.subscribe('recent_messages_update', handleRecentMessagesUpdate);
+    
+    // Subscribe to listing notifications
+    const handleListingNotification = (data: any) => {
+      if (!isMounted) return;
+      console.log('🔔 Listing notification received:', data);
+      
+      const newNotification: MessageNotification = {
+        id: data.id || `listing_${Date.now()}`,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        time: new Date().toLocaleString(),
+        unread: true,
+        productId: data.data?.product_id,
+        productTitle: data.data?.product_headline
+      };
+      
+      setNotifications(prev => [newNotification, ...prev.filter(n => n.id !== newNotification.id)]);
+    };
+    
+    realtimeService.subscribe('listing_notification', handleListingNotification);
     // Review prompt handler - show as notification instead of auto modal
     const handleReviewPrompt = (payload: any) => {
       if (!isMounted) return;
@@ -233,11 +288,20 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     // Initial load
     refreshNotifications();
     
+    // Set up polling for new notifications every 5 seconds
+    const pollInterval = setInterval(() => {
+      if (isMounted) {
+        refreshNotifications();
+      }
+    }, 5000);
+    
     // Cleanup
     return () => {
       isMounted = false;
+      clearInterval(pollInterval);
       realtimeService.unsubscribe('unread_count_update', handleUnreadCountUpdate);
       realtimeService.unsubscribe('recent_messages_update', handleRecentMessagesUpdate);
+      realtimeService.unsubscribe('listing_notification', handleListingNotification);
       realtimeService.unsubscribe('review_prompt', handleReviewPrompt);
       realtimeService.unsubscribe('new_review', handleNewReview);
       realtimeService.unsubscribe('new_dispute', handleNewDispute);
@@ -251,6 +315,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     <MessagingContext.Provider value={{
       unreadCount,
       notifications,
+      allNotifications,
       isLoading,
       refreshNotifications
     }}>
@@ -262,7 +327,14 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 export function useMessaging() {
   const context = useContext(MessagingContext);
   if (context === undefined) {
-    throw new Error('useMessaging must be used within a MessagingProvider');
+    // Return default values instead of throwing error
+    return {
+      unreadCount: 0,
+      notifications: [],
+      allNotifications: [],
+      isLoading: false,
+      refreshNotifications: () => {}
+    };
   }
   return context;
 }

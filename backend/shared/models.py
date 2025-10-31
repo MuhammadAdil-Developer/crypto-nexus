@@ -206,6 +206,8 @@ class Notification(BaseModel):
         ('payment', 'Payment'),
         ('message', 'Message'),
         ('system', 'System'),
+        ('listing_approval', 'Listing Approval'),
+        ('listing_rejection', 'Listing Rejection'),
     )
 
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='notifications')

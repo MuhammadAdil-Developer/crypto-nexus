@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count, Avg
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+import hashlib
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.response import Response
@@ -320,6 +321,12 @@ def create_product(request):
         data = request.data.copy()
         data['vendor'] = request.user.id
         
+        # Debug logging
+        logger.info(f"Request data keys: {list(data.keys())}")
+        logger.info(f"Request FILES keys: {list(request.FILES.keys()) if hasattr(request, 'FILES') else 'No FILES'}")
+        logger.info(f"gallery_images type: {type(data.get('gallery_images'))}, value: {data.get('gallery_images')}")
+        logger.info(f"documents type: {type(data.get('documents'))}, value: {data.get('documents')}")
+        
         serializer = ProductCreateSerializer(data=data, context={"request": request})
         if serializer.is_valid():
             product = serializer.save()
@@ -426,6 +433,38 @@ def reject_product(request, product_id):
         return Response({
             'success': False,
             'message': 'Failed to reject product',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsVendorOrAdmin])
+def resubmit_product(request, product_id):
+    """Resubmit a rejected product for review"""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        
+        # Only allow resubmission if product is rejected
+        if product.status != 'rejected':
+            return Response({
+                'success': False,
+                'message': 'Only rejected products can be resubmitted'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Change status back to pending_approval
+        product.status = 'pending_approval'
+        product.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Product resubmitted successfully',
+            'data': ProductSerializer(product, context={'request': request}).data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resubmitting product: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to resubmit product',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -615,25 +654,216 @@ def export_products_csv(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def buyer_listings(request):
-    """Get products for buyer (approved products only)"""
+    """Get products for buyer with sophisticated rotating sorting (like Fiverr)"""
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from orders.models import Order
+        from django.db.models import Sum, Count
         
-        products = Product.objects.filter(
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))  # Increased page size
+        
+        # Base queryset
+        products_qs = Product.objects.filter(
             status='approved',
             is_active=True,
             is_deleted=False
-        ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
+        ).select_related('vendor', 'category', 'sub_category')
+
+        # Get unique vendor IDs
+        vendor_ids = list(set([p.vendor_id for p in products_qs]))
         
+        # Get vendor statistics for sophisticated sorting using bulk queries
+        vendor_stats = {}
+        
+        # Bulk query completed orders per vendor
+        orders_by_vendor = Order.objects.filter(
+            vendor_id__in=vendor_ids,
+            order_status__in=['delivered', 'confirmed', 'paid']
+        ).values('vendor_id').annotate(
+            completed_orders=Count('id'),
+            total_sales=Sum('total_amount')
+        )
+        
+        orders_dict = {item['vendor_id']: item for item in orders_by_vendor}
+        
+        # Bulk query product statistics per vendor
+        products_by_vendor = Product.objects.filter(
+            vendor_id__in=vendor_ids,
+            status='approved'
+        ).values('vendor_id').annotate(
+            avg_rating=Avg('rating'),
+            total_views=Sum('views_count'),
+            total_favorites=Sum('favorites_count'),
+            product_count=Count('id')
+        )
+        
+        products_dict = {item['vendor_id']: item for item in products_by_vendor}
+        
+        # Get all vendor users
+        vendors = User.objects.filter(id__in=vendor_ids).select_related()
+        vendors_dict = {v.id: v for v in vendors}
+        
+        # Combine all statistics
+        for vendor_id in vendor_ids:
+            vendor = vendors_dict.get(vendor_id)
+            if not vendor:
+                vendor_stats[vendor_id] = {
+                    'completed_orders': 0,
+                    'total_sales': 0.0,
+                    'avg_rating': 0.0,
+                    'total_views': 0,
+                    'total_favorites': 0,
+                    'is_new_vendor': False,
+                    'days_as_vendor': 999999,
+                    'product_count': 0,
+                }
+                continue
+                
+            order_stats = orders_dict.get(vendor_id, {})
+            product_stats = products_dict.get(vendor_id, {})
+            
+            # Check if vendor is new (member for less than 30 days)
+            days_as_vendor = (timezone.now() - vendor.date_joined).days
+            is_new_vendor = days_as_vendor < 30
+            
+            vendor_stats[vendor_id] = {
+                'completed_orders': order_stats.get('completed_orders', 0),
+                'total_sales': float(order_stats.get('total_sales') or 0),
+                'avg_rating': float(product_stats.get('avg_rating') or 0),
+                'total_views': product_stats.get('total_views') or 0,
+                'total_favorites': product_stats.get('total_favorites') or 0,
+                'is_new_vendor': is_new_vendor,
+                'days_as_vendor': days_as_vendor,
+                'product_count': product_stats.get('product_count', 0),
+            }
+
+        # Sorting / personalization options
+        sort_mode = request.GET.get('sort_mode', 'personalized')
+        bucket = request.GET.get('bucket') or timezone.now().strftime('%Y-%m-%d')
+        seed = request.GET.get('seed', '')
+
+        # Load into list to allow custom ordering before pagination
+        products_list = list(products_qs)
+
+        if sort_mode == 'personalized':
+            # Multi-criteria rotating sorting based on buyer
+            user_id = getattr(request.user, 'id', 'anon')
+            
+            # Determine which sorting criteria to use for this buyer
+            # Use user_id + bucket to create different strategies for different buyers
+            strategy_seed = int(hashlib.sha256(f"{user_id}-{bucket}".encode()).hexdigest()[:8], 16)
+            
+            # Select one of 7 rotating strategies for this buyer
+            strategies = [
+                'highest_rated',      # Sort by highest vendor ratings
+                'newest_vendors',     # Sort by newest vendors
+                'top_sellers',        # Sort by most completed orders
+                'recent_listings',    # Sort by newly uploaded products
+                'most_views',         # Sort by products with most views
+                'best_value',         # Sort by price/rating ratio
+                'mixed_rotation',     # Mix multiple criteria with rotation
+            ]
+            strategy_index = strategy_seed % len(strategies)
+            selected_strategy = strategies[strategy_index]
+            
+            logger.info(f"Buyer {user_id} assigned strategy: {selected_strategy}")
+            
+            # Apply the selected strategy
+            if selected_strategy == 'highest_rated':
+                # Sort by vendor's average rating (highest first)
+                def _sort_key(p):
+                    stats = vendor_stats.get(p.vendor_id, {})
+                    return (-float(stats.get('avg_rating', 0)), -stats.get('completed_orders', 0))
+                products_list.sort(key=_sort_key)
+                
+            elif selected_strategy == 'newest_vendors':
+                # Sort by newest vendors first
+                def _sort_key(p):
+                    stats = vendor_stats.get(p.vendor_id, {})
+                    is_new = stats.get('is_new_vendor', False)
+                    days = stats.get('days_as_vendor', 999999)
+                    return (not is_new, days)  # New vendors first, then by days
+                products_list.sort(key=_sort_key)
+                
+            elif selected_strategy == 'top_sellers':
+                # Sort by vendors with most completed orders
+                def _sort_key(p):
+                    stats = vendor_stats.get(p.vendor_id, {})
+                    return -stats.get('completed_orders', 0)
+                products_list.sort(key=_sort_key)
+                
+            elif selected_strategy == 'recent_listings':
+                # Sort by newly uploaded products (created_at)
+                def _sort_key(p):
+                    return -(p.created_at.timestamp() if p.created_at else 0)
+                products_list.sort(key=_sort_key)
+                
+            elif selected_strategy == 'most_views':
+                # Sort by products with most views, with vendor diversity
+                def _sort_key(p):
+                    stats = vendor_stats.get(p.vendor_id, {})
+                    # Combine product views with vendor diversity
+                    vendor_hash = (p.vendor_id * 7919) % 1000  # For diversity
+                    return (-(p.views_count or 0), -stats.get('total_views', 0), vendor_hash)
+                products_list.sort(key=_sort_key)
+                
+            elif selected_strategy == 'best_value':
+                # Sort by best price/rating ratio
+                def _sort_key(p):
+                    try:
+                        price = float(p.price)
+                        stats = vendor_stats.get(p.vendor_id, {})
+                        rating = stats.get('avg_rating', 0) or 1
+                        # Lower price and higher rating = better value
+                        value_score = -price / max(rating, 0.1)
+                        return (value_score, -stats.get('completed_orders', 0))
+                    except:
+                        return (0, 0)
+                products_list.sort(key=_sort_key)
+                
+            elif selected_strategy == 'mixed_rotation':
+                # Mix multiple criteria with rotation: weight different factors
+                def _sort_key(p):
+                    stats = vendor_stats.get(p.vendor_id, {})
+                    vendor_hash = (p.vendor_id * 7919) % 1000
+                    
+                    # Weighted score: rating (40%) + orders (30%) + views (20%) + diversity (10%)
+                    rating_score = (stats.get('avg_rating', 0) or 0) * 4
+                    order_score = (stats.get('completed_orders', 0) / 100.0) * 3
+                    view_score = ((p.views_count or 0) / 1000.0) * 2
+                    diversity_score = (vendor_hash / 1000.0) * 1
+                    
+                    total_score = rating_score + order_score + view_score + diversity_score
+                    return -total_score
+                products_list.sort(key=_sort_key)
+
+        elif sort_mode == 'newest':
+            products_list.sort(key=lambda p: -(p.created_at.timestamp() if p.created_at else 0))
+
+        elif sort_mode == 'oldest':
+            products_list.sort(key=lambda p: p.created_at.timestamp() if p.created_at else 0)
+
+        elif sort_mode == 'rating':
+            def _sort_key(p):
+                stats = vendor_stats.get(p.vendor_id, {})
+                return -stats.get('avg_rating', 0)
+            products_list.sort(key=_sort_key)
+
+        elif sort_mode == 'views':
+            products_list.sort(key=lambda p: -(p.views_count or 0))
+
+        elif sort_mode == 'random':
+            import random
+            random.shuffle(products_list)
+
         # Pagination
-        total_count = products.count()
+        total_count = len(products_list)
         start = (page - 1) * page_size
         end = start + page_size
-        products = products[start:end]
-        
-        serializer = ProductSerializer(products, many=True, context={'request': request})
-        
+        paginated = products_list[start:end]
+
+        serializer = ProductSerializer(paginated, many=True, context={'request': request})
+
         return Response({
             'success': True,
             'message': 'Buyer products retrieved successfully',

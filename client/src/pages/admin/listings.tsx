@@ -907,7 +907,7 @@ export default function AdminListings() {
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Enter rejection reason..."
-                className="mt-2 bg-surface-2 border-border text-white placeholder:text-gray-400"
+                className="mt-2 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-gray-500"
                 rows={3}
               />
             </div>

@@ -262,8 +262,7 @@ export default function AdminPayouts() {
   ];
 
   return (
-    
-      <main className="flex-1 overflow-y-auto bg-bg p-6">
+      <main className="flex-1 overflow-y-auto bg-bg p-3 md:p-6">
         {/* API Status */}
         {loading && (
           <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 text-blue-300 mb-6">
@@ -294,24 +293,24 @@ export default function AdminPayouts() {
         )}
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Payouts & Refunds</h1>
-            <p className="text-gray-300 mt-1">Manage vendor payouts and customer refund requests</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Payouts & Refunds</h1>
+            <p className="text-gray-300 mt-1 text-sm sm:text-base">Manage vendor payouts and customer refund requests</p>
           </div>
-          <div className="flex space-x-3">
-            <Button variant="outline" className="border-border text-gray-300 hover:bg-surface-2">
-              <Download className="w-4 h-4 mr-2" />
-              Export Report
+          <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
+            <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface-2 w-full sm:w-auto">
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="sm:inline">Export Report</span>
             </Button>
-            <Button className="bg-accent text-bg hover:bg-accent-2">
+            <Button size="sm" className="bg-accent text-bg hover:bg-accent-2 w-full sm:w-auto">
               Process All
             </Button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="crypto-card">
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -399,59 +398,61 @@ export default function AdminPayouts() {
             fetchTransactionHistory();
           }
         }}>
-          <TabsList className="bg-surface-2 mb-6">
-            <TabsTrigger value="payouts" className="text-gray-300 data-[state=active]:text-white">
+          <TabsList className="bg-surface-2 mb-4 sm:mb-6 flex-wrap">
+            <TabsTrigger value="payouts" className="text-gray-300 data-[state=active]:text-white text-xs sm:text-sm">
               Vendor Payouts
             </TabsTrigger>
-            <TabsTrigger value="refunds" className="text-gray-300 data-[state=active]:text-white">
+            <TabsTrigger value="refunds" className="text-gray-300 data-[state=active]:text-white text-xs sm:text-sm">
               Customer Refunds
             </TabsTrigger>
-            <TabsTrigger value="history" className="text-gray-300 data-[state=active]:text-white">
+            <TabsTrigger value="history" className="text-gray-300 data-[state=active]:text-white text-xs sm:text-sm">
               Transaction History
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="payouts">
             {/* Filters */}
-            <Card className="crypto-card mb-6">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
+            <Card className="crypto-card mb-4 sm:mb-6">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="w-full">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <Input 
                         placeholder="Search by vendor name..." 
-                        className="pl-10 bg-surface-2 border-border text-white"
+                        className="pl-10 bg-surface-2 border-border text-white w-full"
                         data-testid="search-payouts"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="processing">Processing</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="escrow">Escrow</SelectItem>
-                      <SelectItem value="direct">Direct</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-full sm:w-40 bg-surface-2 border-border text-white">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-full sm:w-40 bg-surface-2 border-border text-white">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="escrow">Escrow</SelectItem>
+                        <SelectItem value="direct">Direct</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -477,158 +478,175 @@ export default function AdminPayouts() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gradient-to-r from-surface-2 to-surface-2/80">
-                      <tr>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Vendor & Order</th>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Payout Amount</th>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Fees & Commission</th>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Status & Type</th>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Payment Method</th>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Timeline</th>
-                        <th className="text-left p-4 text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {payouts.map((payout) => (
-                        <tr key={payout.id} className="hover:bg-surface-2/30 transition-all duration-200 border-b border-border/20" data-testid={`payout-row-${payout.id}`}>
-                          <td className="p-4">
-                            <div>
-                              <p className="font-medium text-white">{payout.vendor_name}</p>
-                              <p className="text-sm text-gray-400">Order: {payout.order_id}</p>
-                              <p className="text-xs text-gray-500">Buyer: {payout.buyer_name}</p>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              <p className="font-mono text-white">{payout.amount} {payout.crypto_currency}</p>
-                              {payout.type === 'escrow' && payout.gross_amount && (
-                                <p className="text-sm text-gray-400">
-                                  Gross: {payout.gross_amount} {payout.crypto_currency}
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="min-w-[800px] px-4 sm:px-0">
+                    <table className="w-full">
+                      <thead className="bg-gradient-to-r from-surface-2 to-surface-2/80">
+                        <tr>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Vendor & Order</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Payout Amount</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide hidden lg:table-cell">Fees & Commission</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Status & Type</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide hidden md:table-cell">Payment Method</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide hidden xl:table-cell">Timeline</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {payouts.map((payout) => (
+                          <tr key={payout.id} className="hover:bg-surface-2/30 transition-all duration-200 border-b border-border/20" data-testid={`payout-row-${payout.id}`}>
+                            <td className="p-3 sm:p-4">
+                              <div>
+                                <p className="font-medium text-white text-sm sm:text-base">{payout.vendor_name}</p>
+                                <p className="text-xs sm:text-sm text-gray-400">Order: {payout.order_id}</p>
+                                <p className="text-xs text-gray-500 hidden sm:block">Buyer: {payout.buyer_name}</p>
+                              </div>
+                            </td>
+                            <td className="p-3 sm:p-4">
+                              <div>
+                                <p className="font-mono text-white text-sm sm:text-base">{payout.amount} {payout.crypto_currency}</p>
+                                {payout.type === 'escrow' && payout.gross_amount && (
+                                  <p className="text-xs sm:text-sm text-gray-400">
+                                    Gross: {payout.gross_amount} {payout.crypto_currency}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 sm:p-4 hidden lg:table-cell">
+                              {payout.type === 'escrow' && payout.platform_fee ? (
+                                <div>
+                                  <span className="font-mono text-accent text-sm">Platform: {payout.platform_fee} {payout.crypto_currency}</span>
+                                  {payout.escrow_fee && (
+                                    <p className="text-xs sm:text-sm text-gray-400">Escrow: {payout.escrow_fee} {payout.crypto_currency}</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-sm">Direct Payment</span>
+                              )}
+                            </td>
+                            <td className="p-3 sm:p-4">
+                              <div className="space-y-1">
+                                <div>
+                                  <span className="text-xs text-gray-400">Payment:</span>
+                                  <StatusBadge 
+                                    status={payout.payment_status === 'paid' ? 'Paid' : payout.payment_status} 
+                                    type={payout.payment_status === 'paid' ? 'success' : 'warning'} 
+                                  />
+                                </div>
+                                <div>
+                                  <span className="text-xs text-gray-400">Payout:</span>
+                                  <StatusBadge 
+                                    status={payout.status === 'pending' ? 'Awaiting' : payout.status} 
+                                    type={getStatusType(payout.status)} 
+                                  />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Type: {payout.type.toUpperCase()}
                                 </p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {payout.type === 'escrow' && payout.platform_fee ? (
-                              <div>
-                                <span className="font-mono text-accent">Platform: {payout.platform_fee} {payout.crypto_currency}</span>
-                                {payout.escrow_fee && (
-                                  <p className="text-sm text-gray-400">Escrow: {payout.escrow_fee} {payout.crypto_currency}</p>
-                                )}
+                                {/* Mobile: Show fees here */}
+                                <div className="lg:hidden mt-2 pt-2 border-t border-gray-700">
+                                  {payout.type === 'escrow' && payout.platform_fee && (
+                                    <div className="text-xs">
+                                      <span className="text-accent">Platform: {payout.platform_fee} {payout.crypto_currency}</span>
+                                      {payout.escrow_fee && (
+                                        <p className="text-gray-400">Escrow: {payout.escrow_fee} {payout.crypto_currency}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            ) : (
-                              <span className="text-gray-400">Direct Payment</span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <div className="space-y-1">
-                              <div>
-                                <span className="text-xs text-gray-400">Payment:</span>
-                                <StatusBadge 
-                                  status={payout.payment_status === 'paid' ? 'Paid' : payout.payment_status} 
-                                  type={payout.payment_status === 'paid' ? 'success' : 'warning'} 
-                                />
-                              </div>
-                              <div>
-                                <span className="text-xs text-gray-400">Payout:</span>
-                                <StatusBadge 
-                                  status={payout.status === 'pending' ? 'Awaiting' : payout.status} 
-                                  type={getStatusType(payout.status)} 
-                                />
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Type: {payout.type.toUpperCase()}
+                            </td>
+                            <td className="p-3 sm:p-4 hidden md:table-cell">
+                              <Badge variant="outline" className="text-gray-300 text-xs">
+                                {payout.crypto_currency} Address
+                              </Badge>
+                              <p className="text-xs text-gray-500 mt-1 break-all">
+                                {payout.vendor_address.substring(0, 20)}...
                               </p>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Badge variant="outline" className="text-gray-300">
-                              {payout.crypto_currency} Address
-                            </Badge>
-                            <p className="text-xs text-gray-500 mt-1 break-all">
-                              {payout.vendor_address.substring(0, 20)}...
-                            </p>
-                          </td>
-                          <td className="p-4 text-gray-300">
-                            {payout.type === 'escrow' ? (
-                              <div>
-                                <p>{payout.requested_at ? new Date(payout.requested_at).toLocaleDateString() : 'N/A'}</p>
-                                {payout.auto_release_at && (
-                                  <p className="text-xs text-gray-500">
-                                    Auto-release: {new Date(payout.auto_release_at).toLocaleDateString()}
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                <p>{payout.created_at ? new Date(payout.created_at).toLocaleDateString() : 'N/A'}</p>
-                                {payout.expires_at && (
-                                  <p className="text-xs text-gray-500">
-                                    Expires: {new Date(payout.expires_at).toLocaleDateString()}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && payout.type === 'escrow' && (
-                                <Button 
-                                  size="sm" 
-                                  className={`shadow-lg transition-all duration-200 ${
-                                    payout.status === "failed" 
-                                      ? "bg-green-500 hover:bg-green-500 hover:shadow-green-500/25" 
-                                      : payout.status === "ready"
-                                      ? "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/25"
-                                      : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/25"
-                                  } text-white`}
-                                  onClick={() => handleReleaseClick(payout)}
-                                  data-testid={`approve-payout-${payout.id}`}
-                                >
-                                  <Check className="w-4 h-4 mr-1" />
-                                  {payout.status === "failed" ? "Retry Release" : 
-                                   payout.status === "ready" ? "Release Payment" : "Release"}
-                                </Button>
+                            </td>
+                            <td className="p-3 sm:p-4 text-gray-300 hidden xl:table-cell">
+                              {payout.type === 'escrow' ? (
+                                <div>
+                                  <p className="text-xs sm:text-sm">{payout.requested_at ? new Date(payout.requested_at).toLocaleDateString() : 'N/A'}</p>
+                                  {payout.auto_release_at && (
+                                    <p className="text-xs text-gray-500">
+                                      Auto-release: {new Date(payout.auto_release_at).toLocaleDateString()}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-xs sm:text-sm">{payout.created_at ? new Date(payout.created_at).toLocaleDateString() : 'N/A'}</p>
+                                  {payout.expires_at && (
+                                    <p className="text-xs text-gray-500">
+                                      Expires: {new Date(payout.expires_at).toLocaleDateString()}
+                                    </p>
+                                  )}
+                                </div>
                               )}
-                              {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && (
+                            </td>
+                            <td className="p-3 sm:p-4">
+                              <div className="flex flex-col gap-2">
+                                <div className="flex flex-wrap gap-2">
+                                  {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && payout.type === 'escrow' && (
+                                    <Button 
+                                      size="sm" 
+                                      className={`shadow-lg transition-all duration-200 text-xs sm:text-sm ${
+                                        payout.status === "failed" 
+                                          ? "bg-green-500 hover:bg-green-500 hover:shadow-green-500/25" 
+                                          : payout.status === "ready"
+                                          ? "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/25"
+                                          : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/25"
+                                      } text-white flex-1 sm:flex-initial`}
+                                      onClick={() => handleReleaseClick(payout)}
+                                      data-testid={`approve-payout-${payout.id}`}
+                                    >
+                                      <Check className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                                      <span className="hidden sm:inline">{payout.status === "failed" ? "Retry Release" : 
+                                       payout.status === "ready" ? "Release Payment" : "Release"}</span>
+                                      <span className="sm:hidden">Release</span>
+                                    </Button>
+                                  )}
+                                  {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && (
+                                    <Button 
+                                      variant="destructive"
+                                      size="sm" 
+                                      className="bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25 transition-all duration-200 text-xs sm:text-sm flex-1 sm:flex-initial" 
+                                      onClick={() => processPayoutAction(payout.id, 'cancel')}
+                                      data-testid={`reject-payout-${payout.id}`}
+                                    >
+                                      <X className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                                      <span className="hidden sm:inline">Cancel</span>
+                                      <span className="sm:hidden">X</span>
+                                    </Button>
+                                  )}
+                                </div>
                                 <Button 
-                                  variant="destructive"
+                                  variant="outline"
                                   size="sm" 
-                                  className="bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25 transition-all duration-200"
-                                  onClick={() => processPayoutAction(payout.id, 'cancel')}
-                                  data-testid={`reject-payout-${payout.id}`}
+                                  className="text-gray-300 hover:text-white hover:bg-surface-2/50 border-border/50 transition-all duration-200 text-xs sm:text-sm w-full sm:w-auto" 
+                                  onClick={() => handleViewDetails(payout)}
+                                  data-testid={`view-payout-${payout.id}`}
                                 >
-                                  <X className="w-4 h-4 mr-1" />
-                                  Cancel
+                                  <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                                  <span className="hidden sm:inline">View Details</span>
+                                  <span className="sm:hidden">Details</span>
                                 </Button>
-                              )}
-                              <Button 
-                                variant="outline"
-                                size="sm" 
-                                className="text-gray-300 hover:text-white hover:bg-surface-2/50 border-border/50 transition-all duration-200" 
-                                onClick={() => handleViewDetails(payout)}
-                                data-testid={`view-payout-${payout.id}`}
-                              >
-                                <Download className="w-4 h-4 mr-1" />
-                                View Details
-                              </Button>
-                            </div>
-                          </td>
+                              </div>
+                            </td>
                         </tr>
                       ))}
                       
                       {loading && (
                         <tr>
-                          <td colSpan={7} className="p-12 text-center">
+                          <td colSpan={7} className="p-6 sm:p-12 text-center">
                             <div className="space-y-4">
-                              <div className="w-16 h-16 mx-auto bg-surface-2 rounded-full flex items-center justify-center">
-                                <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-surface-2 rounded-full flex items-center justify-center">
+                                <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
                               </div>
                               <div className="space-y-2">
-                                <div className="text-gray-400 text-lg font-medium">Loading payouts...</div>
-                                <div className="text-gray-500 text-sm">
+                                <div className="text-gray-400 text-base sm:text-lg font-medium">Loading payouts...</div>
+                                <div className="text-gray-500 text-xs sm:text-sm">
                                   Fetching payout data from the blockchain
                                 </div>
                               </div>
@@ -639,14 +657,14 @@ export default function AdminPayouts() {
                       
                       {payouts.length === 0 && !loading && (
                         <tr>
-                          <td colSpan={7} className="p-12 text-center">
+                          <td colSpan={7} className="p-6 sm:p-12 text-center">
                             <div className="space-y-4">
-                              <div className="w-16 h-16 mx-auto bg-surface-2 rounded-full flex items-center justify-center">
-                                <Wallet className="w-8 h-8 text-gray-500" />
+                              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-surface-2 rounded-full flex items-center justify-center">
+                                <Wallet className="w-6 h-6 sm:w-8 sm:h-8 text-gray-500" />
                               </div>
                               <div className="space-y-2">
-                                <div className="text-gray-400 text-lg font-medium">No payouts found</div>
-                                <div className="text-gray-500 text-sm max-w-md mx-auto space-y-1">
+                                <div className="text-gray-400 text-base sm:text-lg font-medium">No payouts found</div>
+                                <div className="text-gray-500 text-xs sm:text-sm max-w-md mx-auto space-y-1">
                                   <p>• <strong className="text-blue-400">Escrow payouts</strong> appear when buyers confirm orders</p>
                                   <p>• <strong className="text-purple-400">Direct payments</strong> appear when orders are created</p>
                                 </div>
@@ -657,6 +675,7 @@ export default function AdminPayouts() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -666,64 +685,67 @@ export default function AdminPayouts() {
             {/* Refunds Table */}
             <Card className="crypto-card">
               <CardHeader>
-                <CardTitle className="text-white">Customer Refund Requests</CardTitle>
+                <CardTitle className="text-white text-lg sm:text-xl">Customer Refund Requests</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-surface-2">
-                      <tr>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Order ID</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Buyer</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Vendor</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Amount</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Reason</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Status</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Requested</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {sampleRefunds.map((refund) => (
-                        <tr key={refund.id} className="hover:bg-surface-2/50" data-testid={`refund-row-${refund.id}`}>
-                          <td className="p-4">
-                            <span className="font-mono text-accent">{refund.orderId}</span>
-                          </td>
-                          <td className="p-4 text-white">{refund.buyer}</td>
-                          <td className="p-4 text-gray-300">{refund.vendor}</td>
-                          <td className="p-4">
-                            <span className="font-mono text-white">{refund.amount}</span>
-                          </td>
-                          <td className="p-4">
-                            <div className="max-w-xs">
-                              <p className="text-gray-300 truncate">{refund.reason}</p>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <StatusBadge status={refund.status} type={refund.statusType} />
-                          </td>
-                          <td className="p-4 text-gray-300">{refund.requestDate}</td>
-                          <td className="p-4">
-                            <div className="flex items-center space-x-2">
-                              {refund.status === "Pending" && (
-                                <>
-                                  <Button variant="ghost" size="sm" className="text-success hover:text-green-400" data-testid={`approve-refund-${refund.id}`}>
-                                    <Check className="w-4 h-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="text-danger hover:text-red-400" data-testid={`reject-refund-${refund.id}`}>
-                                    <X className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              )}
-                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`view-refund-${refund.id}`}>
-                                View Order
-                              </Button>
-                            </div>
-                          </td>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="min-w-[700px] px-4 sm:px-0">
+                    <table className="w-full">
+                      <thead className="bg-surface-2">
+                        <tr>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Order ID</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300 hidden md:table-cell">Buyer</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300 hidden lg:table-cell">Vendor</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Amount</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Reason</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Status</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300 hidden xl:table-cell">Requested</th>
+                          <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {sampleRefunds.map((refund) => (
+                          <tr key={refund.id} className="hover:bg-surface-2/50" data-testid={`refund-row-${refund.id}`}>
+                            <td className="p-3 sm:p-4">
+                              <span className="font-mono text-accent text-xs sm:text-sm">{refund.orderId}</span>
+                            </td>
+                            <td className="p-3 sm:p-4 text-white hidden md:table-cell text-sm">{refund.buyer}</td>
+                            <td className="p-3 sm:p-4 text-gray-300 hidden lg:table-cell text-sm">{refund.vendor}</td>
+                            <td className="p-3 sm:p-4">
+                              <span className="font-mono text-white text-xs sm:text-sm">{refund.amount}</span>
+                            </td>
+                            <td className="p-3 sm:p-4">
+                              <div className="max-w-xs">
+                                <p className="text-gray-300 truncate text-xs sm:text-sm">{refund.reason}</p>
+                              </div>
+                            </td>
+                            <td className="p-3 sm:p-4">
+                              <StatusBadge status={refund.status} type={refund.statusType} />
+                            </td>
+                            <td className="p-3 sm:p-4 text-gray-300 hidden xl:table-cell text-xs sm:text-sm">{refund.requestDate}</td>
+                            <td className="p-3 sm:p-4">
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                {refund.status === "Pending" && (
+                                  <>
+                                    <Button variant="ghost" size="sm" className="text-success hover:text-green-400 text-xs" data-testid={`approve-refund-${refund.id}`}>
+                                      <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="text-danger hover:text-red-400 text-xs" data-testid={`reject-refund-${refund.id}`}>
+                                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white text-xs" data-testid={`view-refund-${refund.id}`}>
+                                  <span className="hidden sm:inline">View Order</span>
+                                  <span className="sm:hidden">View</span>
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -737,7 +759,10 @@ export default function AdminPayouts() {
                   <Button
                     variant="outline" 
                     size="sm" 
-                    onClick={fetchTransactionHistory}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fetchTransactionHistory();
+                    }}
                     disabled={transactionsLoading}
                     className="text-gray-300 hover:text-white hover:bg-surface-2/50 transition-all duration-200"
                   >
@@ -780,14 +805,14 @@ export default function AdminPayouts() {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                           <div>
                             <span className="text-gray-400">From:</span>
-                            <p className="font-mono text-white text-xs">{transaction.from_address}</p>
+                            <p className="font-mono text-white text-xs break-all">{transaction.from_address}</p>
                           </div>
                           <div>
                             <span className="text-gray-400">To:</span>
-                            <p className="font-mono text-white text-xs">{transaction.to_address}</p>
+                            <p className="font-mono text-white text-xs break-all">{transaction.to_address}</p>
                           </div>
                           <div>
                             <span className="text-gray-400">Status:</span>
@@ -813,15 +838,18 @@ export default function AdminPayouts() {
                 
                 {/* Pagination */}
                 {transactions.length > 0 && totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-700">
-                    <div className="text-sm text-gray-400">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-gray-700">
+                    <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
                       Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, transactions.length)} of {transactions.length} transactions
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-wrap justify-center">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => fetchTransactionHistory(currentPage - 1)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          fetchTransactionHistory(currentPage - 1);
+                        }}
                         disabled={currentPage === 1 || transactionsLoading}
                         className="border-gray-600 text-gray-300 hover:bg-gray-700"
                       >
@@ -838,7 +866,10 @@ export default function AdminPayouts() {
                               key={page}
                               variant={page === currentPage ? "default" : "outline"}
                               size="sm"
-                              onClick={() => fetchTransactionHistory(page)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                fetchTransactionHistory(page);
+                              }}
                               disabled={transactionsLoading}
                               className={
                                 page === currentPage 
@@ -855,7 +886,10 @@ export default function AdminPayouts() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => fetchTransactionHistory(currentPage + 1)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          fetchTransactionHistory(currentPage + 1);
+                        }}
                         disabled={currentPage === totalPages || transactionsLoading}
                         className="border-gray-600 text-gray-300 hover:bg-gray-700"
                       >
@@ -871,7 +905,7 @@ export default function AdminPayouts() {
 
         {/* Payout Details Modal */}
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-surface to-surface-2 text-white border-2 border-border/50 shadow-2xl">
+          <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-surface to-surface-2 text-white border-2 border-border/50 shadow-2xl mx-4 sm:mx-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-white">
                 {selectedPayout?.type === 'escrow' ? 'Escrow Payout Details' : 'Direct Payment Details'}
@@ -881,7 +915,7 @@ export default function AdminPayouts() {
             {selectedPayout && (
               <div className="space-y-6">
                 {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <Card className="bg-surface-2 border-border">
                     <CardHeader>
                       <CardTitle className="text-lg text-white">Order Information</CardTitle>
@@ -927,7 +961,7 @@ export default function AdminPayouts() {
                     <CardTitle className="text-lg text-white">Payment Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex justify-between">
                         <span className="text-gray-400">Cryptocurrency:</span>
                         <Badge variant="outline">{selectedPayout.crypto_currency}</Badge>
@@ -1088,7 +1122,7 @@ export default function AdminPayouts() {
 
         {/* Release Confirmation Modal */}
         <Dialog open={confirmModalOpen} onOpenChange={setConfirmModalOpen}>
-          <DialogContent className="max-w-md bg-gradient-to-br from-surface to-surface-2 text-white border-2 border-border/50 shadow-2xl">
+          <DialogContent className="max-w-[95vw] sm:max-w-md bg-gradient-to-br from-surface to-surface-2 text-white border-2 border-border/50 shadow-2xl mx-4 sm:mx-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-white flex items-center">
                 <Check className="w-6 h-6 mr-2 text-green-400" />

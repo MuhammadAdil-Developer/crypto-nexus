@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw } from "lucide-react";
+import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw, MoreVertical } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -592,21 +592,54 @@ export function VendorHeader() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 max-h-96">
-              <div className="px-2 py-1 text-sm text-gray-400 flex items-center justify-between">
-                <span>Notifications</span>
+            <DropdownMenuContent align="end" className="w-[360px] p-0 bg-gray-900 border-gray-700">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-white text-sm">Notifications</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {isLoadingNotifications ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Loading...
+                      </span>
+                    ) : (
+                      `${badgeCount || 0} unread`
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => refreshNotifications(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      refreshNotifications(true);
+                    }}
                   disabled={isLoadingNotifications}
-                  className="h-6 px-2 text-gray-400 hover:text-white"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="Refresh notifications"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-gray-400 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNotificationDropdownOpen(false);
+                      navigate('/vendor/notifications');
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="View all notifications"
+                  >
+                    <MoreVertical className="w-3 h-3 text-gray-400" />
                 </Button>
+                </div>
               </div>
-              <DropdownMenuSeparator />
-              <div className="max-h-80 overflow-y-auto">
+              
+              {/* Notifications List */}
+              <div className="max-h-[320px] overflow-y-auto">
                 {isLoadingNotifications && displayedNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />
@@ -620,77 +653,65 @@ export function VendorHeader() {
                     <p className="text-sm text-gray-400">No notifications yet</p>
                   </div>
                 ) : (
-                  displayedNotifications.map((n: any) => (
-                    <DropdownMenuItem 
+                  (() => {
+                    const sortedNotifications = [...displayedNotifications].sort((a: any, b: any) => {
+                      const timeA = new Date(a.time || 0).getTime();
+                      const timeB = new Date(b.time || 0).getTime();
+                      return timeB - timeA;
+                    });
+                    const displayList = sortedNotifications.slice(0, 10);
+                    
+                    return (
+                      <>
+                        {displayList.map((n: any) => (
+                          <div
                       key={n.id} 
-                      className="flex flex-col items-start gap-1 cursor-pointer"
+                            className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
                       onClick={() => handleNotificationClick(n)}
                     >
-                      <div className="flex items-center gap-2 text-sm text-white">
-                        {n.type === 'review' && <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />}
-                        {n.type === 'dispute' && <span className="inline-block w-2 h-2 rounded-full bg-red-400" />}
-                        {n.type === 'dispute_message' && <span className="inline-block w-2 h-2 rounded-full bg-orange-400" />}
-                        {n.type === 'dispute_resolved' && <span className="inline-block w-2 h-2 rounded-full bg-green-400" />}
-                        {n.type === 'listing_approval' && <span className="inline-block w-2 h-2 rounded-full bg-green-400" />}
-                        {n.type === 'listing_rejection' && <span className="inline-block w-2 h-2 rounded-full bg-red-400" />}
-                        <div>{n.title}</div>
+                            <div className="flex items-start gap-3">
+                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                                n.unread 
+                                  ? n.type === 'review' 
+                                    ? 'bg-yellow-500' 
+                                    : n.type === 'dispute' || n.type === 'listing_rejection'
+                                    ? 'bg-red-500'
+                                    : n.type === 'dispute_message'
+                                    ? 'bg-orange-500'
+                                    : n.type === 'dispute_resolved' || n.type === 'listing_approval'
+                                    ? 'bg-green-500'
+                                    : 'bg-blue-500'
+                                  : 'bg-gray-600'
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-medium text-sm text-white">{n.title}</p>
+                                </div>
+                                <p className="text-sm text-gray-400 line-clamp-2">{n.message}</p>
+                                <p className="text-xs text-gray-500 mt-1">{n.time}</p>
                       </div>
-                      <div 
-                        className="text-xs text-gray-400 w-full break-words" 
-                        title={n.message}
-                      >
-                        {(() => {
-                          // Only truncate rejection reasons over 80 chars
-                          if (n.type === 'listing_rejection' && n.message && n.message.length > 80) {
-                            return n.message.substring(0, 80) + '...';
-                          }
-                          return n.message;
-                        })()}
                       </div>
-                      <div className="text-xs text-gray-500">{n.time}</div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-                {sortedNotifications.length > 3 * notificationPage && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <div className="px-3 py-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={handleLoadMoreNotifications}
-                        disabled={loadingMoreNotifications}
-                        className="w-full text-xs"
-                      >
-                        {loadingMoreNotifications ? (
-                          <>
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3 h-3 mr-1" />
-                            Load More
-                          </>
-                        )}
-                      </Button>
                     </div>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <div className="px-3 py-2">
+                        ))}
+                        {sortedNotifications.length > 10 && (
+                          <div className="px-4 py-3 border-t border-gray-700">
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => {
-                      setNotificationDropdownOpen(false);
+                                handleNotificationDropdownOpen(false);
                       navigate('/vendor/notifications');
                     }}
-                    className="w-full text-xs text-blue-400 hover:text-blue-300"
+                              className="w-full text-sm text-blue-400 hover:text-blue-300 hover:bg-gray-800"
                   >
-                    View All ({sortedNotifications.length})
+                              View all ({sortedNotifications.length})
                   </Button>
                 </div>
+                        )}
+                      </>
+                    );
+                  })()
+                )}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

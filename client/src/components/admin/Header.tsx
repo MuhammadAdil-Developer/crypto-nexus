@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, ExternalLink, Bell, Settings } from "lucide-react";
+import { Menu, ExternalLink, Bell, Settings, User, RefreshCw, ExternalLink as ExternalLinkIcon, MoreVertical } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,8 +7,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useMessaging } from "@/contexts/MessagingContext";
 
@@ -21,10 +23,12 @@ interface HeaderProps {
 export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { unreadCount, notifications, allNotifications, refreshNotifications } = useMessaging();
+  const { unreadCount, notifications, allNotifications, refreshNotifications, isLoading } = useMessaging();
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [countReset, setCountReset] = useState(false);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState<'direct' | 'watching'>('direct');
   
   // Initialize local count from context (only when not reset)
   useEffect(() => {
@@ -33,17 +37,19 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
     }
   }, [unreadCount, countReset]);
   
-  // Auto-refresh notifications periodically when dropdown is open
+  // Auto-refresh notifications aggressively - every 2 seconds
   useEffect(() => {
-    if (dropdownOpen) {
-      // Refresh immediately when dropdown opens
+    // Always refresh every 2 seconds (aggressive approach)
+    const interval = setInterval(() => {
       refreshNotifications(true);
-      // Set up periodic refresh every 10 seconds when dropdown is open
-      const interval = setInterval(() => {
-        refreshNotifications(true);
-      }, 10000);
-      return () => clearInterval(interval);
+    }, 2000);
+    
+    // Also refresh immediately when dropdown opens
+    if (dropdownOpen) {
+      refreshNotifications(true);
     }
+    
+    return () => clearInterval(interval);
   }, [dropdownOpen, refreshNotifications]);
 
   // When dropdown opens, mark all as read in backend and animate count to 0
@@ -130,19 +136,19 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
             </span>
           </Link>
           
-          {/* Notifications */}
+          {/* Notifications - GitHub Style */}
           <DropdownMenu onOpenChange={handleDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="relative hover:text-text transition-all"
+                className="relative hover:text-text transition-all p-2"
                 data-testid="notifications-button"
               >
-                <Bell className="w-4 h-4 md:w-5 md:h-5" />
+                <Bell className="w-5 h-5 text-blue-400" />
                 {localUnreadCount > 0 && (
                   <Badge 
-                    className={`absolute -top-1 -right-1 min-w-4 h-4 md:min-w-5 md:h-5 bg-red-500 text-white text-[10px] md:text-xs p-0 flex items-center justify-center transition-all duration-300 ${
+                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] p-0 flex items-center justify-center rounded-full transition-all duration-300 ${
                       dropdownOpen ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
                     }`}
                   >
@@ -151,46 +157,161 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <div className="p-3 border-b">
-                <h3 className="font-semibold text-white">Notifications</h3>
-                <p className="text-sm text-gray-400">
-                  {localUnreadCount} unread
-                </p>
-              </div>
-              <div className="max-h-96 overflow-y-auto">
-                {/* Show all notifications (both read and unread) - notifications never get removed */}
-                {(!allNotifications || allNotifications.length === 0) ? (
-                  <div className="p-4 text-center text-gray-400">
-                    No notifications yet
+            <DropdownMenuContent align="end" className="w-[360px] p-0 bg-gray-900 border-gray-700">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between gap-2">
+                <h3 className="font-semibold text-white text-sm">Notifications</h3>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="text-xs text-gray-400">Only show unread</span>
+                    <Switch 
+                      checked={showUnreadOnly}
+                      onCheckedChange={setShowUnreadOnly}
+                      className="h-4 w-7"
+                    />
                   </div>
-                ) : (
-                  allNotifications.slice(0, 10).map((notification) => (
-                    <DropdownMenuItem 
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      refreshNotifications(true);
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="Refresh notifications"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-gray-400 ${isLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDropdownOpen(false);
+                      navigate('/admin/notifications');
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="Open in new page"
+                  >
+                    <ExternalLinkIcon className="w-3 h-3 text-gray-400" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDropdownOpen(false);
+                      navigate('/admin/notifications');
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="View all notifications"
+                  >
+                    <MoreVertical className="w-3 h-3 text-gray-400" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-gray-700">
+                <button
+                  onClick={() => setActiveTab('direct')}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === 'direct'
+                      ? 'text-white border-b-2 border-blue-500'
+                      : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  Direct
+                </button>
+                <button
+                  onClick={() => setActiveTab('watching')}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === 'watching'
+                      ? 'text-white border-b-2 border-blue-500'
+                      : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  Watching
+                </button>
+              </div>
+
+              {/* Notifications List */}
+              <div className="max-h-[320px] overflow-y-auto">
+                {(() => {
+                  const filtered = showUnreadOnly 
+                    ? allNotifications.filter(n => n.unread)
+                    : allNotifications;
+                  
+                  const displayNotifications = filtered.slice(0, 20);
+                  
+                  if (displayNotifications.length === 0) {
+                    return (
+                      <div className="p-8 text-center text-gray-400">
+                        <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No notifications</p>
+                      </div>
+                    );
+                  }
+
+                  // Group by time
+                  const grouped: { [key: string]: typeof displayNotifications } = {};
+                  displayNotifications.forEach(notif => {
+                    const time = notif.time || 'Older';
+                    const group = time.includes('hour') || time.includes('minute') || time === 'Just now' 
+                      ? 'Today' 
+                      : time.includes('Yesterday') 
+                      ? 'Yesterday' 
+                      : 'Older';
+                    if (!grouped[group]) grouped[group] = [];
+                    grouped[group].push(notif);
+                  });
+
+                  return Object.entries(grouped).map(([groupName, groupNotifications]) => (
+                    <div key={groupName}>
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-800/50">
+                        {groupName}
+                  </div>
+                      {groupNotifications.map((notification) => (
+                        <div
                       key={notification.id} 
-                      className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-800"
+                          className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
                       onClick={() => {
-                        // Navigate but DON'T mark as read - count stays same
                         if (notification.actionUrl) {
                           navigate(notification.actionUrl);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start space-x-3 w-full">
-                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                          notification.unread ? 'bg-blue-500' : 'bg-gray-300'
-                        }`} />
+                              setDropdownOpen(false);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Avatar */}
+                            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <User className="w-4 h-4 text-gray-400" />
+                            </div>
+                            
+                            {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-white truncate">{notification.title}</p>
-                          <p className="text-sm text-gray-400 line-clamp-2">{notification.message}</p>
-                          <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                              <p className="text-sm text-white leading-snug">
+                                <span className="font-medium">{notification.title}</span>
+                                {' '}
+                                <span className="text-gray-400">{notification.message}</span>
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                            </div>
+                            
+                            {/* Unread indicator */}
+                            {notification.unread && (
+                              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />
+                            )}
+                          </div>
                         </div>
+                      ))}
                       </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
+                  ));
+                })()}
               </div>
-              <div className="p-3 border-t">
+
+              {/* Footer */}
+              <div className="px-4 py-3 border-t border-gray-700">
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -198,9 +319,9 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                     setDropdownOpen(false);
                     navigate('/admin/notifications');
                   }}
-                  className="w-full text-xs text-blue-400 hover:text-blue-300"
+                  className="w-full text-sm text-blue-400 hover:text-blue-300 hover:bg-gray-800"
                 >
-                  View All ({allNotifications?.length || 0})
+                  View all notifications
                 </Button>
               </div>
             </DropdownMenuContent>

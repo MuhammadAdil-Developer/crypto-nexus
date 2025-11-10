@@ -108,7 +108,7 @@ export function Sidebar() {
                     <span className="flex-1 text-left">{group.category}</span>
                     <div className="flex items-center gap-2">
                       {categoryHasCount && (
-                        <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                       )}
                       <ChevronRight 
                         className={cn(
@@ -230,7 +230,7 @@ export function Sidebar() {
                     <span className="flex-1 text-left">{group.category}</span>
                     <div className="flex items-center gap-2">
                       {categoryHasCount && (
-                        <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                       )}
                       <ChevronRight 
                         className={cn(

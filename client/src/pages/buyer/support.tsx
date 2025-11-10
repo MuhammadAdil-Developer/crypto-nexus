@@ -245,7 +245,15 @@ export default function BuyerSupport() {
               <p className="text-sm text-gray-400 mb-4">
                 Get instant help from our support team
               </p>
-              <Button className="w-full bg-gray-700">
+              <Button 
+                className="w-full bg-gray-700 cursor-pointer"
+                onClick={() => {
+                  toast({
+                    title: "Live Chat",
+                    description: "Live chat feature coming soon! Please submit a ticket for immediate support.",
+                  });
+                }}
+              >
                 Start Chat
               </Button>
             </CardContent>
@@ -260,7 +268,13 @@ export default function BuyerSupport() {
               <p className="text-sm text-gray-400 mb-4">
                 Send us an email and we'll respond within 24h
               </p>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full cursor-pointer"
+                onClick={() => {
+                  window.location.href = 'mailto:support@cryptomarket.com';
+                }}
+              >
                 support@cryptomarket.com
               </Button>
             </CardContent>
@@ -275,7 +289,17 @@ export default function BuyerSupport() {
               <p className="text-sm text-gray-400 mb-4">
                 Create a detailed support request
               </p>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full cursor-pointer"
+                onClick={() => {
+                  // Scroll to ticket form
+                  const ticketForm = document.getElementById('ticket-form-section');
+                  if (ticketForm) {
+                    ticketForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+              >
                 Create Ticket
               </Button>
             </CardContent>
@@ -323,7 +347,7 @@ export default function BuyerSupport() {
           </div>
 
           {/* Support Ticket Form */}
-          <div>
+          <div id="ticket-form-section">
             <Card className="border border-gray-700 bg-gray-900">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -521,21 +545,57 @@ export default function BuyerSupport() {
                 <FileText className="w-8 h-8 text-blue-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">User Guide</h4>
                 <p className="text-sm text-gray-400 mb-3">Complete guide to using our platform</p>
-                <Button variant="outline" size="sm">Read Guide</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    toast({
+                      title: "User Guide",
+                      description: "User guide documentation coming soon!",
+                    });
+                  }}
+                >
+                  Read Guide
+                </Button>
               </div>
 
               <div className="text-center p-4 bg-gray-800 rounded-lg">
                 <MessageSquare className="w-8 h-8 text-green-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Community Forum</h4>
                 <p className="text-sm text-gray-400 mb-3">Connect with other users and get tips</p>
-                <Button variant="outline" size="sm">Visit Forum</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    toast({
+                      title: "Community Forum",
+                      description: "Community forum coming soon!",
+                    });
+                  }}
+                >
+                  Visit Forum
+                </Button>
               </div>
 
               <div className="text-center p-4 bg-gray-800 rounded-lg">
                 <HelpCircle className="w-8 h-8 text-purple-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Video Tutorials</h4>
                 <p className="text-sm text-gray-400 mb-3">Step-by-step video guides</p>
-                <Button variant="outline" size="sm">Watch Videos</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    toast({
+                      title: "Video Tutorials",
+                      description: "Video tutorials coming soon!",
+                    });
+                  }}
+                >
+                  Watch Videos
+                </Button>
               </div>
             </div>
           </CardContent>

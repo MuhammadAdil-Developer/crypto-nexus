@@ -14,6 +14,76 @@ import { messagingService } from "@/services/messagingService";
 
 export default function AdminMessages() {
   const { toast } = useToast();
+  
+  const handleExportMessages = async () => {
+    try {
+      // Collect all messages from all conversations
+      let allMessages: any[] = [];
+      
+      for (const conversation of conversations) {
+        try {
+          const messages = await messagingService.getConversationMessages(conversation.id, 1, 1000);
+          messages.forEach((msg: any) => {
+            allMessages.push({
+              conversation_id: conversation.id,
+              message_id: msg.id,
+              sender: msg.sender?.username || 'Unknown',
+              content: msg.content || '',
+              timestamp: msg.created_at || msg.timestamp || '',
+              flagged: msg.flagged || false
+            });
+          });
+        } catch (error) {
+          console.error(`Error fetching messages for conversation ${conversation.id}:`, error);
+        }
+      }
+      
+      // Create CSV content
+      const headers = ['Conversation ID', 'Message ID', 'Sender', 'Content', 'Timestamp', 'Flagged'];
+      const rows = allMessages.map(msg => [
+        msg.conversation_id,
+        msg.message_id,
+        msg.sender,
+        msg.content,
+        msg.timestamp,
+        msg.flagged ? 'Yes' : 'No'
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => {
+          const stringCell = String(cell);
+          if (stringCell.includes(',') || stringCell.includes('"') || stringCell.includes('\n')) {
+            return `"${stringCell.replace(/"/g, '""')}"`;
+          }
+          return stringCell;
+        }).join(','))
+      ].join('\n');
+      
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `messages_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Export Successful",
+        description: `Successfully exported ${allMessages.length} messages to CSV`,
+      });
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export messages",
+        variant: "destructive"
+      });
+    }
+  };
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -203,7 +273,10 @@ export default function AdminMessages() {
             <h1 className="text-2xl font-bold text-white">Message Management</h1>
             <p className="text-gray-300 mt-1">Monitor conversations and manage content moderation</p>
           </div>
-          <Button className="bg-accent text-bg hover:bg-accent-2">
+          <Button 
+            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer"
+            onClick={handleExportMessages}
+          >
             Export Messages
           </Button>
         </div>

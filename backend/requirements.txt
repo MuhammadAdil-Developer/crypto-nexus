@@ -41,3 +41,7 @@ django-debug-toolbar
 # Environment & Configuration
 python-decouple
 django-filter
+
+# Two-Factor Authentication (TOTP)
+pyotp>=2.9.0
+qrcode[pil]>=7.4.2

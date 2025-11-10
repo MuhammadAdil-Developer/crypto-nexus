@@ -41,16 +41,26 @@ export default function BulkUpload() {
       if (response.success) {
         // Convert template data to CSV format
         const template = response.data;
-        const headers = template.headers.join(',');
-        const sampleRow = template.sample_data.join(',');
+        
+        // Helper function to properly escape CSV values
+        const escapeCSV = (value: string) => {
+          // If value contains comma, newline, or quote, wrap in quotes and escape quotes
+          if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        };
+        
+        const headers = template.headers.map(escapeCSV).join(',');
+        const sampleRow = template.sample_data.map(escapeCSV).join(',');
         const csvContent = `${headers}\n${sampleRow}`;
         
         // Create and download the template file
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'product_upload_template.csv';
+        a.download = 'Account_upload_template.csv';
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -85,7 +95,7 @@ export default function BulkUpload() {
       showToast({
         type: 'error',
         title: 'No Data',
-        message: 'Please enter product data.',
+        message: 'Please enter account data.',
       });
       return;
     }
@@ -115,13 +125,13 @@ export default function BulkUpload() {
         showToast({
           type: 'success',
           title: 'Upload Successful',
-          message: `Successfully uploaded ${response.products_created} products.`,
+          message: `Successfully uploaded ${response.products_created} accounts.`,
         });
       } else {
         showToast({
           type: 'error',
           title: 'Upload Failed',
-          message: response.message || 'Failed to upload products',
+          message: response.message || 'Failed to upload accounts',
         });
       }
     } catch (error: any) {
@@ -149,8 +159,8 @@ export default function BulkUpload() {
             Back to Listings
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-white">Bulk Upload Products</h1>
-            <p className="text-gray-400">Upload multiple products at once</p>
+            <h1 className="text-3xl font-bold text-white">Bulk Upload Accounts</h1>
+            <p className="text-gray-400">Upload multiple accounts at once</p>
           </div>
         </div>
       </div>
@@ -159,7 +169,7 @@ export default function BulkUpload() {
         {/* Upload Section */}
         <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-white">Upload Products</CardTitle>
+            <CardTitle className="text-xl font-bold text-white">Upload Accounts</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Upload Type Selection */}
@@ -245,16 +255,16 @@ export default function BulkUpload() {
             {uploadType === 'simple' && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-white">Product Data</Label>
+                  <Label className="text-white">Account Data</Label>
                   <Textarea
-                    placeholder="Enter product data in simple format..."
+                    placeholder="Enter accounts data in simple format..."
                     value={simpleData}
                     onChange={(e) => setSimpleData(e.target.value)}
                     className="min-h-[200px]"
                     rows={10}
                   />
                   <p className="text-sm text-gray-400">
-                    Format: Product Name | Website | Account Type | Price | Description
+                    Format: Account Name | Website | Account Type | Price | Description
                   </p>
                 </div>
               </div>
@@ -274,7 +284,7 @@ export default function BulkUpload() {
               ) : (
                 <>
                   <Upload className="w-4 h-4 mr-2" />
-                  Upload Products
+                  Upload Accounts
                 </>
               )}
             </Button>
@@ -298,10 +308,10 @@ export default function BulkUpload() {
                     <li>• Access Type (required)</li>
                     <li>• Description (required)</li>
                     <li>• Price (required)</li>
+                    <li>• Credentials (required) - JSON format: {`{"username":"value","password":"value"}`}</li>
                     <li>• Delivery Time (required)</li>
-                    <li>• Credentials (required)</li>
-                    <li>• Account Balance (optional)</li>
                     <li>• Additional Info (optional)</li>
+                    <li>• Account Balance (optional)</li>
                   </ul>
                 </div>
                 <div>
@@ -309,8 +319,9 @@ export default function BulkUpload() {
                   <ul className="text-sm text-gray-400 space-y-1">
                     <li>• Use commas to separate fields</li>
                     <li>• Enclose text fields in quotes if they contain commas</li>
+                    <li>• Credentials must be in valid JSON format</li>
                     <li>• Ensure all required fields are filled</li>
-                    <li>• Maximum 100 products per upload</li>
+                    <li>• Maximum 100 Accounts per upload</li>
                   </ul>
                 </div>
               </div>
@@ -319,17 +330,37 @@ export default function BulkUpload() {
                 <div>
                   <h4 className="font-semibold text-white mb-2">Simple Format:</h4>
                   <p className="text-sm text-gray-400 mb-2">
-                    Enter one product per line using this format:
+                    Enter one account per line using this format:
                   </p>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-green-400">
-                    Product Name | Website | Account Type | Price | Description
+                    Account Name | Website | Account Type | Price | Description | Credentials (required)
                   </code>
                 </div>
                 <div>
+                  <h4 className="font-semibold text-white mb-2">Required Fields:</h4>
+                  <ul className="text-sm text-gray-400 space-y-1">
+                    <li>• Account Name (required)</li>
+                    <li>• Website (required)</li>
+                    <li>• Account Type (required)</li>
+                    <li>• Price (required)</li>
+                    <li>• Description (required)</li>
+                    <li>• Credentials (required) - JSON format: {`{"username":"value","password":"value"}`}</li>
+                  </ul>
+                </div>
+                <div>
                   <h4 className="font-semibold text-white mb-2">Example:</h4>
-                  <code className="block bg-gray-800 p-2 rounded text-xs text-green-400">
-                    Premium Netflix Account | netflix.com | streaming | 15.00 | 4K Ultra HD Netflix account with premium features
+                  <code className="block bg-gray-800 p-2 rounded text-xs text-green-400 whitespace-pre-wrap break-words">
+                    Premium Netflix Account | netflix.com | streaming | 15.00 | 4K Ultra HD Netflix account with premium features | {`{"username":"netflix_user","password":"netflix_pass"}`}
                   </code>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white mb-2">Tips:</h4>
+                  <ul className="text-sm text-gray-400 space-y-1">
+                    <li>• Use pipe (|) to separate fields</li>
+                    <li>• Credentials must be in valid JSON format</li>
+                    <li>• All fields are required</li>
+                    <li>• One Account per line</li>
+                  </ul>
                 </div>
               </div>
             )}
@@ -347,7 +378,7 @@ export default function BulkUpload() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-500">{result.total}</div>
-                <p className="text-sm text-gray-400">Total Products</p>
+                <p className="text-sm text-gray-400">Total Accounts</p>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-500">{result.successful}</div>

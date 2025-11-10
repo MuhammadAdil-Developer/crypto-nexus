@@ -12,10 +12,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['username', 'password', 'confirm_password']
     
     def validate(self, attrs):
-        print(f"🔍 Serializer validation - Password: {attrs.get('password', 'MISSING')}")
-        print(f"🔍 Serializer validation - Confirm Password: {attrs.get('confirm_password', 'MISSING')}")
-        print(f"🔍 Serializer validation - Passwords match: {attrs.get('password') == attrs.get('confirm_password')}")
-        
+
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError("Passwords don't match")
         
@@ -56,6 +53,9 @@ class UserSerializer(serializers.ModelSerializer):
             'two_factor_enabled', 'is_active', 'date_joined'
         ]
         read_only_fields = ['id', 'date_joined']
+        extra_kwargs = {
+            'two_factor_secret': {'write_only': True}  # Never expose secret in API
+        }
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -64,4 +64,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['user_type', 'is_verified', 'two_factor_enabled']
-        read_only_fields = ['id', 'username', 'date_joined'] 
+        read_only_fields = ['id', 'username', 'date_joined']
+
+
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for admin to update user information with more fields"""
+    
+    class Meta:
+        model = User
+        fields = ['username', 'user_type', 'is_verified', 'two_factor_enabled', 'is_active']
+        read_only_fields = ['id', 'date_joined'] 

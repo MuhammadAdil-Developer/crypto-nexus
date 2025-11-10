@@ -116,6 +116,8 @@ export interface ApiResponse<T> {
   data: T;
   errors?: any;
   captcha_required?: boolean;
+  requires_2fa?: boolean;
+  session_token?: string;
   error_code?: string;
 }
 
@@ -158,6 +160,11 @@ class AuthService {
         localStorage.setItem('refreshToken', response.data.data.tokens.refresh);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
         localStorage.setItem('userId', response.data.data.user.id.toString());
+        
+        // Dispatch event to trigger WebSocket connection
+        window.dispatchEvent(new CustomEvent('user_logged_in', {
+          detail: { userId: response.data.data.user.id.toString() }
+        }));
       }
       
       return response.data;

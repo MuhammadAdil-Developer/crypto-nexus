@@ -97,23 +97,53 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
       }
 
       const order = await orderResponse.json();
-      const orderIdGenerated = order.order_id;
+      const orderIdGenerated = order.order_id || order.data?.order_id;
       setOrderId(orderIdGenerated);
-
-      // Update order with payment address\n      await fetch(`http://localhost:8000/api/v1/orders/${orderIdGenerated}/`, {\n        method: "PATCH",\n        headers: {\n          "Content-Type": "application/json",\n          "Authorization": `Bearer ${localStorage.getItem("accessToken")}`\n        },\n        body: JSON.stringify({\n          payment_address: paymentData.payment_address\n        })\n      });
+      
+      // Dispatch event to refresh orders and recent activity
+      window.dispatchEvent(new CustomEvent('order_created', { 
+        detail: { order_id: orderIdGenerated } 
+      }));
       
       // Then create payment address
-      const paymentData = await paymentService.createPaymentAddress({
-        order_id: orderIdGenerated,
-        crypto_currency: selectedCrypto,
-        amount: totalPrice.toString(),
-        payment_type: paymentType as "wallet" | "buy" | "exchange",
-        use_escrow: useEscrow
-      });
-
-      setRealPaymentAddress(paymentData);
-      setPaymentAddress(paymentData.payment_address);
-      setPaymentAmount(paymentData.expected_amount);
+      let paymentData: PaymentAddress;
+      try {
+        paymentData = await paymentService.createPaymentAddress({
+          order_id: orderIdGenerated,
+          crypto_currency: selectedCrypto,
+          amount: totalPrice.toString(),
+          payment_type: paymentType as "wallet" | "buy" | "exchange",
+          use_escrow: useEscrow
+        });
+        
+        setRealPaymentAddress(paymentData);
+        setPaymentAddress(paymentData.payment_address);
+        setPaymentAmount(paymentData.expected_amount);
+        
+        // Update order with payment address
+        await fetch(`http://localhost:8000/api/v1/orders/${orderIdGenerated}/`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
+          },
+          body: JSON.stringify({
+            payment_address: paymentData.payment_address
+          })
+        });
+      } catch (error: any) {
+        // Check if error is about expired order
+        if (error.message && error.message.includes('expired')) {
+          toast({
+            title: "Order Expired",
+            description: "This order has expired. You can create a new order.",
+            variant: "destructive",
+          });
+          onClose();
+          return;
+        }
+        throw error; // Re-throw other errors
+      }
 
       // Start polling for payment status
       if (pollingInterval) {

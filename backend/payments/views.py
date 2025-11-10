@@ -37,6 +37,26 @@ class CreatePaymentAddressView(APIView):
                     )
             
             order_id = data['order_id']
+            
+            # Check if order is expired before creating payment address
+            from orders.models import Order, OrderStatus
+            try:
+                order = Order.objects.get(order_id=order_id)
+                if order.order_status == OrderStatus.CANCELLED.value or order.payment_status == 'expired':
+                    return Response(
+                        {'error': 'This order has expired. You can create a new order.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                # Also check if payment has expired based on expires_at
+                if order.payment_expires_at:
+                    from django.utils import timezone
+                    if timezone.now() > order.payment_expires_at:
+                        return Response(
+                            {'error': 'This order has expired. You can create a new order.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+            except Order.DoesNotExist:
+                pass  # Order might not exist yet, continue
             crypto_currency = data['crypto_currency']
             amount = Decimal(str(data['amount']))
             payment_type = data.get('payment_type', 'wallet')
@@ -672,9 +692,17 @@ class AdminPayoutView(APIView):
                 # Cancel payout logic
                 from .models import Payout
                 payout = Payout.objects.get(id=payout_id)
+                old_status = payout.status
                 payout.status = 'cancelled'
                 payout.admin_notes = notes
                 payout.save()
+                
+                # Notify about status change to cancelled
+                try:
+                    from shared.admin_notifications import notify_payout_status_changed
+                    notify_payout_status_changed(payout, old_status, 'cancelled')
+                except Exception as e:
+                    logger.error(f"Error notifying about payout status change: {e}")
                 
                 return Response({
                     'success': True,

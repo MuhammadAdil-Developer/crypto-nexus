@@ -11,6 +11,7 @@ import BuyerMyDisputes from "./my-disputes";
 import CreateDispute from "./create-dispute";
 import ProductDetailPage from "./product-detail";
 import BuyerTransactionHistory from "./transaction-history";
+import BuyerNotifications from "./notifications";
 
 export default function BuyerDashboard() {
   return (
@@ -24,6 +25,7 @@ export default function BuyerDashboard() {
       <Route path="wishlist" element={<BuyerWishlist />} />
       <Route path="settings" element={<BuyerSettings />} />
       <Route path="support" element={<BuyerSupport />} />
+      <Route path="notifications" element={<BuyerNotifications />} />
       <Route path="my-reviews" element={<BuyerMyReviews />} />
       <Route path="my-disputes" element={<BuyerMyDisputes />} />
       <Route path="create-dispute" element={<CreateDispute />} />

@@ -138,7 +138,7 @@ class PaymentService {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
-          success: Math.random() > 0.2, // 80% success rate
+          success: Math.random() > 0.2,
           message: Math.random() > 0.2 ? 'Payment processed successfully' : 'Payment failed - insufficient funds'
         });
       }, 2000);

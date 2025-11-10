@@ -102,6 +102,104 @@ class MessageListCreateView(generics.ListCreateAPIView):
         )
         if serializer.is_valid():
             message = serializer.save()
+            
+            # Create notification for recipient
+            from shared.models import Notification
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            product_title = conversation.product.headline if conversation.product else 'a product'
+            Notification.objects.create(
+                user=message.recipient,
+                type='message',
+                title='New message',
+                message=f"{request.user.username} sent you a message about {product_title}: {message.content[:100]}",
+                data={
+                    'conversation_id': str(conversation.id),
+                    'sender_username': request.user.username,
+                    'product_id': str(conversation.product.id) if conversation.product else None,
+                    'product_title': product_title,
+                    'action_url': f'/buyer/messages' if message.recipient.user_type == 'buyer' else f'/vendor/messages'
+                }
+            )
+            
+            # Send real-time notification and update counts
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                try:
+                    # Send notification to recipient
+                    async_to_sync(channel_layer.group_send)(
+                        f'realtime_{message.recipient.id}',
+                        {
+                            'type': 'order_notification',
+                            'data': {
+                                'id': f'msg_{conversation.id}_{message.id}',
+                                'type': 'message',
+                                'title': 'New message',
+                                'message': f"{request.user.username} sent you a message about {product_title}: {message.content[:100]}",
+                                'is_read': False,
+                                'data': {
+                                    'conversation_id': str(conversation.id),
+                                    'sender_username': request.user.username,
+                                    'product_id': str(conversation.product.id) if conversation.product else None,
+                                    'product_title': product_title,
+                                    'action_url': f'/buyer/messages' if message.recipient.user_type == 'buyer' else f'/vendor/messages'
+                                },
+                                'action_url': f'/buyer/messages' if message.recipient.user_type == 'buyer' else f'/vendor/messages',
+                                'created_at': message.created_at.isoformat(),
+                                'priority': 'normal'
+                            }
+                        }
+                    )
+                    
+                    # Update unread count for recipient
+                    unread_count = Conversation.objects.filter(
+                        participants=message.recipient,
+                        is_active=True,
+                        messages__recipient=message.recipient,
+                        messages__is_read=False
+                    ).distinct().count()
+                    
+                    async_to_sync(channel_layer.group_send)(
+                        f'realtime_{message.recipient.id}',
+                        {
+                            'type': 'unread_count_update',
+                            'data': {
+                                'unread_count': unread_count
+                            }
+                        }
+                    )
+                    
+                    # Trigger count refresh for all users (admin/vendor/buyer) when message is created
+                    # This ensures sidebar counts update in real-time
+                    try:
+                        # Send a custom notification to trigger count refresh
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{message.recipient.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'id': f'count_refresh_msg_{message.id}',
+                                    'type': 'system',
+                                    'title': 'Count Refresh',
+                                    'message': 'Message count updated',
+                                    'is_read': False,
+                                    'data': {
+                                        'action': 'refresh_counts',
+                                        'type': 'message'
+                                    },
+                                    'action_url': '',
+                                    'created_at': message.created_at.isoformat(),
+                                    'priority': 'low'
+                                }
+                            }
+                        )
+                    except Exception as e:
+                        logger.error(f"Error sending count refresh notification: {e}")
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error sending real-time message notification: {e}")
+            
             response_serializer = MessageSerializer(message, context={'request': request})
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -194,6 +292,9 @@ def get_conversation_by_product(request, product_id):
 @permission_classes([IsAuthenticated])
 def mark_messages_read(request, conversation_id):
     """Mark all messages in a conversation as read"""
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    
     conversation = get_object_or_404(
         Conversation.objects.filter(participants=request.user),
         id=conversation_id
@@ -204,7 +305,26 @@ def mark_messages_read(request, conversation_id):
         recipient=request.user
     ).update(is_read=True)
     
-    return Response({'status': 'Messages marked as read'})
+    # Get updated unread count for user
+    unread_count = Message.objects.filter(
+        recipient=request.user,
+        is_read=False
+    ).count()
+    
+    # Send real-time update to user
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f'realtime_{request.user.id}',
+            {
+                'type': 'unread_count_update',
+                'data': {
+                    'unread_count': unread_count
+                }
+            }
+        )
+    
+    return Response({'status': 'Messages marked as read', 'unread_count': unread_count})
 
 
 @api_view(['POST'])
@@ -296,10 +416,10 @@ def get_recent_messages(request):
     try:
         user = request.user
         
-        # Get conversations where user is a participant
+        # Get conversations where user is a participant - at least 3 messages
         conversations = Conversation.objects.filter(
             participants=user
-        ).prefetch_related('participants', 'product').order_by('-updated_at')[:2]
+        ).prefetch_related('participants', 'product').order_by('-updated_at')[:3]
         
         recent_messages = []
         for conv in conversations:
@@ -309,14 +429,17 @@ def get_recent_messages(request):
             # Get the last message
             last_message = conv.messages.order_by('-created_at').first()
             
+            # Calculate unread count for this conversation
+            unread_count = conv.messages.filter(recipient=user, is_read=False).count()
+            
             if other_participant and last_message:
                 recent_messages.append({
-                    'id': conv.id,
+                    'id': str(conv.id),
                     'buyer': other_participant.username,
-                    'product': conv.product.title if conv.product else 'Product',
+                    'product': conv.product.headline if conv.product and conv.product.headline else 'Product',
                     'lastMessage': last_message.content,
                     'time': get_time_ago(last_message.created_at),
-                    'unread': conv.unread_count > 0
+                    'unread': unread_count > 0
                 })
         
         return Response(recent_messages)
@@ -358,16 +481,44 @@ def get_unread_count(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_recent_activity(request):
-    """Get recent activity including new messages for buyer home page"""
+    """Get recent activity including new messages and order notifications for buyer home page"""
     try:
         user = request.user
+        from shared.models import Notification
+        
+        recent_activities = []
+        
+        # Get recent order notifications (order_created, payment_confirmed, payment_received)
+        order_notifications = Notification.objects.filter(
+            user=user,
+            type='order'
+        ).order_by('-created_at')[:10]
+        
+        for notif in order_notifications:
+            activity_status = 'info'
+            if 'Payment Confirmed' in notif.title or 'Payment Received' in notif.title:
+                activity_status = 'success'
+            elif 'Order Created' in notif.title or 'New Order' in notif.title:
+                activity_status = 'warning'
+            elif 'Payment Failed' in notif.title or 'Payment Expired' in notif.title or 'Order Expired' in notif.title:
+                activity_status = 'error'
+            
+            recent_activities.append({
+                'id': f"order_{notif.id}",
+                'type': 'order',
+                'title': notif.title,
+                'description': notif.message,
+                'time': get_time_ago(notif.created_at),
+                'status': activity_status,
+                'timestamp': notif.created_at.isoformat(),  # For sorting
+                'data': notif.data if hasattr(notif, 'data') else {}
+            })
         
         # Get recent messages from vendors
         conversations = Conversation.objects.filter(
             participants=user
-        ).prefetch_related('participants', 'product').order_by('-updated_at')[:3]
+        ).prefetch_related('participants', 'product', 'messages').order_by('-updated_at')[:10]
         
-        recent_activities = []
         for conv in conversations:
             # Get the other participant (vendor)
             vendor = conv.participants.exclude(id=user.id).first()
@@ -382,10 +533,15 @@ def get_recent_activity(request):
                     'title': 'New message from vendor',
                     'description': f"{vendor.username} replied to your inquiry about {conv.product.headline if conv.product else 'product'}",
                     'time': get_time_ago(last_message.created_at),
-                    'status': 'info'
+                    'status': 'info',
+                    'timestamp': last_message.created_at.isoformat()  # For sorting
                 })
         
-        return Response(recent_activities)
+        # Sort all activities by timestamp (most recent first)
+        recent_activities.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        # Return activities (can be less than 3 if not enough)
+        return Response(recent_activities[:3], status=status.HTTP_200_OK)
         
     except Exception as e:
         print(f"Error in get_recent_activity: {e}")

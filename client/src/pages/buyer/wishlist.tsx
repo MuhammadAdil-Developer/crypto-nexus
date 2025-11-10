@@ -16,20 +16,82 @@ export default function BuyerWishlist() {
   const [removingItems, setRemovingItems] = useState<number[]>([]);
   const { toast } = useToast();
 
-  const fetchWishlistData = useCallback(async () => {
+  const [wishlistFetched, setWishlistFetched] = useState(false);
+  
+  // Cache keys for localStorage
+  const CACHE_KEYS = {
+    WISHLIST_ITEMS: 'buyer_wishlist_items',
+    WISHLIST_STATS: 'buyer_wishlist_stats',
+  };
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Helper function to get cached data
+  const getCachedData = (key: string) => {
+    try {
+      const cached = localStorage.getItem(key);
+      if (!cached) return null;
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_DURATION) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper function to set cached data
+  const setCachedData = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.error('Error caching data:', e);
+    }
+  };
+
+  const fetchWishlistData = useCallback(async (force = false) => {
+    // Don't fetch if already fetched and not forcing
+    if (wishlistFetched && !force) return;
+    
+    // Try cache first if not forcing
+    if (!force) {
+      const cachedItems = getCachedData(CACHE_KEYS.WISHLIST_ITEMS);
+      const cachedStats = getCachedData(CACHE_KEYS.WISHLIST_STATS);
+      
+      if (cachedItems !== null && cachedStats !== null) {
+        setWishlistItems(cachedItems);
+        setStats(cachedStats);
+        setLoading(false);
+        setWishlistFetched(true);
+        return;
+      }
+    }
+    
     try {
       setLoading(true);
-      const [wishlistResponse, statsResponse] = await Promise.all([
-        wishlistService.getWishlist(),
-        wishlistService.getWishlistStats()
-      ]);
+      // Only fetch stats if not cached or forcing
+      const promises = [wishlistService.getWishlist()];
+      if (!getCachedData(CACHE_KEYS.WISHLIST_STATS) || force) {
+        promises.push(wishlistService.getWishlistStats());
+      } else {
+        promises.push(Promise.resolve({ success: true, data: getCachedData(CACHE_KEYS.WISHLIST_STATS) }));
+      }
+      
+      const [wishlistResponse, statsResponse] = await Promise.all(promises);
 
       if (wishlistResponse.success) {
-        setWishlistItems(wishlistResponse.data || []);
+        const items = wishlistResponse.data || [];
+        setWishlistItems(items);
+        setCachedData(CACHE_KEYS.WISHLIST_ITEMS, items);
       }
 
-      if (statsResponse.success) {
-        setStats(statsResponse.data || null);
+      if (statsResponse.success && statsResponse.data) {
+        setStats(statsResponse.data);
+        setCachedData(CACHE_KEYS.WISHLIST_STATS, statsResponse.data);
       }
     } catch (error) {
       console.error('Error fetching wishlist data:', error);
@@ -40,12 +102,13 @@ export default function BuyerWishlist() {
       });
     } finally {
       setLoading(false);
+      setWishlistFetched(true);
     }
   }, [toast]);
 
   useEffect(() => {
     fetchWishlistData();
-  }, [fetchWishlistData]);
+  }, []);
 
   const toggleItemSelection = (itemId: number) => {
     setSelectedItems(prev => 
@@ -73,8 +136,17 @@ export default function BuyerWishlist() {
       
       await Promise.all(removePromises);
       
-      // Refresh wishlist data
-      await fetchWishlistData();
+      // Update wishlist items and cache
+      const updatedItems = wishlistItems.filter(item => !selectedItems.includes(parseInt(item.id)));
+      setWishlistItems(updatedItems);
+      setCachedData(CACHE_KEYS.WISHLIST_ITEMS, updatedItems);
+      
+      // Update stats cache
+      const statsResponse = await wishlistService.getWishlistStats();
+      if (statsResponse.success && statsResponse.data) {
+        setStats(statsResponse.data);
+        setCachedData(CACHE_KEYS.WISHLIST_STATS, statsResponse.data);
+      }
       
       setSelectedItems([]);
       toast({
@@ -338,7 +410,10 @@ export default function BuyerWishlist() {
             <p className="text-gray-400 mb-6">
               Start browsing and add items you'd like to purchase later
             </p>
-            <Button className="bg-gray-700">
+            <Button 
+              className="bg-gray-700 cursor-pointer"
+              onClick={() => window.location.href = '/buyer/listings'}
+            >
               Browse Products
             </Button>
           </div>

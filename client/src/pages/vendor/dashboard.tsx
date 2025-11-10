@@ -15,6 +15,8 @@ import VendorSupport from "./support";
 import VendorPayouts from "./payouts";
 import VendorSettings from "./settings";
 import BulkUpload from "./bulk-upload";
+import VendorNotifications from "./notifications";
+
 export default function VendorDashboard() {
   return (
     <VendorLayout>
@@ -28,6 +30,7 @@ export default function VendorDashboard() {
         <Route path="/listings/:id" element={<VendorProductDetail />} />
         <Route path="/orders" element={<VendorOrders />} />
         <Route path="/messages" element={<VendorMessages />} />
+        <Route path="/notifications" element={<VendorNotifications />} />
         <Route path="/analytics" element={<VendorAnalytics />} />
         <Route path="/reviews" element={<VendorReviews />} />
         <Route path="/ads" element={<VendorAds />} />

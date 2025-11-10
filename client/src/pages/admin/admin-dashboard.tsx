@@ -1,4 +1,4 @@
-import { useLocation } from "wouter";
+import { useLocation } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Overview } from "@/components/admin/Overview";
 
@@ -20,6 +20,8 @@ import Alerts from "./alerts";
 import Roles from "./roles";
 import Security from "./security";
 import Branding from "./branding";
+import Settings from "./settings";
+import Notifications from "./notifications";
 
 // Component mapping
 const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
@@ -41,6 +43,8 @@ const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
   "roles": Roles,
   "security": Security,
   "branding": Branding,
+  "settings": Settings,
+  "notifications": Notifications,
 };
 
 // Section name mapping for breadcrumbs
@@ -63,13 +67,15 @@ const SECTION_NAMES: Record<string, string> = {
   "roles": "Roles & Permissions",
   "security": "Security",
   "branding": "Branding",
+  "settings": "Settings",
+  "notifications": "Notifications",
 };
 
 export default function AdminDashboard() {
-  const [location] = useLocation();
+  const location = useLocation();
   
   // Extract section from URL path (e.g., "/admin/users" -> "users", "/admin" -> "")
-  const section = location.replace(/^\/admin\/?/, "");
+  const section = location.pathname.replace(/^\/admin\/?/, "");
   
   // Get the component for this section, fallback to Overview
   const Component = ADMIN_COMPONENTS[section] || Overview;

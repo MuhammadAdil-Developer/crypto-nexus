@@ -1,17 +1,29 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.contrib.auth.models import User
 from django.db.models import Count, Avg, Q
 from datetime import timedelta
+import uuid
 
 from .models import VendorApplication
 from .serializers import VendorApplicationSerializer
 from products.models import Product, ProductReview
 from orders.models import Order
+from users.models import User
+
+
+class IsAdminUser(BasePermission):
+    """Custom permission to only allow admin users"""
+    def has_permission(self, request, view):
+        return (
+            request.user and 
+            request.user.is_authenticated and 
+            hasattr(request.user, 'user_type') and 
+            request.user.user_type == 'admin'
+        )
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def list_approved_vendors(request):
@@ -141,7 +153,8 @@ def create_application(request):
     try:
         # Get form data
         business_name = request.data.get('business_name')
-        vendor_username = request.data.get('vendor_username')
+        vendor_username = request.data.get('vendor_username') or request.user.username
+        email = request.data.get('email') or getattr(request.user, 'email', f"{vendor_username}@accountzclub.com")
         contact = request.data.get('contact', '')
         phone = request.data.get('phone', '')
         website = request.data.get('website', '')
@@ -175,6 +188,7 @@ def create_application(request):
         
         if existing_application:
             # Update existing application
+            was_pending = existing_application.status == 'pending'
             existing_application.business_name = business_name
             existing_application.contact = contact
             existing_application.phone = phone
@@ -194,7 +208,9 @@ def create_application(request):
             existing_application.tax_id = tax_id
             existing_application.insurance = insurance
             existing_application.business_plan = business_plan
-            existing_application.status = 'pending'  # Reset to pending for review
+            # Don't reset status to pending if already approved - allow updates
+            if existing_application.status != 'approved':
+                existing_application.status = 'pending'
             
             # Handle file uploads if provided
             if logo:
@@ -205,6 +221,16 @@ def create_application(request):
                 existing_application.images = images
             
             existing_application.save()
+            
+            # Notify admin if application status changed to pending (new submission or resubmission)
+            if existing_application.status == 'pending':
+                try:
+                    from shared.admin_notifications import notify_admin_vendor_application
+                    notify_admin_vendor_application(existing_application)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to notify admin about vendor application update: {e}")
             
             return Response({
                 'success': True,
@@ -217,6 +243,7 @@ def create_application(request):
             application = VendorApplication.objects.create(
                 business_name=business_name,
                 vendor_username=vendor_username,
+                email=email,
                 contact=contact,
                 phone=phone,
                 website=website,
@@ -247,6 +274,15 @@ def create_application(request):
                 application.images = images
             
             application.save()
+            
+            # Notify admin about new vendor application
+            try:
+                from shared.admin_notifications import notify_admin_vendor_application
+                notify_admin_vendor_application(application)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to notify admin about vendor application: {e}")
             
             return Response({
                 'success': True,
@@ -284,7 +320,6 @@ def approve_application(request, application_id):
         
         # Update user's user_type to 'vendor'
         try:
-            from users.models import User
             user = User.objects.get(username=application.vendor_username)
             user.user_type = 'vendor'
             user.save()
@@ -293,6 +328,15 @@ def approve_application(request, application_id):
             print(f"❌ User {application.vendor_username} not found")
         except Exception as e:
             print(f"❌ Error updating user type: {e}")
+        
+        # Notify user about application approval
+        try:
+            from shared.admin_notifications import notify_user_vendor_application_approved
+            notify_user_vendor_application_approved(application, request.user)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to notify user about application approval: {e}")
         
         return Response({
             'success': True,
@@ -326,10 +370,21 @@ def reject_application(request, application_id):
     
     try:
         application = get_object_or_404(VendorApplication, id=application_id)
+        rejection_reason = request.data.get('rejection_reason', '') or request.data.get('admin_notes', '')
         application.status = 'rejected'
+        application.admin_notes = rejection_reason
         application.reviewed_by = request.user
         application.reviewed_at = timezone.now()
         application.save()
+        
+        # Notify user about application rejection
+        try:
+            from shared.admin_notifications import notify_user_vendor_application_rejected
+            notify_user_vendor_application_rejected(application, request.user, rejection_reason)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to notify user about application rejection: {e}")
         
         return Response({
             'success': True,
@@ -347,10 +402,11 @@ def reject_application(request, application_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def check_application_status(request, username):
-    """Check if a user has a vendor application and its status"""
+    """Check if a user has a vendor application and its status (admin can check any vendor)"""
     try:
-        # Check if the requesting user is checking their own application
-        if request.user.username != username:
+        # Check if the requesting user is checking their own application OR if admin is checking any vendor
+        is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+        if not is_admin and request.user.username != username:
             return Response({
                 'success': False,
                 'message': 'You can only check your own application status'
@@ -358,6 +414,7 @@ def check_application_status(request, username):
         
         try:
             application = VendorApplication.objects.get(vendor_username=username)
+            serializer = VendorApplicationSerializer(application, context={'request': request})
             return Response({
                 'success': True,
                 'message': 'Application found',
@@ -367,7 +424,12 @@ def check_application_status(request, username):
                     'application_id': application.id,
                     'created_at': application.created_at,
                     'btc_address': application.btc_address,
-                    'xmr_address': application.xmr_address
+                    'xmr_address': application.xmr_address,
+                    'business_name': application.business_name,
+                    'contact': application.contact,
+                    'phone': application.phone,
+                    'website': application.website,
+                    'store_description': application.store_description
                 }
             }, status=status.HTTP_200_OK)
         except VendorApplication.DoesNotExist:
@@ -386,6 +448,107 @@ def check_application_status(request, username):
         return Response({
             'success': False,
             'message': 'Failed to check application status',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def invite_vendor(request):
+    """Invite buyer(s) to become vendors by username (admin only)"""
+    try:
+        # Support both single username and multiple usernames
+        username = request.data.get('username', '').strip()
+        usernames = request.data.get('usernames', [])
+        message = request.data.get('message', '')
+        
+        # Convert single username to list if needed
+        if username:
+            usernames = [username]
+        elif not usernames:
+            return Response({
+                'success': False,
+                'message': 'Username or usernames are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Remove duplicates and empty strings
+        usernames = list(set([u.strip() for u in usernames if u.strip()]))
+        
+        if not usernames:
+            return Response({
+                'success': False,
+                'message': 'At least one username is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get all users
+        users = User.objects.filter(username__in=usernames, is_deleted=False)
+        found_usernames = set(users.values_list('username', flat=True))
+        
+        # Check for non-existent users
+        missing_usernames = set(usernames) - found_usernames
+        if missing_usernames:
+            return Response({
+                'success': False,
+                'message': f'User(s) not found: {", ".join(missing_usernames)}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if all users are buyers
+        non_buyer_users = users.exclude(user_type='buyer')
+        if non_buyer_users.exists():
+            non_buyer_usernames = list(non_buyer_users.values_list('username', flat=True))
+            return Response({
+                'success': False,
+                'message': f'User(s) are not buyers: {", ".join(non_buyer_usernames)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create notifications and send real-time notifications for all users
+        from shared.models import Notification
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        
+        successful_invites = []
+        for user in users:
+            # Create notification for the buyer
+            Notification.objects.create(
+                user=user,
+                type='system',
+                title='Vendor Invitation',
+                message=f"You've been invited to become a vendor on our marketplace!" + (f"\n\n{message}" if message else ""),
+                data={'action_url': '/vendor/apply', 'invitation_type': 'vendor_invite'}
+            )
+            
+            # Send real-time notification via WebSocket
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f'realtime_{user.id}',
+                    {
+                        'type': 'vendor_invitation',
+                        'data': {
+                            'title': 'Vendor Invitation',
+                            'message': f"You've been invited to become a vendor!" + (f" {message}" if message else ""),
+                            'action_url': '/vendor/apply',
+                            'timestamp': timezone.now().isoformat()
+                        }
+                    }
+                )
+            
+            successful_invites.append(user.username)
+        
+        return Response({
+            'success': True,
+            'message': f'Vendor invitation(s) sent to {len(successful_invites)} buyer(s)',
+            'data': {
+                'usernames': successful_invites,
+                'message': message
+            }
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Failed to send vendor invitation',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -420,7 +583,7 @@ def get_vendor_statistics(request, vendor_username):
         # Calculate completion rate (completed orders / total orders)
         vendor_orders = Order.objects.filter(product__vendor=vendor_user)
         total_orders = vendor_orders.count()
-        completed_orders = vendor_orders.filter(status__in=['delivered', 'confirmed']).count()
+        completed_orders = vendor_orders.filter(order_status__in=['delivered', 'confirmed', 'completed']).count()
         completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 100
         
         # Calculate member since

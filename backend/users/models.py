@@ -24,6 +24,7 @@ class User(AbstractUser, BaseModel):
     # Keep only essential fields
     is_verified = models.BooleanField(default=False)
     two_factor_enabled = models.BooleanField(default=False)
+    two_factor_secret = models.CharField(max_length=32, blank=True, null=True, help_text="TOTP secret for 2FA")
     user_type = models.CharField(max_length=10, choices=USER_TYPES, default='buyer')
     
     # Vendor-specific fields

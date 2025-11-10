@@ -36,7 +36,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
   onError,
   siteKey = 'default',
   title = 'Security Verification',
-  instruction = 'Click on the open circle to verify you are human'
+  instruction = 'Click on the open circle to verify you are human. Look for a circle with a gap or opening and click inside it.'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, setState] = useState<CaptchaState>({

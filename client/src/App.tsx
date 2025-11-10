@@ -4,6 +4,9 @@ import ToastProvider from './components/ui/ToastContainer';
 import { Toaster } from '@/components/ui/toaster';
 import { MessagingProvider } from '@/contexts/MessagingContext';
 import { CartProvider } from '@/contexts/CartContext';
+import { AdminCountsProvider } from '@/contexts/AdminCountsContext';
+import { VendorCountsProvider } from '@/contexts/VendorCountsContext';
+import { BuyerCountsProvider } from '@/contexts/BuyerCountsContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import MarketplaceHome from './pages/marketplace/home';
 import BuyerDashboard from './pages/buyer/buyer-dashboard';
@@ -25,6 +28,7 @@ import BuyerHome from "./pages/buyer/home";
 import ProductDetailPage from "./pages/buyer/product-detail";
 import PaymentTest from "./pages/buyer/payment-test";
 import BuyerMyReviews from "./pages/buyer/my-reviews";
+import BuyerNotifications from "./pages/buyer/notifications";
 import './index.css';
 
 // Debug component to track route changes
@@ -62,7 +66,9 @@ function App() {
             {/* Buyer Dashboard Routes */}
             <Route path="/buyer/*" element={
               <ProtectedRoute requiredUserType="buyer">
-                <BuyerDashboard />
+                <BuyerCountsProvider>
+                  <BuyerDashboard />
+                </BuyerCountsProvider>
               </ProtectedRoute>
             }>
               <Route index element={<BuyerHome />} />
@@ -74,6 +80,7 @@ function App() {
               <Route path="wishlist" element={<BuyerWishlist />} />
               <Route path="settings" element={<BuyerSettings />} />
               <Route path="support" element={<BuyerSupport />} />
+              <Route path="notifications" element={<BuyerNotifications />} />
               <Route path="product/:id" element={<ProductDetailPage />} />
               <Route path="payment-test" element={<PaymentTest />} />
               <Route path="my-reviews" element={<BuyerMyReviews />} />
@@ -97,14 +104,18 @@ function App() {
             {/* Vendor Dashboard Routes (Nested) - MUST come AFTER specific routes */}
             <Route path="/vendor/*" element={
               <ProtectedRoute requiredUserType="vendor">
-                <VendorDashboard />
+                <VendorCountsProvider>
+                  <VendorDashboard />
+                </VendorCountsProvider>
               </ProtectedRoute>
             } />
             
             {/* Admin Routes */}
             <Route path="/admin/*" element={
               <ProtectedRoute requiredUserType="admin">
-                <AdminDashboard />
+                <AdminCountsProvider>
+                  <AdminDashboard />
+                </AdminCountsProvider>
               </ProtectedRoute>
             } />
             

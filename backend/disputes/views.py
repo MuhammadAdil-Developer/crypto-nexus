@@ -67,52 +67,72 @@ def create_dispute(request):
                 data={'dispute_id': str(dispute.id), 'order_id': str(dispute.order.id)}
             )
             
-            # Notify all admins
+            # Get admin users for WebSocket notifications
             from django.contrib.auth import get_user_model
             User = get_user_model()
-            admins = User.objects.filter(user_type='admin')
-            for admin in admins:
-                Notification.objects.create(
-                    user=admin,
-                    type='dispute',
-                    title='New Dispute Requires Attention',
-                    message=f"New dispute created by {request.user.username}: {dispute.title}",
-                    data={'dispute_id': str(dispute.id), 'priority': dispute.priority}
-                )
+            admins = User.objects.filter(user_type='admin', is_active=True)
             
-            # Send real-time notifications
+            # Notify all admins using helper function (creates DB notifications + WebSocket)
+            try:
+                from shared.admin_notifications import notify_admin_dispute_opened
+                notify_admin_dispute_opened(dispute)
+            except Exception as e:
+                logger.error(f"Failed to notify admin about dispute: {e}")
+                # Fallback to old method
+                for admin in admins:
+                    Notification.objects.create(
+                        user=admin,
+                        type='dispute',
+                        title='New Dispute Requires Attention',
+                        message=f"New dispute created by {request.user.username}: {dispute.title}",
+                        data={'dispute_id': str(dispute.id), 'priority': dispute.priority}
+                    )
+            
+            # Send real-time notifications via WebSocket
             channel_layer = get_channel_layer()
-            
-            # Notify vendor via WebSocket
-            async_to_sync(channel_layer.group_send)(
-                f"user_{dispute.vendor.id}",
-                {
-                    "type": "new_dispute",
-                    "payload": {
-                        "dispute_id": str(dispute.id),
-                        "buyer_username": request.user.username,
-                        "order_id": str(dispute.order.id),
-                        "title": dispute.title,
-                        "priority": dispute.priority
-                    }
-                }
-            )
-            
-            # Notify admins via WebSocket
-            for admin in admins:
-                async_to_sync(channel_layer.group_send)(
-                    f"user_{admin.id}",
-                    {
-                        "type": "new_dispute",
-                        "payload": {
-                            "dispute_id": str(dispute.id),
-                            "buyer_username": request.user.username,
-                            "order_id": str(dispute.order.id),
-                            "title": dispute.title,
-                            "priority": dispute.priority
+            if channel_layer:
+                # Notify vendor via WebSocket
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        f"realtime_{dispute.vendor.id}",
+                        {
+                            "type": "order_notification",
+                            "data": {
+                                "type": "dispute",
+                                "title": "New Dispute Created",
+                                "message": f"A dispute has been created for your product: {dispute.product.headline}",
+                                "dispute_id": str(dispute.id),
+                                "order_id": str(dispute.order.id),
+                                "is_read": False
+                            }
                         }
-                    }
-                )
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send WebSocket notification to vendor: {e}")
+                
+                # Notify admins via WebSocket using correct group name (realtime_{admin_id})
+                # Note: helper function should already handle this, but we ensure it's sent
+                try:
+                    for admin in admins:
+                        async_to_sync(channel_layer.group_send)(
+                            f"realtime_{admin.id}",
+                            {
+                                "type": "order_notification",
+                                "data": {
+                                    "type": "dispute",
+                                    "title": "New Dispute Opened",
+                                    "message": f'Dispute "{dispute.title}" opened for Order #{dispute.order.order_id} by {request.user.username}',
+                                    "dispute_id": str(dispute.id),
+                                    "order_id": str(dispute.order.order_id),
+                                    "buyer_username": request.user.username,
+                                    "priority": dispute.priority,
+                                    "is_read": False,
+                                    "action_url": "/admin/disputes"
+                                }
+                            }
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to send WebSocket notification to admins: {e}")
             
             return Response({
                 'success': True,

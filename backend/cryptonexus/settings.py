@@ -286,9 +286,9 @@ os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True)
 # Payment System Configuration - REAL INTEGRATION
 # BTCPay Server (Real Bitcoin)
 BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://88.99.143.151:23000')
-BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'C7x377KvvYorCvnjtXAzbrtQY7Jj8a4Ly4ZZ3BRdUXkp')  # Correct Store ID from BTCPay dashboard
-BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', '74bf19502aeed4a1da5669182d015d2b269cc2bb')    # Working Greenfield API key
-BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '3CZB3qpXXhoDWqVxg5KjypRPf1ui')
+BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio')  # Correct Store ID from BTCPay dashboard
+BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'ce9980b1b464d82c984779858b38a8f0cef1a3a1')    # Working Greenfield API key
+BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '2E8LrToLhNwHmZUwGCkKGzg8tSXx')
 
 # Monero RPC (Real Monero)
 MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://88.99.143.151:28083/json_rpc')
@@ -297,7 +297,7 @@ MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'moneropass123')
 MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'testwallet')
 
 # Admin Wallet Addresses (for direct payments)
-ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'tb1quyfk5rtvttyzmz7k9eepdlkmg9uxh8n48kch9c')
+ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'tb1qsnjnw7z29gg45jhv3g4sjk6rkxdp4mnkmv2c9h')
 ADMIN_XMR_ADDRESS = os.environ.get('ADMIN_XMR_ADDRESS', '4AdUndXHHZ6cFd8VZJ3x4L9eDz3r7gHhKkLmNnPpQqRrSsTtUuVvWwXxYyZz')
 
 # Bitcoin Core RPC (for direct Bitcoin operations)

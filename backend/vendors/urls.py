@@ -14,4 +14,7 @@ urlpatterns = [
     
     # Vendor statistics
     path('statistics/<str:vendor_username>/', views.get_vendor_statistics, name='get_vendor_statistics'),
+    
+    # Admin invite vendor
+    path('invite/', views.invite_vendor, name='invite_vendor'),
 ] 

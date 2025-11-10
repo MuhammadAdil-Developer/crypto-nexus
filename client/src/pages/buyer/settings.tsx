@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface UserProfile {
   username: string;
@@ -57,6 +58,8 @@ export default function BuyerSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFAData, setTwoFAData] = useState<{qr_code?: string; secret?: string; uri?: string} | null>(null);
 
   useEffect(() => {
     fetchUserData();
@@ -72,6 +75,14 @@ export default function BuyerSettings() {
           username: response.data.data.username || "",
           phone: response.data.data.phone || ""
         });
+        
+        // Set 2FA state from profile
+        if (response.data.data.two_factor_enabled !== undefined) {
+          setSecurity(prev => ({
+            ...prev,
+            two_factor_enabled: response.data.data.two_factor_enabled || false
+          }));
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -89,11 +100,40 @@ export default function BuyerSettings() {
     try {
       setSaving(true);
       
+      // Check if 2FA is being enabled
+      const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
+      
       // Update profile
       await api.put('/profile/update/', {
         username: profile.username,
-        phone: profile.phone
+        phone: profile.phone,
+        // Include 2FA setting
+        two_factor_enabled: security.two_factor_enabled
       });
+
+      // If 2FA is being enabled (was false, now true), call enable endpoint to generate QR code
+      if (security.two_factor_enabled && !previous2FAState) {
+        try {
+          const enableResponse = await api.post('/auth/enable-2fa/');
+          if (enableResponse.data.success && enableResponse.data.data.qr_code) {
+            // Show QR code in a modal/dialog
+            setShow2FAModal(true);
+            setTwoFAData(enableResponse.data.data);
+            toast({
+              title: "2FA Setup",
+              description: "Scan the QR code with your authenticator app",
+              variant: "default"
+            });
+          }
+        } catch (error) {
+          console.error('Error enabling 2FA:', error);
+          toast({
+            title: "Error",
+            description: "Failed to setup 2FA. Please try again.",
+            variant: "destructive"
+          });
+        }
+      }
 
       toast({
         title: "Success",
@@ -138,25 +178,55 @@ export default function BuyerSettings() {
         new_password: passwordData.new_password
       });
 
-      if (response.data && response.data.success) {
-        setPasswordData({
-          current_password: "",
-          new_password: "",
-          confirm_password: ""
-        });
+      console.log('Password change response:', response);
+      
+      // Handle different response formats
+      if (response.data) {
+        // Check if success is true or if the response itself indicates success
+        if (response.data.success === true || response.status === 200) {
+          setPasswordData({
+            current_password: "",
+            new_password: "",
+            confirm_password: ""
+          });
 
-        toast({
-          title: "Success",
-          description: "Password changed successfully"
-        });
+          toast({
+            title: "Success",
+            description: response.data.message || "Password changed successfully"
+          });
+          return;
+        } else {
+          // Check for error message in response
+          const errorMsg = response.data.message || response.data.error || "Failed to change password";
+          throw new Error(errorMsg);
+        }
       } else {
-        throw new Error(response.data?.message || "Failed to change password");
+        throw new Error("No response data received");
       }
     } catch (error: any) {
       console.error('Error changing password:', error);
+      console.error('Error response:', error.response);
+      
+      // Extract error message from various possible locations
+      let errorMessage = "Failed to change password";
+      
+      if (error.response?.data) {
+        if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.response?.data?.message || error.message || "Failed to change password",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -405,6 +475,66 @@ export default function BuyerSettings() {
           </Card>
         </div>
       </div>
+
+      {/* 2FA QR Code Modal */}
+      <Dialog open={show2FAModal} onOpenChange={setShow2FAModal}>
+        <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-400" />
+              Set Up Two-Factor Authentication
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Scan this QR code with your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {twoFAData?.qr_code && (
+              <div className="flex flex-col items-center space-y-4">
+                <div className="bg-white p-4 rounded-lg">
+                  <img 
+                    src={twoFAData.qr_code} 
+                    alt="2FA QR Code" 
+                    className="w-64 h-64"
+                  />
+                </div>
+                
+                {twoFAData.secret && (
+                  <div className="w-full">
+                    <Label className="text-gray-300 text-sm">Backup Secret Key (use if QR code doesn't work)</Label>
+                    <div className="mt-2 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                      <code className="text-sm text-gray-200 break-all select-all">{twoFAData.secret}</code>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Enter this key manually in your authenticator app if you can't scan the QR code
+                    </p>
+                  </div>
+                )}
+                
+                <div className="w-full bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                  <p className="text-sm text-blue-200">
+                    <strong className="text-blue-300">Steps:</strong>
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 text-xs text-blue-200 mt-2">
+                    <li>Install Google Authenticator, Authy, or Microsoft Authenticator on your phone</li>
+                    <li>Open the app and tap "Add account" or "+"</li>
+                    <li>Scan the QR code above or enter the secret key manually</li>
+                    <li>Use the 6-digit code from the app when logging in</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+            
+            <Button
+              onClick={() => setShow2FAModal(false)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              I've Scanned the QR Code
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </BuyerLayout>
   );
 }

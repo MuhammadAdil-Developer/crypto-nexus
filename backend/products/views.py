@@ -134,6 +134,84 @@ def list_products(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+def get_popular_searches(request):
+    """Get popular search suggestions based on most viewed/searched products"""
+    try:
+        limit = int(request.GET.get('limit', 10))
+        
+        # Get products ordered by views_count, favorites_count, and created_at
+        # This gives us the most popular products which are likely to be searched
+        products = Product.objects.filter(
+            status='approved',
+            is_active=True,
+            is_deleted=False
+        ).order_by('-views_count', '-favorites_count', '-created_at')[:limit * 2]
+        
+        # Extract unique search terms from popular products
+        suggestions = []
+        seen = set()
+        
+        for product in products:
+            # Use headline as primary suggestion
+            if product.headline and product.headline.lower() not in seen:
+                suggestions.append({
+                    'term': product.headline,
+                    'count': product.views_count + product.favorites_count,
+                    'type': 'product'
+                })
+                seen.add(product.headline.lower())
+            
+            # Use website/domain as suggestion if available
+            if product.website:
+                domain = product.website.replace('https://', '').replace('http://', '').split('/')[0]
+                if domain and domain.lower() not in seen and len(domain) > 3:
+                    suggestions.append({
+                        'term': domain,
+                        'count': product.views_count,
+                        'type': 'website'
+                    })
+                    seen.add(domain.lower())
+            
+            # Add tags as suggestions
+            if product.tags:
+                for tag in product.tags.split(',')[:2]:  # Max 2 tags per product
+                    tag_clean = tag.strip()
+                    if tag_clean and tag_clean.lower() not in seen and len(tag_clean) > 2:
+                        suggestions.append({
+                            'term': tag_clean,
+                            'count': product.views_count // 2,
+                            'type': 'tag'
+                        })
+                        seen.add(tag_clean.lower())
+            
+            if len(suggestions) >= limit:
+                break
+        
+        # Sort by count (popularity) and return
+        suggestions.sort(key=lambda x: x['count'], reverse=True)
+        
+        return Response({
+            'success': True,
+            'data': suggestions[:limit]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting popular searches: {str(e)}")
+        # Return default popular searches on error
+        default_suggestions = [
+            {'term': 'Netflix', 'count': 1000, 'type': 'product'},
+            {'term': 'Spotify', 'count': 900, 'type': 'product'},
+            {'term': 'Steam', 'count': 800, 'type': 'product'},
+            {'term': 'Adobe', 'count': 700, 'type': 'product'},
+            {'term': 'Amazon Prime', 'count': 600, 'type': 'product'},
+        ]
+        return Response({
+            'success': True,
+            'data': default_suggestions[:limit]
+        })
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def get_product_detail(request, product_id):
     """Get detailed product information"""
     try:
@@ -331,6 +409,13 @@ def create_product(request):
         if serializer.is_valid():
             product = serializer.save()
             
+            # Notify admin about new product
+            try:
+                from shared.admin_notifications import notify_admin_product_created
+                notify_admin_product_created(product)
+            except Exception as e:
+                logger.error(f"Failed to notify admin about product: {e}")
+            
             return Response({
                 'success': True,
                 'message': 'Product created successfully',
@@ -453,6 +538,13 @@ def resubmit_product(request, product_id):
         # Change status back to pending_approval
         product.status = 'pending_approval'
         product.save()
+        
+        # Notify admin about product resubmission
+        try:
+            from shared.admin_notifications import notify_admin_product_resubmitted
+            notify_admin_product_resubmitted(product)
+        except Exception as _:
+            pass
         
         return Response({
             'success': True,
@@ -930,7 +1022,11 @@ def vendor_products(request):
 def update_product(request, product_id):
     """Update a product"""
     try:
-        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        # Allow admins to update any product, vendors can only update their own
+        if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':
+            product = get_object_or_404(Product, id=product_id)
+        else:
+            product = get_object_or_404(Product, id=product_id, vendor=request.user)
         
         serializer = ProductCreateSerializer(product, data=request.data, partial=True)
         if serializer.is_valid():
@@ -959,9 +1055,14 @@ def update_product(request, product_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_product(request, product_id):
-    """Delete a product (soft delete)"""
+    """Delete a product (soft delete) - Admins can delete any product"""
     try:
-        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        # Allow admins to delete any product, vendors can only delete their own
+        if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':
+            product = get_object_or_404(Product, id=product_id)
+        else:
+            product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        
         product.is_deleted = True
         product.save()
         
@@ -1290,11 +1391,11 @@ def get_bulk_upload_template(request):
         template = {
             'headers': [
                 'headline', 'website', 'account_type', 'access_type', 
-                'description', 'price', 'additional_info', 'delivery_time'
+                'description', 'price', 'credentials', 'delivery_time', 'additional_info', 'account_balance'
             ],
             'sample_data': [
                 'Sample Product', 'example.com', 'social', 'full_ownership',
-                'Sample description', '10.00', 'Additional info', 'instant_auto'
+                'Sample description', '10.00', '{"username":"sample_user","password":"sample_pass"}', 'instant_auto', 'Additional info', '100.00'
             ]
         }
         
@@ -1561,6 +1662,13 @@ def create_review(request, product_id):
                     }
                 }
             )
+        except Exception as _:
+            pass
+
+        # Notify admin about review submission
+        try:
+            from shared.admin_notifications import notify_admin_review_submitted
+            notify_admin_review_submitted(review, product)
         except Exception as _:
             pass
 

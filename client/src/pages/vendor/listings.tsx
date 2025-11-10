@@ -222,7 +222,7 @@ export default function VendorListings() {
         <div className="flex items-center justify-center h-64">
           <div className="flex items-center space-x-2">
             <Loader2 className="w-6 h-6 animate-spin text-accent" />
-            <span className="text-white">Loading products...</span>
+            <span className="text-white">Loading listings...</span>
           </div>
         </div>
       </div>
@@ -254,7 +254,7 @@ export default function VendorListings() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">My Products</h1>
+            <h1 className="text-2xl font-bold text-white">My Listings</h1>
             <p className="text-gray-300 mt-1">Manage your product listings</p>
           </div>
           <div className="flex space-x-3">
@@ -343,10 +343,10 @@ export default function VendorListings() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder="Search products..."
+                    placeholder="Search listings..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-surface-2 border-border text-white placeholder:text-gray-400"
+                    className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
               </div>

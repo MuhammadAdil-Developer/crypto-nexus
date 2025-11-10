@@ -62,8 +62,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user = User.objects.get(id=user_id)
             self.scope['user'] = user
             
-        except Exception as e:
-            print(f"WebSocket authentication error: {e}")
+        except Exception:
             self.scope['user'] = AnonymousUser()
 
     async def disconnect(self, close_code):
@@ -80,16 +79,45 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             if message_type == 'chat_message':
                 message_content = text_data_json.get('message', '')
+                
                 if message_content.strip():
                     # Save message to database
                     message_data = await self.save_message(message_content)
                     
-                    # Send real-time notifications after message is saved
-                    if message_data:
-                        # Get conversation and recipient for notifications
-                        conversation = await self.get_conversation_for_notifications()
-                        if conversation:
-                            await self.send_realtime_notifications_async(conversation, message_data)
+                    if not message_data:
+                        await self.send(text_data=json.dumps({
+                            'type': 'error',
+                            'message': 'Failed to save message'
+                        }))
+                        return
+                    
+            # Send real-time notifications after message is saved
+            if message_data:
+                # Get conversation and recipient for notifications
+                conversation_data = await self.get_conversation_for_notifications()
+                if conversation_data:
+                    await self.send_realtime_notifications_async(conversation_data, message_data)
+                    
+                    # Also send notification update via realtime service
+                    recipient = conversation_data['recipient']
+                    conversation = conversation_data['conversation']
+                    product_title = conversation.product.headline if conversation.product else 'a product'
+                    await self.channel_layer.group_send(
+                        f'realtime_{recipient.id}',
+                        {
+                            'type': 'new_message_notification',
+                            'data': {
+                                'type': 'message',
+                                'title': 'New message',
+                                'message': f"{self.scope['user'].username} sent you a message about {product_title}",
+                                'unread': True,
+                                'sender': self.scope['user'].username,
+                                'sender_username': self.scope['user'].username,
+                                'product_title': product_title,
+                                'conversation_id': str(conversation.id)
+                            }
+                        }
+                    )
                     
                     # Check if this is the first message with product reference
                     if isinstance(message_data, dict) and 'user_message' in message_data:
@@ -138,6 +166,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({
                 'type': 'error',
                 'message': 'Invalid JSON data'
+            }))
+        except Exception as e:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': f'Error processing message: {str(e)}'
             }))
 
     async def chat_message(self, event):
@@ -209,6 +242,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Update conversation's last message
             conversation.last_message = message
             conversation.save()
+            
+            # Create notification for recipient
+            from shared.models import Notification
+            product_title = conversation.product.headline if conversation.product else 'a product'
+            Notification.objects.create(
+                user=recipient,
+                type='message',
+                title='New message',
+                message=f"{self.scope['user'].username} sent you a message about {product_title}: {content[:100]}",
+                data={
+                    'conversation_id': str(conversation.id),
+                    'sender_username': self.scope['user'].username,
+                    'product_id': str(conversation.product.id) if conversation.product else None,
+                    'product_title': product_title,
+                    'action_url': f'/buyer/messages' if recipient.user_type == 'buyer' else f'/vendor/messages'
+                }
+            )
             
             # If this is the first message and conversation has a product, create product reference
             if is_first_message and conversation.product:
@@ -306,18 +356,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
                 
-        except Exception as e:
-            print(f"Error sending realtime notifications: {e}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            pass
 
     @database_sync_to_async
     def get_latest_message(self, conversation):
         """Get the latest message from conversation"""
         try:
             return conversation.messages.select_related('sender').order_by('-created_at').first()
-        except Exception as e:
-            print(f"Error getting latest message: {e}")
+        except Exception:
             return None
 
     @database_sync_to_async
@@ -328,8 +375,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 recipient=recipient,
                 is_read=False
             ).count()
-        except Exception as e:
-            print(f"Error getting unread count: {e}")
+        except Exception:
             return 0
 
     @database_sync_to_async
@@ -389,8 +435,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     })
             
             return recent_messages
-        except Exception as e:
-            print(f"Error getting recent messages: {e}")
+        except Exception:
             return []
 
     def get_time_ago(self, timestamp):
@@ -419,7 +464,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'data': conversation_data
             }))
         except Exception as e:
-            print(f"Error sending conversation info: {e}")
+            pass
 
     @database_sync_to_async
     def get_conversation_data(self):
@@ -472,7 +517,6 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
         )
         
         await self.accept()
-        print(f"Realtime connection established for user {self.user_id}")
 
     async def disconnect(self, close_code):
         # Leave user group
@@ -480,7 +524,6 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
             self.user_group_name,
             self.channel_name
         )
-        print(f"Realtime connection closed for user {self.user_id}")
 
     async def receive(self, text_data):
         try:
@@ -510,7 +553,6 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
                     break
             
             if not token:
-                print("No token provided for realtime connection")
                 return False
             
             # Validate token
@@ -520,7 +562,6 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
             
             # Verify user ID matches
             if str(user_id) != self.user_id:
-                print(f"User ID mismatch: {user_id} != {self.user_id}")
                 return False
             
             # Set user in scope (using async database call)
@@ -529,11 +570,9 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
                 self.scope['user'] = user
                 return True
             else:
-                print(f"User not found: {user_id}")
                 return False
             
-        except Exception as e:
-            print(f"Realtime authentication error: {e}")
+        except Exception:
             return False
 
     @database_sync_to_async
@@ -550,8 +589,8 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
     async def new_message_notification(self, event):
         """Send new message notification to user"""
         await self.send(text_data=json.dumps({
-            'type': 'new_message',
-            'payload': event['data']
+            'type': 'new_message_notification',
+            'data': event['data']
         }))
 
     async def unread_count_update(self, event):
@@ -580,4 +619,18 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'new_review',
             'payload': event['data']
+        }))
+
+    async def vendor_invitation(self, event):
+        """Notify buyer of vendor invitation"""
+        await self.send(text_data=json.dumps({
+            'type': 'vendor_invitation',
+            'payload': event['data']
+        }))
+
+    async def order_notification(self, event):
+        """Notify user of order updates"""
+        await self.send(text_data=json.dumps({
+            'type': 'order_notification',
+            'data': event['data']
         }))

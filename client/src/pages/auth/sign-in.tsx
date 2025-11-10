@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -21,6 +22,9 @@ export default function SignIn() {
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showCaptchaModal, setShowCaptchaModal] = useState(false);
   const [pendingLoginAttempt, setPendingLoginAttempt] = useState(false);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   
   // Reset CAPTCHA state on page load
   useEffect(() => {
@@ -124,9 +128,18 @@ export default function SignIn() {
       console.log('🔍 Current captchaVerified state:', captchaVerified);
       console.log('🔍 Final token being used:', finalToken);
 
-      const response = await authService.login(loginData as any);
+      const response: any = await authService.login(loginData as any);
       
       console.log('🔐 Login response:', response);
+      
+      // Check if 2FA is required
+      if (response.requires_2fa || response.error_code === '2FA_REQUIRED') {
+        setRequires2FA(true);
+        setSessionToken(response.session_token || null);
+        setErrors({});
+        setIsLoading(false);
+        return;
+      }
       
       if (response.success) {
         // Redirect based on user type
@@ -153,10 +166,86 @@ export default function SignIn() {
       console.error('❌ Login error:', error);
       console.error('❌ Error response:', error.response?.data);
       
+      // Check if 2FA is required in error response
+      if (error.response?.data?.requires_2fa || error.response?.data?.error_code === '2FA_REQUIRED') {
+        setRequires2FA(true);
+        setSessionToken(error.response?.data?.session_token || null);
+        setErrors({});
+        setIsLoading(false);
+        return;
+      }
+      
       // Check if captcha is required in error response
       if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
         setShowCaptchaModal(true);
         setErrors({ captcha: 'incorrect username or password' });
+      } else {
+        setErrors({ 
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handle2FASubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (twoFactorCode.length !== 6) {
+      setErrors({ general: 'Please enter a valid 6-digit code' });
+      return;
+    }
+    
+    setIsLoading(true);
+    setErrors({});
+    
+    try {
+      const finalToken = captchaToken;
+      
+      const loginData = {
+        username: formData.username,
+        password: formData.password,
+        two_factor_code: twoFactorCode,
+        session_token: sessionToken,
+        ...(finalToken && { captcha_token: finalToken })
+      };
+      
+      const response = await authService.login(loginData as any);
+      
+      if (response.success) {
+        // Redirect based on user type
+        const userType = response.data.user.user_type;
+        if (userType === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (userType === 'vendor') {
+          navigate('/vendor/');
+        } else {
+          navigate('/buyer/');
+        }
+      } else {
+        if (response.error_code === 'INVALID_2FA_CODE') {
+          setErrors({ general: 'Invalid 2FA code. Please try again.' });
+          setTwoFactorCode("");
+        } else if (response.error_code === 'INVALID_2FA_SESSION') {
+          setErrors({ general: 'Session expired. Please login again.' });
+          setRequires2FA(false);
+          setSessionToken(null);
+          setTwoFactorCode("");
+        } else {
+          setErrors({ general: response.message || 'Verification failed. Please try again.' });
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ 2FA verification error:', error);
+      if (error.response?.data?.error_code === 'INVALID_2FA_CODE') {
+        setErrors({ general: 'Invalid 2FA code. Please try again.' });
+        setTwoFactorCode("");
+      } else if (error.response?.data?.error_code === 'INVALID_2FA_SESSION') {
+        setErrors({ general: 'Session expired. Please login again.' });
+        setRequires2FA(false);
+        setSessionToken(null);
+        setTwoFactorCode("");
       } else {
         setErrors({ 
           general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
@@ -257,7 +346,8 @@ export default function SignIn() {
               <CardTitle className="text-white">Access Your Account</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
+              {!requires2FA ? (
+                <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-gray-300">Username</Label>
                   <div className="relative">
@@ -336,6 +426,63 @@ export default function SignIn() {
                   </Link>
                 </div>
               </form>
+              ) : (
+                <form onSubmit={handle2FASubmit} className="space-y-6">
+                  <div className="text-center mb-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Shield className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">Two-Factor Authentication</h3>
+                    <p className="text-gray-400 text-sm">
+                      Enter the 6-digit code to complete your login
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Label htmlFor="2fa-code" className="text-gray-300 text-center block">2FA Code</Label>
+                    <div className="flex justify-center">
+                      <InputOTP
+                        maxLength={6}
+                        value={twoFactorCode}
+                        onChange={(value) => setTwoFactorCode(value)}
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} className="bg-gray-700 border-gray-600 text-white" />
+                          <InputOTPSlot index={1} className="bg-gray-700 border-gray-600 text-white" />
+                          <InputOTPSlot index={2} className="bg-gray-700 border-gray-600 text-white" />
+                          <InputOTPSlot index={3} className="bg-gray-700 border-gray-600 text-white" />
+                          <InputOTPSlot index={4} className="bg-gray-700 border-gray-600 text-white" />
+                          <InputOTPSlot index={5} className="bg-gray-700 border-gray-600 text-white" />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    
+                    {errors.general && <p className="text-red-500 text-center text-sm">{errors.general}</p>}
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                      disabled={isLoading || twoFactorCode.length !== 6}
+                    >
+                      {isLoading ? 'Verifying...' : 'Verify Code'}
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-gray-400 hover:text-gray-300"
+                      onClick={() => {
+                        setRequires2FA(false);
+                        setTwoFactorCode("");
+                        setSessionToken(null);
+                      }}
+                      disabled={isLoading}
+                    >
+                      Back to Login
+                    </Button>
+                  </div>
+                </form>
+              )}
             </CardContent>
           </Card>
 

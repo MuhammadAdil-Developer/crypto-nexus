@@ -45,11 +45,63 @@ export default function VendorOverview() {
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
   const [earnings, setEarnings] = useState<number>(0);
   const [disputes, setDisputes] = useState<number>(0);
+  const [ordersFetched, setOrdersFetched] = useState(false);
+  const [productsFetched, setProductsFetched] = useState(false);
+  const [messagesFetched, setMessagesFetched] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Fetch recent orders and calculate metrics
+  // Cache keys for localStorage
+  const CACHE_KEYS = {
+    RECENT_ORDERS: 'vendor_dashboard_recent_orders',
+    TOP_PRODUCTS: 'vendor_dashboard_top_products',
+    RECENT_MESSAGES: 'vendor_dashboard_recent_messages',
+    CARDS_DATA: 'vendor_dashboard_cards_data',
+  };
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Helper function to get cached data
+  const getCachedData = (key: string) => {
+    try {
+      const cached = localStorage.getItem(key);
+      if (!cached) return null;
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_DURATION) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper function to set cached data
+  const setCachedData = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.error('Error caching data:', e);
+    }
+  };
+
+  // Fetch recent orders and calculate metrics with caching
   const fetchRecentOrders = async () => {
+    if (ordersFetched) return;
+    
+    // Try cache first
+    const cached = getCachedData(CACHE_KEYS.RECENT_ORDERS);
+    if (cached !== null) {
+      setRecentOrders(cached.slice(0, 5));
+      setIsLoadingOrders(false);
+      setIsLoadingCards(false);
+      setOrdersFetched(true);
+      return;
+    }
+    
     try {
       setIsLoadingOrders(true);
       setIsLoadingCards(true);
@@ -108,6 +160,7 @@ export default function VendorOverview() {
         .slice(0, 3);
 
       setRecentOrders(sortedOrders);
+      setCachedData(CACHE_KEYS.RECENT_ORDERS, sortedOrders);
     } catch (error) {
       console.error('Error fetching recent orders:', error);
       toast({
@@ -118,6 +171,7 @@ export default function VendorOverview() {
     } finally {
       setIsLoadingOrders(false);
       setIsLoadingCards(false);
+      setOrdersFetched(true);
     }
   };
 
@@ -134,8 +188,19 @@ export default function VendorOverview() {
     }
   };
 
-  // Fetch top performing products
+  // Fetch top performing products with caching
   const fetchTopProducts = async () => {
+    if (productsFetched) return;
+    
+    // Try cache first
+    const cached = getCachedData(CACHE_KEYS.TOP_PRODUCTS);
+    if (cached !== null) {
+      setTopProducts(cached);
+      setIsLoadingTopProducts(false);
+      setProductsFetched(true);
+      return;
+    }
+    
     try {
       setIsLoadingTopProducts(true);
       const res = await productService.getVendorProducts();
@@ -155,20 +220,34 @@ export default function VendorOverview() {
         }));
       
       setTopProducts(topProductsList);
+      setCachedData(CACHE_KEYS.TOP_PRODUCTS, topProductsList);
     } catch (e) {
       console.error('Error fetching top products:', e);
       setTopProducts([]);
     } finally {
       setIsLoadingTopProducts(false);
+      setProductsFetched(true);
     }
   };
 
-  // Fetch recent messages
+  // Fetch recent messages with caching
   const fetchRecentMessages = async () => {
+    if (messagesFetched) return;
+    
+    // Try cache first
+    const cached = getCachedData(CACHE_KEYS.RECENT_MESSAGES);
+    if (cached !== null) {
+      setRecentMessages(cached);
+      setIsLoadingMessages(false);
+      setMessagesFetched(true);
+      return;
+    }
+    
     try {
       setIsLoadingMessages(true);
       const messages = await messagingService.getRecentMessages();
       setRecentMessages(messages);
+      setCachedData(CACHE_KEYS.RECENT_MESSAGES, messages);
     } catch (error) {
       console.error('Error fetching recent messages:', error);
       toast({
@@ -178,6 +257,7 @@ export default function VendorOverview() {
       });
     } finally {
       setIsLoadingMessages(false);
+      setMessagesFetched(true);
     }
   };
 
@@ -187,8 +267,8 @@ export default function VendorOverview() {
     fetchTopProducts();
     fetchRecentMessages();
     
-    // Connect to real-time service
-    realtimeService.connect();
+    // DON'T connect here - MessagingContext already handles WebSocket connection
+    // Just subscribe to events you need
     
     // Subscribe to real-time updates
     const handleRecentMessagesUpdate = (data: any) => {
@@ -197,6 +277,8 @@ export default function VendorOverview() {
     };
     
     console.log('🔌 Subscribing to recent messages updates...');
+    // Don't connect here - MessagingContext already handles WebSocket connection
+    // Just subscribe to events
     realtimeService.subscribe('recent_messages_update', handleRecentMessagesUpdate);
     
     // Listen for new_review event
@@ -208,11 +290,11 @@ export default function VendorOverview() {
     };
     realtimeService.subscribe('new_review', handleNewReview);
 
-    // Cleanup on unmount
+    // Cleanup on unmount - ONLY unsubscribe, DON'T disconnect (MessagingContext manages connection)
     return () => {
       realtimeService.unsubscribe('recent_messages_update', handleRecentMessagesUpdate);
       realtimeService.unsubscribe('new_review', handleNewReview);
-      realtimeService.disconnect();
+      // DON'T disconnect - MessagingContext needs the connection for notifications
     };
   }, []);
 
@@ -279,7 +361,8 @@ export default function VendorOverview() {
           <img 
             src="/images/the-one-and-only.png" 
             alt="THE ONE AND ONLY" 
-            className="h-12 object-contain"
+            className="h-8 object-contain"
+            style={{ imageRendering: 'auto' }}
           />
         </div>
       </div>
@@ -340,7 +423,13 @@ export default function VendorOverview() {
                   </div>
                 ))
               ) : recentOrders.length === 0 ? (
-                <p className="text-center text-gray-400">No recent orders found.</p>
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                    <Package className="w-8 h-8 text-gray-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">No Recent Orders</h3>
+                  <p className="text-sm text-gray-400">You don't have any recent orders yet.</p>
+                </div>
               ) : (
                 recentOrders.map((order) => (
                 <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
@@ -431,7 +520,13 @@ export default function VendorOverview() {
                   </div>
                 ))
               ) : topProducts.length === 0 ? (
-                <p className="text-center text-gray-400">No products found.</p>
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                    <Package className="w-8 h-8 text-gray-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">No Products Found</h3>
+                  <p className="text-sm text-gray-400">Start by adding your first product listing.</p>
+                </div>
               ) : (
                 topProducts.map((product) => (
                   <div key={product.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
@@ -546,19 +641,44 @@ export default function VendorOverview() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Button className="bg-pink-600 hover:bg-pink-700 text-white h-16">
+            <Button 
+              className="bg-pink-600 hover:bg-pink-700 text-white h-16 cursor-pointer"
+              onClick={() => navigate('/vendor/listings/add')}
+            >
               <Plus className="w-5 h-5 mr-2" />
               Add Product
             </Button>
-            <Button className="bg-gray-800 hover:bg-gray-600 text-white h-16">
+            <Button 
+              className="bg-gray-800 hover:bg-gray-600 text-white h-16 cursor-pointer"
+              onClick={() => navigate('/vendor/analytics')}
+            >
               <TrendingUp className="w-5 h-5 mr-2" />
               View Analytics
             </Button>
-            <Button className="bg-gray-800 hover:bg-gray-600 text-white h-16">
+            <Button 
+              className="bg-gray-800 hover:bg-gray-600 text-white h-16 cursor-pointer"
+              onClick={() => navigate('/vendor/reviews')}
+            >
               <Star className="w-5 h-5 mr-2" />
               Check Reviews
             </Button>
-            <Button className="bg-gray-800 hover:bg-gray-600 text-white h-16">
+            <Button 
+              className="bg-gray-800 hover:bg-gray-600 text-white h-16 cursor-pointer"
+              onClick={() => {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                  try {
+                    const user = JSON.parse(userStr);
+                    const username = user.username;
+                    if (username) {
+                      window.location.href = `/vendor/public/${username}`;
+                    }
+                  } catch (_) {
+                    // Fallback if parsing fails
+                  }
+                }
+              }}
+            >
               <Eye className="w-5 h-5 mr-2" />
               Preview Store
             </Button>

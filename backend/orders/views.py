@@ -75,6 +75,162 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Order is still created but without payment address
             # This will be handled by the frontend
         
+        # Create notifications for buyer, vendor, and admin
+        try:
+            from shared.models import Notification
+            from shared.admin_notifications import notify_admin_order_created
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            
+            # Notify admin
+            notify_admin_order_created(order)
+            
+            # Notification for buyer
+            Notification.objects.create(
+                user=order.buyer,
+                type='order',
+                title='Order Created',
+                message=f'Your order {order.order_id} for "{order.product.headline}" has been created. Payment pending.',
+                data={
+                    'order_id': order.order_id,
+                    'product_id': str(order.product.id),
+                    'product_headline': order.product.headline,
+                    'action_url': f'/buyer/orders'
+                }
+            )
+            
+            # Notification for vendor
+            Notification.objects.create(
+                user=order.vendor,
+                type='order',
+                title='New Order Received',
+                message=f'New order {order.order_id} from {order.buyer.username} for "{order.product.headline}". Payment pending.',
+                data={
+                    'order_id': order.order_id,
+                    'buyer_username': order.buyer.username,
+                    'product_id': str(order.product.id),
+                    'product_headline': order.product.headline,
+                    'action_url': f'/vendor/orders'
+                }
+            )
+            
+            # Send real-time notifications
+            try:
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    # Send to buyer
+                    async_to_sync(channel_layer.group_send)(
+                        f'realtime_{order.buyer.id}',
+                        {
+                            'type': 'order_notification',
+                            'data': {
+                                'order_id': order.order_id,
+                                'type': 'order_created',
+                                'title': 'Order Created',
+                                'message': f'Your order {order.order_id} for "{order.product.headline}" has been created. Payment pending.',
+                                'product_headline': order.product.headline
+                            }
+                        }
+                    )
+                    
+                    # Send to vendor
+                    async_to_sync(channel_layer.group_send)(
+                        f'realtime_{order.vendor.id}',
+                        {
+                            'type': 'order_notification',
+                            'data': {
+                                'order_id': order.order_id,
+                                'type': 'order_created',
+                                'title': 'New Order Received',
+                                'message': f'New order {order.order_id} from {order.buyer.username} for "{order.product.headline}". Payment pending.',
+                                'buyer_username': order.buyer.username,
+                                'product_headline': order.product.headline,
+                                'count_refresh': True  # Trigger count refresh
+                            }
+                        }
+                    )
+                    
+                    # Trigger count refresh for all users (admin/vendor/buyer) when order is created
+                    # Send count refresh notifications to buyer, vendor, and all admins
+                    try:
+                        # Send to buyer
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{order.buyer.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'id': f'count_refresh_order_{order.id}',
+                                    'type': 'system',
+                                    'title': 'Count Refresh',
+                                    'message': 'Order count updated',
+                                    'is_read': False,
+                                    'data': {
+                                        'action': 'refresh_counts',
+                                        'type': 'order'
+                                    },
+                                    'action_url': '',
+                                    'created_at': order.created_at.isoformat(),
+                                    'priority': 'low'
+                                }
+                            }
+                        )
+                        
+                        # Send to vendor
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{order.vendor.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'id': f'count_refresh_order_{order.id}',
+                                    'type': 'system',
+                                    'title': 'Count Refresh',
+                                    'message': 'Order count updated',
+                                    'is_read': False,
+                                    'data': {
+                                        'action': 'refresh_counts',
+                                        'type': 'order'
+                                    },
+                                    'action_url': '',
+                                    'created_at': order.created_at.isoformat(),
+                                    'priority': 'low'
+                                }
+                            }
+                        )
+                        
+                        # Send to all admins
+                        from django.contrib.auth import get_user_model
+                        User = get_user_model()
+                        admin_users = User.objects.filter(user_type='admin', is_active=True)
+                        for admin_user in admin_users:
+                            async_to_sync(channel_layer.group_send)(
+                                f'realtime_{admin_user.id}',
+                                {
+                                    'type': 'order_notification',
+                                    'data': {
+                                        'id': f'count_refresh_order_{order.id}',
+                                        'type': 'system',
+                                        'title': 'Count Refresh',
+                                        'message': 'Order count updated',
+                                        'is_read': False,
+                                        'data': {
+                                            'action': 'refresh_counts',
+                                            'type': 'order'
+                                        },
+                                        'action_url': '',
+                                        'created_at': order.created_at.isoformat(),
+                                        'priority': 'low'
+                                    }
+                                }
+                            )
+                    except Exception as e:
+                        logger.error(f"Error sending count refresh notification: {e}")
+            except Exception as e:
+                logger.error(f"Failed to send real-time notifications: {str(e)}")
+                
+            logger.info(f"Notifications created for order {order.order_id}")
+        except Exception as e:
+            logger.error(f"Failed to create notifications for order {order.order_id}: {str(e)}")
+        
         return Response(
             OrderSerializer(order).data,
             status=status.HTTP_201_CREATED
@@ -263,6 +419,156 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         return Response({"message": "Dispute resolved successfully"})
     
+    @action(detail=True, methods=['post'], url_path='expire_order')
+    def expire_order(self, request, pk=None):
+        """Expire an order due to payment timeout - AGGRESSIVE: Accepts order from URL"""
+        try:
+            # Get order by primary key (ID) from URL
+            try:
+                order = Order.objects.get(id=pk)
+            except Order.DoesNotExist:
+                # Fallback: try to get by order_id from request data
+                order_id = request.data.get('order_id')
+                if order_id:
+                    order = Order.objects.get(order_id=order_id)
+                else:
+                    return Response(
+                        {"error": "Order not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            
+            # AGGRESSIVE: Allow expiration even if status is not exactly PENDING_PAYMENT
+            # Check if order is in any pending state
+            is_pending = (
+                order.order_status == OrderStatus.PENDING_PAYMENT.value or
+                order.order_status == OrderStatus.PENDING.value or
+                (order.payment_status in ['pending', 'pending_payment'])
+            )
+            
+            if not is_pending and order.order_status != OrderStatus.CANCELLED.value:
+                # If already cancelled, just return success
+                if order.order_status == OrderStatus.CANCELLED.value:
+                    return Response({
+                        "message": "Order already expired",
+                        "order": OrderSerializer(order).data
+                    })
+                return Response(
+                    {"error": f"Order is not in pending state. Current status: {order.order_status}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Update order status to cancelled/expired
+            order.order_status = OrderStatus.CANCELLED.value
+            order.payment_status = 'expired'
+            order.save()
+            
+            # Release product quantity
+            product = order.product
+            product.quantity_available += order.quantity
+            if product.status == 'reserved':
+                product.status = 'approved'
+            product.save()
+            
+            # Create notifications for buyer, vendor, and admin
+            try:
+                from shared.models import Notification
+                from shared.admin_notifications import notify_admin_order_expired
+                from asgiref.sync import async_to_sync
+                from channels.layers import get_channel_layer
+                
+                # Notify admin
+                notify_admin_order_expired(order)
+                
+                # Notification for buyer
+                Notification.objects.create(
+                    user=order.buyer,
+                    type='order',
+                    title='Order Expired',
+                    message=f'Your order {order.order_id} for "{order.product.headline}" has expired because payment was not completed within the time limit. You can create a new order.',
+                    data={
+                        'order_id': order.order_id,
+                        'product_id': str(order.product.id),
+                        'product_headline': order.product.headline,
+                        'action_url': f'/buyer/orders'
+                    }
+                )
+                
+                # Notification for vendor
+                Notification.objects.create(
+                    user=order.vendor,
+                    type='order',
+                    title='Order Expired',
+                    message=f'Order {order.order_id} from {order.buyer.username} for "{order.product.headline}" has expired because the buyer did not complete payment within the time limit.',
+                    data={
+                        'order_id': order.order_id,
+                        'buyer_username': order.buyer.username,
+                        'product_id': str(order.product.id),
+                        'product_headline': order.product.headline,
+                        'action_url': f'/vendor/orders'
+                    }
+                )
+                
+                # Send real-time notifications
+                try:
+                    channel_layer = get_channel_layer()
+                    if channel_layer:
+                        # Send to buyer
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{order.buyer.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'order_id': order.order_id,
+                                    'type': 'order_expired',
+                                    'title': 'Order Expired',
+                                    'message': f'Your order {order.order_id} for "{order.product.headline}" has expired because payment was not completed within the time limit.',
+                                    'product_headline': order.product.headline
+                                }
+                            }
+                        )
+                        
+                        # Send to vendor
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{order.vendor.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'order_id': order.order_id,
+                                    'type': 'order_expired',
+                                    'title': 'Order Expired',
+                                    'message': f'Order {order.order_id} from {order.buyer.username} for "{order.product.headline}" has expired because the buyer did not complete payment within the time limit.',
+                                    'buyer_username': order.buyer.username,
+                                    'product_headline': order.product.headline
+                                }
+                            }
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to send real-time expiration notifications: {str(e)}")
+                
+                logger.info(f"Order expiration notifications created for order {order.order_id}")
+            except Exception as e:
+                logger.error(f"Failed to create expiration notifications for order {order.order_id}: {str(e)}")
+            
+            logger.info(f"Order {order.order_id} expired successfully")
+            
+            return Response({
+                'success': True,
+                'message': 'Order expired successfully',
+                'order_id': order.order_id
+            })
+            
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error expiring order: {str(e)}")
+            return Response(
+                {"error": "Failed to expire order"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     @action(detail=False, methods=['post'])
     def find_by_payment_address(self, request):
         """Find order by payment address (for payment testing)"""
@@ -347,6 +653,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def confirm_payment_success(self, request, pk=None):
         """Handle payment success and reveal credentials"""
+        from shared.admin_notifications import notify_admin_payment_received
         try:
             order = self.get_object()
             
@@ -355,6 +662,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.payment_status = 'paid'
             order.payment_confirmed_at = timezone.now()
             order.save()
+            
+            # Notify admin about payment received
+            try:
+                notify_admin_payment_received(order, order)
+            except Exception as e:
+                logger.error(f"Failed to notify admin about payment: {e}")
             
             # Handle credentials based on escrow status
             if order.use_escrow:

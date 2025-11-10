@@ -15,6 +15,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useBuyerCounts } from "@/contexts/BuyerCountsContext";
 
 interface BuyerSidebarProps {
   expanded: boolean;
@@ -27,60 +28,74 @@ const BUYER_NAV_ITEMS = [
     title: "Home",
     icon: Home,
     href: "/buyer",
-    badge: null
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {
     title: "Listings",
     icon: List,
     href: "/buyer/listings",
-    badge: null
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {
     title: "Orders",
     icon: ShoppingCart,
     href: "/buyer/orders",
-    badge: { text: "3", type: "accent" }
+    countKey: "orders" as keyof { messages: number; orders: number; support: number }
   },
   {
     title: "Messages",
     icon: MessageSquare,
     href: "/buyer/messages",
-    badge: { text: "5", type: "danger" }
+    countKey: "messages" as keyof { messages: number; orders: number; support: number }
   },
   {
     title: "My Disputes",
     icon: AlertTriangle,
     href: "/buyer/my-disputes",
-    badge: null
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {
     title: "My Reviews",
     icon: User,
     href: "/buyer/my-reviews",
-    badge: null
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {
     title: "Wishlist",
     icon: Heart,
     href: "/buyer/wishlist",
-    badge: { text: "12", type: "success" }
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {
     title: "Settings",
     icon: Settings,
     href: "/buyer/settings",
-    badge: null
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {
     title: "Support",
     icon: HelpCircle,
     href: "/buyer/support",
-    badge: null
+    countKey: "support" as keyof { messages: number; orders: number; support: number }
   }
 ];
 
 export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: BuyerSidebarProps) {
   const location = useLocation();
+  const { localCounts } = useBuyerCounts();
+
+  const getCount = (countKey: keyof { messages: number; orders: number; support: number } | null): number | null => {
+    if (!countKey) return null;
+    const count = localCounts[countKey];
+    return count > 0 ? count : null;
+  };
+
+  const getBadgeColor = (title: string, count: number | null): string => {
+    if (!count) return '';
+    if (title === 'Messages') return 'bg-red-500'; // Red for Messages
+    if (title === 'Orders' || title === 'Wishlist') return 'bg-blue-500'; // Light blue for Orders/Wishlist
+    return 'bg-blue-500'; // Default blue
+  };
 
   return (
     <div 
@@ -95,7 +110,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       {/* Logo */}
       <div className="px-3 py-2 border-b border-gray-800">
         <div className="flex items-center">
-          <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+          <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
@@ -116,6 +131,8 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
         {BUYER_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.href || (item.href !== "/buyer" && location.pathname.startsWith(item.href));
+          const count = getCount(item.countKey);
+          const badgeColor = getBadgeColor(item.title, count);
           
           return (
             <Link key={item.href} to={item.href}>
@@ -136,26 +153,25 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
                 {expanded ? (
                   <div className="ml-3 flex items-center justify-between w-full">
                     <span className="font-medium">{item.title}</span>
-                    {item.badge && (
+                    {count !== null && count > 0 && (
                       <Badge 
-                        variant={item.badge.type === 'danger' ? 'destructive' : 'default'}
-                        className="text-xs"
+                        className={cn("text-xs text-white min-w-[20px] h-5 flex items-center justify-center px-1.5 rounded-full", badgeColor)}
                       >
-                        {item.badge.text}
+                        {count > 99 ? '99+' : count}
                       </Badge>
                     )}
                   </div>
                 ) : (
                   <>
-                    {item.badge && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                    {count !== null && count > 0 && (
+                      <div className={cn("absolute -top-1 -right-1 w-3 h-3 rounded-full", badgeColor)}></div>
                     )}
                     
                     {/* Tooltip */}
                     <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                       <div className="text-sm font-medium whitespace-nowrap">{item.title}</div>
-                      {item.badge && (
-                        <div className="text-xs text-gray-300 mt-1">{item.badge.text} new</div>
+                      {count !== null && count > 0 && (
+                        <div className="text-xs text-gray-300 mt-1">{count} new</div>
                       )}
                       <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-800 rotate-45"></div>
                     </div>

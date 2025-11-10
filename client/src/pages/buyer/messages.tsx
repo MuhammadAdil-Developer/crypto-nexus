@@ -27,6 +27,17 @@ export default function BuyerMessages() {
     }
     
     loadConversations();
+    
+    // Listen for messages marked as read to update conversation unread counts
+    const handleMessagesMarkedRead = () => {
+      loadConversations();
+    };
+    
+    window.addEventListener('messages_marked_read', handleMessagesMarkedRead);
+
+    return () => {
+      window.removeEventListener('messages_marked_read', handleMessagesMarkedRead);
+    };
   }, []);
 
   const loadConversations = async () => {
@@ -50,23 +61,41 @@ export default function BuyerMessages() {
 
   const handleProductConversation = async (context: any) => {
     try {
+      // Ensure vendorId is available and properly formatted
+      if (!context.vendorId) {
+        toast({
+          title: "Error",
+          description: "Vendor information not available. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Try to get existing conversation for this product
       let conversation;
       try {
         conversation = await messagingService.getConversationByProduct(context.id);
-      } catch (error) {
-        // If no conversation exists, create one
-        conversation = await messagingService.createProductConversation(
-          context.id,
-          context.vendorId
-        );
+      } catch (error: any) {
+        // If no conversation exists (404), create one
+        if (error.message?.includes('No conversation found')) {
+          // Both IDs should be UUID strings - ensure they are strings
+          const productId = String(context.id);
+          const vendorId = String(context.vendorId);
+          
+          conversation = await messagingService.createProductConversation(
+            productId,
+            vendorId
+          );
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
       }
       
       // Update conversations list
       await loadConversations();
       
       // Auto-select the conversation
-      if (conversation) {
+      if (conversation && conversation.id) {
         setAutoSelectConversation(conversation.id);
       }
       
@@ -74,11 +103,12 @@ export default function BuyerMessages() {
         title: "Conversation Started",
         description: `Chatting about ${context.title}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error handling product conversation:', error);
+      const errorMessage = error.response?.data?.error || error.message || "Failed to start conversation";
       toast({
         title: "Error",
-        description: "Failed to start conversation",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -155,17 +185,26 @@ export default function BuyerMessages() {
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
           <h3 className="font-semibold text-white mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600">
+            <button 
+              onClick={() => window.location.href = '/buyer/support'}
+              className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
+            >
               <h4 className="font-medium text-blue-400 mb-2">Contact Support</h4>
               <p className="text-sm text-gray-300">Get help with orders or account issues</p>
             </button>
             
-            <button className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600">
+            <button 
+              onClick={() => window.location.href = '/buyer/support'}
+              className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
+            >
               <h4 className="font-medium text-green-400 mb-2">Report Issue</h4>
               <p className="text-sm text-gray-300">Report a problem with a vendor or order</p>
             </button>
             
-            <button className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600">
+            <button 
+              onClick={() => window.location.href = '/buyer/settings'}
+              className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
+            >
               <h4 className="font-medium text-purple-400 mb-2">Message Settings</h4>
               <p className="text-sm text-gray-300">Configure notification preferences</p>
             </button>

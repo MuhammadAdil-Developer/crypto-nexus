@@ -20,7 +20,7 @@ export function MarketplaceHeader() {
         <div className="flex flex-col lg:flex-row justify-between items-center py-3 gap-4 lg:gap-2 lg:overflow-hidden">
           {/* Logo & Navigation */}
           <div className="flex items-center space-x-8 flex-shrink-0 hidden lg:flex">
-            <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+            <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, MoreVertical, Send, Search, Archive, Star, Package, X, ArrowDown, Copy } from "lucide-react";
+import { MessageSquare, MoreVertical, Send, Search, Archive, Star, Package, X, ArrowDown, Copy, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export function MessagesPanel({
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showProductReference, setShowProductReference] = useState(false);
@@ -51,7 +52,6 @@ export function MessagesPanel({
       try {
         const user = JSON.parse(userStr);
         setCurrentUserId(user.id);
-        console.log('🔍 Buyer currentUserId set to:', user.id);
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
@@ -210,17 +210,28 @@ export function MessagesPanel({
   useEffect(() => {
     messagingService.onMessage((message) => {
       setMessages(prev => {
-        // If it's a temporary message, just add it
-        if (message.isTemporary) {
-          return [...prev, message];
-        }
-        
-        // If it's a real message from server, replace any temporary message with same content
-        const updatedMessages = prev.filter(msg => 
-          !(msg.isTemporary && msg.content === message.content && msg.sender?.id === message.sender?.id)
+        // Check if message already exists (by ID or content + sender + timestamp)
+        const messageExists = prev.some(msg => 
+          msg.id === message.id || 
+          (msg.content === message.content && 
+           msg.sender?.id === message.sender?.id &&
+           Math.abs(new Date(msg.created_at).getTime() - new Date(message.created_at).getTime()) < 5000)
         );
         
-        return [...updatedMessages, message];
+        if (messageExists) {
+          // Update existing message if it's a temporary one being replaced
+          if (message.isTemporary === false) {
+            return prev.map(msg => 
+              (msg.isTemporary && msg.content === message.content && msg.sender?.id === message.sender?.id)
+                ? message 
+                : msg
+            );
+          }
+          return prev;
+        }
+        
+        // Add new message
+        return [...prev, message];
       });
     });
 
@@ -234,7 +245,6 @@ export function MessagesPanel({
 
     messagingService.onConversationInfo((data) => {
       // Handle conversation info updates
-      console.log('Conversation info:', data);
     });
 
     return () => {
@@ -272,6 +282,7 @@ export function MessagesPanel({
   }, [autoSelectConversation, conversations]);
 
   const handleConversationSelect = async (conversation: any) => {
+    setLoadingMessages(true);
     try {
       setSelectedConversation(conversation);
       
@@ -313,16 +324,20 @@ export function MessagesPanel({
         description: "Failed to load conversation",
         variant: "destructive",
       });
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
+    const messageText = newMessage.trim();
+    setNewMessage(""); // Clear input immediately for better UX
+
     try {
-      // Send message via WebSocket
-      messagingService.sendMessage(newMessage);
-      setNewMessage("");
+      // Send message (will use WebSocket if available, otherwise REST API)
+      await messagingService.sendMessage(messageText, selectedConversation.id);
       
       // Clear reply state after sending
       if (replyToMessage) {
@@ -334,11 +349,15 @@ export function MessagesPanel({
         setShowProductReference(false);
         setProductReferenceData(null);
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
+      
+      // Note: Messages are updated via the onMessage callback, no need to refresh
+    } catch (error: any) {
+      // Restore message text if sending failed
+      setNewMessage(messageText);
+      
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: error.message || "Failed to send message",
         variant: "destructive",
       });
     }
@@ -436,7 +455,10 @@ export function MessagesPanel({
         </CardHeader>
         <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
           {loading ? (
-            <div className="p-4 text-center text-gray-400">Loading conversations...</div>
+            <div className="p-4 flex flex-col items-center justify-center h-full">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400 mb-2" />
+              <p className="text-gray-400">Loading conversations...</p>
+            </div>
           ) : conversations.length === 0 ? (
             <div className="p-4 text-center text-gray-400">No conversations yet</div>
           ) : (
@@ -461,7 +483,7 @@ export function MessagesPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                         <h4 className="font-medium text-white truncate">
-                          {conv.product?.title || 'Product Chat'}
+                          {conv.product?.headline || conv.product?.title || 'Product Chat'}
                       </h4>
                         {conv.unread_count > 0 && (
                         <Badge className="bg-red-500 text-white text-xs">
@@ -526,7 +548,22 @@ export function MessagesPanel({
             {/* Messages */}
             <CardContent className="flex-1 p-4 flex flex-col min-h-0">
               <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[800px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
-                {messages.map((message) => {
+                {loadingMessages ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-2" />
+                      <p className="text-gray-400">Loading messages...</p>
+                    </div>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <MessageSquare className="w-12 h-12 text-gray-500 mx-auto mb-2" />
+                      <p className="text-gray-400">No messages yet. Start the conversation!</p>
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((message) => {
                   // Improved sender detection logic
                   let isOwnMessage = false;
                   
@@ -555,17 +592,6 @@ export function MessagesPanel({
                   if (!isOwnMessage && currentUser && message.sender?.id) {
                     isOwnMessage = String(message.sender.id) === String(currentUser.id);
                   }
-                  
-                  console.log('🔍 Buyer message debug:', {
-                    messageId: message.id,
-                    senderId: message.sender?.id,
-                    senderUsername: message.sender?.username,
-                    currentUserId,
-                    currentUserFromStorage: currentUser?.id,
-                    currentUserUsername: currentUser?.username,
-                    isOwnMessage,
-                    messageContent: message.content?.substring(0, 50)
-                  });
                   
                   // Special handling for product reference messages
                   if (message.message_type === 'product_reference') {
@@ -608,17 +634,17 @@ export function MessagesPanel({
                   }
                   
                   return (
-                  <div 
-                    key={message.id}
+                    <div 
+                      key={message.id}
                       className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                     >
                       <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative ${
                         isOwnMessage
                           ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
-                        : 'bg-gray-700 text-white'
-                    }`}>
-                      <p className="text-sm">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
+                          : 'bg-gray-700 text-white'
+                      }`}>
+                        <p className="text-sm">{message.content}</p>
+                        <p className={`text-xs mt-1 ${
                           isOwnMessage ? 'text-blue-100' : 'text-gray-400'
                         }`}>
                           {formatTime(message.created_at)}
@@ -698,7 +724,8 @@ export function MessagesPanel({
                       </div>
                     </div>
                   );
-                })}
+                  })
+                )}
                 
                 {/* Typing indicator */}
                 {typingUsers.length > 0 && (

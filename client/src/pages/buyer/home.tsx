@@ -32,10 +32,11 @@ import {
   Copy,
   AlertTriangle,
   Bitcoin,
-  Wallet
+  Wallet,
+  Loader2
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import wishlistService from "@/services/wishlistService";
@@ -141,10 +142,31 @@ function BuyerHomeContent() {
   // Messaging state is now handled by MessagingProvider
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [homeSearchQuery, setHomeSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navigate = useNavigate();
+  const [ordersFetched, setOrdersFetched] = useState(false);
+  const [wishlistFetched, setWishlistFetched] = useState(false);
+  const [trendingProductsFetched, setTrendingProductsFetched] = useState(false);
+  const [recentActivityFetched, setRecentActivityFetched] = useState(false);
   const { toast } = useToast();
   
   // Get messaging data from context
   const { unreadCount, isLoading: isLoadingMessages } = useMessaging();
+  
+  // Cache keys for localStorage
+  const CACHE_KEYS = {
+    TRENDING_PRODUCTS: 'buyer_home_trending_products',
+    RECENT_ORDERS: 'buyer_home_recent_orders',
+    RECENT_ACTIVITY: 'buyer_home_recent_activity',
+    WISHLIST_COUNT: 'buyer_home_wishlist_count',
+    ORDERS_DATA: 'buyer_home_orders_data',
+  };
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 
   // Enhanced smooth auto-slide effect - only when not hovered
@@ -161,24 +183,79 @@ function BuyerHomeContent() {
     return () => clearInterval(interval);
   }, [trendingProducts.length, isHovered]);
 
-  // Fetch wishlist count
+  // Helper function to get cached data
+  const getCachedData = (key: string) => {
+    try {
+      const cached = localStorage.getItem(key);
+      if (!cached) return null;
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_DURATION) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper function to set cached data
+  const setCachedData = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.error('Error caching data:', e);
+    }
+  };
+
+  // Fetch wishlist count with caching
   useEffect(() => {
+    if (wishlistFetched) return;
+    
+    // Try cache first
+    const cached = getCachedData(CACHE_KEYS.WISHLIST_COUNT);
+    if (cached !== null) {
+      setWishlistCount(cached);
+      setWishlistFetched(true);
+      return;
+    }
+    
     const fetchWishlistCount = async () => {
       try {
         const response = await wishlistService.getWishlistStats();
         if (response.success && response.data) {
-          setWishlistCount(response.data.total_items || 0);
+          const count = response.data.total_items || 0;
+          setWishlistCount(count);
+          setCachedData(CACHE_KEYS.WISHLIST_COUNT, count);
         }
       } catch (error) {
         console.error('Error fetching wishlist count:', error);
+      } finally {
+        setWishlistFetched(true);
       }
     };
     
     fetchWishlistCount();
-  }, []);
+  }, [wishlistFetched]);
 
-  // Fetch trending products with enhancement
+  // Fetch trending products with caching
   useEffect(() => {
+    if (trendingProductsFetched) return;
+    
+    // Try cache first
+    const cached = getCachedData(CACHE_KEYS.TRENDING_PRODUCTS);
+    if (cached !== null && cached.length > 0) {
+      setTrendingProducts(cached);
+      const tripled = [...cached, ...cached, ...cached];
+      setDuplicatedProducts(tripled);
+      setTrendingProductsFetched(true);
+      setLoading(false); // Ensure loader is off when using cache
+      return;
+    }
+    
     const fetchTrendingProducts = async () => {
       try {
         setLoading(true);
@@ -189,6 +266,7 @@ function BuyerHomeContent() {
         
         if (response.success && response.data) {
           setTrendingProducts(response.data);
+          setCachedData(CACHE_KEYS.TRENDING_PRODUCTS, response.data);
           
           // Create duplicated array for infinite scroll
           // Triple the products to ensure smooth infinite scrolling
@@ -206,50 +284,171 @@ function BuyerHomeContent() {
         setDuplicatedProducts([]);
       } finally {
         setLoading(false);
+        setTrendingProductsFetched(true);
       }
     };
     fetchTrendingProducts();
-  }, []);
+  }, [trendingProductsFetched]);
 
-  // Fetch approved vendors for Top Vendors section (public endpoint)
+  // Fetch approved vendors for Top Vendors section
   useEffect(() => {
     const loadTopVendors = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/approved/?limit=4`);
-        if (!res.ok) return; // keep static fallback silently
-        const data = await res.json();
-        if (data?.success && Array.isArray(data.data)) {
-          const mapped = data.data.map((v: any, idx: number) => {
-            const initials = (v.business_name || v.vendor_username || 'VN').slice(0, 2).toUpperCase();
-            return {
-              id: idx + 1,
-              name: v.business_name || v.vendor_username,
-              rating: 4.8, // placeholder rating since not tracked
-              totalSales: 0, // placeholder; real metric not available here
-              verified: true,
-              specialization: v.category || 'Marketplace Vendor',
-              avatar: initials,
-              responseTime: '< 2 hours',
-              vendor_username: v.vendor_username,
-            };
-          });
-          setTopVendorsData(mapped);
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        
+        const res = await fetch(`${API_BASE_URL}/vendors/approved/?limit=4`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && Array.isArray(data.data)) {
+            const mapped = data.data.map((v: any, idx: number) => {
+              const initials = (v.business_name || v.vendor_username || 'VN').slice(0, 2).toUpperCase();
+              return {
+                id: idx + 1,
+                name: v.business_name || v.vendor_username,
+                rating: 4.8,
+                totalSales: 0,
+                verified: true,
+                specialization: v.category || 'Marketplace Vendor',
+                avatar: initials,
+                responseTime: '< 2 hours',
+                vendor_username: v.vendor_username,
+              };
+            });
+            setTopVendorsData(mapped);
+          }
         }
       } catch (_) {
-        // ignore and keep static fallback
+        // Keep static fallback on error
       }
     };
     loadTopVendors();
   }, []);
 
-  // Simplified and immediate order fetch function
-  const fetchOrdersData = async () => {
+  // Fetch search suggestions from actual product listings
+  useEffect(() => {
+    if (!homeSearchQuery.trim()) {
+      // Fetch popular products when search is empty
+      const fetchPopularSuggestions = async () => {
+        try {
+          setIsLoadingSuggestions(true);
+          const response = await productService.getProducts({
+            sort_by: 'views',
+            page_size: 10
+          });
+          if (response.success && Array.isArray(response.data)) {
+            const suggestions = response.data.map((product: any) => ({
+              term: product.headline || product.listing_title || product.website,
+              count: (product.views_count || 0) + (product.favorites_count || 0),
+              type: 'product',
+              productId: product.id
+            }));
+            setSearchSuggestions(suggestions);
+          }
+        } catch (error) {
+          console.error('Error fetching popular suggestions:', error);
+        } finally {
+          setIsLoadingSuggestions(false);
+        }
+      };
+      fetchPopularSuggestions();
+      return;
+    }
+
+    // Debounce search suggestions based on typed query
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsLoadingSuggestions(true);
+        const response = await productService.getProducts({
+          search: homeSearchQuery.trim(),
+          page_size: 10
+        });
+        if (response.success && Array.isArray(response.data)) {
+          const suggestions = response.data.map((product: any) => ({
+            term: product.headline || product.listing_title || product.website,
+            count: (product.views_count || 0) + (product.favorites_count || 0),
+            type: 'product',
+            productId: product.id
+          }));
+          // Also add the typed query as a suggestion if no exact matches
+          if (suggestions.length === 0) {
+            suggestions.push({
+              term: homeSearchQuery.trim(),
+              count: 0,
+              type: 'search',
+              productId: null
+            });
+          }
+          setSearchSuggestions(suggestions);
+        }
+      } catch (error) {
+        console.error('Error fetching search suggestions:', error);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [homeSearchQuery]);
+
+  // Handle click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle home search
+  const handleHomeSearch = (query?: string) => {
+    const searchTerm = query || homeSearchQuery.trim();
+    if (searchTerm) {
+      navigate(`/buyer/listings?search=${encodeURIComponent(searchTerm)}`);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: any) => {
+    const searchTerm = suggestion.term || suggestion;
+    setHomeSearchQuery(searchTerm);
+    handleHomeSearch(searchTerm);
+  };
+
+  // Simplified and immediate order fetch function with caching
+  const fetchOrdersData = async (force = false) => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
         setIsLoadingOrder(false);
         setIsLoadingOrdersData(false);
         return;
+      }
+
+      // Try cache first if not forcing
+      if (!force) {
+        const cached = getCachedData(CACHE_KEYS.ORDERS_DATA);
+        if (cached !== null) {
+          processOrdersData(cached);
+          setIsLoadingOrder(false);
+          setIsLoadingOrdersData(false);
+          return;
+        }
       }
 
       setIsLoadingOrder(true);
@@ -261,44 +460,11 @@ function BuyerHomeContent() {
       
       const orders = Array.isArray(ordersData) ? ordersData : (ordersData.results || []);
       
-      // Process pending orders for active order banner
-      const pendingOrders = orders.filter((order) => 
-        order.payment_status === 'pending' && order.order_status === 'pending_payment'
-      );
-
-      if (pendingOrders.length > 0) {
-        const lastOrder = pendingOrders.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )[0];
-
-        setActiveOrder(lastOrder);
-        setPendingOrdersCount(pendingOrders.length);
-        
-        const orderCreatedAt = new Date(lastOrder.created_at).getTime();
-        const expiresAt = orderCreatedAt + (30 * 60 * 1000);
-        const now = Date.now();
-        const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-        
-        setTimeRemaining(remainingSeconds);
-      } else {
-        setActiveOrder(null);
-        setPendingOrdersCount(0);
-        setTimeRemaining(0);
-      }
-
-      // Process recent orders
-      const recent = orders
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
-      setRecentOrders(recent);
-
-      // Process order counts
-      setTotalOrders(orders.length);
+      // Cache the orders data
+      setCachedData(CACHE_KEYS.ORDERS_DATA, orders);
       
-      const activeOrdersList = orders.filter(order => 
-        ["pending", "processing", "shipped"].includes(order.order_status)
-      );
-      setActiveOrders(activeOrdersList.length);
+      // Process orders data
+      processOrdersData(orders);
 
       // Reset retry count on successful fetch
       setRetryCount(0);
@@ -323,74 +489,136 @@ function BuyerHomeContent() {
     }
   };
 
-  // Immediate order fetch function - always fetch fresh data
-  const fetchOrderImmediately = async () => {
-    await fetchOrdersData();
+  // Process orders data (extracted for reuse)
+  const processOrdersData = (orders: any[]) => {
+    // Process pending orders for active order banner - show for newly created orders
+    const pendingOrders = orders.filter((order) => 
+      (order.payment_status === 'pending' || order.payment_status === 'pending_payment') && 
+      (order.order_status === 'pending_payment' || order.order_status === 'pending')
+    );
+
+    if (pendingOrders.length > 0) {
+      // Sort by created_at (most recent first) to show newest pending order
+      const sortedPending = pendingOrders.sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const lastOrder = sortedPending[0];
+
+      setActiveOrder(lastOrder);
+      setPendingOrdersCount(pendingOrders.length);
+      
+      const orderCreatedAt = new Date(lastOrder.created_at).getTime();
+      const expiresAt = orderCreatedAt + (30 * 60 * 1000); // 30 minutes
+      const now = Date.now();
+      const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
+      
+      setTimeRemaining(remainingSeconds);
+    } else {
+      setActiveOrder(null);
+      setPendingOrdersCount(0);
+      setTimeRemaining(0);
+    }
+
+    // Process recent orders
+    const recent = orders
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3);
+    setRecentOrders(recent);
+
+    // Process order counts
+    setTotalOrders(orders.length);
+    
+    const activeOrdersList = orders.filter((order: any) => 
+      ["pending", "processing", "shipped"].includes(order.order_status)
+    );
+    setActiveOrders(activeOrdersList.length);
   };
 
-  // Fetch active order
-  useEffect(() => {
-    fetchOrderImmediately();
-  }, []);
+  // Immediate order fetch function - with caching
+  const fetchOrderImmediately = async () => {
+    await fetchOrdersData(false); // Use cache if available
+  };
 
-  // Interval to check for new orders (only when there are active orders)
+  // Fetch active order - only once on mount
+  useEffect(() => {
+    if (ordersFetched) return;
+    
+    fetchOrderImmediately().then(() => {
+      setOrdersFetched(true);
+    });
+  }, [ordersFetched]);
+
+  // Interval to check for new orders (only when there are active orders) - REDUCED FREQUENCY
   useEffect(() => {
     // Only poll if there are active orders or pending payments
     if (activeOrders > 0 || pendingOrdersCount > 0) {
       const interval = setInterval(() => {
         fetchOrdersData();
-      }, 120000); // Every 2 minutes instead of 10 seconds
+      }, 300000); // Every 5 minutes instead of 2 minutes - reduce auto-reload
       
       return () => clearInterval(interval);
     }
   }, [activeOrders, pendingOrdersCount]);
 
-  // Visibility change handler
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchOrdersData();
-      }
-    };
+  // REMOVED visibility change handler - it was causing unnecessary reloads
+  // Real-time notifications will handle updates instead
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+  // Fetch recent activity from API (real notifications only, no static fallback)
+  const fetchRecentActivity = async (force = false) => {
+    if (recentActivityFetched && !force) return;
+    
+    try {
+      const response = await messagingService.getRecentActivity();
+      // Handle both direct array and response.data format
+      const activity = Array.isArray(response) ? response : (response?.data || response || []);
+      
+      if (activity && Array.isArray(activity) && activity.length > 0) {
+        const formattedActivity = activity.map((act: any) => ({
+          id: act.id,
+          type: act.type || 'message',
+          title: act.title || 'New message from vendor',
+          description: act.description || act.message || '',
+          time: act.time || 'Just now',
+          status: act.status || 'info'
+        }));
+        setRecentActivity(formattedActivity);
+        setCachedData(CACHE_KEYS.RECENT_ACTIVITY, formattedActivity);
+      } else {
+        // No activities - show empty state
+        setRecentActivity([]);
+        setCachedData(CACHE_KEYS.RECENT_ACTIVITY, []);
+      }
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      // Show empty state on error, not static data
+      setRecentActivity([]);
+    } finally {
+      setRecentActivityFetched(true);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentActivity();
+    
+    // Refresh activity every 15 seconds to get new notifications
+    const interval = setInterval(() => {
+      fetchRecentActivity(true);
+    }, 15000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-
-  // Load static recent activity on component mount (messaging is handled by MessagingProvider)
+  // Listen for order creation events to refresh
   useEffect(() => {
-    console.log('🚀 Buyer home page mounted, loading static activities...');
+    const handleOrderCreated = () => {
+      // Refresh orders and recent activity when order is created
+      fetchOrdersData(true);
+      fetchRecentActivity(true);
+    };
     
-    // Set static activities (messaging activities are handled by MessagingProvider)
-    const staticActivities = [
-      {
-        id: 1,
-        type: "order",
-        title: "Order delivered",
-        description: "Netflix Premium Account has been delivered to your account",
-        time: "2 min ago",
-        status: "success"
-      },
-      {
-        id: 3,
-        type: "order",
-        title: "Order processing",
-        description: "Your Adobe Creative Cloud order is being prepared",
-        time: "1 hour ago",
-        status: "warning"
-      },
-      {
-        id: 4,
-        type: "wishlist",
-        title: "Price drop alert",
-        description: "Xbox Game Pass Ultimate is now 25% off - check your wishlist!",
-        time: "2 hours ago",
-        status: "success"
-      }
-    ];
-    
-    setRecentActivity(staticActivities);
+    window.addEventListener('order_created', handleOrderCreated);
+    return () => window.removeEventListener('order_created', handleOrderCreated);
   }, []);
 
   // Review prompt (realtime) -> toast/CTA
@@ -463,21 +691,55 @@ function BuyerHomeContent() {
       if (!token) return;
 
       const productName = activeOrder.product?.headline || activeOrder.product?.listing_title || "Product";
-      addOrderCancellationNotification(activeOrder.order_id, productName);
+      
+      // Call backend API to expire the order (this will also send notifications)
+      const response = await fetch(`http://localhost:8000/api/v1/orders/expire/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ order_id: activeOrder.order_id })
+      });
 
-      const response = await orderService.updateOrderStatus(activeOrder.order_id, 'cancelled');
-
-      if (response) {
+      if (response.ok) {
+        // Order expired successfully
         setActiveOrder(null);
         setTimeRemaining(0);
         setPendingOrdersCount(0);
         localStorage.removeItem('activeOrderTimer');
+        
+        // Refresh orders and recent activity to show notifications
+        fetchOrdersData(true);
+        fetchRecentActivity(true);
+        
+        toast({
+          title: "Order Expired",
+          description: `Order ${activeOrder.order_id} has expired due to payment timeout`,
+          variant: "destructive",
+        });
+      } else {
+        // Fallback: try to update status to cancelled
+        const orderIdStr = activeOrder.order_id?.toString() || '';
+        if (orderIdStr) {
+          try {
+            const response = await orderService.updateOrderStatus(orderIdStr, 'cancelled');
+            if (response) {
+              setActiveOrder(null);
+              setTimeRemaining(0);
+              setPendingOrdersCount(0);
+              localStorage.removeItem('activeOrderTimer');
+            }
+          } catch (err) {
+            console.error('Failed to cancel order:', err);
+          }
+        }
       }
     } catch (error) {
-      console.error('Failed to update order status:', error);
+      console.error('Failed to expire order:', error);
       toast({
         title: "Error",
-        description: "Failed to update order status",
+        description: "Failed to expire order",
         variant: "destructive",
       });
     }
@@ -594,8 +856,8 @@ function BuyerHomeContent() {
       <BuyerLayout hasBanner={activeOrder && !isLoadingOrder && timeRemaining > 0}>
         <div className="space-y-6">
           {/* Hero Search Section */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-900/20 via-teal-900/20 to-cyan-900/20 border border-gray-700/50 p-8">
-            <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-sm"></div>
+          <div className="relative rounded-2xl bg-gradient-to-br from-blue-900/20 via-teal-900/20 to-cyan-900/20 border border-gray-700/50 p-8">
+            <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-sm rounded-2xl"></div>
             <div className="relative">
               <div className="text-center mb-8">
                 <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4">
@@ -605,22 +867,80 @@ function BuyerHomeContent() {
                   Browse thousands of premium accounts from verified vendors with crypto payments
                 </p>
               </div>
-              <div className="max-w-4xl mx-auto">
+              <div className="max-w-4xl mx-auto relative">
                 <div className="flex items-center space-x-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <div className="flex-1 relative" ref={searchRef}>
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
                     <Input
                       placeholder="Search for Netflix, Spotify, Steam, Adobe..."
+                      value={homeSearchQuery}
+                      onChange={(e) => {
+                        setHomeSearchQuery(e.target.value);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleHomeSearch();
+                        }
+                      }}
                       className="pl-12 pr-4 py-4 text-lg bg-gray-800/80 border-gray-600 text-white placeholder-gray-400 rounded-xl backdrop-blur-sm"
                     />
                   </div>
-                  <Button size="lg" className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl">
+                  <Button 
+                    size="lg" 
+                    className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl"
+                    onClick={() => handleHomeSearch()}
+                  >
                     Search
                   </Button>
                   <Button variant="outline" size="lg" className="px-6 py-4 rounded-xl border-gray-600">
                     <Filter className="w-5 h-5" />
                   </Button>
                 </div>
+                {/* Auto-suggestions dropdown - positioned relative to max-w-4xl container */}
+                {showSuggestions && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] max-h-80 overflow-y-auto">
+                    {isLoadingSuggestions ? (
+                      <div className="px-4 py-3 text-center">
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
+                      </div>
+                    ) : searchSuggestions.length > 0 ? (
+                      <>
+                        {homeSearchQuery.trim() && (
+                          <div
+                            onClick={() => handleHomeSearch()}
+                            className="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
+                          >
+                            <div className="flex items-center">
+                              <Search className="w-4 h-4 text-gray-400 mr-3" />
+                              <span className="text-white">Search for "{homeSearchQuery}"</span>
+                            </div>
+                          </div>
+                        )}
+                        {searchSuggestions.map((suggestion, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="px-4 py-3 hover:bg-gray-700 cursor-pointer flex items-center justify-between"
+                          >
+                            <div className="flex items-center flex-1">
+                              <Search className="w-4 h-4 text-gray-400 mr-3" />
+                              <span className="text-white">{suggestion.term}</span>
+                            </div>
+                            {suggestion.count > 0 && (
+                              <span className="text-xs text-gray-400">{suggestion.count}+ views</span>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="px-4 py-3 text-gray-400 text-center">
+                        No products found
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1148,38 +1468,7 @@ function BuyerHomeContent() {
 
           {/* Activity and Actions Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Recent Activity Section */}
-            <section>
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-                <Clock className="w-7 h-7 mr-3 text-blue-400" />
-                Recent Activity
-              </h2>
-              <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <Card key={activity.id} className="border-gray-700 bg-gray-900 hover:bg-gray-800/80 transition-colors duration-200">
-                    <CardContent className="p-5">
-                      <div className="flex items-start space-x-4">
-                        <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
-                          activity.status === 'success' ? 'bg-green-400' :
-                          activity.status === 'info' ? 'bg-blue-400' :
-                          activity.status === 'warning' ? 'bg-yellow-400' : 'bg-gray-400'
-                        }`}></div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-white text-sm mb-1">{activity.title}</h4>
-                          <p className="text-xs text-gray-400 mb-2">{activity.description}</p>
-                          <div className="flex items-center space-x-2 text-xs text-gray-500">
-                            <Clock className="w-3 h-3" />
-                            <span>{activity.time}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-
-            {/* Quick Actions Section */}
+            {/* Quick Actions Section - First */}
             <section>
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
                 <Zap className="w-7 h-7 mr-3 text-yellow-400" />
@@ -1211,7 +1500,16 @@ function BuyerHomeContent() {
                         </div>
                         <div>
                           <h3 className="font-semibold text-white">Messages</h3>
-                          <p className="text-sm text-gray-400">5 unread</p>
+                          <p className="text-sm text-gray-400">
+                            {isLoadingMessages ? (
+                              <span className="flex items-center">
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Loading...
+                              </span>
+                            ) : (
+                              `${unreadCount} unread`
+                            )}
+                          </p>
                         </div>
                       </div>
                     </CardContent>
@@ -1249,6 +1547,47 @@ function BuyerHomeContent() {
                     </CardContent>
                   </Card>
                 </Link>
+              </div>
+            </section>
+
+            {/* Recent Activity Section - Second */}
+            <section>
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
+                <Clock className="w-7 h-7 mr-3 text-blue-400" />
+                Recent Activity
+              </h2>
+              <div className="space-y-4">
+                {recentActivity.length === 0 ? (
+                  <Card className="border-gray-700 bg-gray-900">
+                    <CardContent className="p-8 text-center">
+                      <Clock className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                      <p className="text-gray-400">No recent activity</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  recentActivity.map((activity) => (
+                    <Card key={activity.id} className="border-gray-700 bg-gray-900 hover:bg-gray-800/80 transition-colors duration-200">
+                      <CardContent className="p-5">
+                        <div className="flex items-start space-x-4">
+                          <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
+                            activity.status === 'success' ? 'bg-green-400' :
+                            activity.status === 'info' ? 'bg-blue-400' :
+                            activity.status === 'warning' ? 'bg-yellow-400' :
+                            activity.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
+                          }`}></div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-white text-sm mb-1">{activity.title}</h4>
+                            <p className="text-xs text-gray-400 mb-2">{activity.description}</p>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500">
+                              <Clock className="w-3 h-3" />
+                              <span>{activity.time}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </section>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2, User, CheckCircle } from "lucide-react";
 import { SAMPLE_VENDORS } from "@/lib/constants";
 import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -63,6 +64,7 @@ export default function AdminVendors() {
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   
   // Modal State
   const [selectedApplication, setSelectedApplication] = useState<VendorApplication | null>(null);
@@ -71,6 +73,15 @@ export default function AdminVendors() {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [confirmApplication, setConfirmApplication] = useState<VendorApplication | null>(null);
+  const [inviteVendorModalOpen, setInviteVendorModalOpen] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [buyers, setBuyers] = useState<any[]>([]);
+  const [searchBuyerTerm, setSearchBuyerTerm] = useState("");
+  const [loadingBuyers, setLoadingBuyers] = useState(false);
+  const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Image Viewer Modal State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -86,11 +97,53 @@ export default function AdminVendors() {
     fetchApplications();
   }, []);
 
+  // Fetch buyers for dropdown
+  const fetchBuyers = async (searchTerm: string = "") => {
+    try {
+      setLoadingBuyers(true);
+      const token = authService.getToken();
+      if (!token) return;
+
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+      let url = `${API_BASE_URL}/users/?user_type=buyer&page_size=100`;
+      if (searchTerm) {
+        url += `&search=${encodeURIComponent(searchTerm)}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data && data.data.users) {
+          setBuyers(data.data.users);
+        } else if (data.results) {
+          setBuyers(data.results);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching buyers:', error);
+    } finally {
+      setLoadingBuyers(false);
+    }
+  };
+
+  // Fetch buyers when modal opens
+  useEffect(() => {
+    if (inviteVendorModalOpen) {
+      fetchBuyers(searchBuyerTerm);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteVendorModalOpen]);
+
   // API Functions
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const apiUrl = 'http://localhost:8000/api/v1/applications/';
+      const apiUrl = 'http://localhost:8000/api/v1/vendors/applications/';
       console.log('🔍 Fetching applications from:', apiUrl);
       
       // Get authentication token
@@ -181,7 +234,7 @@ export default function AdminVendors() {
       }
       
       const endpoint = confirmAction === 'approve' ? 'approve' : 'reject';
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${confirmApplication.id}/${endpoint}/`, {
+      const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${confirmApplication.id}/${endpoint}/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -263,6 +316,70 @@ export default function AdminVendors() {
     setSelectedImage(null);
   };
 
+  // Invite Vendor Handler
+  const handleInviteVendor = async () => {
+    if (selectedBuyers.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one buyer",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setInviting(true);
+      const token = authService.getToken();
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login again to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+      
+      // Send single request with all usernames
+      const response = await fetch(`${API_BASE_URL}/vendors/invite/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          usernames: selectedBuyers,
+          message: inviteMessage || ''
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message || `Vendor invitations sent to ${selectedBuyers.length} buyer(s)`,
+        });
+        setInviteVendorModalOpen(false);
+        setInviteUsername("");
+        setInviteMessage("");
+        setSelectedBuyers([]);
+      } else {
+        throw new Error(result.message || 'Failed to send vendor invitations');
+      }
+    } catch (error: any) {
+      console.error('Error inviting vendor:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send vendor invitation",
+        variant: "destructive",
+      });
+    } finally {
+      setInviting(false);
+    }
+  };
+
   // Bulk selection functions
   const handleSelectAll = () => {
     const pendingApplications = applications?.filter(app => app.status === "pending") || [];
@@ -313,7 +430,7 @@ export default function AdminVendors() {
 
       // Approve all selected applications
       const approvePromises = selectedApplications.map(async (applicationId) => {
-        const response = await fetch(`http://localhost:8000/api/v1/applications/${applicationId}/approve/`, {
+        const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${applicationId}/approve/`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -377,7 +494,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${selectedApplication.id}/approve/`, {
+      const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${selectedApplication.id}/approve/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -427,7 +544,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${selectedApplication.id}/reject/`, {
+      const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${selectedApplication.id}/reject/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -493,7 +610,15 @@ export default function AdminVendors() {
             <h1 className="text-2xl font-bold text-white">Vendor Management</h1>
             <p className="text-gray-300 mt-1">Manage vendor applications and shop settings</p>
           </div>
-          <Button className="bg-accent text-bg hover:bg-accent-2">
+          <Button 
+            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer"
+            onClick={() => {
+              setInviteUsername("");
+              setInviteMessage("");
+              setSelectedBuyers([]);
+              setInviteVendorModalOpen(true);
+            }}
+          >
             Invite Vendor
           </Button>
         </div>
@@ -574,18 +699,26 @@ export default function AdminVendors() {
                         placeholder="Search vendors by shop name..." 
                         className="pl-10 bg-surface-2 border-border text-white"
                         data-testid="search-vendors"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
                   </div>
-                  <Select>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
-                      <SelectItem value="streaming">Streaming Services</SelectItem>
-                      <SelectItem value="software">Software & Tools</SelectItem>
-                      <SelectItem value="gaming">Gaming</SelectItem>
+                      <SelectItem value="Electronics & Tech">Electronics & Tech</SelectItem>
+                      <SelectItem value="Digital Goods & Software">Digital Goods & Software</SelectItem>
+                      <SelectItem value="Streaming Accounts">Streaming Accounts</SelectItem>
+                      <SelectItem value="Gaming Accounts">Gaming Accounts</SelectItem>
+                      <SelectItem value="Educational Services">Educational Services</SelectItem>
+                      <SelectItem value="VPN & Security">VPN & Security</SelectItem>
+                      <SelectItem value="Design & Creative">Design & Creative</SelectItem>
+                      <SelectItem value="Business Tools">Business Tools</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -611,7 +744,26 @@ export default function AdminVendors() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {applications?.filter(app => app.status === "approved").map((vendor) => (
+                      {applications?.filter(app => {
+                        if (app.status !== "approved") return false;
+                        
+                        // Apply search filter
+                        if (searchTerm && searchTerm.trim().length > 0) {
+                          const searchLower = searchTerm.toLowerCase();
+                          if (!app.business_name?.toLowerCase().includes(searchLower) &&
+                              !app.vendor_username?.toLowerCase().includes(searchLower) &&
+                              !app.category?.toLowerCase().includes(searchLower)) {
+                            return false;
+                          }
+                        }
+                        
+                        // Apply category filter
+                        if (categoryFilter !== "all" && app.category !== categoryFilter) {
+                          return false;
+                        }
+                        
+                        return true;
+                      }).map((vendor) => (
                         <tr key={vendor.id} className="hover:bg-surface-2/50" data-testid={`approved-vendor-${vendor.id}`}>
                           <td className="p-4">
                             <div className="flex items-center">
@@ -714,7 +866,25 @@ export default function AdminVendors() {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {applications?.filter(app => app.status === "pending").map((application) => (
+                      {applications?.filter(app => {
+                        if (app.status !== "pending") return false;
+                        
+                        // Apply search filter
+                        if (searchTerm && searchTerm.trim().length > 0) {
+                          const searchLower = searchTerm.toLowerCase();
+                          if (!app.business_name?.toLowerCase().includes(searchLower) &&
+                              !app.vendor_username?.toLowerCase().includes(searchLower)) {
+                            return false;
+                          }
+                        }
+                        
+                        // Apply category filter
+                        if (categoryFilter !== "all" && app.category !== categoryFilter) {
+                          return false;
+                        }
+                        
+                        return true;
+                      }).map((application) => (
                     <div key={application.id} className="border border-border rounded-lg p-6 bg-gray-800/50" data-testid={`pending-vendor-${application.id}`}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3 mb-4">
@@ -802,6 +972,41 @@ export default function AdminVendors() {
           </TabsContent>
 
           <TabsContent value="rejected">
+            {/* Search and Filters for Rejected Tab */}
+            <Card className="crypto-card mb-6">
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input 
+                        placeholder="Search vendors by shop name..." 
+                        className="pl-10 bg-surface-2 border-border text-white"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="Electronics & Tech">Electronics & Tech</SelectItem>
+                      <SelectItem value="Digital Goods & Software">Digital Goods & Software</SelectItem>
+                      <SelectItem value="Streaming Accounts">Streaming Accounts</SelectItem>
+                      <SelectItem value="Gaming Accounts">Gaming Accounts</SelectItem>
+                      <SelectItem value="Educational Services">Educational Services</SelectItem>
+                      <SelectItem value="VPN & Security">VPN & Security</SelectItem>
+                      <SelectItem value="Design & Creative">Design & Creative</SelectItem>
+                      <SelectItem value="Business Tools">Business Tools</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
             <Card className="crypto-card">
               <CardHeader>
                 <CardTitle className="text-white">Rejected Applications</CardTitle>
@@ -820,7 +1025,26 @@ export default function AdminVendors() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {applications?.filter(app => app.status === "rejected").map((vendor) => (
+                      {applications?.filter(app => {
+                        if (app.status !== "rejected") return false;
+                        
+                        // Apply search filter
+                        if (searchTerm && searchTerm.trim().length > 0) {
+                          const searchLower = searchTerm.toLowerCase();
+                          if (!app.business_name?.toLowerCase().includes(searchLower) &&
+                              !app.vendor_username?.toLowerCase().includes(searchLower) &&
+                              !app.category?.toLowerCase().includes(searchLower)) {
+                            return false;
+                          }
+                        }
+                        
+                        // Apply category filter
+                        if (categoryFilter !== "all" && app.category !== categoryFilter) {
+                          return false;
+                        }
+                        
+                        return true;
+                      }).map((vendor) => (
                         <tr key={vendor.id} className="hover:bg-surface-2/50" data-testid={`rejected-vendor-${vendor.id}`}>
                           <td className="p-4">
                             <div className="flex items-center">
@@ -1492,6 +1716,155 @@ export default function AdminVendors() {
         </div>
       )}
       
+      {/* Invite Vendor Modal */}
+      <Dialog open={inviteVendorModalOpen} onOpenChange={setInviteVendorModalOpen}>
+        <DialogContent className="bg-gray-900 border-border text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white">Invite Vendor</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="search-buyers" className="text-gray-300 mb-2 block">
+                Search Buyers <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="search-buyers"
+                  type="text"
+                  placeholder="Search buyers by username..."
+                  className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:bg-gray-800"
+                  value={searchBuyerTerm}
+                  onChange={(e) => {
+                    setSearchBuyerTerm(e.target.value);
+                    // Clear existing timeout
+                    if (searchTimeoutRef.current) {
+                      clearTimeout(searchTimeoutRef.current);
+                    }
+                    // Debounce search
+                    searchTimeoutRef.current = setTimeout(() => {
+                      fetchBuyers(e.target.value);
+                    }, 300);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-gray-300 mb-2 block">
+                Select Buyers to Invite
+              </Label>
+              <div className="border border-border rounded-lg bg-surface-2 max-h-[300px] overflow-y-auto">
+                {loadingBuyers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                    <span className="ml-3 text-gray-400">Loading buyers...</span>
+                  </div>
+                ) : buyers.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {buyers.map((buyer) => (
+                      <div
+                        key={buyer.id}
+                        className="flex items-center p-3 hover:bg-gray-700/50 cursor-pointer transition-colors"
+                        onClick={() => {
+                          if (selectedBuyers.includes(buyer.username)) {
+                            setSelectedBuyers(selectedBuyers.filter(u => u !== buyer.username));
+                          } else {
+                            setSelectedBuyers([...selectedBuyers, buyer.username]);
+                          }
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedBuyers.includes(buyer.username)}
+                          className="mr-3"
+                        />
+                        <div className="flex-1 flex items-center">
+                          <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-accent text-sm font-medium">{buyer.username[0].toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">@{buyer.username}</p>
+                            {buyer.user_type && (
+                              <p className="text-xs text-gray-400 capitalize">{buyer.user_type}</p>
+                            )}
+                          </div>
+                        </div>
+                        {selectedBuyers.includes(buyer.username) && (
+                          <CheckCircle className="w-5 h-5 text-green-400" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <User className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                    <p className="text-gray-400">No buyers found</p>
+                  </div>
+                )}
+              </div>
+              {selectedBuyers.length > 0 && (
+                <p className="text-sm text-gray-400 mt-2">
+                  {selectedBuyers.length} buyer(s) selected
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <Label htmlFor="invite-message" className="text-gray-300 mb-2 block">
+                Message (Optional)
+              </Label>
+              <textarea
+                id="invite-message"
+                placeholder="Add a personal message to the invitation..."
+                className="w-full min-h-[100px] p-3 bg-gray-800 border-gray-600 rounded-md text-white placeholder:text-gray-400 resize-none focus:bg-gray-800"
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+              />
+            </div>
+            
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <p className="text-sm text-blue-300">
+                Selected buyers will receive a real-time notification inviting them to become a vendor. They can click the notification to apply as a vendor.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setInviteVendorModalOpen(false);
+                setInviteUsername("");
+                setInviteMessage("");
+                setSelectedBuyers([]);
+                setSearchBuyerTerm("");
+              }}
+              className="border-gray-600 text-gray-300 hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInviteVendor}
+              disabled={inviting || selectedBuyers.length === 0}
+              className="bg-accent text-bg hover:bg-accent-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {inviting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Invitation{selectedBuyers.length > 0 && ` (${selectedBuyers.length})`}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Toaster Component for Notifications */}
       <Toaster />
     </>

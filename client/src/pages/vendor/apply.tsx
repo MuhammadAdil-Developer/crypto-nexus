@@ -192,7 +192,7 @@ export default function VendorApply() {
       }
 
       // Submit to backend API
-      const response = await fetch('http://localhost:8000/api/v1/applications/create/', {
+      const response = await fetch('http://localhost:8000/api/v1/vendors/applications/create/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

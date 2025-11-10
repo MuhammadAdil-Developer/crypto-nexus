@@ -20,8 +20,8 @@ class BTCPayServerService:
     
     def __init__(self):
         self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'http://94.130.201.44:23000')
-        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'AKwDcGXvXRfKkVD3uTD7cK2Yv3jbnidDhwihfxBGyUN3')  # Correct Store ID
-        self.api_key = getattr(settings, 'BTCPAY_API_KEY', '')
+        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio')
+        self.api_key = getattr(settings, 'BTCPAY_API_KEY', 'ce9980b1b464d82c984779858b38a8f0cef1a3a1')
         self.headers = {
             'Authorization': f'token {self.api_key}',
             'Content-Type': 'application/json'
@@ -535,7 +535,7 @@ class PaymentService:
                             expires_at=timezone.now() + timedelta(hours=24)
                         )
                         
-                        logger.info(f"Direct BTC invoice created for order {order_id}: {invoice_response['id']}")
+                        logger.info(f"Direct BTC invoice created for order {order_id}: {invoice_id}")
                         logger.info(f"Payment address: {btc_address}")
                         logger.info(f"Vendor will receive payment at: {vendor_address}")
                     else:
@@ -675,7 +675,7 @@ class PaymentService:
                 
                 # Create payout record with pending status
                 from .models import Payout
-                Payout.objects.create(
+                payout = Payout.objects.create(
                     order=order,
                     vendor=order.product.vendor,
                     buyer=order.buyer,
@@ -692,6 +692,13 @@ class PaymentService:
                 )
                 
                 logger.info(f"Created escrow payout immediately for order {payment_address.order_id}: {net_amount} {payment_address.crypto_currency.symbol}")
+                
+                # Notify buyer, vendor, and admin about payout creation
+                try:
+                    from shared.admin_notifications import notify_payout_created
+                    notify_payout_created(payout)
+                except Exception as e:
+                    logger.error(f"Error notifying about payout creation: {e}")
             else:
                 logger.warning(f"Vendor {payment_address.crypto_currency.symbol} address not found for order {payment_address.order_id}")
                 
@@ -826,6 +833,57 @@ class PaymentService:
                 
                 mapped_status = status_mapping.get(btcpay_status, 'pending')
                 payment_address.status = mapped_status
+                
+                # Create notification for payment failed/expired
+                if mapped_status in ['cancelled', 'expired']:
+                    try:
+                        from orders.models import Order
+                        from shared.models import Notification
+                        from asgiref.sync import async_to_sync
+                        from channels.layers import get_channel_layer
+                        
+                        try:
+                            order = Order.objects.get(order_id=payment_address.order_id)
+                            
+                            # Notification for buyer
+                            Notification.objects.create(
+                                user=order.buyer,
+                                type='order',
+                                title='Payment Failed' if mapped_status == 'cancelled' else 'Payment Expired',
+                                message=f'Payment for order {order.order_id} - "{order.product.headline}" has been {mapped_status}. Please create a new order.',
+                                data={
+                                    'order_id': order.order_id,
+                                    'product_id': str(order.product.id),
+                                    'product_headline': order.product.headline,
+                                    'action_url': f'/buyer/orders'
+                                }
+                            )
+                            
+                            # Send real-time notification
+                            try:
+                                channel_layer = get_channel_layer()
+                                if channel_layer:
+                                    async_to_sync(channel_layer.group_send)(
+                                        f'realtime_{order.buyer.id}',
+                                        {
+                                            'type': 'order_notification',
+                                            'data': {
+                                                'order_id': order.order_id,
+                                                'type': 'payment_failed',
+                                                'title': 'Payment Failed' if mapped_status == 'cancelled' else 'Payment Expired',
+                                                'message': f'Payment for order {order.order_id} - "{order.product.headline}" has been {mapped_status}.',
+                                                'product_headline': order.product.headline
+                                            }
+                                        }
+                                    )
+                            except Exception as e:
+                                logger.error(f"Failed to send real-time payment failed notification: {str(e)}")
+                            
+                            logger.info(f"Payment failed notification created for order {order.order_id}")
+                        except Order.DoesNotExist:
+                            logger.error(f"Order not found for payment address {payment_address.order_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to create payment failed notification: {str(e)}")
                 
                 if mapped_status == 'paid':
                     payment_address.confirmed_at = timezone.now()
@@ -1041,6 +1099,172 @@ class PaymentService:
                     order.product.credentials_visible = True
                     order.product.save()
                     logger.info(f"Product credentials set for order {order_id}")
+                
+                # Create notifications for buyer and vendor when payment is confirmed
+                try:
+                    from shared.models import Notification
+                    from asgiref.sync import async_to_sync
+                    from channels.layers import get_channel_layer
+                    
+                    # Get credentials location/details for notification
+                    credentials_info = ""
+                    if order.product_credentials:
+                        creds = order.product_credentials.get('credentials', '')
+                        if creds:
+                            # Show first part of credentials or indicate location
+                            if isinstance(creds, str):
+                                credentials_info = f"Credentials are available in your order details."
+                            else:
+                                credentials_info = f"Your order credentials are ready."
+                    
+                    # Notification for buyer
+                    Notification.objects.create(
+                        user=order.buyer,
+                        type='order',
+                        title='Payment Confirmed',
+                        message=f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
+                        data={
+                            'order_id': order.order_id,
+                            'product_id': str(order.product.id),
+                            'product_headline': order.product.headline,
+                            'action_url': f'/buyer/orders',
+                            'has_credentials': bool(order.product_credentials)
+                        }
+                    )
+                    
+                    # Notification for vendor
+                    escrow_note = " (Escrow)" if order.use_escrow else ""
+                    Notification.objects.create(
+                        user=order.vendor,
+                        type='order',
+                        title='Payment Received',
+                        message=f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
+                        data={
+                            'order_id': order.order_id,
+                            'buyer_username': order.buyer.username,
+                            'product_id': str(order.product.id),
+                            'product_headline': order.product.headline,
+                            'action_url': f'/vendor/orders',
+                            'use_escrow': order.use_escrow
+                        }
+                    )
+                    
+                    # Send real-time notifications
+                    try:
+                        channel_layer = get_channel_layer()
+                        if channel_layer:
+                            # Send to buyer
+                            async_to_sync(channel_layer.group_send)(
+                                f'realtime_{order.buyer.id}',
+                                {
+                                    'type': 'order_notification',
+                                    'data': {
+                                        'order_id': order.order_id,
+                                        'type': 'payment_confirmed',
+                                        'title': 'Payment Confirmed',
+                                        'message': f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
+                                        'product_headline': order.product.headline,
+                                        'has_credentials': bool(order.product_credentials)
+                                    }
+                                }
+                            )
+                            
+                            # Send to vendor
+                            async_to_sync(channel_layer.group_send)(
+                                f'realtime_{order.vendor.id}',
+                                {
+                                    'type': 'order_notification',
+                                    'data': {
+                                        'order_id': order.order_id,
+                                        'type': 'payment_received',
+                                        'title': 'Payment Received',
+                                        'message': f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
+                                        'buyer_username': order.buyer.username,
+                                        'product_headline': order.product.headline,
+                                        'use_escrow': order.use_escrow
+                                    }
+                                }
+                            )
+                            
+                            # Trigger count refresh for all users (admin/vendor/buyer) when payment is confirmed
+                            try:
+                                # Send to buyer
+                                async_to_sync(channel_layer.group_send)(
+                                    f'realtime_{order.buyer.id}',
+                                    {
+                                        'type': 'order_notification',
+                                        'data': {
+                                            'id': f'count_refresh_payment_{order.id}',
+                                            'type': 'system',
+                                            'title': 'Count Refresh',
+                                            'message': 'Order count updated',
+                                            'is_read': False,
+                                            'data': {
+                                                'action': 'refresh_counts',
+                                                'type': 'order'
+                                            },
+                                            'action_url': '',
+                                            'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                            'priority': 'low'
+                                        }
+                                    }
+                                )
+                                
+                                # Send to vendor
+                                async_to_sync(channel_layer.group_send)(
+                                    f'realtime_{order.vendor.id}',
+                                    {
+                                        'type': 'order_notification',
+                                        'data': {
+                                            'id': f'count_refresh_payment_{order.id}',
+                                            'type': 'system',
+                                            'title': 'Count Refresh',
+                                            'message': 'Order count updated',
+                                            'is_read': False,
+                                            'data': {
+                                                'action': 'refresh_counts',
+                                                'type': 'order'
+                                            },
+                                            'action_url': '',
+                                            'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                            'priority': 'low'
+                                        }
+                                    }
+                                )
+                                
+                                # Send to all admins
+                                from django.contrib.auth import get_user_model
+                                User = get_user_model()
+                                admin_users = User.objects.filter(user_type='admin', is_active=True)
+                                for admin_user in admin_users:
+                                    async_to_sync(channel_layer.group_send)(
+                                        f'realtime_{admin_user.id}',
+                                        {
+                                            'type': 'order_notification',
+                                            'data': {
+                                                'id': f'count_refresh_payment_{order.id}',
+                                                'type': 'system',
+                                                'title': 'Count Refresh',
+                                                'message': 'Order count updated',
+                                                'is_read': False,
+                                                'data': {
+                                                    'action': 'refresh_counts',
+                                                    'type': 'order'
+                                                },
+                                                'action_url': '',
+                                                'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                                'priority': 'low'
+                                            }
+                                        }
+                                    )
+                            except Exception as e:
+                                logger.error(f"Error sending count refresh notification: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to send real-time payment notifications: {str(e)}")
+                    
+                    logger.info(f"Payment confirmation notifications created for order {order_id}")
+                except Exception as e:
+                    logger.error(f"Failed to create payment confirmation notifications for order {order_id}: {str(e)}")
             
             order.save()
             
@@ -1302,6 +1526,13 @@ class PayoutService:
             payout.processed_by = admin_user
             payout.save()
             
+            # Notify about status change to processing
+            try:
+                from shared.admin_notifications import notify_payout_status_changed
+                notify_payout_status_changed(payout, previous_status, 'processing')
+            except Exception as e:
+                logger.error(f"Error notifying about payout status change: {e}")
+            
             logger.info(f"Processing payout {payout_id} (previous status: {previous_status})")
             
             # Send coins to vendor
@@ -1318,6 +1549,13 @@ class PayoutService:
                 payout.completed_at = timezone.now()
                 payout.transaction_hash = transaction_hash
                 payout.save()
+                
+                # Notify about status change to completed
+                try:
+                    from shared.admin_notifications import notify_payout_status_changed
+                    notify_payout_status_changed(payout, 'processing', 'completed')
+                except Exception as e:
+                    logger.error(f"Error notifying about payout status change: {e}")
                 
                 # Update escrow status
                 try:
@@ -1340,6 +1578,14 @@ class PayoutService:
             else:
                 payout.status = 'failed'
                 payout.save()
+                
+                # Notify about status change to failed
+                try:
+                    from shared.admin_notifications import notify_payout_status_changed
+                    notify_payout_status_changed(payout, 'processing', 'failed')
+                except Exception as e:
+                    logger.error(f"Error notifying about payout status change: {e}")
+                
                 logger.error(f"Failed to process escrow payout {payout_id}")
                 return False
                 

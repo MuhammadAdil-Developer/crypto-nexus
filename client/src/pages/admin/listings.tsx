@@ -63,6 +63,9 @@ export default function AdminListings() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+  
   // Selection state for bulk operations
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [isSelectAll, setIsSelectAll] = useState(false);
@@ -73,6 +76,7 @@ export default function AdminListings() {
   const editForm = useForm({
     defaultValues: {
       title: "",
+      website: "",
       description: "",
       vendor: "",
       category: "",
@@ -105,7 +109,7 @@ export default function AdminListings() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/products/admin/all/`, {
+      const response = await fetch(`${API_BASE_URL}/products/admin/all/?page_size=1000`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -254,6 +258,7 @@ export default function AdminListings() {
     setSelectedListing(product);
     editForm.reset({
       title: product.headline || "",
+      website: product.website || "",
       description: product.description || "",
       vendor: product.vendor_username || "",
       category: product.account_type || "",
@@ -263,6 +268,69 @@ export default function AdminListings() {
       status: product.status || "Pending"
     });
     setEditListingModalOpen(true);
+  };
+
+  const handleUpdateProduct = async (data: any) => {
+    if (!selectedListing) return;
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access admin panel",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Map form data to API format
+      const updateData: any = {
+        headline: data.title,
+        description: data.description,
+        price: data.btcPrice,
+        delivery_time: data.delivery,
+        account_type: data.category,
+      };
+      
+      // Add website if provided
+      if (data.website) {
+        updateData.website = data.website;
+      }
+
+      // Use vendor update endpoint - admins can update any product
+      const response = await fetch(`${API_BASE_URL}/products/update/${selectedListing.id}/`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Product updated successfully",
+        });
+        setEditListingModalOpen(false);
+        fetchAllProducts(); // Refresh the list
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to update product",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update product",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleView = (product: Product) => {
@@ -365,18 +433,31 @@ export default function AdminListings() {
     }
   };
 
-  // Filter products based on current filter
+  // Filter products based on current filter and search
   const getFilteredProducts = () => {
-    if (currentFilter === 'all') {
-      return allProducts;
-    } else if (currentFilter === 'pending') {
-      return allProducts.filter(product => product.status === 'pending_approval');
+    let filtered = allProducts;
+    
+    // Apply status filter
+    if (currentFilter === 'pending') {
+      filtered = filtered.filter(product => product.status === 'pending_approval');
     } else if (currentFilter === 'approved') {
-      return allProducts.filter(product => product.status === 'approved');
+      filtered = filtered.filter(product => product.status === 'approved');
     } else if (currentFilter === 'rejected') {
-      return allProducts.filter(product => product.status === 'rejected');
+      filtered = filtered.filter(product => product.status === 'rejected');
     }
-    return allProducts;
+    
+    // Apply search filter
+    if (searchTerm && searchTerm.trim().length > 0) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.headline?.toLowerCase().includes(searchLower) ||
+        product.description?.toLowerCase().includes(searchLower) ||
+        product.vendor_username?.toLowerCase().includes(searchLower) ||
+        product.account_type?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return filtered;
   };
 
   // Get paginated products
@@ -517,6 +598,8 @@ export default function AdminListings() {
                   <Input
                     placeholder="Search products..."
                     className="pl-10 bg-surface-2 border-border text-white placeholder:text-gray-400"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
@@ -532,10 +615,6 @@ export default function AdminListings() {
                     <SelectItem value="rejected" className="text-white">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" className="border-border hover:bg-surface-2">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
-                </Button>
               </div>
             </div>
           </CardContent>
@@ -733,6 +812,142 @@ export default function AdminListings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Product Modal */}
+        <Dialog open={editListingModalOpen} onOpenChange={setEditListingModalOpen}>
+          <DialogContent className="max-w-2xl bg-card text-white border border-gray-600/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-white">Edit Product</DialogTitle>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(handleUpdateProduct)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Product Title</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          className="bg-gray-800 border-gray-600 text-white"
+                          placeholder="Enter product title"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Website</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          className="bg-gray-800 border-gray-600 text-white"
+                          placeholder="Enter website URL"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Description</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          {...field} 
+                          className="bg-gray-800 border-gray-600 text-white"
+                          placeholder="Enter product description"
+                          rows={4}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="btcPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Price (BTC)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="number"
+                            step="0.00000001"
+                            className="bg-gray-800 border-gray-600 text-white"
+                            placeholder="0.00000000"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="delivery"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Delivery Time</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            className="bg-gray-800 border-gray-600 text-white"
+                            placeholder="e.g., instant_auto"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={editForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-300">Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="social">Social Media</SelectItem>
+                          <SelectItem value="streaming">Streaming</SelectItem>
+                          <SelectItem value="gaming">Gaming</SelectItem>
+                          <SelectItem value="software">Software</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={() => setEditListingModalOpen(false)}
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit"
+                    className="bg-accent text-bg hover:bg-accent-2"
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         {/* View Product Modal */}
         <Dialog open={viewListingModalOpen} onOpenChange={setViewListingModalOpen}>

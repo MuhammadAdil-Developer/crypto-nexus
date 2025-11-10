@@ -18,12 +18,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import notificationService from "@/services/notificationService";
 
 export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [userData, setUserData] = useState({
     username: "",
@@ -34,9 +36,27 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // Get real-time messaging data
-  const { unreadCount, notifications, refreshNotifications } = useMessaging();
+  const { unreadCount, notifications, allNotifications, refreshNotifications, isLoading: isLoadingNotifications, setUnreadCount: setMessagingUnreadCount } = useMessaging();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Hide search bar on all buyer pages (home page has its own search)
+  const shouldHideSearchBar = true; // Always hide header search bar
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/buyer/listings?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchSubmit(e as any);
+    }
+  };
 
   useEffect(() => {
     fetchUserData();
@@ -82,26 +102,41 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
     }
   };
 
+  const handleNotificationClick = async (notification: any) => {
+    // Navigate based on notification type
+    if (notification.type === 'vendor_invitation' && notification.actionUrl) {
+      navigate(notification.actionUrl);
+    } else if (notification.type === 'review') {
+      // Navigate to orders page or open review modal
+      console.log('🔍 Review notification clicked:', notification);
+      // You can add navigation logic here
+    }
+  };
+
+  const handleNotificationDropdownOpen = async (open: boolean) => {
+    setNotificationDropdownOpen(open);
+    
+    // Simple: When dropdown opens, mark all as read and update state
+    if (open) {
+      try {
+        await notificationService.markAllAsRead();
+        // Immediately set unread count to 0
+        setMessagingUnreadCount(0);
+        // Update all notifications to mark them as read in state
+        refreshNotifications(true);
+      } catch (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    }
+  };
+
   return (
     <header className={`bg-gray-950 border-b border-gray-800 px-6 py-4 ${hasBanner ? 'mt-16' : ''}`}>
       <div className="flex items-center justify-between">
-        {/* Search Bar */}
-        <div className="flex-1 max-w-2xl">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search products, vendors, or orders..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full bg-gray-800 border-gray-700 text-white placeholder-gray-400 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        {/* Right Controls */}
-        <div className="flex items-center space-x-4">
+        {/* Right Controls - Search bar removed from header */}
+        <div className="flex items-center space-x-4 ml-auto">
           {/* Notifications */}
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={handleNotificationDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="relative">
                 <Bell className="w-5 h-5" />
@@ -117,35 +152,59 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-white">Notifications</h3>
-                    <p className="text-sm text-gray-400">{unreadCount} unread</p>
+                    <p className="text-sm text-gray-400">
+                      {isLoadingNotifications ? (
+                        <span className="flex items-center">
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          Loading...
+                        </span>
+                      ) : (
+                        `${unreadCount} unread`
+                      )}
+                    </p>
                   </div>
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={refreshNotifications}
+                    onClick={() => refreshNotifications(true)}
+                    disabled={isLoadingNotifications}
                     className="text-gray-400 hover:text-white"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className={`w-4 h-4 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
               </div>
               <div className="max-h-96 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-gray-400">
-                    No notifications yet
+                {isLoadingNotifications && allNotifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">Loading notifications...</p>
+                  </div>
+                ) : allNotifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3">
+                      <Bell className="w-6 h-6 text-gray-500" />
+                    </div>
+                    <p className="text-sm text-gray-400">No notifications yet</p>
                   </div>
                 ) : (
-                  notifications.map((notification) => (
+                  (() => {
+                    // Sort by time (latest first) and show only top 3
+                    const sortedNotifications = [...allNotifications].sort((a, b) => {
+                      const timeA = new Date(a.time || 0).getTime();
+                      const timeB = new Date(b.time || 0).getTime();
+                      return timeB - timeA; // Descending order (latest first)
+                    });
+                    const displayedNotifications = sortedNotifications.slice(0, 3);
+                    const hasMore = sortedNotifications.length > 3;
+                    
+                    return (
+                      <>
+                        {displayedNotifications.map((notification) => (
                     <DropdownMenuItem 
                       key={notification.id} 
-                      className="p-3 border-b last:border-b-0"
-                      onClick={() => {
-                        if (notification.type === 'review') {
-                          // Navigate to orders page or open review modal
-                          console.log('🔍 Review notification clicked:', notification);
-                          // You can add navigation logic here
-                        }
-                      }}
+                      className="p-3 border-b last:border-b-0 cursor-pointer"
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start space-x-3 w-full">
                         <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
@@ -156,28 +215,49 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
                               ? 'bg-blue-500'
                               : notification.type === 'review'
                               ? 'bg-yellow-500'
-                              : 'bg-purple-500'
+                              : notification.type === 'vendor_invitation'
+                              ? 'bg-purple-500'
+                              : 'bg-blue-500'
                             : 'bg-gray-300'
                         }`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm text-white">{notification.title}</p>
+                            <p className="font-medium text-sm text-white truncate">{notification.title}</p>
                             {notification.type === 'review' && (
-                              <Star className="w-3 h-3 text-yellow-400" />
+                              <Star className="w-3 h-3 text-yellow-400 flex-shrink-0" />
                             )}
                           </div>
-                          <p className="text-sm text-gray-400 truncate">{notification.message}</p>
-                          <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
-                          {notification.type === 'message' && (
-                            <p className="text-xs text-green-400 mt-1">💬 Real-time message</p>
-                          )}
+                          <p className={`text-xs text-gray-400 mt-1 ${notification.type === 'vendor_invitation' ? '' : notification.type === 'message' ? 'line-clamp-2' : 'line-clamp-2'}`}>
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
                           {notification.type === 'review' && (
                             <p className="text-xs text-yellow-400 mt-1">⭐ Click to leave review</p>
+                          )}
+                          {notification.type === 'vendor_invitation' && (
+                            <p className="text-xs text-purple-400 mt-1">👈 Click to apply as vendor</p>
                           )}
                         </div>
                       </div>
                     </DropdownMenuItem>
-                  ))
+                        ))}
+                        {hasMore && (
+                          <DropdownMenuSeparator />
+                        )}
+                        {hasMore && (
+                          <DropdownMenuItem 
+                            className="p-3 text-center justify-center cursor-pointer"
+                            onClick={() => {
+                              setNotificationDropdownOpen(false);
+                              navigate('/buyer/notifications');
+                            }}
+                          >
+                            <span className="text-sm text-blue-400 hover:text-blue-300">View All ({sortedNotifications.length})</span>
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    );
+                  })()
                 )}
               </div>
             </DropdownMenuContent>

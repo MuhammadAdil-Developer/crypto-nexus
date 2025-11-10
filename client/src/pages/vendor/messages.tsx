@@ -102,8 +102,16 @@ export default function VendorMessages() {
       }
     });
 
+    // Listen for messages marked as read to update conversation unread counts
+    const handleMessagesMarkedRead = () => {
+      loadConversations();
+    };
+    
+    window.addEventListener('messages_marked_read', handleMessagesMarkedRead);
+
     return () => {
       messagingService.disconnect();
+      window.removeEventListener('messages_marked_read', handleMessagesMarkedRead);
     };
   }, []);
 
@@ -328,7 +336,7 @@ export default function VendorMessages() {
         setShowProductReference(true);
         setProductReferenceData({
           product_id: conversation.product.id,
-          product_title: conversation.product.title,
+          product_title: conversation.product.headline || conversation.product.title,
           product_price: conversation.product.price,
           product_image: conversation.product.image,
           vendor_username: conversation.product.vendor_username
@@ -416,7 +424,7 @@ export default function VendorMessages() {
   };
 
   const filteredConversations = conversations.filter(conv =>
-    conv.product?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (conv.product?.headline || conv.product?.title)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     conv.participants?.some((p: any) => p.username?.toLowerCase().includes(searchTerm.toLowerCase())) ||
     conv.last_message?.content?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -550,7 +558,7 @@ export default function VendorMessages() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <h4 className="font-medium text-white truncate">
-                              {buyer?.username || 'Buyer'}
+                              {conv.product?.headline || conv.product?.title || buyer?.username || 'Buyer'}
                           </h4>
                             {conv.unread_count > 0 && (
                             <Badge className="bg-red-500 text-white text-xs">

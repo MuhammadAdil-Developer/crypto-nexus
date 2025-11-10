@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Bitcoin, Wallet, Lock, CheckCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Bitcoin, Wallet, Lock, CheckCircle, Bell, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { ADMIN_NAV_ITEMS, SAMPLE_ACTIVITY } from "@/lib/constants";
 import { authService } from "@/services/authService";
 import { orderService, Order } from "@/services/orderService";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useMessaging } from "@/contexts/MessagingContext";
 
 // Skeleton Loader Component
 const SkeletonLoader = () => (
@@ -183,6 +184,14 @@ export function Overview() {
   const [recentOrders, setRecentOrders] = useState<UIOrder[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
+  
+  // Real-time notifications from MessagingContext
+  const { notifications, unreadCount } = useMessaging();
+  
+  // Get latest unread notification for banner
+  const latestNotification = notifications.find(n => n.unread && !dismissedNotifications.has(n.id));
 
   // API Functions
   const fetchUsers = async () => {
@@ -219,7 +228,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://localhost:8000/api/v1/applications/', {
+      const response = await fetch('http://localhost:8000/api/v1/vendors/applications/', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -442,6 +451,38 @@ export function Overview() {
 
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
+      {/* Real-time Notification Banner */}
+      {latestNotification && (
+        <div className="mb-6 bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 animate-in slide-in-from-top">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-3 flex-1">
+              <Bell className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-blue-300">{latestNotification.title}</h3>
+                <p className="text-sm text-blue-200/80 mt-1 line-clamp-2">{latestNotification.message}</p>
+                {latestNotification.actionUrl && (
+                  <button
+                    onClick={() => {
+                      navigate(latestNotification.actionUrl || '/admin');
+                      setDismissedNotifications(prev => new Set(prev).add(latestNotification.id));
+                    }}
+                    className="mt-2 text-xs text-blue-400 hover:text-blue-300 underline"
+                  >
+                    View Details →
+                  </button>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setDismissedNotifications(prev => new Set(prev).add(latestNotification.id))}
+              className="text-blue-400 hover:text-blue-300 flex-shrink-0 ml-2"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Alert Banner - Only show if there are pending items */}
       {hasPendingItems() && (
         <div className="mb-6 bg-warning/10 border border-warning/20 rounded-lg p-4">

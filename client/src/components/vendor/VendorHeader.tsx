@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown } from "lucide-react";
+import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useMessaging } from "@/contexts/MessagingContext";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import notificationService from "@/services/notificationService";
+import { productService, Product } from "@/services/productService";
 
 export function VendorHeader() {
-  const { notifications, allNotifications, unreadCount, refreshNotifications } = useMessaging() as any;
+  const { notifications, allNotifications, unreadCount, refreshNotifications, isLoading: isLoadingNotifications, setUnreadCount, setAllNotifications, setNotifications } = useMessaging() as any;
   const [userData, setUserData] = useState({
     username: "",
     email: "",
@@ -41,14 +43,26 @@ export function VendorHeader() {
   const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   
+  // Search suggestions state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState<Product[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [allVendorProducts, setAllVendorProducts] = useState<Product[]>([]);
+  const [dropdownMaxHeight, setDropdownMaxHeight] = useState(384); // Default max-h-96 (384px)
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  
   // Use allNotifications from MessagingContext as the source of truth
-  const reviewNotifications = allNotifications.filter((n: any) => n.type === 'review');
-  const disputeNotifications = allNotifications.filter((n: any) => n.type === 'dispute' || n.type === 'dispute_message' || n.type === 'dispute_resolved');
-  const listingNotifications = allNotifications.filter((n: any) => n.type === 'listing_approval' || n.type === 'listing_rejection');
-  const allRelevantNotifications = [...reviewNotifications, ...disputeNotifications, ...listingNotifications];
+  // Sort ALL notifications by time (latest first) - no grouping, just time-based sorting
+  const sortedNotifications = [...allNotifications].sort((a, b) => {
+    const timeA = new Date(a.time || 0).getTime();
+    const timeB = new Date(b.time || 0).getTime();
+    return timeB - timeA; // Latest first
+  });
   
   // Show only 3 notifications by default, more on load more
-  const displayedNotifications = allRelevantNotifications.slice(0, 3 * notificationPage);
+  const displayedNotifications = sortedNotifications.slice(0, 3 * notificationPage);
   
   // Calculate badge count outside JSX for better reactivity
   const badgeCount = unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : null;
@@ -63,10 +77,31 @@ export function VendorHeader() {
       const currentPageNum = notificationPage;
       const nextPageNum = currentPageNum + 1;
       
+      // Recalculate sorted notifications
+      const reviewNotifs = allNotifications.filter((n: any) => n.type === 'review');
+      const disputeNotifs = allNotifications.filter((n: any) => n.type === 'dispute' || n.type === 'dispute_message' || n.type === 'dispute_resolved');
+      const listingNotifs = allNotifications.filter((n: any) => n.type === 'listing_approval' || n.type === 'listing_rejection');
+      const messageNotifs = allNotifications.filter((n: any) => n.type === 'message');
+      const otherNotifs = [...reviewNotifs, ...disputeNotifs, ...listingNotifs];
+      
+      const sortedMsgs = [...messageNotifs].sort((a, b) => {
+        const timeA = new Date(a.time || 0).getTime();
+        const timeB = new Date(b.time || 0).getTime();
+        return timeB - timeA;
+      });
+      
+      const sortedOthers = [...otherNotifs].sort((a, b) => {
+        const timeA = new Date(a.time || 0).getTime();
+        const timeB = new Date(b.time || 0).getTime();
+        return timeB - timeA;
+      });
+      
+      const allSorted = [...sortedMsgs, ...sortedOthers];
+      
       // Calculate which notifications will be newly loaded (next batch of 3)
       const startIndex = 3 * currentPageNum;
       const endIndex = 3 * nextPageNum;
-      const newNotifications = allRelevantNotifications.slice(startIndex, endIndex);
+      const newNotifications = allSorted.slice(startIndex, endIndex);
       
       // Mark only the newly loaded notifications as read
       for (const notification of newNotifications) {
@@ -98,21 +133,38 @@ export function VendorHeader() {
 
   const handleNotificationDropdownOpen = async (open: boolean) => {
     setNotificationDropdownOpen(open);
+    
+    // When dropdown opens, just mark as read - don't refresh (WebSocket handles real-time updates)
     if (open) {
-      // Mark only the currently displayed notifications as read (the ones visible on this page)
       try {
-        for (const notification of displayedNotifications) {
-          try {
-            await notificationService.markAsRead(notification.id);
-          } catch (error) {
-            console.error('Error marking notification as read:', error);
-          }
+        console.log('🔔 Vendor dropdown opened, marking notifications as read');
+        console.log('🔔 Current unread count:', unreadCount);
+        console.log('🔔 Current notifications:', allNotifications.length);
+        
+        // Mark all as read in backend
+        await notificationService.markAllAsRead();
+        
+        // Immediately set unread count to 0
+        if (setUnreadCount) {
+          setUnreadCount(0);
+          console.log('🔔 Set unread count to 0');
         }
         
-        // Refresh to update the count
-        if (refreshNotifications) {
-          await refreshNotifications();
+        // Update all notifications to mark them as read in state (but keep them visible)
+        if (setAllNotifications) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setAllNotifications((prev: any) => {
+            const updated = (prev || []).map((n: any) => ({ ...n, unread: false }));
+            console.log('🔔 Marked all notifications as read, count:', updated.length);
+            return updated;
+          });
         }
+        if (setNotifications) {
+          setNotifications([]);
+        }
+        
+        // DON'T call refreshNotifications - it interferes with WebSocket real-time updates
+        // WebSocket will handle new notifications automatically
       } catch (error) {
         console.error('Error marking notifications as read:', error);
       }
@@ -121,7 +173,324 @@ export function VendorHeader() {
 
   useEffect(() => {
     fetchUserData();
+    fetchVendorProducts();
   }, []);
+
+  // Fetch vendor products for search suggestions
+  const fetchVendorProducts = async () => {
+    try {
+      const response = await productService.getVendorProducts();
+      if (response.success && response.data) {
+        setAllVendorProducts(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor products:', error);
+    }
+  };
+
+  // Calculate dropdown max height based on available space
+  useEffect(() => {
+    const calculateDropdownHeight = () => {
+      if (searchInputRef.current) {
+        const inputRect = searchInputRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const availableSpace = viewportHeight - inputRect.bottom - 100; // More margin to avoid buttons
+        
+        // Reduced max height - ensure it doesn't touch buttons
+        const calculatedHeight = Math.max(180, Math.min(280, availableSpace - 40));
+        setDropdownMaxHeight(calculatedHeight);
+      }
+    };
+
+    calculateDropdownHeight();
+    window.addEventListener('resize', calculateDropdownHeight);
+    window.addEventListener('scroll', calculateDropdownHeight, true);
+
+    return () => {
+      window.removeEventListener('resize', calculateDropdownHeight);
+      window.removeEventListener('scroll', calculateDropdownHeight, true);
+    };
+  }, []);
+
+  // Filter products based on search query
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      setIsSearching(true);
+      const query = searchQuery.toLowerCase().trim();
+      const filtered = allVendorProducts.filter((product: Product) => {
+        const title = (product.listing_title || product.headline || "").toLowerCase();
+        const description = (product.description || "").toLowerCase();
+        const category = (product.category?.name || "").toLowerCase();
+        return title.includes(query) || description.includes(query) || category.includes(query);
+      });
+      setSearchSuggestions(filtered.slice(0, 5)); // Show max 5 suggestions
+      setShowSuggestions(true); // Always show dropdown when there's a query
+      setIsSearching(false);
+    } else {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, allVendorProducts]);
+
+  // Update dropdown position dynamically (now using portal, so position updates on every render)
+  useLayoutEffect(() => {
+    if (showSuggestions && searchInputRef.current && suggestionsRef.current) {
+      const updatePosition = () => {
+        if (searchInputRef.current && suggestionsRef.current) {
+          const inputRect = searchInputRef.current.getBoundingClientRect();
+          suggestionsRef.current.style.top = `${inputRect.bottom + 8}px`;
+          suggestionsRef.current.style.left = `${inputRect.left}px`;
+          suggestionsRef.current.style.width = `${inputRect.width}px`;
+          suggestionsRef.current.style.zIndex = '999999';
+        }
+      };
+      
+      updatePosition();
+      
+      // Update position on scroll/resize
+      const handleScroll = () => updatePosition();
+      const handleResize = () => updatePosition();
+      
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", handleResize);
+      
+      // Update on a small interval to catch any position changes
+      const interval = setInterval(updatePosition, 100);
+      
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", handleResize);
+        clearInterval(interval);
+      };
+    }
+  }, [showSuggestions, searchQuery]);
+  
+  // Prevent page scroll when dropdown is open and scrolling inside it
+  useEffect(() => {
+    if (showSuggestions && suggestionsRef.current) {
+      const preventPageScrollWheel = (e: WheelEvent) => {
+        // Only prevent if we're inside the dropdown and can't scroll anymore
+        if (suggestionsRef.current?.contains(e.target as Node)) {
+          const scrollableDiv = (e.target as Element).closest('[style*="overflow-y-auto"]') as HTMLElement;
+          if (scrollableDiv) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollableDiv;
+            const isAtTop = scrollTop <= 0;
+            const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+            
+            // Only prevent if at boundaries
+            if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+            }
+          } else {
+            // Default: allow dropdown to handle it
+            e.stopPropagation();
+          }
+        }
+      };
+      
+      const preventPageScrollTouch = (e: TouchEvent) => {
+        if (suggestionsRef.current?.contains(e.target as Node)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      };
+      
+      // Use capture phase to catch events early
+      document.addEventListener("wheel", preventPageScrollWheel, { passive: false, capture: true });
+      document.addEventListener("touchmove", preventPageScrollTouch, { passive: false, capture: true });
+      
+      return () => {
+        document.removeEventListener("wheel", preventPageScrollWheel, true);
+        document.removeEventListener("touchmove", preventPageScrollTouch, true);
+      };
+    }
+  }, [showSuggestions]);
+
+  // Close suggestions when clicking outside (but allow clicks inside)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(target)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    // Use capture phase to ensure we catch it early
+    document.addEventListener("mousedown", handleClickOutside, true);
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, []);
+
+  const handleSuggestionClick = (productId: number) => {
+    console.log('handleSuggestionClick called with:', productId);
+    setSearchQuery("");
+    setShowSuggestions(false);
+    // Small delay to ensure state updates
+    setTimeout(() => {
+      navigate(`/vendor/listings/${productId}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 50);
+  };
+  
+  // Render dropdown using portal to ensure it's above everything
+  const renderDropdown = () => {
+    if (!showSuggestions || searchQuery.trim().length === 0) return null;
+    
+    if (!searchInputRef.current) return null;
+    
+    const inputRect = searchInputRef.current.getBoundingClientRect();
+    const dropdownContent = (
+      <div
+        ref={suggestionsRef}
+        className="fixed bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden"
+        style={{
+          top: `${inputRect.bottom + 8}px`,
+          left: `${inputRect.left}px`,
+          width: `${inputRect.width}px`,
+          maxHeight: `${dropdownMaxHeight}px`,
+          zIndex: 999999,
+          position: 'fixed',
+          transform: 'translateZ(0)',
+          isolation: 'isolate',
+          pointerEvents: 'auto',
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        {isSearching ? (
+          <div className="p-4 text-center">
+            <Loader2 className="w-5 h-5 animate-spin text-gray-400 mx-auto" />
+            <div className="text-sm text-gray-400 mt-2">Searching...</div>
+          </div>
+        ) : searchSuggestions.length > 0 ? (
+          <div 
+            className="overflow-y-auto"
+            style={{ 
+              maxHeight: `${dropdownMaxHeight}px`,
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgb(75 85 99) rgb(31 41 55)',
+            }}
+            onWheel={(e) => {
+              const element = e.currentTarget;
+              const delta = e.deltaY;
+              const { scrollTop, scrollHeight, clientHeight } = element;
+              
+              // Calculate if we can scroll
+              const canScrollUp = scrollTop > 0;
+              const canScrollDown = scrollTop + clientHeight < scrollHeight;
+              
+              // If we can scroll in the direction requested, prevent default and scroll
+              if ((delta > 0 && canScrollDown) || (delta < 0 && canScrollUp)) {
+                e.preventDefault();
+                e.stopPropagation();
+                element.scrollTop += delta;
+              } else {
+                // At boundaries, still prevent page scroll
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            onMouseEnter={(e) => {
+              // Ensure dropdown can receive scroll events
+              e.currentTarget.style.overflowY = 'auto';
+              if (suggestionsRef.current) {
+                suggestionsRef.current.style.pointerEvents = 'auto';
+              }
+            }}
+          >
+            <div className="p-0">
+              <div className="text-xs text-gray-400 pl-2 pr-3 py-2 mb-0 sticky top-0 bg-gray-900 z-10">
+                Found {searchSuggestions.length} listing{searchSuggestions.length !== 1 ? 's' : ''}
+              </div>
+              {searchSuggestions.map((product) => (
+                <div
+                  key={product.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Clicking product:', product.id);
+                    handleSuggestionClick(product.id);
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  onMouseUp={(e) => {
+                    e.stopPropagation();
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgb(31 41 55)';
+                    e.currentTarget.style.transform = 'scale(1.01)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  className="flex items-center space-x-3 pl-2 pr-3 py-3 rounded-lg cursor-pointer transition-all duration-200 select-none"
+                  style={{
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    pointerEvents: 'auto',
+                    WebkitUserSelect: 'none',
+                  }}
+                >
+                  <div className="flex-shrink-0">
+                    {product.main_image ? (
+                      <img
+                        src={product.main_image}
+                        alt={product.listing_title || product.headline}
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center">
+                        <Package className="w-5 h-5 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">
+                      {product.listing_title || product.headline}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate">
+                      {product.category?.name || 'Uncategorized'}
+                      {product.status === 'approved' && (
+                        <span className="ml-2 text-green-400">• Active</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {product.price} • {product.views_count} views
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 text-center">
+            <Package className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+            <div className="text-sm text-gray-400">
+              No listings found matching "{searchQuery}"
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Try a different search term
+            </div>
+          </div>
+        )}
+      </div>
+    );
+    
+    return createPortal(dropdownContent, document.body);
+  };
 
   const fetchUserData = async () => {
     try {
@@ -184,15 +553,29 @@ export function VendorHeader() {
   return (
     <header className={`bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4 transition-all duration-500 ${isTransitioning ? 'opacity-50 scale-95' : 'opacity-100 scale-100'}`}>
       <div className="flex items-center justify-between">
-        {/* Search */}
-        <div className="flex-1 max-w-xl">
+        {/* Search with Suggestions */}
+        <div className="flex-1 max-w-xl relative">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search orders, products, customers..."
+              ref={searchInputRef}
+              placeholder="Search your listings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (searchQuery.trim().length > 0 && searchSuggestions.length > 0) {
+                  setShowSuggestions(true);
+                }
+              }}
               className="pl-10 bg-white/10 border-gray-600 text-white placeholder-gray-400 backdrop-blur-sm"
             />
+            {isSearching && (
+              <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 animate-spin" />
+            )}
           </div>
+          
+          {/* Search Suggestions Dropdown - Rendered via Portal */}
+          {renderDropdown()}
         </div>
 
         {/* Right Side */}
@@ -210,11 +593,32 @@ export function VendorHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 max-h-96">
-              <div className="px-2 py-1 text-sm text-gray-400">Notifications</div>
+              <div className="px-2 py-1 text-sm text-gray-400 flex items-center justify-between">
+                <span>Notifications</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => refreshNotifications(true)}
+                  disabled={isLoadingNotifications}
+                  className="h-6 px-2 text-gray-400 hover:text-white"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
               <DropdownMenuSeparator />
               <div className="max-h-80 overflow-y-auto">
-                {displayedNotifications.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-gray-400">No notifications</div>
+                {isLoadingNotifications && displayedNotifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">Loading notifications...</p>
+                  </div>
+                ) : displayedNotifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3">
+                      <Bell className="w-6 h-6 text-gray-500" />
+                    </div>
+                    <p className="text-sm text-gray-400">No notifications yet</p>
+                  </div>
                 ) : (
                   displayedNotifications.map((n: any) => (
                     <DropdownMenuItem 
@@ -247,29 +651,46 @@ export function VendorHeader() {
                     </DropdownMenuItem>
                   ))
                 )}
-                {allRelevantNotifications.length > 3 * notificationPage && (
-                  <div className="px-3 py-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={handleLoadMoreNotifications}
-                      disabled={loadingMoreNotifications}
-                      className="w-full text-xs"
-                    >
-                      {loadingMoreNotifications ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-3 h-3 mr-1" />
-                          Load More
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                {sortedNotifications.length > 3 * notificationPage && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-3 py-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleLoadMoreNotifications}
+                        disabled={loadingMoreNotifications}
+                        className="w-full text-xs"
+                      >
+                        {loadingMoreNotifications ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3 h-3 mr-1" />
+                            Load More
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </>
                 )}
+                <DropdownMenuSeparator />
+                <div className="px-3 py-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      setNotificationDropdownOpen(false);
+                      navigate('/vendor/notifications');
+                    }}
+                    className="w-full text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    View All ({sortedNotifications.length})
+                  </Button>
+                </div>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

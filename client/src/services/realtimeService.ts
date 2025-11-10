@@ -11,9 +11,24 @@ class RealtimeService {
   }
 
   connect(): void {
-    if (!this.userId) {
-      console.warn('No user ID found, cannot connect to realtime service');
+    // Prevent duplicate connections
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return;
+    }
+    
+    // Close existing connection if any (but preserve callbacks)
+    if (this.ws) {
+      console.log('🔄 Closing existing WebSocket connection before reconnecting...');
+      this.ws.close();
+      this.ws = null;
+    }
+
+    if (!this.userId) {
+      this.userId = localStorage.getItem('userId');
+      if (!this.userId) {
+        console.warn('No user ID found, cannot connect to realtime service');
+        return;
+      }
     }
 
     const token = localStorage.getItem('accessToken');
@@ -29,6 +44,7 @@ class RealtimeService {
       
       this.ws.onopen = () => {
         console.log('✅ Realtime WebSocket connected successfully');
+        console.log(`🔍 Active callbacks after connection:`, Array.from(this.callbacks.keys()).map(k => `${k}:${this.callbacks.get(k)?.length || 0}`));
         this.reconnectAttempts = 0;
       };
 
@@ -43,9 +59,20 @@ class RealtimeService {
         }
       };
 
-      this.ws.onclose = () => {
-        console.log('❌ Realtime WebSocket disconnected');
-        this.scheduleReconnect();
+      this.ws.onclose = (event) => {
+        console.log('❌ Realtime WebSocket disconnected', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
+        console.log(`🔍 Callbacks before reconnect:`, Array.from(this.callbacks.keys()).map(k => `${k}:${this.callbacks.get(k)?.length || 0}`));
+        // Preserve callbacks during reconnect - don't clear them
+        // Only reconnect if not a clean close (code 1000) or if it was an unexpected close
+        if (event.code !== 1000 || !event.wasClean) {
+          this.scheduleReconnect();
+        } else {
+          console.log('✅ WebSocket closed cleanly, not reconnecting');
+        }
       };
 
       this.ws.onerror = (error) => {
@@ -103,6 +130,14 @@ class RealtimeService {
         console.log('⚖️ Triggering dispute_resolved callbacks');
         this.triggerCallbacks('dispute_resolved', actualPayload);
         break;
+      case 'vendor_invitation':
+        console.log('🔔 Triggering vendor_invitation callbacks');
+        this.triggerCallbacks('vendor_invitation', actualPayload);
+        break;
+      case 'order_notification':
+        console.log('📦 Triggering order_notification callbacks');
+        this.triggerCallbacks('order_notification', actualPayload);
+        break;
       default:
         console.log('❓ Unknown realtime message type:', type);
     }
@@ -110,11 +145,20 @@ class RealtimeService {
 
   private triggerCallbacks(eventType: string, payload: any): void {
     const callbacks = this.callbacks.get(eventType) || [];
-    callbacks.forEach(callback => {
+    console.log(`🔔 Triggering ${eventType} callbacks, found ${callbacks.length} callbacks`);
+    
+    if (callbacks.length === 0) {
+      console.error(`❌ NO CALLBACKS FOUND for ${eventType}! This means handlers were not subscribed.`);
+      console.error(`❌ All registered callbacks:`, Array.from(this.callbacks.keys()));
+    }
+    
+    callbacks.forEach((callback, index) => {
       try {
+        console.log(`🔔 Executing callback ${index + 1}/${callbacks.length} for ${eventType}`);
         callback(payload);
+        console.log(`✅ Callback ${index + 1} executed successfully`);
       } catch (error) {
-        console.error('Error in realtime callback:', error);
+        console.error(`❌ Error in realtime callback ${index + 1}:`, error);
       }
     });
   }
@@ -122,12 +166,19 @@ class RealtimeService {
   private scheduleReconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+      console.log(`🔄 Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
       setTimeout(() => {
+        console.log(`🔄 Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
         this.connect();
       }, this.reconnectInterval);
     } else {
-      console.error('Max reconnection attempts reached');
+      console.error('❌ Max reconnection attempts reached, resetting and retrying...');
+      // Reset attempts and try again after a longer delay (aggressive reconnection)
+      this.reconnectAttempts = 0;
+      setTimeout(() => {
+        console.log('🔄 Resetting reconnection attempts and retrying...');
+        this.connect();
+      }, this.reconnectInterval * 2);
     }
   }
 
@@ -136,6 +187,7 @@ class RealtimeService {
       this.callbacks.set(eventType, []);
     }
     this.callbacks.get(eventType)!.push(callback);
+    console.log(`✅ Subscribed to ${eventType}, total callbacks: ${this.callbacks.get(eventType)!.length}`);
   }
 
   unsubscribe(eventType: string, callback: Function): void {

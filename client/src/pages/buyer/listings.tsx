@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CartProvider, useCart } from "@/contexts/CartContext";
 import CartSidebar from "@/components/buyer/CartSidebar";
 import BulkPurchaseModal from "@/components/buyer/BulkPurchaseModal";
+import { useSearchParams } from "react-router-dom";
 
 // API Service
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
@@ -54,6 +55,7 @@ interface Product {
 }
 
 function BuyerListingsContent() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,6 +70,14 @@ function BuyerListingsContent() {
   const { toast } = useToast();
   const { getTotalItems } = useCart();
 
+  // Initialize search query from URL params
+  useEffect(() => {
+    const urlSearchQuery = searchParams.get('search');
+    if (urlSearchQuery) {
+      setSearchQuery(urlSearchQuery);
+    }
+  }, [searchParams]);
+
   // Fetch products from API
   useEffect(() => {
     fetchProducts();
@@ -79,9 +89,10 @@ function BuyerListingsContent() {
 
     // Apply category filter
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(product => 
-        product.category.name.toLowerCase().replace(/\s+/g, '-') === selectedCategory
-      );
+      filtered = filtered.filter(product => {
+        const productCategorySlug = product.category?.name?.toLowerCase().replace(/\s+/g, '-') || '';
+        return productCategorySlug === selectedCategory;
+      });
     }
 
     // Apply search filter
@@ -150,25 +161,28 @@ function BuyerListingsContent() {
         const data = await response.json();
         console.log('📦 Buyer Listings Response:', data);
         
-        // Fix: Use data.data instead of data.results
-        setProducts(data.data || []);
-        setFilteredProducts(data.data || []);
+        // Handle both data.data and data.results formats
+        const productsArray = data.data || data.results || [];
+        console.log('📦 Products array:', productsArray);
+        setProducts(productsArray);
+        setFilteredProducts(productsArray);
         
         // Extract categories from products
         const categoryMap = new Map();
-        data.data?.forEach((product) => {
-          const catName = product.category.name;
+        productsArray.forEach((product: Product) => {
+          const catName = product.category?.name || 'Uncategorized';
           categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
         });
         
         const categoryList = Array.from(categoryMap.entries()).map(([name, count]) => ({
           id: name.toLowerCase().replace(/\s+/g, '-'),
           name,
-          count: count as number
+          count: count as number,
+          slug: name.toLowerCase().replace(/\s+/g, '-')
         }));
         
         setCategories([
-          { id: "all", name: "All Categories", count: data.data?.length || 0 },
+          { id: "all", name: "All Categories", count: productsArray.length, slug: "all" },
           ...categoryList
         ]);
         
@@ -193,11 +207,7 @@ function BuyerListingsContent() {
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    if (categoryId === "all") {
-      setFilteredProducts(products);
-    } else {
-      setFilteredProducts(products.filter(product => product.category.name.toLowerCase() === categoryId));
-    }
+    // Filtering is handled by useEffect hook
   };
 
   const handleSortChange = (sortOption: string) => {
@@ -415,7 +425,7 @@ function BuyerListingsContent() {
             // Handle bulk purchase logic here
             toast({
               title: "Purchase Initiated",
-              message: "Your bulk purchase has been initiated"
+              description: "Your bulk purchase has been initiated"
             });
             setIsBulkPurchaseOpen(false);
           }}

@@ -127,13 +127,14 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """Validate product data"""
-        # Client required fields validation
-        required_fields = ['headline', 'website', 'account_type', 'access_type', 
-                         'description', 'price', 'delivery_time', 'credentials']
-        
-        for field in required_fields:
-            if not data.get(field):
-                raise serializers.ValidationError(f"{field} is required")
+        # Client required fields validation - only for creation, not updates
+        if not self.instance:  # Creating new product
+            required_fields = ['headline', 'website', 'account_type', 'access_type', 
+                             'description', 'price', 'delivery_time', 'credentials']
+            
+            for field in required_fields:
+                if not data.get(field):
+                    raise serializers.ValidationError(f"{field} is required")
         
         return data
     

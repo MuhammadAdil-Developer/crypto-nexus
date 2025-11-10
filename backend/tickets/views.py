@@ -26,6 +26,17 @@ class TicketListCreateView(generics.ListCreateAPIView):
             return TicketCreateSerializer
         return TicketSerializer
     
+    def perform_create(self, serializer):
+        """Create ticket and notify admin"""
+        ticket = serializer.save()
+        # Notify admin about new ticket
+        try:
+            from shared.admin_notifications import notify_admin_ticket_submitted
+            notify_admin_ticket_submitted(ticket)
+        except Exception as e:
+            logger.error(f"Error notifying admin about ticket: {e}")
+        return ticket
+    
     def get_queryset(self):
         user = self.request.user
         
@@ -139,6 +150,54 @@ class TicketMessageListCreateView(generics.ListCreateAPIView):
         if serializer.is_valid():
             # Create the message with the ticket
             message = serializer.save(ticket=ticket)
+            
+            # Notify based on who sent the message and trigger count updates
+            if is_admin_user(user) and not is_internal:
+                # Admin responded - notify the ticket owner (buyer/vendor)
+                try:
+                    from shared.admin_notifications import notify_user_ticket_response
+                    notify_user_ticket_response(ticket, user, is_admin_response=True)
+                except Exception as e:
+                    logger.error(f"Error notifying user about ticket response: {e}")
+            elif not is_internal:
+                # Vendor/Buyer responded - notify admin
+                try:
+                    from shared.admin_notifications import notify_admin_ticket_message
+                    notify_admin_ticket_message(ticket, user, message)
+                except Exception as e:
+                    logger.error(f"Error notifying admin about ticket message: {e}")
+            
+            # Trigger count refresh for all users (buyer/vendor/admin) when ticket message is sent
+            try:
+                from asgiref.sync import async_to_sync
+                from channels.layers import get_channel_layer
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    # Notify ticket owner to refresh counts
+                    async_to_sync(channel_layer.group_send)(
+                        f'realtime_{ticket.user.id}',
+                        {
+                            'type': 'order_notification',
+                            'data': {
+                                'id': f'ticket_msg_{message.id}',
+                                'type': 'system',
+                                'title': 'Ticket Message',
+                                'message': f'New message in ticket: "{ticket.subject}"',
+                                'is_read': False,
+                                'data': {
+                                    'ticket_id': str(ticket.id),
+                                    'ticket_id_display': ticket.ticket_id,
+                                    'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
+                                },
+                                'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support',
+                                'created_at': message.created_at.isoformat(),
+                                'priority': 'normal'
+                            }
+                        }
+                    )
+            except Exception as e:
+                logger.error(f"Error sending ticket count update: {e}")
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         # Log validation errors for debugging
@@ -176,6 +235,12 @@ def update_ticket_status(request, pk):
     now = timezone.now()
     if new_status == 'resolved':
         ticket.resolved_at = now
+        # Notify user that their ticket is resolved
+        try:
+            from shared.admin_notifications import notify_user_ticket_resolved
+            notify_user_ticket_resolved(ticket, request.user)
+        except Exception as e:
+            logger.error(f"Error notifying user about ticket resolution: {e}")
     elif new_status == 'closed':
         ticket.closed_at = now
     

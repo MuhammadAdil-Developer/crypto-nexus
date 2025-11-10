@@ -278,7 +278,7 @@ export default function BuyerOrders() {
           </div>
         ) : (
           <>
-            <OrdersTable orders={currentOrders} />
+            <OrdersTable orders={currentOrders} onOrderUpdate={fetchOrders} />
             
             {/* Pagination */}
             {totalPages > 1 && (

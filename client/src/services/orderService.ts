@@ -203,8 +203,9 @@ class OrderService {
 
   async getVendorOrders(): Promise<Order[]> {
     try {
-      const response = await api.get('/orders/vendor/');
-      return response.data;
+      // Backend automatically filters by user type, so use /orders/ endpoint
+      const response = await api.get('/orders/');
+      return response.data.results || response.data || [];
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to fetch vendor orders');
     }
@@ -235,6 +236,16 @@ class OrderService {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to fetch admin dashboard data');
+    }
+  }
+
+  async expireOrder(orderId: string): Promise<Order> {
+    try {
+      // Backend now accepts order ID in URL path (detail=True)
+      const response = await api.post(`/orders/${orderId}/expire_order/`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Failed to expire order');
     }
   }
 

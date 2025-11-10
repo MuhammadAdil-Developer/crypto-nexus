@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
-import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle } from "lucide-react";
+import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download } from "lucide-react";
 import { SAMPLE_ORDERS } from "@/lib/constants";
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/hooks/use-toast";
@@ -179,6 +179,81 @@ export default function AdminOrders() {
     const endIndex = startIndex + itemsPerPage;
     return filteredOrders.slice(startIndex, endIndex);
   };
+  
+  // Handle Export Orders to CSV
+  const handleExportOrders = () => {
+    try {
+      const filteredOrders = getFilteredOrders();
+      
+      // CSV Headers
+      const headers = [
+        'Order ID',
+        'Buyer',
+        'Vendor',
+        'Product',
+        'Quantity',
+        'Price',
+        'Total Amount',
+        'Currency',
+        'Payment Status',
+        'Order Status',
+        'Escrow',
+        'Created At'
+      ];
+      
+      // Convert orders to CSV rows
+      const rows = filteredOrders.map(order => [
+        order.order_id || 'N/A',
+        safeString(order.buyer) || 'N/A',
+        safeString(order.vendor) || 'N/A',
+        safeString(order.product) || 'N/A',
+        order.quantity || '1',
+        order.unit_price || '0',
+        order.total_amount || '0',
+        order.crypto_currency || 'BTC',
+        order.payment_status || 'pending',
+        order.order_status || 'pending',
+        order.use_escrow ? 'Yes' : 'No',
+        order.created_at || new Date().toISOString()
+      ]);
+      
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => {
+          const stringCell = String(cell);
+          // Escape commas and quotes
+          if (stringCell.includes(',') || stringCell.includes('"') || stringCell.includes('\n')) {
+            return `"${stringCell.replace(/"/g, '""')}"`;
+          }
+          return stringCell;
+        }).join(','))
+      ].join('\n');
+      
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Export Successful",
+        description: `Successfully exported ${filteredOrders.length} orders to CSV`,
+      });
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export orders",
+        variant: "destructive"
+      });
+    }
+  };
 
   const filteredOrders = getFilteredOrders();
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -192,11 +267,21 @@ export default function AdminOrders() {
             <p className="text-gray-300 mt-1">Monitor and manage all marketplace orders</p>
           </div>
           <div className="flex space-x-3">
-            <Button variant="outline" className="border-border text-gray-300 hover:bg-surface-2">
+            <Button 
+              variant="outline" 
+              className="border-border text-gray-300 hover:bg-surface-2"
+              onClick={handleExportOrders}
+              disabled={loading || filteredOrders.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
               Export Orders
             </Button>
-            <Button className="bg-accent text-bg hover:bg-accent-2" onClick={loadData}>
-              <RefreshCw className="w-4 h-4 mr-2" />
+            <Button 
+              className="bg-accent text-bg hover:bg-accent-2" 
+              onClick={loadData}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>
@@ -333,7 +418,22 @@ export default function AdminOrders() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {getPaginatedOrders().map((order) => (
+                  {getPaginatedOrders().length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-12">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <Package className="w-16 h-16 text-gray-500 mb-4 opacity-50" />
+                          <h3 className="text-lg font-semibold text-white mb-2">No Orders Found</h3>
+                          <p className="text-gray-400 text-sm max-w-md">
+                            {searchTerm || statusFilter !== 'all' || currencyFilter !== 'all' 
+                              ? "No orders match your current filters. Try adjusting your search or filter criteria."
+                              : "There are no orders in the system yet. Orders will appear here once buyers make purchases."}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    getPaginatedOrders().map((order) => (
                     <tr key={order.id} className="hover:bg-surface-2/50" data-testid={`order-row-${order.id}`}>
                       <td className="p-4">
                         <span className="font-mono text-accent">{order.order_id || 'N/A'}</span>
@@ -483,7 +583,8 @@ export default function AdminOrders() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
               </table>
               

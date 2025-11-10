@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { User, Store, CreditCard, Bell, Shield, Save, Loader2, Settings as SettingsIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface VendorProfile {
   business_name?: string;
@@ -84,6 +85,8 @@ export default function VendorSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFAData, setTwoFAData] = useState<{qr_code?: string; secret?: string; uri?: string} | null>(null);
 
   useEffect(() => {
     fetchVendorData();
@@ -97,24 +100,49 @@ export default function VendorSettings() {
       if (response.data && response.data.success) {
         setProfile({
           username: response.data.data.username || "",
-          contact: response.data.data.phone || "",
-          description: response.data.data.description || "",
-          category: response.data.data.category || "",
-          website: response.data.data.website || "",
-          location: response.data.data.location || "",
-          business_name: response.data.data.business_name || ""
+          contact: "",
+          description: "",
+          category: "",
+          website: "",
+          location: "",
+          business_name: ""
         });
+        
+        // Set 2FA state from profile
+        if (response.data.data.two_factor_enabled !== undefined) {
+          setSecurity(prev => ({
+            ...prev,
+            two_factor_enabled: response.data.data.two_factor_enabled || false
+          }));
+        }
       }
 
-      // Fetch vendor application data for BTC/XMR addresses
+      // Fetch vendor application data for all profile fields
       try {
         const vendorResponse = await api.get(`/vendors/applications/check/${response.data.data.username}/`);
         if (vendorResponse.data && vendorResponse.data.success && vendorResponse.data.data.has_application) {
-          setPayment(prev => ({
-            ...prev,
-            btc_address: vendorResponse.data.data.btc_address || "",
-            xmr_address: vendorResponse.data.data.xmr_address || ""
-          }));
+          // Get full application details
+          const appResponse = await api.get(`/vendors/applications/`);
+          const apps = appResponse.data.data || [];
+          const myApp = apps.find((app: any) => app.vendor_username === response.data.data.username);
+          
+          if (myApp) {
+            setProfile(prev => ({
+              ...prev,
+              contact: myApp.contact || "",
+              description: myApp.store_description || "",
+              category: myApp.category || "",
+              website: myApp.website || "",
+              location: myApp.business_address || "",
+              business_name: myApp.business_name || ""
+            }));
+            
+            setPayment(prev => ({
+              ...prev,
+              btc_address: myApp.btc_address || "",
+              xmr_address: myApp.xmr_address || ""
+            }));
+          }
         }
       } catch (vendorError) {
         console.warn('Could not fetch vendor application data:', vendorError);
@@ -136,25 +164,69 @@ export default function VendorSettings() {
     try {
       setSaving(true);
       
-      // Update profile
+      // Check if 2FA is being enabled
+      const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
+      
+      // Update 2FA in profile
       await api.put('/profile/update/', {
-        username: profile.username,
-        phone: profile.contact,
-        description: profile.description,
-        category: profile.category,
-        website: profile.website,
-        location: profile.location,
-        business_name: profile.business_name,
-        // Include payment addresses for vendor applications
-        btc_address: payment.btc_address,
-        xmr_address: payment.xmr_address
+        two_factor_enabled: security.two_factor_enabled
       });
+
+      // Update vendor application with profile fields
+      try {
+        const formData = new FormData();
+        formData.append('business_name', profile.business_name || '');
+        formData.append('vendor_username', profile.username || '');
+        formData.append('contact', profile.contact || '');
+        formData.append('phone', profile.contact || '');
+        formData.append('website', profile.website || '');
+        formData.append('store_description', profile.description || '');
+        formData.append('category', profile.category || '');
+        formData.append('business_address', profile.location || '');
+        formData.append('btc_address', payment.btc_address || '');
+        formData.append('xmr_address', payment.xmr_address || '');
+        
+        await api.post('/vendors/applications/create/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch (vendorError) {
+        console.error('Error updating vendor application:', vendorError);
+        // Don't fail the whole save if vendor application update fails
+      }
+
+      // If 2FA is being enabled (was false, now true), call enable endpoint to generate QR code
+      if (security.two_factor_enabled && !previous2FAState) {
+        try {
+          const enableResponse = await api.post('/auth/enable-2fa/');
+          if (enableResponse.data.success && enableResponse.data.data.qr_code) {
+            // Show QR code in a modal/dialog
+            setShow2FAModal(true);
+            setTwoFAData(enableResponse.data.data);
+            toast({
+              title: "2FA Setup",
+              description: "Scan the QR code with your authenticator app",
+              variant: "default"
+            });
+          }
+        } catch (error) {
+          console.error('Error enabling 2FA:', error);
+          toast({
+            title: "Error",
+            description: "Failed to setup 2FA. Please try again.",
+            variant: "destructive"
+          });
+        }
+      }
+      
+      // If 2FA is being disabled, call disable endpoint
+      if (!security.two_factor_enabled && previous2FAState) {
+        // Note: Disable endpoint requires password, so we'll just update the flag
+        // User might need to disable through a separate flow if password is required
+      }
 
       toast({
         title: "Success",
-        description: "Settings updated successfully" + 
-          (payment.btc_address || payment.xmr_address ? 
-            " (including payment addresses)" : "")
+        description: "Settings updated successfully"
       });
     } catch (error: any) {
       console.error('Error saving settings:', error);
@@ -349,7 +421,7 @@ export default function VendorSettings() {
 
 
             <div>
-              <Label className="text-gray-300">Payout Schedule</Label>
+              {/* <Label className="text-gray-300">Payout Schedule</Label>
               <Select value={payment.payout_schedule} onValueChange={(value) => setPayment({...payment, payout_schedule: value})}>
                 <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                   <SelectValue />
@@ -359,7 +431,7 @@ export default function VendorSettings() {
                   <SelectItem value="weekly">Weekly</SelectItem>
                   <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
           </CardContent>
         </Card>
@@ -559,6 +631,66 @@ export default function VendorSettings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 2FA QR Code Modal */}
+      <Dialog open={show2FAModal} onOpenChange={setShow2FAModal}>
+        <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-400" />
+              Set Up Two-Factor Authentication
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Scan this QR code with your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {twoFAData?.qr_code && (
+              <div className="flex flex-col items-center space-y-4">
+                <div className="bg-white p-4 rounded-lg">
+                  <img 
+                    src={twoFAData.qr_code} 
+                    alt="2FA QR Code" 
+                    className="w-64 h-64"
+                  />
+                </div>
+                
+                {twoFAData.secret && (
+                  <div className="w-full">
+                    <Label className="text-gray-300 text-sm">Backup Secret Key (use if QR code doesn't work)</Label>
+                    <div className="mt-2 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                      <code className="text-sm text-gray-200 break-all select-all">{twoFAData.secret}</code>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Enter this key manually in your authenticator app if you can't scan the QR code
+                    </p>
+                  </div>
+                )}
+                
+                <div className="w-full bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                  <p className="text-sm text-blue-200">
+                    <strong className="text-blue-300">Steps:</strong>
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 text-xs text-blue-200 mt-2">
+                    <li>Install Google Authenticator, Authy, or Microsoft Authenticator on your phone</li>
+                    <li>Open the app and tap "Add account" or "+"</li>
+                    <li>Scan the QR code above or enter the secret key manually</li>
+                    <li>Use the 6-digit code from the app when logging in</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+            
+            <Button
+              onClick={() => setShow2FAModal(false)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              I've Scanned the QR Code
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

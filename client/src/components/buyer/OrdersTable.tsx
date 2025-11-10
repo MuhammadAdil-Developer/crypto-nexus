@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Order } from "@/services/orderService";
+import { Order, orderService } from "@/services/orderService";
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
 import { ReviewModal } from "./ReviewModal";
@@ -73,9 +73,10 @@ const getStatusDisplay = (status: string) => {
 interface OrdersTableProps {
   compact?: boolean;
   orders?: Order[];
+  onOrderUpdate?: () => void; // Callback to refresh orders
 }
 
-export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) {
+export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: OrdersTableProps) {
   const [selectedProduct, setSelectedProduct] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApproving, setIsApproving] = useState<string | null>(null);
@@ -83,10 +84,193 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
   const [reviewProductId, setReviewProductId] = useState<number | null>(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [orderToConfirm, setOrderToConfirm] = useState<Order | null>(null);
+  const [timers, setTimers] = useState<Record<string, number>>({});
+  const [expiredOrders, setExpiredOrders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const navigate = useNavigate();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
+  const intervalRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
+  // Calculate time remaining for pending orders
+  const calculateTimeRemaining = (order: Order): number => {
+    if (expiredOrders.has(order.id.toString())) {
+      return 0;
+    }
+    
+    // Check if order is pending payment
+    const isPending = (order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
+                      (order.order_status === 'pending_payment' || order.order_status === 'pending');
+    
+    if (!isPending) {
+      return 0;
+    }
+    
+    const orderCreatedAt = new Date(order.created_at).getTime();
+    const expiresAt = orderCreatedAt + (30 * 60 * 1000); // 30 minutes
+    const now = Date.now();
+    const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
+    
+    return remainingSeconds;
+  };
+
+  // Format time remaining as MM:SS
+  const formatTime = (seconds: number): string => {
+    if (seconds <= 0) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Handle order expiration
+  const handleOrderExpire = async (order: Order) => {
+    if (expiredOrders.has(order.id.toString())) {
+      return; // Already expired
+    }
+
+    try {
+      await orderService.expireOrder(order.id.toString());
+      setExpiredOrders(prev => new Set(prev).add(order.id.toString()));
+      
+      toast({
+        title: "Order Expired",
+        description: `Order #${order.order_id} has been expired due to payment timeout.`,
+        variant: "destructive",
+      });
+
+      // Refresh orders list
+      if (onOrderUpdate) {
+        onOrderUpdate();
+      } else {
+        // Fallback: reload page
+        window.location.reload();
+      }
+    } catch (error: any) {
+      console.error('Error expiring order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to expire order. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Initialize and manage timers for all pending orders
+  useEffect(() => {
+    // Clear all existing intervals
+    Object.values(intervalRefs.current).forEach(interval => clearInterval(interval));
+    intervalRefs.current = {};
+
+    // Initialize timers for pending orders
+    const pendingOrders = displayOrders.filter(order => {
+      const isPending = (order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
+                        (order.order_status === 'pending_payment' || order.order_status === 'pending');
+      return isPending && !expiredOrders.has(order.id.toString());
+    });
+
+    const newTimers: Record<string, number> = {};
+    
+    pendingOrders.forEach(order => {
+      const timeRemaining = calculateTimeRemaining(order);
+      newTimers[order.id.toString()] = timeRemaining;
+
+      // Set up interval for this order - AGGRESSIVE: Check every 100ms for immediate expiration
+      const interval = setInterval(() => {
+        setTimers(prev => {
+          const current = prev[order.id.toString()] || 0;
+          
+          // Recalculate time remaining to ensure accuracy
+          const actualTimeRemaining = calculateTimeRemaining(order);
+          const newTime = Math.max(0, actualTimeRemaining);
+          
+          // AGGRESSIVE: If timer reaches 0 or is already 0, expire immediately
+          if (newTime === 0 && !expiredOrders.has(order.id.toString())) {
+            // Clear this interval immediately to prevent multiple calls
+            if (intervalRefs.current[order.id.toString()]) {
+              clearInterval(intervalRefs.current[order.id.toString()]);
+              delete intervalRefs.current[order.id.toString()];
+            }
+            
+            // Mark as expired immediately to prevent duplicate calls
+            setExpiredOrders(prev => new Set(prev).add(order.id.toString()));
+            
+            // Call expire order IMMEDIATELY - no delay
+            console.log(`⏰ Timer reached 0 for order ${order.id}, expiring immediately...`);
+            orderService.expireOrder(order.id.toString())
+              .then((response) => {
+                console.log('✅ Order expired successfully:', response);
+                toast({
+                  title: "Order Expired",
+                  description: `Order #${order.order_id} has been expired due to payment timeout.`,
+                  variant: "destructive",
+                });
+                
+                // Force immediate UI update
+                setTimers(prev => ({
+                  ...prev,
+                  [order.id.toString()]: 0
+                }));
+                
+                // Refresh orders immediately
+                if (onOrderUpdate) {
+                  setTimeout(() => {
+                    onOrderUpdate();
+                  }, 500); // Small delay to ensure backend processed
+                } else {
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 500);
+                }
+              })
+              .catch((error: any) => {
+                console.error('❌ Error expiring order:', error);
+                // Remove from expired set so it can retry
+                setExpiredOrders(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(order.id.toString());
+                  return newSet;
+                });
+                toast({
+                  title: "Error",
+                  description: error.response?.data?.error || "Failed to expire order. Please refresh the page.",
+                  variant: "destructive",
+                });
+              });
+            
+            return {
+              ...prev,
+              [order.id.toString()]: 0
+            };
+          }
+          
+          return {
+            ...prev,
+            [order.id.toString()]: newTime
+          };
+        });
+      }, 100); // Check every 100ms for more aggressive expiration
+
+      intervalRefs.current[order.id.toString()] = interval;
+    });
+
+    setTimers(newTimers);
+
+    // Cleanup on unmount
+    return () => {
+      Object.values(intervalRefs.current).forEach(interval => clearInterval(interval));
+      intervalRefs.current = {};
+    };
+  }, [displayOrders, expiredOrders, onOrderUpdate, toast]);
+
+  // Update timers when orders change
+  useEffect(() => {
+    const newTimers: Record<string, number> = {};
+    displayOrders.forEach(order => {
+      if (!expiredOrders.has(order.id.toString())) {
+        newTimers[order.id.toString()] = calculateTimeRemaining(order);
+      }
+    });
+    setTimers(prev => ({ ...prev, ...newTimers }));
+  }, [orders]);
 
   const handleViewDetails = (order: Order) => {
     setSelectedProduct(order);
@@ -224,6 +408,31 @@ export function OrdersTable({ compact = false, orders = [] }: OrdersTableProps) 
                         <p className="text-sm text-gray-400">
                           {order.vendor.username} • {formattedDate}
                         </p>
+                        
+                        {/* Timer for pending orders */}
+                        {(order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
+                         (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
+                         !expiredOrders.has(order.id.toString()) && (
+                          <div className="mt-2 flex items-center space-x-2">
+                            <Timer className="w-4 h-4 text-yellow-400" />
+                            <span className={`text-sm font-semibold ${
+                              (timers[order.id.toString()] || 0) <= 300 
+                                ? 'text-red-400 animate-pulse' 
+                                : 'text-yellow-400'
+                            }`}>
+                              {formatTime(timers[order.id.toString()] || calculateTimeRemaining(order))}
+                            </span>
+                            <span className="text-xs text-gray-500">remaining to pay</span>
+                          </div>
+                        )}
+                        
+                        {/* Expired indicator */}
+                        {expiredOrders.has(order.id.toString()) && (
+                          <div className="mt-2 flex items-center space-x-2">
+                            <XCircle className="w-4 h-4 text-red-400" />
+                            <span className="text-sm font-semibold text-red-400">Order Expired</span>
+                          </div>
+                        )}
                         
                         {/* Credentials Display - For paid, confirmed, and delivered orders */}
                         {order.product_credentials && Object.keys(order.product_credentials).length > 0 && 

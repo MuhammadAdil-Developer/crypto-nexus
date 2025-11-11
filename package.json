@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "tsx server/index.ts",
+    "dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "start:prod": "npm run build && npm run start",
@@ -14,7 +14,7 @@
     "docker:run": "docker run -d -p 5000:5000 --name cryptonexus-container cryptonexus",
     "docker:stop": "docker stop cryptonexus-container && docker rm cryptonexus-container",
     "docker:compose": "docker-compose up -d",
-    "docker:compose:down": "docker-compose down"
+    "docker:compose:down": "docker-compose down"image.png
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

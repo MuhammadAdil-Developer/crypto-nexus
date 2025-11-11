@@ -267,8 +267,8 @@ function BuyerListingsContent() {
           <p className="text-gray-300">Discover {filteredProducts.length} products from trusted vendors</p>
         </div>
 
-        {/* Search, Sort, and View Toggle - All in One Line */}
-        <div className="flex items-center gap-4">
+        {/* Search, Sort, and View Toggle */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
           {/* Search Bar with Dark Background */}
           <div className="flex-1">
             <div className="relative">
@@ -285,7 +285,7 @@ function BuyerListingsContent() {
           {/* Categories Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
+              <Button variant="outline" className="w-full lg:w-auto flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
                 {categories.find(cat => cat.id === selectedCategory)?.name || "All Categories"}
                 <ChevronDown className="w-4 h-4" />
               </Button>
@@ -309,7 +309,7 @@ function BuyerListingsContent() {
           {/* Sort Options */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
+              <Button variant="outline" className="w-full lg:w-auto flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
                 Sort by: {sortBy === "newest" ? "Newest" : 
                          sortBy === "oldest" ? "Oldest" :
                          sortBy === "price-low" ? "Price: Low to High" :
@@ -331,7 +331,7 @@ function BuyerListingsContent() {
           </DropdownMenu>
 
           {/* View Mode Toggle */}
-          <div className="flex border border-gray-600 rounded-lg overflow-hidden bg-gray-800">
+          <div className="flex border border-gray-600 rounded-lg overflow-hidden bg-gray-800 w-full lg:w-auto">
             <Button
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
@@ -356,10 +356,10 @@ function BuyerListingsContent() {
           Showing {filteredProducts.length} of {products.length} products
         </div>
 
-        {/* Main Content with Categories on Left and Products on Right */}
-        <div className="flex gap-6">
+        {/* Main Content with Categories and Products */}
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Sidebar - Categories */}
-          <div className="w-64 flex-shrink-0">
+          <div className="w-full lg:w-64 flex-shrink-0">
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-white text-lg">Categories</CardTitle>
@@ -396,7 +396,7 @@ function BuyerListingsContent() {
               </div>
             ) : (
               <div className={viewMode === "grid" ? 
-                "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : 
+                "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" : 
                 "space-y-4"
               }>
                 {filteredProducts.map((product) => (

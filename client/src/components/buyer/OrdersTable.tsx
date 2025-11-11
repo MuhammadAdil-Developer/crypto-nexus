@@ -394,9 +394,9 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                 return (
                   <div 
                     key={order.order_id}
-                    className="flex items-center justify-between p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors duration-200"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors duration-200"
                   >
-                    <div className="flex items-center space-x-4 flex-1">
+                    <div className="flex items-start sm:items-center space-x-4 flex-1 min-w-0">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(order.order_status)}`}>
                         {getStatusIcon(order.order_status)}
                       </div>
@@ -715,8 +715,8 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                       </div>
                     </div>
 
-                      <div className="flex items-center space-x-4">
-                      <div className="text-right">
+                    <div className="flex items-center sm:space-x-4 sm:flex-row flex-col w-full sm:w-auto">
+                      <div className="text-right w-full sm:w-auto">
                         <p className="font-semibold text-white">
                           {order.total_amount} {order.crypto_currency}
                         </p>
@@ -731,7 +731,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                           <Button
                             variant="outline"
                             size="sm"
-                            className="mt-2 border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+                            className="mt-2 w-full sm:w-auto border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
                             onClick={() => handleLeaveReview(order)}
                           >
                             <Star className="w-3 h-3 mr-1" />
@@ -742,7 +742,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="self-end sm:self-auto">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>

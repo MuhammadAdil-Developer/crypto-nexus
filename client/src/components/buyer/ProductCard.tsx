@@ -127,7 +127,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     if (product.quantity_available <= 0) {
       toast({
         title: "Out of Stock",
-        message: "This product is currently out of stock and cannot be purchased",
+        description: "This product is currently out of stock and cannot be purchased",
         variant: "destructive"
       });
       return;
@@ -159,12 +159,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           setIsInWishlist(false);
           toast({
             title: "Removed from Wishlist",
-            message: "Product has been removed from your wishlist"
+            description: "Product has been removed from your wishlist"
           });
         } else {
           toast({
             title: "Error",
-            message: response.message || "Failed to remove from wishlist",
+            description: response.message || "Failed to remove from wishlist",
             variant: "destructive"
           });
         }
@@ -175,12 +175,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           setIsInWishlist(true);
           toast({
             title: "Added to Wishlist",
-            message: "Product has been added to your wishlist"
+            description: "Product has been added to your wishlist"
           });
         } else {
           toast({
             title: "Error",
-            message: response.message || "Failed to add to wishlist",
+            description: response.message || "Failed to add to wishlist",
             variant: "destructive"
           });
         }
@@ -189,7 +189,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       console.error('Error toggling wishlist:', error);
       toast({
         title: "Error",
-        message: "Failed to update wishlist",
+        description: "Failed to update wishlist",
         variant: "destructive"
       });
     } finally {
@@ -201,7 +201,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     if (product.quantity_available <= 0) {
       toast({
         title: "Out of Stock",
-        message: "This product is currently out of stock and cannot be added to cart",
+        description: "This product is currently out of stock and cannot be added to cart",
         variant: "destructive"
       });
       return;
@@ -209,7 +209,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     addToCart(product);
     toast({
       title: "Added to Cart",
-      message: `${product.listing_title} added to your cart`
+      description: `${product.listing_title} added to your cart`
     });
   };
 
@@ -217,7 +217,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     removeFromCart(product.id);
     toast({
       title: "Removed from Cart",
-      message: `${product.listing_title} removed from your cart`
+      description: `${product.listing_title} removed from your cart`
     });
   };
 
@@ -233,12 +233,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     return (
       <Card className="bg-card border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200">
         <CardContent className="p-4">
-          <div className="flex space-x-4">
+          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0">
             {/* Product Image */}
             <div className="w-24 h-24 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 flex-shrink-0">
               {getProductImage() ? (
                 <img
-                  src={getProductImage()}
+                  src={getProductImage() || undefined}
                   alt={product.listing_title}
                   className="w-full h-full object-cover"
                 />
@@ -251,7 +251,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
             {/* Product Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-white truncate">
                     {product.listing_title}
@@ -261,7 +261,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                   </p>
                 </div>
                 
-                <div className="ml-4 text-right">
+                <div className="sm:ml-4 text-right">
                   <p className="text-xl font-bold text-white">
                     {formatPrice(product.price)} BTC
                   </p>
@@ -273,7 +273,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
               {/* Tags and Features */}
               <div className="mt-3 space-y-1">
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   {/* Stock Status Badge */}
                   {product.quantity_available > 0 ? (
                     <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1.5 py-0.5">
@@ -312,7 +312,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               </div>
 
               {/* Action Buttons */}
-              <div className="flex space-x-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4">
                 <Button
                   onClick={handleViewProduct}
                   variant="outline"
@@ -343,7 +343,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                   <Button
                     onClick={handleRemoveFromCart}
                     size="sm"
-                    className="w-20 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
+                    className="w-24 sm:w-20 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
                   >
                     <Check className="w-4 h-4 mr-1" />
                     In Cart
@@ -388,7 +388,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         <div className="relative h-32 bg-gray-800/30 overflow-hidden border-b border-gray-600/20">
           {getProductImage() ? (
             <img
-              src={getProductImage()}
+              src={getProductImage() || undefined}
               alt={product.listing_title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -545,7 +545,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       {/* Product Detail Modal */}
       {isModalOpen && (
         <ProductDetailModal
-          product={product}
+          product={product as any}
           isOpen={isModalOpen}
           onClose={handleCloseModal}
         />
@@ -554,9 +554,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       {/* Payment Modal */}
       {isPaymentModalOpen && (
         <PaymentModal
-          product={product}
+          product={product as any}
           isOpen={isPaymentModalOpen}
           onClose={handleClosePaymentModal}
+          onBack={handleClosePaymentModal}
         />
       )}
     </Card>

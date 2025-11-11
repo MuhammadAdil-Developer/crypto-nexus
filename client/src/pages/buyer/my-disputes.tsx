@@ -130,7 +130,7 @@ export default function BuyerMyDisputes() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">My Disputes</h1>
               <p className="text-gray-400">Track and manage your dispute cases</p>
@@ -287,17 +287,17 @@ export default function BuyerMyDisputes() {
                       {/* Resolution Badge */}
                       {dispute.resolution !== 'pending' && (
                         <Badge className={
-                          dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial'
+                          String(dispute.resolution) === 'buyer_wins' || String(dispute.resolution) === 'refund_full' || String(dispute.resolution) === 'refund_partial'
                             ? 'bg-green-500/20 text-green-400 border-green-500/30'
                             : 'bg-red-500/20 text-red-400 border-red-500/30'
                         }>
-                          {dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial' ? (
+                          {String(dispute.resolution) === 'buyer_wins' || String(dispute.resolution) === 'refund_full' || String(dispute.resolution) === 'refund_partial' ? (
                             <CheckCircle className="w-3 h-3 mr-1" />
                           ) : (
                             <XCircle className="w-3 h-3 mr-1" />
                           )}
                           <span className="text-xs">
-                            {dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial' 
+                            {String(dispute.resolution) === 'buyer_wins' || String(dispute.resolution) === 'refund_full' || String(dispute.resolution) === 'refund_partial' 
                               ? 'Won' : 'Lost'}
                           </span>
                         </Badge>
@@ -306,7 +306,7 @@ export default function BuyerMyDisputes() {
                     
                     <p className="text-gray-400 mb-4 line-clamp-2">{dispute.description}</p>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-gray-400">Dispute ID:</span>
                         <span className="text-white ml-2">#{dispute.dispute_id}</span>
@@ -330,10 +330,10 @@ export default function BuyerMyDisputes() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col space-y-2 ml-6">
+                  <div className="flex flex-col space-y-2 md:ml-6">
                     <Button 
                       variant="outline" 
-                      className="border-border text-gray-300 hover:bg-surface-2"
+                      className="border-border text-gray-300 hover:bg-surface-2 w-full md:w-auto"
                       onClick={() => handleViewDetails(dispute)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
@@ -343,7 +343,7 @@ export default function BuyerMyDisputes() {
                     {/* View Chat button for active disputes */}
                     {(dispute.status === 'open' || dispute.status === 'in_progress') && (
                       <Button 
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
                         onClick={() => {
                           // Navigate to messages with context to open this dispute's chat
                           import('@/services/messagingService').then(({ messagingService }) => {
@@ -372,7 +372,7 @@ export default function BuyerMyDisputes() {
 
       {/* Dispute Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">Dispute Details</DialogTitle>
           </DialogHeader>
@@ -483,7 +483,7 @@ export default function BuyerMyDisputes() {
                       <div className="mt-3">
                         <span className="text-gray-400 block mb-2">Outcome Summary:</span>
                         <div className="bg-gray-700 p-3 rounded-lg">
-                          {selectedDispute.resolution === 'buyer_wins' || selectedDispute.resolution === 'refund_full' || selectedDispute.resolution === 'refund_partial' ? (
+                          {String(selectedDispute.resolution) === 'buyer_wins' || String(selectedDispute.resolution) === 'refund_full' || String(selectedDispute.resolution) === 'refund_partial' ? (
                             <div className="flex items-center space-x-2 text-green-400">
                               <CheckCircle className="w-4 h-4" />
                               <span>Decision was in your favor</span>

@@ -187,8 +187,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied!",
-      description: "Credentials copied to clipboard",
-      type: "success"
+      description: "Credentials copied to clipboard"
     });
   };
 
@@ -196,7 +195,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-card border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-600/20 bg-card">
           <div className="flex items-center space-x-3">
@@ -240,7 +239,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
               {/* Gallery Images */}
               {order.product.gallery_images && order.product.gallery_images.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {order.product.gallery_images.map((image, index) => (
                     <div key={index} className="aspect-square bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20">
                       <img
@@ -255,7 +254,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
             </div>
 
             {/* Order Status & Payment Status */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                 <h3 className="text-sm text-gray-400 mb-2">Order Status</h3>
                 <Badge className={getOrderStatusColor(order.order_status)}>
@@ -264,7 +263,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               </div>
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                 <h3 className="text-sm text-gray-400 mb-2">Payment Status</h3>
-                <Badge className={getPaymentStatusColor(order.payment_status)}>
+                <Badge className={getPaymentStatusColor(order.payment_status) as any}>
                   {order.payment_status ? order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1) : 'Unknown'}
                 </Badge>
               </div>
@@ -477,7 +476,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <Users className="w-5 h-5 mr-2 text-blue-400" />
                   Vendor Details
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Username:</span>
@@ -486,15 +485,15 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Member Since:</span>
                       <span className="text-white">
-                        {order.product.vendor?.date_joined ? 
-                          new Date(order.product.vendor.date_joined).toLocaleDateString() : 
+                        {(order.product.vendor as any)?.date_joined ? 
+                          new Date((order.product.vendor as any).date_joined).toLocaleDateString() : 
                           'N/A'
                         }
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Total Sales:</span>
-                      <span className="text-green-400 font-medium">{order.product.vendor?.total_sales || 'N/A'} products</span>
+                      <span className="text-green-400 font-medium">{(order.product.vendor as any)?.total_sales || 'N/A'} products</span>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -502,12 +501,12 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       <span className="text-gray-400">Vendor Rating:</span>
                       <div className="flex items-center space-x-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-white">{order.product.vendor?.rating || order.product.rating || 'N/A'}</span>
+                        <span className="text-white">{(order.product.vendor as any)?.rating || order.product.rating || 'N/A'}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Completion Rate:</span>
-                      <span className="text-green-400 font-medium">{order.product.vendor?.completion_rate || 'N/A'}%</span>
+                      <span className="text-green-400 font-medium">{(order.product.vendor as any)?.completion_rate || 'N/A'}%</span>
                     </div>
                   </div>
                 </div>

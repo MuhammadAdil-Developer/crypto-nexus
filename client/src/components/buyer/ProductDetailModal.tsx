@@ -528,7 +528,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     Vendor Details
                     {loadingVendorStats && <Loader2 className="w-4 h-4 ml-2 animate-spin text-blue-400" />}
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Username:</span>
@@ -573,7 +573,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
                     Product Statistics
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400 flex items-center">

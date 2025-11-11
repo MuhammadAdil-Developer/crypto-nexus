@@ -426,14 +426,14 @@ export default function BuyerSupport() {
         {/* My Support Tickets */}
         <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <CardTitle className="flex items-center space-x-2">
                 <MessageSquare className="w-5 h-5" />
                 <span>My Support Tickets</span>
               </CardTitle>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -448,7 +448,7 @@ export default function BuyerSupport() {
                 <Button 
                   onClick={() => setIsCreatingTicket(true)}
                   size="sm"
-                  className="bg-gray-700"
+                  className="bg-gray-700 w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   New Ticket
@@ -471,8 +471,8 @@ export default function BuyerSupport() {
                 </div>
               ) : (
                 filteredTickets.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                    <div className="flex items-center space-x-4">
+                  <div key={ticket.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
+                    <div className="flex items-start md:items-center space-x-4">
                       <div className="flex flex-col items-center">
                         <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
                         <span className="text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
@@ -489,7 +489,7 @@ export default function BuyerSupport() {
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-400 mb-1">{ticket.subject}</p>
-                        <div className="flex items-center space-x-4 text-xs text-gray-400">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 items-center text-xs text-gray-400">
                           <span>Created: {new Date(ticket.created_at).toLocaleDateString()}</span>
                           <span>Last update: {new Date(ticket.updated_at).toLocaleDateString()}</span>
                           <span>{ticket.response_count} responses</span>
@@ -497,7 +497,7 @@ export default function BuyerSupport() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 md:self-auto self-end">
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -505,6 +505,7 @@ export default function BuyerSupport() {
                           setSelectedTicketId(ticket.id);
                           setIsTicketModalOpen(true);
                         }}
+                        className="w-full sm:w-auto"
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         View Conversation
@@ -516,7 +517,7 @@ export default function BuyerSupport() {
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
                           <DropdownMenuItem onClick={() => {
                             setSelectedTicketId(ticket.id);
                             setIsTicketModalOpen(true);

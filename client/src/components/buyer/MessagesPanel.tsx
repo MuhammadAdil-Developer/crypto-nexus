@@ -437,7 +437,7 @@ export function MessagesPanel({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-140px)] sm:h-[calc(100vh-120px)]">
       {/* Conversations List */}
       <Card className="lg:col-span-1 border border-gray-700 bg-gray-900 overflow-hidden h-full flex flex-col">
         <CardHeader>
@@ -486,7 +486,7 @@ export function MessagesPanel({
                           {conv.product?.headline || conv.product?.title || 'Product Chat'}
                       </h4>
                         {conv.unread_count > 0 && (
-                        <Badge className="bg-red-500 text-white text-xs">
+                        <Badge className="bg-red-500 text-white text-xs flex-shrink-0">
                             {conv.unread_count}
                         </Badge>
                       )}
@@ -512,7 +512,7 @@ export function MessagesPanel({
           <>
             {/* Chat Header */}
             <CardHeader className="border-b">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center space-x-3">
                   <Avatar className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600">
                     <AvatarFallback className="text-white font-semibold">
@@ -536,7 +536,7 @@ export function MessagesPanel({
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
                     <DropdownMenuItem>View Product</DropdownMenuItem>
                     <DropdownMenuItem>Report Issue</DropdownMenuItem>
                     <DropdownMenuItem className="text-red-600">Block Vendor</DropdownMenuItem>
@@ -546,8 +546,8 @@ export function MessagesPanel({
             </CardHeader>
 
             {/* Messages */}
-            <CardContent className="flex-1 p-4 flex flex-col min-h-0">
-              <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[800px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
+            <CardContent className="flex-1 p-3 sm:p-4 flex flex-col min-h-0">
+              <div className="space-y-3 sm:space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[800px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -638,13 +638,13 @@ export function MessagesPanel({
                       key={message.id}
                       className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                     >
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative ${
+                      <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${
                         isOwnMessage
                           ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
                           : 'bg-gray-700 text-white'
                       }`}>
                         <p className="text-sm">{message.content}</p>
-                        <p className={`text-xs mt-1 ${
+                        <p className={`text-[10px] sm:text-xs mt-1 ${
                           isOwnMessage ? 'text-blue-100' : 'text-gray-400'
                         }`}>
                           {formatTime(message.created_at)}
@@ -847,7 +847,7 @@ export function MessagesPanel({
               )}
 
               {/* Message Input */}
-              <div className="flex items-center space-x-2 border-t border-gray-700 pt-4 mt-auto flex-shrink-0">
+              <div className="flex items-center space-x-2 border-t border-gray-700 pt-3 sm:pt-4 mt-auto flex-shrink-0">
                 <Input
                   placeholder="Type your message..."
                   value={newMessage}

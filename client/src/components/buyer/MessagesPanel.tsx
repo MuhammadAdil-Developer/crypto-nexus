@@ -437,18 +437,18 @@ export function MessagesPanel({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 h-[calc(100vh-200px)] sm:h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
       {/* Conversations List */}
       <Card className="lg:col-span-1 border border-gray-700 bg-gray-900 overflow-hidden h-full flex flex-col">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="flex items-center justify-between text-base sm:text-lg">
             <div className="flex items-center space-x-2">
-            <MessageSquare className="w-5 h-5" />
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
             <span>Messages</span>
             </div>
             {onRefresh && (
-              <Button variant="ghost" size="sm" onClick={onRefresh}>
-                <Search className="w-4 h-4" />
+              <Button variant="ghost" size="sm" onClick={onRefresh} className="h-8 w-8 p-0">
+                <Search className="w-3 h-3 sm:w-4 sm:h-4" />
               </Button>
             )}
           </CardTitle>
@@ -466,35 +466,35 @@ export function MessagesPanel({
             {conversations.map((conv) => (
               <div 
                 key={conv.id}
-                className={`p-4 cursor-pointer transition-colors duration-200 ${
+                className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${
                   selectedConversation?.id === conv.id 
                     ? 'bg-blue-900/20 border-r-2 border-blue-500' 
                     : 'hover:bg-gray-800'
                 }`}
                   onClick={() => handleConversationSelect(conv)}
               >
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600">
-                    <AvatarFallback className="text-white font-semibold">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                    <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                         {conv.product?.title?.charAt(0) || 'P'}
                     </AvatarFallback>
                   </Avatar>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-white truncate">
+                    <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-medium text-white truncate text-sm sm:text-base">
                           {conv.product?.headline || conv.product?.title || 'Product Chat'}
                       </h4>
                         {conv.unread_count > 0 && (
-                        <Badge className="bg-red-500 text-white text-xs">
-                            {conv.unread_count}
+                        <Badge className="bg-red-500 text-white text-[10px] sm:text-xs flex-shrink-0 min-w-[18px] h-[18px] px-1">
+                            {conv.unread_count > 99 ? '99+' : conv.unread_count}
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-gray-400 truncate">
+                    <p className="text-xs sm:text-sm text-gray-400 truncate mt-0.5">
                         {conv.last_message?.content || 'No messages yet'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
                         {new Date(conv.updated_at).toLocaleDateString()}
                     </p>
                     </div>
@@ -511,32 +511,32 @@ export function MessagesPanel({
         {selectedConversation ? (
           <>
             {/* Chat Header */}
-            <CardHeader className="border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600">
-                    <AvatarFallback className="text-white font-semibold">
+            <CardHeader className="border-b p-3 sm:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                  <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                    <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                       {getVendorFromConversation(selectedConversation)?.username?.charAt(0) || 'V'}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h3 className="font-semibold text-white">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-white text-sm sm:text-base truncate">
                       {getVendorFromConversation(selectedConversation)?.username || 'Vendor'}
                     </h3>
-                    <p className="text-sm text-gray-400 flex items-center">
-                      <Package className="w-3 h-3 mr-1" />
-                      {selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}
+                    <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
+                      <Package className="w-3 h-3 mr-1 flex-shrink-0" />
+                      <span className="truncate">{selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}</span>
                     </p>
                   </div>
                 </div>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
                     <DropdownMenuItem>View Product</DropdownMenuItem>
                     <DropdownMenuItem>Report Issue</DropdownMenuItem>
                     <DropdownMenuItem className="text-red-600">Block Vendor</DropdownMenuItem>
@@ -546,8 +546,8 @@ export function MessagesPanel({
             </CardHeader>
 
             {/* Messages */}
-            <CardContent className="flex-1 p-4 flex flex-col min-h-0">
-              <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[800px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
+            <CardContent className="flex-1 p-3 sm:p-4 flex flex-col min-h-0">
+              <div className="space-y-3 sm:space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[800px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -638,13 +638,13 @@ export function MessagesPanel({
                       key={message.id}
                       className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                     >
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative ${
+                      <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${
                         isOwnMessage
                           ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
                           : 'bg-gray-700 text-white'
                       }`}>
                         <p className="text-sm">{message.content}</p>
-                        <p className={`text-xs mt-1 ${
+                        <p className={`text-[10px] sm:text-xs mt-1 ${
                           isOwnMessage ? 'text-blue-100' : 'text-gray-400'
                         }`}>
                           {formatTime(message.created_at)}
@@ -847,7 +847,7 @@ export function MessagesPanel({
               )}
 
               {/* Message Input */}
-              <div className="flex items-center space-x-2 border-t border-gray-700 pt-4 mt-auto flex-shrink-0">
+              <div className="flex items-center space-x-2 border-t border-gray-700 pt-3 sm:pt-4 mt-auto flex-shrink-0">
                 <Input
                   placeholder="Type your message..."
                   value={newMessage}
@@ -860,11 +860,11 @@ export function MessagesPanel({
                       handleSendMessage();
                     }
                   }}
-                  className="flex-1"
+                  className="flex-1 text-sm sm:text-base"
                 />
                 <Button 
                   size="sm"
-                  className="bg-gradient-to-r from-blue-500 to-purple-600"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 h-9 sm:h-10 px-3 sm:px-4 flex-shrink-0"
                   disabled={!newMessage.trim()}
                   onClick={handleSendMessage}
                 >

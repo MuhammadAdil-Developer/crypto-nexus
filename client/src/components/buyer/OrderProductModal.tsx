@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Star, Eye, EyeOff, Clock, Shield, CheckCircle, X, ArrowLeft, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Key, Lock, Download, Info } from 'lucide-react';
+import { Star, Eye, EyeOff, Clock, Shield, CheckCircle, X, ArrowLeft, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Key, Lock, Download, Info, FileText, Tag, MessageSquare } from 'lucide-react';
+import { DotLoader } from '@/components/ui/dot-loader';
+import vendorService from '@/services/vendorService';
+import { productService } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
 
 interface Order {
@@ -35,6 +38,7 @@ interface Order {
     main_image?: string;
     gallery_images: string[];
     main_images: string[];
+    documents?: string[];
     status: string;
     is_featured: boolean;
     views_count: number;
@@ -87,7 +91,61 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
   const [showFullAdditionalInfo, setShowFullAdditionalInfo] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
   const [showCredentialsText, setShowCredentialsText] = useState(false);
+  const [vendorStats, setVendorStats] = useState<any>(null);
+  const [loadingVendorStats, setLoadingVendorStats] = useState(false);
+  const [productReviews, setProductReviews] = useState<any>(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (isOpen && order?.product?.id) {
+      fetchVendorStats();
+      fetchProductReviews();
+    }
+  }, [isOpen, order?.product?.id]);
+
+  const fetchVendorStats = async () => {
+    const vendorUsername = order.product.vendor_username || order.product.vendor?.username;
+    if (!vendorUsername) return;
+    
+    setLoadingVendorStats(true);
+    try {
+      const response = await vendorService.getVendorStatistics(vendorUsername);
+      console.log('Vendor stats response:', response); // Debug log
+      // Response structure: { success: true, data: { member_since, total_sales, ... } }
+      if (response && response.success === true && response.data) {
+        console.log('Setting vendor stats:', response.data);
+        setVendorStats(response.data);
+      } else if (response && response.data) {
+        // Handle case where response.data is already the data object
+        console.log('Setting vendor stats (fallback):', response.data);
+        setVendorStats(response.data);
+      } else {
+        console.warn('Invalid vendor stats response:', response);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor stats:', error);
+    } finally {
+      setLoadingVendorStats(false);
+    }
+  };
+
+  const fetchProductReviews = async () => {
+    if (!order?.product?.id) return;
+    
+    setLoadingReviews(true);
+    try {
+      const response = await productService.getProductReviewsModal(order.product.id, { page_size: 10 });
+      if (response.success) {
+        setProductReviews(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching product reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
 
 
@@ -187,8 +245,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied!",
-      description: "Credentials copied to clipboard",
-      type: "success"
+      description: "Credentials copied to clipboard"
     });
   };
 
@@ -196,7 +253,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-card border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-600/20 bg-card">
           <div className="flex items-center space-x-3">
@@ -225,11 +282,20 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
             {/* Product Images - Moved to top */}
             <div className="space-y-4">
               <div className="h-48 bg-gray-800/30 rounded-xl overflow-hidden border border-gray-600/20">
-                {order.product.main_image ? (
+                {order.product.main_image || (order.product.main_images && order.product.main_images.length > 0) ? (
                   <img
-                    src={order.product.main_image}
+                    src={
+                      order.product.main_image
+                        ? (order.product.main_image.startsWith('http') ? order.product.main_image : `http://localhost:8000${order.product.main_image}`)
+                        : (order.product.main_images && order.product.main_images.length > 0
+                            ? (order.product.main_images[0].startsWith('http') ? order.product.main_images[0] : `http://localhost:8000${order.product.main_images[0]}`)
+                            : '')
+                    }
                     alt={order.product.headline || 'Product'}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -238,24 +304,54 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 )}
               </div>
 
-              {/* Gallery Images */}
-              {order.product.gallery_images && order.product.gallery_images.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {order.product.gallery_images.map((image, index) => (
-                    <div key={index} className="aspect-square bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20">
-                      <img
-                        src={image}
+              {/* Gallery Images & Documents - Single Line */}
+              {(order.product.gallery_images && order.product.gallery_images.length > 0) || ((order.product as any).documents && (order.product as any).documents.length > 0) ? (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-400 mb-3">Gallery Images & Documents</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {order.product.gallery_images && order.product.gallery_images.map((image, index) => {
+                      const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                      return (
+                        <div key={`img-${index}`} className="aspect-square w-28 h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
+                          <img
+                            src={imageUrl}
                         alt={`${order.product.headline || 'Product'} ${index + 1}`}
                         className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                            }}
                       />
                     </div>
-                  ))}
+                      );
+                    })}
+                    {(order.product as any).documents && (order.product as any).documents.map((doc: string, index: number) => {
+                      const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                      const docName = doc.split('/').pop() || `Document ${index + 1}`;
+                      return (
+                        <div key={`doc-${index}`} className="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-colors min-w-[140px]">
+                          <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate max-w-[120px]">{docName}</p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-1.5 h-auto"
+                            onClick={() => window.open(docUrl, '_blank')}
+                            title="Download document"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Order Status & Payment Status */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                 <h3 className="text-sm text-gray-400 mb-2">Order Status</h3>
                 <Badge className={getOrderStatusColor(order.order_status)}>
@@ -264,7 +360,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               </div>
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                 <h3 className="text-sm text-gray-400 mb-2">Payment Status</h3>
-                <Badge className={getPaymentStatusColor(order.payment_status)}>
+                <Badge className={getPaymentStatusColor(order.payment_status) as any}>
                   {order.payment_status ? order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1) : 'Unknown'}
                 </Badge>
               </div>
@@ -476,25 +572,51 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                   <Users className="w-5 h-5 mr-2 text-blue-400" />
                   Vendor Details
+                  {loadingVendorStats && <DotLoader size="sm" color="text-blue-400" />}
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Username:</span>
-                      <span className="text-white font-medium">{order.product.vendor?.username || order.product.vendor_username}</span>
+                      <span className="text-white font-medium">{order.product.vendor?.username || order.product.vendor_username || 'N/A'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Member Since:</span>
                       <span className="text-white">
-                        {order.product.vendor?.date_joined ? 
-                          new Date(order.product.vendor.date_joined).toLocaleDateString() : 
+                        {loadingVendorStats ? (
+                          <DotLoader size="sm" color="text-gray-400" />
+                        ) : vendorStats?.member_since ? (
+                          vendorStats.member_since
+                        ) : (order.product.vendor as any)?.date_joined ? (
+                          (() => {
+                            const dateJoined = new Date((order.product.vendor as any).date_joined);
+                            const now = new Date();
+                            const yearsSince = (now.getTime() - dateJoined.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+                            if (yearsSince >= 1) {
+                              return `${yearsSince.toFixed(1)} years ago`;
+                            } else {
+                              const monthsSince = yearsSince * 12;
+                              return `${Math.round(monthsSince)} months ago`;
+                            }
+                          })()
+                        ) : (
                           'N/A'
-                        }
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Total Sales:</span>
-                      <span className="text-green-400 font-medium">{order.product.vendor?.total_sales || 'N/A'} products</span>
+                      <span className="text-green-400 font-medium">
+                        {loadingVendorStats ? (
+                          <DotLoader size="sm" color="text-green-400" />
+                        ) : vendorStats?.total_sales ? (
+                          vendorStats.total_sales
+                        ) : (order.product.vendor as any)?.total_sales ? (
+                          `${(order.product.vendor as any).total_sales} products`
+                        ) : (
+                          '0 products'
+                        )}
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -502,23 +624,213 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       <span className="text-gray-400">Vendor Rating:</span>
                       <div className="flex items-center space-x-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-white">{order.product.vendor?.rating || order.product.rating || 'N/A'}</span>
+                        <span className="text-white">
+                          {loadingVendorStats ? (
+                            <DotLoader size="sm" color="text-yellow-400" />
+                          ) : vendorStats?.vendor_rating ? (
+                            vendorStats.vendor_rating
+                          ) : (order.product.vendor as any)?.rating ? (
+                            `${(order.product.vendor as any).rating}/5`
+                          ) : order.product.rating ? (
+                            `${order.product.rating}/5`
+                          ) : (
+                            'No rating'
+                          )}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Completion Rate:</span>
-                      <span className="text-green-400 font-medium">{order.product.vendor?.completion_rate || 'N/A'}%</span>
+                      <span className="text-green-400 font-medium">
+                        {loadingVendorStats ? (
+                          <DotLoader size="sm" color="text-green-400" />
+                        ) : vendorStats?.completion_rate ? (
+                          vendorStats.completion_rate
+                        ) : (order.product.vendor as any)?.completion_rate ? (
+                          `${(order.product.vendor as any).completion_rate}%`
+                        ) : (
+                          '100%'
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Additional Product Details */}
+              {(order.product.access_method || order.product.account_age || order.product.delivery_method) && (
+                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                  <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                    <Key className="w-5 h-5 mr-2 text-blue-400" />
+                    Account Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {order.product.access_method && (
+                      <div>
+                        <span className="text-gray-400 text-sm">Access Method:</span>
+                        <p className="text-white">{order.product.access_method}</p>
+                      </div>
+                    )}
+                    {order.product.account_age && (
+                      <div>
+                        <span className="text-gray-400 text-sm">Account Age:</span>
+                        <p className="text-white">{order.product.account_age}</p>
+                      </div>
+                    )}
+                    {order.product.delivery_method && (
+                      <div>
+                        <span className="text-gray-400 text-sm">Delivery Method:</span>
+                        <p className="text-white">{order.product.delivery_method}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags & Special Features */}
+              {(order.product.tags && order.product.tags.length > 0) || (order.product.special_features && order.product.special_features.length > 0) ? (
+                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                  <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                    <Tag className="w-5 h-5 mr-2 text-purple-400" />
+                    Tags & Features
+                  </h3>
+                  <div className="space-y-3">
+                    {order.product.tags && order.product.tags.length > 0 && (
+                      <div>
+                        <span className="text-gray-400 text-sm mb-2 block">Tags:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {order.product.tags.map((tag: string, index: number) => (
+                            <Badge key={index} variant="outline" className="text-purple-400 border-purple-400">
+                              #{tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {order.product.special_features && order.product.special_features.length > 0 && (
+                      <div>
+                        <span className="text-gray-400 text-sm mb-2 block">Special Features:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {order.product.special_features.map((feature: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-400/30">
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Notes for Buyer */}
+              {order.product.notes_for_buyer && (
+                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                  <h3 className="text-lg font-semibold text-white mb-3">Notes for Buyer</h3>
+                  <p className="text-gray-300 leading-relaxed">{order.product.notes_for_buyer}</p>
+                </div>
+              )}
+
               {/* Reviews Section */}
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center">
                   <Star className="w-5 h-5 mr-2 text-yellow-400" />
                   Reviews & Ratings
+                    {loadingReviews && <DotLoader size="sm" color="text-yellow-400" />}
                 </h3>
+                  {productReviews && productReviews.reviews && productReviews.reviews.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowReviews(!showReviews)}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700/50"
+                    >
+                      {showReviews ? 'Hide Reviews' : 'Show Reviews'}
+                    </Button>
+                  )}
+                </div>
+                
+                {loadingReviews ? (
+                  <div className="text-center py-8">
+                    <DotLoader size="lg" color="text-yellow-400" />
+                    <p className="text-gray-400 mt-3">Loading reviews...</p>
+                  </div>
+                ) : productReviews && productReviews.reviews && productReviews.reviews.length > 0 ? (
+                  <div>
+                    {/* Review Stats */}
+                    <div className="mb-4 p-3 bg-gray-800/30 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                          <span className="text-white font-medium">
+                            {productReviews.product_stats?.average_rating?.toFixed(1) || order.product.rating || '0.0'}
+                          </span>
+                          <span className="text-gray-400">
+                            ({productReviews.product_stats?.total_reviews || order.product.review_count || 0} reviews)
+                          </span>
+                        </div>
+                        <span className="text-gray-400 text-sm">
+                          {productReviews.pagination?.total_count || order.product.review_count || 0} total reviews
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Views:</span>
+                        <span className="text-white">{order.product.views_count || 0} views</span>
+                      </div>
+                    </div>
+                    
+                    {/* Reviews List */}
+                    {showReviews && (
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {productReviews.reviews.map((review: any) => (
+                          <div key={review.id} className="p-4 bg-gray-800/30 rounded-lg border border-gray-600/20">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-2">
+                                <div className="flex">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`w-4 h-4 ${
+                                        i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-white font-medium">{review.buyer_username || review.user || 'Anonymous'}</span>
+                              </div>
+                              <span className="text-gray-400 text-sm">{review.time_ago || review.created_at ? new Date(review.created_at).toLocaleDateString() : 'N/A'}</span>
+                            </div>
+                            {review.comment && (
+                              <p className="text-gray-300 text-sm leading-relaxed mb-3">{review.comment}</p>
+                            )}
+                            {review.message && (
+                              <div className="bg-gray-700/30 rounded p-2 mb-2">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <MessageSquare className="w-4 h-4 text-blue-400" />
+                                  <span className="text-gray-400 text-xs">Review Message:</span>
+                                </div>
+                                <p className="text-white text-sm">{review.message}</p>
+                              </div>
+                            )}
+                            {review.images && review.images.length > 0 && (
+                              <div className="mt-2 flex space-x-2">
+                                {review.images.map((image: string, index: number) => (
+                                  <img
+                                    key={index}
+                                    src={image}
+                                    alt={`Review image ${index + 1}`}
+                                    className="w-16 h-16 object-cover rounded border border-gray-600/20"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400">Product Rating:</span>
@@ -535,7 +847,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                           />
                         ))}
                       </div>
-                      <span className="text-white">{order.product.rating || 'N/A'}</span>
+                        <span className="text-white">{order.product.rating || '0.0'}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -546,7 +858,13 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     <span className="text-gray-400">Views:</span>
                     <span className="text-white">{order.product.views_count || '0'} views</span>
                   </div>
+                    <div className="text-center py-6">
+                      <Star className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-400 text-lg">No reviews yet</p>
+                      <p className="text-gray-500 text-sm">Be the first to review this product</p>
+                  </div>
                 </div>
+                )}
               </div>
             </div>
           </div>

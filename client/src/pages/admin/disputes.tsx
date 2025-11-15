@@ -548,13 +548,13 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white">Dispute Management</h1>
             <p className="text-gray-300 mt-1">Resolve conflicts between buyers and vendors</p>
           </div>
           <Button 
-            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer"
+            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer w-full md:w-auto"
             onClick={handleExportReport}
           >
             Export Report
@@ -641,7 +641,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                 </div>
               </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                <SelectTrigger className="w-full md:w-40 bg-surface-2 border-border text-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -654,7 +654,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                 </SelectContent>
               </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                <SelectTrigger className="w-full md:w-40 bg-surface-2 border-border text-white">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -688,7 +688,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
           disputes.map((dispute) => (
             <Card key={dispute.id} className="crypto-card">
               <CardContent className="p-6">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-4">
                       <div className="flex items-center space-x-2">
@@ -742,10 +742,10 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col space-y-2 ml-6">
+                  <div className="flex flex-col space-y-2 md:ml-6">
                     <Button 
                       variant="outline" 
-                      className="border-border text-gray-300 hover:bg-surface-2"
+                      className="border-border text-gray-300 hover:bg-surface-2 w-full md:w-auto"
                       onClick={() => handleViewDetails(dispute)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
@@ -753,7 +753,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     </Button>
                     <Button 
                       variant="outline" 
-                      className="border-border text-gray-300 hover:bg-surface-2"
+                      className="border-border text-gray-300 hover:bg-surface-2 w-full md:w-auto"
                       onClick={() => handleViewMessageHistory(dispute)}
                     >
                       <History className="w-4 h-4 mr-2" />
@@ -761,7 +761,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     </Button>
                     {dispute.status === 'open' && (
                       <Button 
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
                         onClick={() => {
                           setSelectedDispute(dispute);
                           setIsResolutionModalOpen(true);
@@ -772,7 +772,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     )}
                     {dispute.status === 'in_progress' && (
                       <Button 
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        className="bg-green-600 hover:bg-green-700 text-white w-full md:w-auto"
                         onClick={() => {
                           setSelectedDispute(dispute);
                           setIsResolutionModalOpen(true);
@@ -791,7 +791,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
 
       {/* Dispute Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-white">Dispute Details</DialogTitle>
           </DialogHeader>
@@ -806,7 +806,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
           ) : selectedDispute && (
             <div className="space-y-6">
               {/* Basic Info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-white font-medium mb-2">Dispute Information</h4>
                   <div className="space-y-2 text-sm">
@@ -897,7 +897,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
 
       {/* Resolution Modal */}
       <Dialog open={isResolutionModalOpen} onOpenChange={setIsResolutionModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-white">Resolve Dispute</DialogTitle>
           </DialogHeader>
@@ -1015,7 +1015,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
 
       {/* Message History Modal */}
       <Dialog open={isMessageHistoryModalOpen} onOpenChange={setIsMessageHistoryModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[80vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center">
               <History className="w-5 h-5 mr-2" />
@@ -1030,7 +1030,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
               {/* Dispute Info */}
               <div className="bg-gray-800 p-4 rounded-lg">
                 <h4 className="text-white font-medium mb-2">Dispute Information</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-400">Buyer:</span>
                     <span className="text-white ml-2">{selectedDispute.buyer_username}</span>

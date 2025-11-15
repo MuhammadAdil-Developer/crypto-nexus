@@ -178,7 +178,7 @@ export default function BuyerOrders() {
       <div className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-start sm:items-center sm:flex-row flex-col gap-3 sm:gap-0 sm:space-x-3">
             <Package className="w-8 h-8" />
             <div>
               <h1 className="text-2xl font-bold">Your Orders</h1>
@@ -216,7 +216,7 @@ export default function BuyerOrders() {
               {/* Status Filter */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Filter className="w-4 h-4 mr-2" />
                     Status: {statusFilter === "all" ? "All" : statusFilter}
                   </Button>
@@ -240,7 +240,7 @@ export default function BuyerOrders() {
               {/* Date Filter */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Calendar className="w-4 h-4 mr-2" />
                     {dateFilter === "all" ? "All Time" : dateFilter}
                   </Button>
@@ -262,7 +262,7 @@ export default function BuyerOrders() {
               </DropdownMenu>
 
               {/* Export */}
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto">
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>

@@ -116,39 +116,39 @@ export default function BuyerMessages() {
 
   return (
     <BuyerLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-0">
         {/* Header */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
-          <div className="flex items-center space-x-3">
-            <MessageSquare className="w-8 h-8" />
-            <div>
-              <h1 className="text-2xl font-bold">Messages</h1>
-              <p className="text-gray-300">Chat with vendors and get support</p>
+        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-4 sm:p-6 text-white border border-gray-700">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">Messages</h1>
+              <p className="text-gray-300 text-sm sm:text-base">Chat with vendors and get support</p>
             </div>
           </div>
         </div>
 
         {/* Product Context Banner */}
         {productContext && (
-          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-4 text-white">
-            <div className="flex items-center space-x-3">
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-3 sm:p-4 text-white">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               {productContext.image && (
                 <img 
                   src={productContext.image} 
                   alt={productContext.title}
-                  className="w-12 h-12 rounded-lg object-cover"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0"
                 />
               )}
-              <div>
-                <h3 className="font-semibold">Chatting about: {productContext.title}</h3>
-                <p className="text-green-100 text-sm">Vendor: {productContext.vendor}</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-sm sm:text-base truncate">Chatting about: {productContext.title}</h3>
+                <p className="text-green-100 text-xs sm:text-sm truncate">Vendor: {productContext.vendor}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {messageStats.map((stat, index) => {
             const icons = [MessageSquare, MessageSquare, Users, Clock];
             const Icon = icons[index];
@@ -156,15 +156,15 @@ export default function BuyerMessages() {
             return (
               <div 
                 key={stat.label}
-                className="bg-gray-900 rounded-xl p-6 border border-gray-700 hover:shadow-xl transition-shadow"
+                className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700 hover:shadow-xl transition-shadow"
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">{stat.label}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white">{stat.value}</p>
                   </div>
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
-                    <Icon className="w-6 h-6 text-white" />
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center flex-shrink-0`}>
+                    <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                 </div>
               </div>
@@ -182,31 +182,31 @@ export default function BuyerMessages() {
         />
 
         {/* Quick Actions */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
-          <h3 className="font-semibold text-white mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
+          <h3 className="font-semibold text-white mb-3 sm:mb-4 text-base sm:text-lg">Quick Actions</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <button 
               onClick={() => window.location.href = '/buyer/support'}
-              className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
+              className="p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
             >
-              <h4 className="font-medium text-blue-400 mb-2">Contact Support</h4>
-              <p className="text-sm text-gray-300">Get help with orders or account issues</p>
+              <h4 className="font-medium text-blue-400 mb-1 sm:mb-2 text-sm sm:text-base">Contact Support</h4>
+              <p className="text-xs sm:text-sm text-gray-300">Get help with orders or account issues</p>
             </button>
             
             <button 
               onClick={() => window.location.href = '/buyer/support'}
-              className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
+              className="p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
             >
-              <h4 className="font-medium text-green-400 mb-2">Report Issue</h4>
-              <p className="text-sm text-gray-300">Report a problem with a vendor or order</p>
+              <h4 className="font-medium text-green-400 mb-1 sm:mb-2 text-sm sm:text-base">Report Issue</h4>
+              <p className="text-xs sm:text-sm text-gray-300">Report a problem with a vendor or order</p>
             </button>
             
             <button 
               onClick={() => window.location.href = '/buyer/settings'}
-              className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
+              className="p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer sm:col-span-2 lg:col-span-1"
             >
-              <h4 className="font-medium text-purple-400 mb-2">Message Settings</h4>
-              <p className="text-sm text-gray-300">Configure notification preferences</p>
+              <h4 className="font-medium text-purple-400 mb-1 sm:mb-2 text-sm sm:text-base">Message Settings</h4>
+              <p className="text-xs sm:text-sm text-gray-300">Configure notification preferences</p>
             </button>
           </div>
         </div>

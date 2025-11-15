@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw, Star, AlertTriangle, Loader2 } from "lucide-react";
+import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw, Star, AlertTriangle, Loader2, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -147,15 +147,15 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <div className="p-3 border-b">
-                <div className="flex items-center justify-between">
+            <DropdownMenuContent align="end" className="w-[360px] p-0 bg-gray-900 border-gray-700">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-white">Notifications</h3>
-                    <p className="text-sm text-gray-400">
+                  <h3 className="font-semibold text-white text-sm">Notifications</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
                       {isLoadingNotifications ? (
-                        <span className="flex items-center">
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
                           Loading...
                         </span>
                       ) : (
@@ -163,18 +163,38 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
                       )}
                     </p>
                   </div>
+                <div className="flex items-center gap-2">
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => refreshNotifications(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      refreshNotifications(true);
+                    }}
                     disabled={isLoadingNotifications}
-                    className="text-gray-400 hover:text-white"
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="Refresh notifications"
                   >
-                    <RefreshCw className={`w-4 h-4 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3 h-3 text-gray-400 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNotificationDropdownOpen(false);
+                      navigate('/buyer/notifications');
+                    }}
+                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    title="View all notifications"
+                  >
+                    <MoreVertical className="w-3 h-3 text-gray-400" />
                   </Button>
                 </div>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              
+              {/* Notifications List */}
+              <div className="max-h-[320px] overflow-y-auto">
                 {isLoadingNotifications && allNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />

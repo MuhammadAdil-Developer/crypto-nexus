@@ -182,70 +182,74 @@ export default function AdminCommissions() {
   }
 
   return (
-    <main className="flex-1 overflow-y-auto bg-bg p-6">
+    <main className="flex-1 overflow-y-auto bg-bg p-3 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Commission Management</h1>
-          <p className="text-gray-300 mt-1">Configure commission rates for the platform</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Commission Management</h1>
+          <p className="text-gray-300 mt-1 text-sm sm:text-base">Configure commission rates for the platform</p>
         </div>
         <Button 
           onClick={handleSave}
           disabled={saving}
-          className="bg-accent text-bg hover:bg-accent-2"
+          size="sm"
+          className="bg-accent text-bg hover:bg-accent-2 w-full sm:w-auto"
         >
-          <Save className="w-4 h-4 mr-2" />
+          <Save className="w-4 h-4 sm:mr-2" />
           {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 
       {/* Info Alert */}
-      <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start">
-        <AlertCircle className="w-5 h-5 text-blue-400 mr-3 mt-0.5" />
-        <div className="text-sm text-gray-300">
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start">
+        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 mr-2 sm:mr-3 mt-0.5 flex-shrink-0" />
+        <div className="text-xs sm:text-sm text-gray-300">
           <p className="font-medium text-white mb-1">Commission Settings</p>
           <p>These rates will be applied to all new orders. Platform fee and escrow fee are combined for direct payments.</p>
         </div>
       </div>
 
       <Tabs defaultValue="settings" className="w-full" onValueChange={handleTabChange}>
-        <TabsList className="bg-surface-2 mb-6">
-          <TabsTrigger value="settings" className="text-gray-300 data-[state=active]:text-white">
-            <Percent className="w-4 h-4 mr-2" />
-            Commission Settings
+        <TabsList className="bg-surface-2 mb-4 sm:mb-6 flex-wrap">
+          <TabsTrigger value="settings" className="text-gray-300 data-[state=active]:text-white text-xs sm:text-sm">
+            <Percent className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Commission Settings</span>
+            <span className="sm:hidden">Settings</span>
           </TabsTrigger>
-          <TabsTrigger value="vendors" className="text-gray-300 data-[state=active]:text-white">
-            <Users className="w-4 h-4 mr-2" />
-            Vendor Rates
+          <TabsTrigger value="vendors" className="text-gray-300 data-[state=active]:text-white text-xs sm:text-sm">
+            <Users className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Vendor Rates</span>
+            <span className="sm:hidden">Vendors</span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="text-gray-300 data-[state=active]:text-white">
-            <History className="w-4 h-4 mr-2" />
-            Commission History
+          <TabsTrigger value="history" className="text-gray-300 data-[state=active]:text-white text-xs sm:text-sm">
+            <History className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Commission History</span>
+            <span className="sm:hidden">History</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             {/* Basic example inputs to avoid build break; extend as needed */}
             <div>
-              <Label className="text-gray-300">Platform Fee %</Label>
+              <Label className="text-gray-300 text-sm sm:text-base mb-2 block">Platform Fee %</Label>
               <Input
                 type="number"
                 value={(formData.platform_fee_rate as any) ?? ''}
                 onChange={(e) => handleInputChange('platform_fee_rate', e.target.value)}
-                className="bg-surface text-white border-gray-700"
+                className="bg-surface text-white border-gray-700 w-full"
               />
             </div>
             <div>
-              <Label className="text-gray-300">Escrow Fee %</Label>
+              <Label className="text-gray-300 text-sm sm:text-base mb-2 block">Escrow Fee %</Label>
               <Input
                 type="number"
                 value={(formData.escrow_fee_rate as any) ?? ''}
                 onChange={(e) => handleInputChange('escrow_fee_rate', e.target.value)}
-                className="bg-surface text-white border-gray-700"
+                className="bg-surface text-white border-gray-700 w-full"
               />
             </div>
-            <div className="md:col-span-2 text-sm text-gray-400">
+            <div className="sm:col-span-2 text-xs sm:text-sm text-gray-400">
               Adjust additional category rates below as needed.
             </div>
           </div>
@@ -254,9 +258,9 @@ export default function AdminCommissions() {
         <TabsContent value="vendors">
           <Card className="bg-surface-2 border border-gray-700">
             <CardHeader>
-              <CardTitle className="text-white">Vendor-Specific Rates</CardTitle>
+              <CardTitle className="text-white text-lg sm:text-xl">Vendor-Specific Rates</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-6">
               <div className="text-gray-400 text-sm">
                 Configure per-vendor overrides in a future update.
               </div>
@@ -267,26 +271,42 @@ export default function AdminCommissions() {
         <TabsContent value="history">
           <Card className="bg-surface-2 border border-gray-700">
             <CardHeader>
-              <CardTitle className="text-white">Commission History</CardTitle>
+              <CardTitle className="text-white text-lg sm:text-xl">Commission History</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-6">
               {historyLoading ? (
-                <div className="text-gray-400">Loading history...</div>
+                <div className="text-gray-400 text-sm sm:text-base">Loading history...</div>
               ) : historyError ? (
-                <div className="text-red-400">{historyError}</div>
+                <div className="text-red-400 text-sm sm:text-base">{historyError}</div>
               ) : (
                 <div className="space-y-2">
                   {commissionHistory.length === 0 ? (
-                    <div className="text-gray-400">No history available.</div>
+                    <div className="text-gray-400 text-sm sm:text-base">No history available.</div>
                   ) : (
-                    commissionHistory.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm text-gray-300 border-b border-gray-800 py-2">
-                        <span>{item.vendor}</span>
-                        <span>{item.period}</span>
-                        <span>{item.commission_rate}%</span>
-                        <span>{item.commission_earned}</span>
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                      <div className="min-w-[600px] px-4 sm:px-0">
+                        <table className="w-full">
+                          <thead className="bg-surface border-b border-gray-800">
+                            <tr>
+                              <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Vendor</th>
+                              <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Period</th>
+                              <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Rate</th>
+                              <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Earned</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {commissionHistory.map((item, idx) => (
+                              <tr key={idx} className="border-b border-gray-800 hover:bg-surface/50">
+                                <td className="p-3 text-xs sm:text-sm text-gray-300">{item.vendor}</td>
+                                <td className="p-3 text-xs sm:text-sm text-gray-300">{item.period}</td>
+                                <td className="p-3 text-xs sm:text-sm text-gray-300">{item.commission_rate}%</td>
+                                <td className="p-3 text-xs sm:text-sm text-white font-mono">{item.commission_earned}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    ))
+                    </div>
                   )}
                 </div>
               )}

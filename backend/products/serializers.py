@@ -26,6 +26,8 @@ class ProductSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     sub_category = serializers.SerializerMethodField()
     listing_title = serializers.CharField(source='headline', read_only=True)
+    gallery_images = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
     
     def get_vendor(self, obj):
         if obj.vendor:
@@ -52,13 +54,47 @@ class ProductSerializer(serializers.ModelSerializer):
             }
         return None
     
+    def get_gallery_images(self, obj):
+        """Convert gallery image paths to full URLs"""
+        if not obj.gallery_images:
+            return []
+        request = self.context.get('request') if self.context else None
+        if request:
+            urls = []
+            for path in obj.gallery_images:
+                if path.startswith('http'):
+                    urls.append(path)
+                elif path.startswith('media/'):
+                    urls.append(request.build_absolute_uri(f'/{path}'))
+                else:
+                    urls.append(request.build_absolute_uri(f'/media/{path}'))
+            return urls
+        return obj.gallery_images
+    
+    def get_documents(self, obj):
+        """Convert document paths to full URLs"""
+        if not obj.documents:
+            return []
+        request = self.context.get('request') if self.context else None
+        if request:
+            urls = []
+            for path in obj.documents:
+                if path.startswith('http'):
+                    urls.append(path)
+                elif path.startswith('media/'):
+                    urls.append(request.build_absolute_uri(f'/{path}'))
+                else:
+                    urls.append(request.build_absolute_uri(f'/media/{path}'))
+            return urls
+        return obj.documents
+    
     class Meta:
         model = Product
         fields = [
             'id', 'headline', 'listing_title', 'website', 'account_type', 'access_type', 
             'account_balance', 'description', 'price', 'additional_info',
             'delivery_time', 'credentials_display', 'main_image', 
-            'gallery_images', 'status', 'is_featured', 'views_count',
+            'gallery_images', 'documents', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
             'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason'
@@ -73,6 +109,42 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     """Detailed product serializer for product pages"""
     vendor_username = serializers.CharField(source='vendor.username', read_only=True)
     credentials_display = serializers.CharField(source='get_credentials_display', read_only=True)
+    gallery_images = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+    
+    def get_gallery_images(self, obj):
+        """Convert gallery image paths to full URLs"""
+        if not obj.gallery_images:
+            return []
+        request = self.context.get('request') if self.context else None
+        if request:
+            urls = []
+            for path in obj.gallery_images:
+                if path.startswith('http'):
+                    urls.append(path)
+                elif path.startswith('media/'):
+                    urls.append(request.build_absolute_uri(f'/{path}'))
+                else:
+                    urls.append(request.build_absolute_uri(f'/media/{path}'))
+            return urls
+        return obj.gallery_images
+    
+    def get_documents(self, obj):
+        """Convert document paths to full URLs"""
+        if not obj.documents:
+            return []
+        request = self.context.get('request') if self.context else None
+        if request:
+            urls = []
+            for path in obj.documents:
+                if path.startswith('http'):
+                    urls.append(path)
+                elif path.startswith('media/'):
+                    urls.append(request.build_absolute_uri(f'/{path}'))
+                else:
+                    urls.append(request.build_absolute_uri(f'/media/{path}'))
+            return urls
+        return obj.documents
     
     class Meta:
         model = Product
@@ -97,18 +169,8 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new products"""
     vendor = serializers.UUIDField(required=False)  # Make vendor optional for bulk uploads - UUID field
     main_image = serializers.ImageField(required=False)
-    gallery_images = serializers.ListField(
-        child=serializers.FileField(required=False),
-        required=False,
-        allow_empty=True,
-        default=list
-    )
-    documents = serializers.ListField(
-        child=serializers.FileField(required=False),
-        required=False,
-        allow_empty=True,
-        default=list
-    )
+    # Note: gallery_images and documents are handled manually in create() method
+    # They are excluded from Meta fields to avoid validation issues with multiple file uploads
     account_age = serializers.CharField(required=False, allow_blank=True)
     category = serializers.IntegerField(required=False)
     sub_category = serializers.IntegerField(required=False)  # Sub-category ID
@@ -119,7 +181,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'vendor', 'headline', 'website', 'account_type', 'access_type', 'access_method',
             'account_balance', 'description', 'price', 'discount_percentage',
             'additional_info', 'delivery_time', 'delivery_method', 'credentials',
-            'main_image', 'gallery_images', 'main_images', 'documents', 'tags',
+            'main_image', 'main_images', 'tags',
             'account_age', 'quantity_available', 'special_features', 
             'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
             'category', 'sub_category', 'escrow_enabled'
@@ -288,17 +350,9 @@ class ProductCreateSerializer(serializers.ModelSerializer):
                 elif isinstance(doc, str) and doc.strip():  # It's already a path
                     document_paths.append(doc)
         
-        # Set the processed file paths (empty lists if no files)
-        # If no files were provided, set empty lists
-        if 'gallery_images' not in validated_data:
-            validated_data['gallery_images'] = []
-        else:
-            validated_data['gallery_images'] = gallery_image_paths
-            
-        if 'documents' not in validated_data:
-            validated_data['documents'] = []
-        else:
-            validated_data['documents'] = document_paths
+        # Set the processed file paths (always set, even if empty lists)
+        validated_data['gallery_images'] = gallery_image_paths
+        validated_data['documents'] = document_paths
         
         # Process JSON fields - ensure they are proper lists
         json_fields = ['main_images', 'tags', 'special_features']

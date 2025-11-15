@@ -856,19 +856,19 @@ function BuyerHomeContent() {
       <BuyerLayout hasBanner={activeOrder && !isLoadingOrder && timeRemaining > 0}>
         <div className="space-y-6">
           {/* Hero Search Section */}
-          <div className="relative rounded-2xl bg-gradient-to-br from-blue-900/20 via-teal-900/20 to-cyan-900/20 border border-gray-700/50 p-8">
+          <div className="relative rounded-2xl bg-gradient-to-br from-blue-900/20 via-teal-900/20 to-cyan-900/20 border border-gray-700/50 p-6 sm:p-8">
             <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-sm rounded-2xl"></div>
             <div className="relative">
-              <div className="text-center mb-8">
-                <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4">
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-3xl lg:text-5xl font-bold text-white mb-3 sm:mb-4">
                   Find Your Perfect Digital Account
                 </h1>
-                <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+                <p className="text-base sm:text-xl text-gray-300 max-w-2xl mx-auto">
                   Browse thousands of premium accounts from verified vendors with crypto payments
                 </p>
               </div>
               <div className="max-w-4xl mx-auto relative">
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                   <div className="flex-1 relative" ref={searchRef}>
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
                     <Input
@@ -884,17 +884,17 @@ function BuyerHomeContent() {
                           handleHomeSearch();
                         }
                       }}
-                      className="pl-12 pr-4 py-4 text-lg bg-gray-800/80 border-gray-600 text-white placeholder-gray-400 rounded-xl backdrop-blur-sm"
+                      className="pl-12 pr-4 py-3 sm:py-4 text-base sm:text-lg bg-gray-800/80 border-gray-600 text-white placeholder-gray-400 rounded-xl backdrop-blur-sm"
                     />
                   </div>
                   <Button 
                     size="lg" 
-                    className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl"
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 rounded-xl"
                     onClick={() => handleHomeSearch()}
                   >
                     Search
                   </Button>
-                  <Button variant="outline" size="lg" className="px-6 py-4 rounded-xl border-gray-600">
+                  <Button variant="outline" size="lg" className="w-full sm:w-auto px-6 py-3 sm:py-4 rounded-xl border-gray-600">
                     <Filter className="w-5 h-5" />
                   </Button>
                 </div>
@@ -1015,18 +1015,18 @@ function BuyerHomeContent() {
 
           {/* Browse Categories */}
           <section>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center">
                 <Sparkles className="w-7 h-7 mr-3 text-yellow-400" />
                 Browse Categories
               </h2>
               <Link href="/buyer/listings">
-                <Button variant="ghost" className="text-blue-400 hover:text-blue-300">
+                <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300">
                   View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {categories.map((category) => {
                 const Icon = category.icon;
                 return (
@@ -1046,12 +1046,12 @@ function BuyerHomeContent() {
 
           {/* Enhanced Trending Products Carousel */}
           <section>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center">
                 <TrendingUp className="w-7 h-7 mr-3 text-green-400" />
                 Trending Now
               </h2>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 sm:space-x-4">
                 <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
                   <Zap className="w-3 h-3 mr-1" />
                   Hot Deals
@@ -1083,7 +1083,7 @@ function BuyerHomeContent() {
                   {Array(6).fill(trendingProducts).flat().map((product, index) => (
                     <div 
                       key={`${product.id}-${index}`} 
-                      className="flex-none w-1/3 px-3"
+                      className="flex-none w-full sm:w-1/2 lg:w-1/3 px-3"
                     >
                       <div className="relative group">
                         <ProductCard 
@@ -1160,13 +1160,13 @@ function BuyerHomeContent() {
 
           {/* Recent Orders Section */}
           <section>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center">
                 <Package className="w-7 h-7 mr-3 text-blue-400" />
                 Recent Orders
               </h2>
               <Link href="/buyer/orders">
-                <Button variant="ghost" className="text-blue-400 hover:text-blue-300">
+                <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300">
                   View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
@@ -1301,7 +1301,7 @@ function BuyerHomeContent() {
                           </div>
                         </div>
                         
-                        <div className="flex space-x-3">
+                        <div className="flex flex-wrap gap-2">
                           {(order.status === 'paid' || order.status === 'delivered' || order.status === 'confirmed') && order.canRate ? (
                             <Button 
                               variant="outline" 
@@ -1416,12 +1416,12 @@ function BuyerHomeContent() {
                 Top Vendors
               </h2>
               <Link href="/vendors">
-                <Button variant="ghost" className="text-blue-400 hover:text-blue-300">
+                <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300">
                   View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {(topVendorsData.length ? topVendorsData : topVendors).map((vendor) => (
                 <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                   <CardContent className="p-6 text-center">
@@ -1467,7 +1467,7 @@ function BuyerHomeContent() {
           </section>
 
           {/* Activity and Actions Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             {/* Quick Actions Section - First */}
             <section>
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center">

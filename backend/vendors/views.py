@@ -572,8 +572,10 @@ def get_vendor_statistics(request, vendor_username):
         
         # Calculate statistics
         total_products = vendor_products.count()
-        total_views = vendor_products.aggregate(total=Count('views_count'))['total'] or 0
-        total_favorites = vendor_products.aggregate(total=Count('favorites_count'))['total'] or 0
+        active_listings = vendor_products.filter(is_active=True).count()
+        from django.db.models import Sum
+        total_views = vendor_products.aggregate(total=Sum('views_count'))['total'] or 0
+        total_favorites = vendor_products.aggregate(total=Sum('favorites_count'))['total'] or 0
         
         # Calculate vendor rating from all product reviews
         vendor_reviews = ProductReview.objects.filter(product__vendor=vendor_user)
@@ -583,8 +585,31 @@ def get_vendor_statistics(request, vendor_username):
         # Calculate completion rate (completed orders / total orders)
         vendor_orders = Order.objects.filter(product__vendor=vendor_user)
         total_orders = vendor_orders.count()
-        completed_orders = vendor_orders.filter(order_status__in=['delivered', 'confirmed', 'completed']).count()
+        completed_orders = vendor_orders.filter(order_status__in=['delivered', 'confirmed', 'completed', 'paid']).count()
         completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 100
+        
+        # Total sales = actual completed orders count
+        total_sales = completed_orders
+        
+        # Calculate unique buyers
+        unique_buyers = vendor_orders.values('buyer').distinct().count()
+        
+        # Calculate total earnings (sum of all completed orders)
+        total_earnings = vendor_orders.filter(
+            order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+        ).aggregate(total=Sum('total_amount'))['total'] or 0
+        
+        # Get last sale date
+        last_sale = vendor_orders.filter(
+            order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+        ).order_by('-created_at').first()
+        last_sale_date = last_sale.created_at.strftime('%Y-%m-%d') if last_sale else None
+        
+        # Get most selling product
+        most_selling = vendor_orders.values('product__headline', 'product__id').annotate(
+            count=Count('id')
+        ).order_by('-count').first()
+        most_selling_product = most_selling['product__headline'] if most_selling else None
         
         # Calculate member since
         member_since = vendor_user.date_joined
@@ -595,12 +620,17 @@ def get_vendor_statistics(request, vendor_username):
             'data': {
                 'username': vendor_username,
                 'member_since': f"{years_since:.1f} years ago" if years_since >= 1 else f"{(years_since * 12):.0f} months ago",
-                'total_sales': f"{total_products} products",
+                'total_sales': total_sales,
+                'active_listings': active_listings,
                 'vendor_rating': f"{avg_rating:.1f}/5" if avg_rating > 0 else "No rating",
                 'completion_rate': f"{completion_rate:.0f}%",
                 'total_views': total_views,
                 'total_favorites': total_favorites,
-                'total_reviews': total_reviews
+                'total_reviews': total_reviews,
+                'unique_buyers': unique_buyers,
+                'total_earnings': str(total_earnings),
+                'last_sale_date': last_sale_date,
+                'most_selling_product': most_selling_product,
             }
         })
         

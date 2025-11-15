@@ -268,13 +268,13 @@ export default function AdminMessages() {
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white">Message Management</h1>
             <p className="text-gray-300 mt-1">Monitor conversations and manage content moderation</p>
           </div>
           <Button 
-            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer"
+            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer w-full md:w-auto"
             onClick={handleExportMessages}
           >
             Export Messages
@@ -333,7 +333,7 @@ export default function AdminMessages() {
         </div>
 
         <Tabs defaultValue="conversations" className="w-full">
-          <TabsList className="bg-surface-2 mb-6">
+          <TabsList className="bg-surface-2 mb-6 flex flex-wrap gap-2">
             <TabsTrigger value="conversations" className="text-gray-300 data-[state=active]:text-white">
               Conversations
             </TabsTrigger>
@@ -412,7 +412,7 @@ export default function AdminMessages() {
                           className="border-b border-border p-6 hover:bg-surface-2/50 transition-colors"
                           data-testid={`conversation-${conversation.id}`}
                         >
-                          <div className="flex items-start justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-2">
                                 <h3 className="font-medium text-white">
@@ -443,7 +443,7 @@ export default function AdminMessages() {
                               </div>
                             </div>
                             
-                            <div className="flex items-center space-x-2 ml-6">
+                            <div className="flex items-center space-x-2 sm:ml-6">
                             <Button 
                               variant="ghost" 
                               size="sm" 
@@ -593,9 +593,9 @@ export default function AdminMessages() {
           </TabsContent>
         </Tabs>
 
-        {/* Chat Modal - FIXED BACKGROUND */}
+        {/* Chat Modal - responsive */}
         <Dialog open={isChatModalOpen} onOpenChange={setIsChatModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] bg-gray-900 border-gray-700">
+          <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[80vh] bg-gray-900 border-gray-700 p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-white">
                 {selectedConversation && (

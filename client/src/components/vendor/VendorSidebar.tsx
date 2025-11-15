@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Home, 
   Package, 
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useVendorCounts } from "@/contexts/VendorCountsContext";
+import { api } from "@/services/authService";
 
 interface VendorSidebarProps {
   expanded: boolean;
@@ -79,6 +80,28 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
   const location = useLocation();
   const { localCounts } = useVendorCounts();
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["Dashboard", "Products", "Sales"]);
+  const [userData, setUserData] = useState({
+    username: "",
+    business_name: ""
+  });
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await api.get('/profile/');
+        if (response.data && response.data.success) {
+          setUserData({
+            username: response.data.data.username || "",
+            business_name: response.data.data.business_name || ""
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => 
@@ -241,8 +264,10 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
             <Store className="text-white w-4 h-4" />
           </div>
           {expanded && (
-            <div className="ml-3">
-              <p className="text-sm font-medium text-white">CryptoAccountsPlus</p>
+            <div className="ml-3 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {userData.business_name || userData.username || "Vendor"}
+              </p>
               <p className="text-xs text-gray-400">Verified Vendor</p>
             </div>
           )}

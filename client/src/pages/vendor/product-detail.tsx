@@ -207,7 +207,11 @@ export default function VendorProductDetail() {
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <img
-                src={product.main_image ? `http://localhost:8000${product.main_image}` : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400"}
+                src={product.main_image 
+                  ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
+                  : (product.main_images && product.main_images.length > 0
+                      ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                      : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400")}
                 alt={product.headline || product.listing_title || "Product"}
                 className="w-full h-64 object-cover rounded-lg"
                 onError={(e) => {
@@ -494,18 +498,24 @@ export default function VendorProductDetail() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {product.gallery_images.map((image: string, index: number) => (
+                  {product.gallery_images.map((image: string, index: number) => {
+                    const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                    return (
                     <div key={index} className="relative group">
                       <img
-                        src={image}
+                          src={imageUrl}
                         alt={`Gallery image ${index + 1}`}
                         className="w-full h-24 object-cover rounded-lg border border-gray-600 group-hover:border-blue-400 transition-colors"
+                          onError={(e) => {
+                            e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                          }}
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                         <Eye className="w-6 h-6 text-white" />
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -519,19 +529,28 @@ export default function VendorProductDetail() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {product.documents.map((doc: string, index: number) => (
+                  {product.documents.map((doc: string, index: number) => {
+                    const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                    const docName = doc.split('/').pop() || `Document ${index + 1}`;
+                    return (
                     <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
                       <FileText className="w-5 h-5 text-blue-400" />
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-medium">Document {index + 1}</p>
-                        <p className="text-gray-400 text-xs">{doc}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
+                          <p className="text-gray-400 text-xs truncate">{docName}</p>
                       </div>
-                      <Button size="sm" variant="outline" className="text-blue-400 border-blue-400 hover:bg-blue-400/10">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
+                          onClick={() => window.open(docUrl, '_blank')}
+                        >
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </Button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

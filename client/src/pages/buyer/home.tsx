@@ -116,7 +116,7 @@ const topVendors = [
 ];
 
 // API base for public endpoints
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import { API_BASE_URL, getApiUrl } from '@/config/api';
 
 function BuyerHomeContent() {
   const [topVendorsData, setTopVendorsData] = useState<any[]>([]);
@@ -693,7 +693,7 @@ function BuyerHomeContent() {
       const productName = activeOrder.product?.headline || activeOrder.product?.listing_title || "Product";
       
       // Call backend API to expire the order (this will also send notifications)
-      const response = await fetch(`http://localhost:8000/api/v1/orders/expire/`, {
+      const response = await fetch(getApiUrl('/orders/expire/'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

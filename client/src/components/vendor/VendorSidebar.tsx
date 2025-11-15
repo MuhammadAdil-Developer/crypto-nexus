@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Home, 
   Package, 
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useVendorCounts } from "@/contexts/VendorCountsContext";
+import { authService } from "@/services/authService";
 
 interface VendorSidebarProps {
   expanded: boolean;
@@ -79,6 +80,28 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
   const location = useLocation();
   const { localCounts } = useVendorCounts();
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["Dashboard", "Products", "Sales"]);
+  const [username, setUsername] = useState<string>("Vendor");
+
+  // Get current user's username
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (user && user.username) {
+      setUsername(user.username);
+    } else {
+      // Fallback: try to get from localStorage directly
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData.username) {
+            setUsername(userData.username);
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+    }
+  }, []);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => 
@@ -242,7 +265,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
           </div>
           {expanded && (
             <div className="ml-3">
-              <p className="text-sm font-medium text-white">CryptoAccountsPlus</p>
+              <p className="text-sm font-medium text-white">{username}</p>
               <p className="text-xs text-gray-400">Verified Vendor</p>
             </div>
           )}

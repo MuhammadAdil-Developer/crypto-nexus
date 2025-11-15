@@ -10,6 +10,7 @@ import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus } from "l
 import vendorService, { VendorProduct } from "@/services/vendorService";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/ToastContainer";
+import { getImageUrl, getApiUrl } from "@/config/api";
 
 export default function VendorEditProduct() {
   const { id } = useParams<{ id: string }>();
@@ -126,11 +127,11 @@ export default function VendorEditProduct() {
             // Set existing images
             if (foundProduct.main_image) {
               console.log('🔍 Setting main image preview:', foundProduct.main_image);
-              setMainImagePreview(`http://localhost:8000${foundProduct.main_image}`);
+              setMainImagePreview(getImageUrl(foundProduct.main_image));
             }
             if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
               console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-              setGalleryImagePreviews(foundProduct.gallery_images.map(img => `http://localhost:8000${img}`));
+              setGalleryImagePreviews(foundProduct.gallery_images.map(img => getImageUrl(img)));
             }
           } else {
           console.error('❌ Edit product error:', response);
@@ -268,7 +269,7 @@ export default function VendorEditProduct() {
       setSaving(true);
       setError(null);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products/${id}/resubmit/`, {
+      const response = await fetch(getApiUrl(`/products/${id}/resubmit/`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -440,7 +441,7 @@ export default function VendorEditProduct() {
               {(mainImagePreview || (product?.main_image && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview || (product?.main_image ? `http://localhost:8000${product.main_image}` : '')}
+                    src={mainImagePreview || getImageUrl(product?.main_image)}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
                     onError={(e) => {

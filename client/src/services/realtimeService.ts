@@ -1,3 +1,5 @@
+import { getWebSocketUrl } from '@/config/api';
+
 class RealtimeService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -40,7 +42,7 @@ class RealtimeService {
     console.log('🔌 Connecting to realtime WebSocket...', { userId: this.userId });
 
     try {
-      this.ws = new WebSocket(`ws://localhost:8000/ws/realtime/${this.userId}/?token=${token}`);
+      this.ws = new WebSocket(getWebSocketUrl(`/ws/realtime/${this.userId}/?token=${token}`));
       
       this.ws.onopen = () => {
         console.log('✅ Realtime WebSocket connected successfully');

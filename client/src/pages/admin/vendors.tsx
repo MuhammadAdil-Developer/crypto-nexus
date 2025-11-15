@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { authService } from "@/services/authService";
+import { API_BASE_URL, getApiUrl } from "@/config/api";
 
 // API Integration Types
 interface VendorApplication {
@@ -104,7 +105,7 @@ export default function AdminVendors() {
       const token = authService.getToken();
       if (!token) return;
 
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+      // Using API_BASE_URL from config
       let url = `${API_BASE_URL}/users/?user_type=buyer&page_size=100`;
       if (searchTerm) {
         url += `&search=${encodeURIComponent(searchTerm)}`;
@@ -143,7 +144,7 @@ export default function AdminVendors() {
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const apiUrl = 'http://localhost:8000/api/v1/vendors/applications/';
+      const apiUrl = getApiUrl('/vendors/applications/');
       console.log('🔍 Fetching applications from:', apiUrl);
       
       // Get authentication token
@@ -234,7 +235,7 @@ export default function AdminVendors() {
       }
       
       const endpoint = confirmAction === 'approve' ? 'approve' : 'reject';
-      const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${confirmApplication.id}/${endpoint}/`, {
+      const response = await fetch(getApiUrl(`/vendors/applications/${confirmApplication.id}/${endpoint}/`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -339,7 +340,7 @@ export default function AdminVendors() {
         return;
       }
 
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+      // Using API_BASE_URL from config
       
       // Send single request with all usernames
       const response = await fetch(`${API_BASE_URL}/vendors/invite/`, {
@@ -430,7 +431,7 @@ export default function AdminVendors() {
 
       // Approve all selected applications
       const approvePromises = selectedApplications.map(async (applicationId) => {
-        const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${applicationId}/approve/`, {
+        const response = await fetch(getApiUrl(`/vendors/applications/${applicationId}/approve/`), {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -494,7 +495,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${selectedApplication.id}/approve/`, {
+      const response = await fetch(getApiUrl(`/vendors/applications/${selectedApplication.id}/approve/`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -544,7 +545,7 @@ export default function AdminVendors() {
         return;
       }
       
-      const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/${selectedApplication.id}/reject/`, {
+      const response = await fetch(getApiUrl(`/vendors/applications/${selectedApplication.id}/reject/`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

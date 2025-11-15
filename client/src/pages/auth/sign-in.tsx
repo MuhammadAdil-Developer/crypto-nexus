@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
+import { Eye, EyeOff, Lock, User, Shield } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -142,15 +142,15 @@ export default function SignIn() {
       }
       
       if (response.success) {
-        // Redirect based on user type
+        // Check if user is buyer (only buyers can login from sign-in page)
         const userType = response.data.user.user_type;
-        if (userType === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (userType === 'vendor') {
-          navigate('/vendor/');
-        } else {
-          navigate('/buyer/');
+        if (userType !== 'buyer') {
+          setErrors({ general: 'Invalid username or password' });
+          setIsLoading(false);
+          return;
         }
+        // Redirect to buyer dashboard
+          navigate('/buyer/');
       } else {
         console.error('❌ Login failed:', response);
         
@@ -214,15 +214,15 @@ export default function SignIn() {
       const response = await authService.login(loginData as any);
       
       if (response.success) {
-        // Redirect based on user type
+        // Check if user is buyer (only buyers can login from sign-in page)
         const userType = response.data.user.user_type;
-        if (userType === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (userType === 'vendor') {
-          navigate('/vendor/');
-        } else {
-          navigate('/buyer/');
+        if (userType !== 'buyer') {
+          setErrors({ general: 'Invalid username or password' });
+          setIsLoading(false);
+          return;
         }
+        // Redirect to buyer dashboard
+          navigate('/buyer/');
       } else {
         if (response.error_code === 'INVALID_2FA_CODE') {
           setErrors({ general: 'Invalid 2FA code. Please try again.' });
@@ -257,90 +257,62 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
-      {/* Left Side - Professional Image */}
+    <div className="min-h-screen bg-black flex">
+      {/* Left Side - Video */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2232&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          className="w-full h-full object-cover"
+          style={{ 
+            objectFit: 'cover',
+            transition: 'opacity 0.5s ease-in-out'
           }}
-        ></div>
-        
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/60"></div>
-        
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-purple-900/70 to-black/80"></div>
-
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
-          {/* Floating Elements */}
-          <div className="absolute top-20 right-20 w-16 h-16 bg-green-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce border border-green-400/30">
-            <TrendingUp className="w-8 h-8 text-green-400" />
-          </div>
-          <div className="absolute bottom-32 left-20 w-12 h-12 bg-yellow-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse border border-yellow-400/30">
-            <Zap className="w-6 h-6 text-yellow-400" />
-          </div>
-          <div className="absolute top-1/3 left-16 w-14 h-14 bg-purple-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce delay-300 border border-purple-400/30">
-            <Globe className="w-7 h-7 text-purple-400" />
-          </div>
-
-          <div className="max-w-lg mx-auto text-center">
-            {/* Logo */}
-            <div className="">
-              <img 
-                src="/images/logo.png" 
-                className="h-32 w-auto mx-auto"
-                style={{ 
-                  opacity: 1,
-                  imageRendering: 'auto',
-                  WebkitFontSmoothing: 'antialiased',
-                  filter: 'brightness(1.1) contrast(1.2)',
-                  maxWidth: '100%',
-                  height: 'auto'
-                }}
-                alt="AccountzClub Logo"
-              />
-            </div>
-            <p className="text-lg text-blue-100/90 leading-relaxed font-medium font-sans">
-              The most secure and anonymous marketplace for digital assets and premium accounts
-            </p>
-          </div>
-          <div className="flex flex-col space-y-4 text-blue-200 mt-2">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
-                <Shield className="w-5 h-5 text-blue-400" />
-              </div>
-              <span className="text-lg mt-2">Military-Grade Security</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
-                <Lock className="w-5 h-5 text-purple-400" />
-              </div>
-              <span className="text-lg">Complete Anonymity</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-green-500/30">
-                <TrendingUp className="w-5 h-5 text-green-400" />
-              </div>
-              <span className="text-lg">24/7 Active Trading</span>
-            </div>
-          </div>
-        </div>
+          onLoadedData={(e) => {
+            // Ensure smooth rendering when video is loaded
+            e.currentTarget.style.opacity = '1';
+          }}
+          onError={(e) => {
+            console.error('Video failed to load:', e);
+            // Fallback to a dark background if video fails
+            e.currentTarget.style.display = 'none';
+          }}
+        >
+          <source src="/userlogin-sidebar.mp4" type="video/mp4" />
+        </video>
+        {/* Fade gradient overlay on right edge to blend with right side */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-blue-950/60 pointer-events-none"></div>
       </div>
 
       {/* Right Side - Sign In Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative bg-gray-950">
+        {/* Fade gradient overlay on left edge to blend with video */}
+        <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-gray-950/50 pointer-events-none z-0"></div>
+        {/* Blue light effect from left (like sunlight) - more visible */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-800/30 via-blue-900/15 to-transparent pointer-events-none z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-700/25 via-blue-800/10 to-gray-950/90 pointer-events-none z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/20 via-transparent to-gray-950/95 pointer-events-none z-0"></div>
+        {/* Lighter black overlay - not too dark */}
+        <div className="absolute inset-0 bg-gray-950/60 z-0"></div>
+        {/* Subtle geometric pattern overlay */}
+        <div 
+          className="absolute inset-0 opacity-5 z-0"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        ></div>
+        
+        <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
-            <p className="text-gray-400">Welcome back to your crypto marketplace</p>
+            <p className="text-gray-300">Welcome back to AccountZ Club</p>
           </div>
 
-          <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+          <Card className="border border-blue-800/20 backdrop-blur-md shadow-2xl shadow-blue-900/10" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
             <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ backgroundColor: '#AD0539' }}>
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <CardTitle className="text-white">Access Your Account</CardTitle>
@@ -354,12 +326,13 @@ export default function SignIn() {
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
                       id="username"
+                      
                       type="text"
                       name="username"
                       value={formData.username}
                       onChange={handleInputChange}
                       placeholder="Enter your username"
-                      className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 transition-colors"
+                      className="pl-10 bg-black/40 border-gray-700/50 text-white placeholder-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 transition-colors"
                       required
                       disabled={isLoading}
                     />
@@ -378,7 +351,7 @@ export default function SignIn() {
                       value={formData.password}
                       onChange={handleInputChange}
                       placeholder="Enter your password"
-                      className="pl-10 pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 transition-colors"
+                      className="pl-10 pr-10 bg-black/40 border-gray-700/50 text-white placeholder-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 transition-colors"
                       required
                       disabled={isLoading}
                     />
@@ -396,11 +369,11 @@ export default function SignIn() {
 
                 <div className="flex items-center justify-between">
                   <label className="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500" />
+                    <input type="checkbox" className="rounded border-gray-700/50 bg-black/40 text-pink-500 focus:ring-pink-500/50" />
                     <span className="text-sm text-gray-300">Remember me</span>
                   </label>
                   <Link to="/forgot-password">
-                    <span className="text-sm text-blue-400 hover:text-blue-300 transition-colors cursor-pointer">
+                    <span className="text-sm transition-colors cursor-pointer" style={{ color: '#f2306d' }}>
                       Forgot password?
                     </span>
                   </Link>
@@ -408,7 +381,8 @@ export default function SignIn() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                  className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  style={{ backgroundColor: '#c4144b' }}
                   disabled={isLoading}
                 >
                   {isLoading ? 'Signing In...' : 'Sign In'}
@@ -420,7 +394,7 @@ export default function SignIn() {
                 <div className="text-center">
                   <span className="text-gray-400">Don't have an account? </span>
                   <Link to="/sign-up">
-                    <span className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-semibold">
+                    <span className="transition-colors cursor-pointer font-semibold" style={{ color: '#f2306d' }}>
                       Create Account
                     </span>
                   </Link>
@@ -429,7 +403,7 @@ export default function SignIn() {
               ) : (
                 <form onSubmit={handle2FASubmit} className="space-y-6">
                   <div className="text-center mb-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ backgroundColor: '#AD0539' }}>
                       <Shield className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-white mb-2">Two-Factor Authentication</h3>
@@ -447,12 +421,12 @@ export default function SignIn() {
                         onChange={(value) => setTwoFactorCode(value)}
                       >
                         <InputOTPGroup>
-                          <InputOTPSlot index={0} className="bg-gray-700 border-gray-600 text-white" />
-                          <InputOTPSlot index={1} className="bg-gray-700 border-gray-600 text-white" />
-                          <InputOTPSlot index={2} className="bg-gray-700 border-gray-600 text-white" />
-                          <InputOTPSlot index={3} className="bg-gray-700 border-gray-600 text-white" />
-                          <InputOTPSlot index={4} className="bg-gray-700 border-gray-600 text-white" />
-                          <InputOTPSlot index={5} className="bg-gray-700 border-gray-600 text-white" />
+                          <InputOTPSlot index={0} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />
+                          <InputOTPSlot index={1} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />
+                          <InputOTPSlot index={2} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />
+                          <InputOTPSlot index={3} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />
+                          <InputOTPSlot index={4} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />
+                          <InputOTPSlot index={5} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />
                         </InputOTPGroup>
                       </InputOTP>
                     </div>
@@ -461,7 +435,8 @@ export default function SignIn() {
                     
                     <Button 
                       type="submit" 
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                      className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 shadow-lg"
+                      style={{ backgroundColor: '#d61853' }}
                       disabled={isLoading || twoFactorCode.length !== 6}
                     >
                       {isLoading ? 'Verifying...' : 'Verify Code'}
@@ -486,7 +461,7 @@ export default function SignIn() {
             </CardContent>
           </Card>
 
-          <div className="mt-6 text-center text-xs text-gray-500">
+          <div className="mt-6 text-center text-xs text-gray-400">
             Protected by enterprise-grade encryption and security protocols
           </div>
           

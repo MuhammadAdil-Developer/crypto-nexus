@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Star, Eye, EyeOff, Clock, Shield, CheckCircle, X, ArrowLeft, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Key, Lock, Download, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getImageUrl } from '@/config/api';
 
 interface Order {
   order_id: string;
@@ -93,7 +94,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `http://localhost:8000${url}`;
+    return getImageUrl(url);
   };
 
   const formatPrice = (price: string) => {

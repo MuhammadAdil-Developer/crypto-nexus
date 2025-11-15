@@ -126,7 +126,7 @@ export default function BuyerMyDisputes() {
 
   return (
     <BuyerLayout>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen" style={{ backgroundColor: '#111827' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
           {/* Header */}

@@ -15,6 +15,7 @@ import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, 
 import { SAMPLE_USERS } from "@/lib/constants";
 import { authService } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
+import { getApiUrl } from "@/config/api";
 
 // API Integration Types
 interface User {
@@ -120,7 +121,7 @@ export default function AdminUsers() {
       };
 
       // Admin can create users without captcha
-      const response = await fetch('http://localhost:8000/api/v1/auth/register/', {
+      const response = await fetch(getApiUrl('/auth/register/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +175,7 @@ export default function AdminUsers() {
           return;
         }
         
-        const response = await fetch(`http://localhost:8000/api/v1/vendors/applications/check/${user.username}/`, {
+        const response = await fetch(getApiUrl(`/vendors/applications/check/${user.username}/`), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -257,7 +258,7 @@ export default function AdminUsers() {
         updateData.is_verified = false;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/users/${selectedUser.id}/update/`, {
+      const response = await fetch(getApiUrl(`/users/${selectedUser.id}/update/`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -328,7 +329,7 @@ export default function AdminUsers() {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/users/${user.id}/verify/`, {
+      const response = await fetch(getApiUrl(`/users/${user.id}/verify/`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -383,7 +384,7 @@ export default function AdminUsers() {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/users/${user.id}/activity/`, {
+      const response = await fetch(getApiUrl(`/users/${user.id}/activity/`), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -447,7 +448,7 @@ export default function AdminUsers() {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/users/${selectedUser.id}/reset-password/`, {
+      const response = await fetch(getApiUrl(`/users/${selectedUser.id}/reset-password/`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -506,7 +507,7 @@ export default function AdminUsers() {
       }
 
       // Ban user by setting is_active to false
-      const response = await fetch(`http://localhost:8000/api/v1/users/${actionUser.id}/update/`, {
+      const response = await fetch(getApiUrl(`/users/${actionUser.id}/update/`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -557,7 +558,7 @@ export default function AdminUsers() {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/users/${actionUser.id}/delete/`, {
+      const response = await fetch(getApiUrl(`/users/${actionUser.id}/delete/`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -596,7 +597,7 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const apiUrl = 'http://localhost:8000/api/v1/users/';
+      const apiUrl = getApiUrl('/users/');
       console.log('🔍 Fetching users from:', apiUrl);
       
       // Get authentication token

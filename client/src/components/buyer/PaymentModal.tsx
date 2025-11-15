@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Copy, QrCode, Shield, Clock, CheckCircle, AlertTriangle, Wallet, Bitcoin, Eye, EyeOff, Loader2, Lock, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/config/api';
 import paymentService, { PaymentAddress, PaymentStatus } from '@/services/paymentService';
 
 interface Product {
@@ -83,7 +84,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
         use_escrow: useEscrow
       };
 
-      const orderResponse = await fetch("http://localhost:8000/api/v1/orders/", {
+      const orderResponse = await fetch(getApiUrl("/orders/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -121,7 +122,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
         setPaymentAmount(paymentData.expected_amount);
         
         // Update order with payment address
-        await fetch(`http://localhost:8000/api/v1/orders/${orderIdGenerated}/`, {
+        await fetch(getApiUrl(`/orders/${orderIdGenerated}/`), {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

@@ -8,6 +8,7 @@ import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle } from 'luci
 import { useToast } from '@/hooks/use-toast';
 import vendorService from '@/services/vendorService';
 import wishlistService from '@/services/wishlistService';
+import { API_BASE_URL, getImageUrl } from '@/config/api';
 
 interface Product {
   id: number;
@@ -131,7 +132,7 @@ const ProductDetailPage: React.FC = () => {
     try {
       console.log('🔍 Fetching reviews for product ID:', id);
       
-      const response = await fetch(`http://localhost:8000/api/v1/products/${id}/reviews/modal/?page_size=5`, {
+      const response = await fetch(`${API_BASE_URL}/products/${id}/reviews/modal/?page_size=5`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
           'Content-Type': 'application/json',
@@ -201,7 +202,7 @@ const ProductDetailPage: React.FC = () => {
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `http://localhost:8000${url}`;
+    return getImageUrl(url);
   };
 
   const formatDate = (dateString: string) => {

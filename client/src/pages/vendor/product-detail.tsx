@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/ToastContainer";
+import { getImageUrl } from "@/config/api";
 
 export default function VendorProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -212,6 +213,8 @@ export default function VendorProductDetail() {
                   : (product.main_images && product.main_images.length > 0
                       ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
                       : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400")}
+                src={getImageUrl(product.main_image) || "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400"}
+
                 alt={product.headline || product.listing_title || "Product"}
                 className="w-full h-64 object-cover rounded-lg"
                 onError={(e) => {

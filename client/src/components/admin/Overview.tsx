@@ -8,6 +8,7 @@ import { authService } from "@/services/authService";
 import { orderService, Order } from "@/services/orderService";
 import { Link, useNavigate } from "react-router-dom";
 import { useMessaging } from "@/contexts/MessagingContext";
+import { getApiUrl } from "@/config/api";
 
 // Skeleton Loader Component
 const SkeletonLoader = () => (
@@ -202,7 +203,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://localhost:8000/api/v1/users/', {
+      const response = await fetch(getApiUrl('/users/'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -228,7 +229,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://localhost:8000/api/v1/vendors/applications/', {
+      const response = await fetch(getApiUrl('/vendors/applications/'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -254,7 +255,7 @@ export function Overview() {
         return;
       }
       
-      const response = await fetch('http://localhost:8000/api/v1/products/admin/all/', {
+      const response = await fetch(getApiUrl('/products/admin/all/'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

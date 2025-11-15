@@ -12,6 +12,7 @@ import {
 import { Order, orderService } from "@/services/orderService";
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
+import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
 import { useNavigate } from "react-router-dom";
 
@@ -309,7 +310,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
       setIsApproving(order.order_id);
       
       // Call the order confirmation API
-      const response = await fetch(`http://localhost:8000/api/v1/orders/${order.id}/confirm/`, {
+      const response = await fetch(getApiUrl(`/orders/${order.id}/confirm/`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,

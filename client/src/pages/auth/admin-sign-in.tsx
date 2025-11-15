@@ -112,13 +112,13 @@ export default function AdminSignIn() {
       console.log('🔐 Admin login response:', response);
       
       if (response.success) {
-        // Check if user is actually admin
+        // Check if user is admin (only admins can login from admin-sign-in page)
         if (response.data?.user?.user_type === 'admin') {
           console.log('✅ Admin login successful, redirecting to /admin');
           navigate('/admin/dashboard');
         } else {
           setErrors({ 
-            general: 'Access denied. This login is for administrators only.' 
+            general: 'Invalid username or password' 
           });
           // Clear stored data since non-admin tried to access admin login
           localStorage.removeItem('accessToken');
@@ -152,22 +152,33 @@ export default function AdminSignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
-      {/* Left Side - Admin Theme */}
+    <div className="min-h-screen bg-black flex">
+      {/* Left Side - Video */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          className="w-full h-full object-cover"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=2074&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
+            objectFit: 'cover',
+            transition: 'opacity 0.5s ease-in-out'
           }}
-        ></div>
-        
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/70"></div>
-        
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-red-900/80 via-purple-900/70 to-black/80"></div>
+          onLoadedData={(e) => {
+            // Ensure smooth rendering when video is loaded
+            e.currentTarget.style.opacity = '1';
+          }}
+          onError={(e) => {
+            console.error('Video failed to load:', e);
+            // Fallback to a dark background if video fails
+            e.currentTarget.style.display = 'none';
+          }}
+        >
+          <source src="/adminlogin-sidebar.mp4" type="video/mp4" />
+        </video>
+        {/* Fade gradient overlay on right edge to blend with right side */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/60 pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
           {/* Floating Elements */}
@@ -221,16 +232,22 @@ export default function AdminSignIn() {
       </div>
 
       {/* Right Side - Admin Sign In Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative bg-black">
+        {/* Fade gradient overlay on left edge to blend with video */}
+        <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-black/60 pointer-events-none z-0"></div>
+        {/* Mixed gradient overlay to match video aesthetic - red/purple and black shades */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-red-950/30 to-black/90 z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/20 via-black/70 to-red-900/15 z-0"></div>
+        
+        <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Admin Access</h2>
             <p className="text-gray-400">Administrative login only</p>
           </div>
 
-          <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+          <Card className="border border-red-800/30 bg-black/80 backdrop-blur-md shadow-2xl shadow-red-900/20">
             <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#AD0539' }}>
                 <Key className="w-8 h-8 text-white" />
               </div>
               <CardTitle className="text-white">Administrative Login</CardTitle>
@@ -295,7 +312,8 @@ export default function AdminSignIn() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-to-r from-red-500 to-purple-600 hover:from-red-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                  className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                  style={{ backgroundColor: '#AD0539' }}
                   disabled={isLoading}
                 >
                   {isLoading ? 'Authenticating...' : 'Sign In'}

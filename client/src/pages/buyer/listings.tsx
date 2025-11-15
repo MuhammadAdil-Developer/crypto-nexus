@@ -19,7 +19,7 @@ import BulkPurchaseModal from "@/components/buyer/BulkPurchaseModal";
 import { useSearchParams } from "react-router-dom";
 
 // API Service
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import { API_BASE_URL } from '@/config/api';
 
 interface Product {
   id: number;

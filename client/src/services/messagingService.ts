@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+import { API_BASE_URL, getWebSocketUrl } from '@/config/api';
 
 class MessagingService {
   private ws: WebSocket | null = null;
@@ -226,7 +226,7 @@ class MessagingService {
     
     this.conversationId = conversationId;
     const token = localStorage.getItem('accessToken');
-    const wsUrl = `ws://localhost:8000/ws/chat/${conversationId}/?token=${token}`;
+    const wsUrl = getWebSocketUrl(`/ws/chat/${conversationId}/?token=${token}`);
     
     this.ws = new WebSocket(wsUrl);
     

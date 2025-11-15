@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useVendorCounts } from "@/contexts/VendorCountsContext";
 import { api } from "@/services/authService";
+import { authService } from "@/services/authService";
 
 interface VendorSidebarProps {
   expanded: boolean;
@@ -101,6 +102,29 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
     };
 
     fetchUserData();
+  }, []);
+
+  const [username, setUsername] = useState<string>("Vendor");
+
+  // Get current user's username
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (user && user.username) {
+      setUsername(user.username);
+    } else {
+      // Fallback: try to get from localStorage directly
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData.username) {
+            setUsername(userData.username);
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+    }
   }, []);
 
   const toggleCategory = (category: string) => {

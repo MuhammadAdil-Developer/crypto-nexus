@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { HelpCircle, MessageSquare, FileText, Phone, Mail, ChevronDown, Search, Loader2, MoreVertical, Plus } from "lucide-react";
+import { HelpCircle, MessageSquare, FileText, Phone, Mail, ChevronDown, Search, Loader2, MoreVertical, Plus, X, Play, BookOpen, Users } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,11 @@ export default function BuyerSupport() {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
+  
+  // Modal states for support resources
+  const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
+  const [isForumModalOpen, setIsForumModalOpen] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   const filteredFAQ = faqData.filter(item =>
     item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -550,12 +555,7 @@ export default function BuyerSupport() {
                   variant="outline" 
                   size="sm"
                   className="cursor-pointer"
-                  onClick={() => {
-                    toast({
-                      title: "User Guide",
-                      description: "User guide documentation coming soon!",
-                    });
-                  }}
+                  onClick={() => setIsUserGuideModalOpen(true)}
                 >
                   Read Guide
                 </Button>
@@ -569,12 +569,7 @@ export default function BuyerSupport() {
                   variant="outline" 
                   size="sm"
                   className="cursor-pointer"
-                  onClick={() => {
-                    toast({
-                      title: "Community Forum",
-                      description: "Community forum coming soon!",
-                    });
-                  }}
+                  onClick={() => setIsForumModalOpen(true)}
                 >
                   Visit Forum
                 </Button>
@@ -588,12 +583,7 @@ export default function BuyerSupport() {
                   variant="outline" 
                   size="sm"
                   className="cursor-pointer"
-                  onClick={() => {
-                    toast({
-                      title: "Video Tutorials",
-                      description: "Video tutorials coming soon!",
-                    });
-                  }}
+                  onClick={() => setIsVideoModalOpen(true)}
                 >
                   Watch Videos
                 </Button>
@@ -613,6 +603,243 @@ export default function BuyerSupport() {
             fetchStatistics();
           }}
         />
+
+        {/* User Guide Modal */}
+        {isUserGuideModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
+              <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#AD0539' }}>
+                    <BookOpen className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">User Guide</h2>
+                </div>
+                <button
+                  onClick={() => setIsUserGuideModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-white">Getting Started</h3>
+                  <div className="space-y-3 text-gray-300">
+                    <p>Welcome to AccountZ Club! This guide will help you navigate our platform and make the most of your experience.</p>
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <h4 className="font-semibold text-white">Creating Your Account</h4>
+                      <p className="text-sm">Sign up with a unique username and secure password. We recommend enabling two-factor authentication for added security.</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <h4 className="font-semibold text-white">Making Your First Purchase</h4>
+                      <p className="text-sm">Browse our marketplace, select a product, and proceed to checkout. You can pay with Bitcoin (BTC) or Monero (XMR).</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <h4 className="font-semibold text-white">Understanding Escrow</h4>
+                      <p className="text-sm">All purchases are protected by escrow. Your payment is held until you confirm receipt of your digital product.</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <h4 className="font-semibold text-white">Managing Orders</h4>
+                      <p className="text-sm">Track all your orders from the Orders section. You'll receive notifications for status updates.</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <h4 className="font-semibold text-white">Contacting Vendors</h4>
+                      <p className="text-sm">Use the Messages feature to communicate with vendors about your purchases or ask questions.</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
+                      <h4 className="font-semibold text-white">Dispute Resolution</h4>
+                      <p className="text-sm">If you encounter any issues, you can open a dispute. Our support team will review and help resolve the matter.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Community Forum Modal */}
+        {isForumModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
+              <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#AD0539' }}>
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Community Forum</h2>
+                </div>
+                <button
+                  onClick={() => setIsForumModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-white">Join Our Community</h3>
+                  <p className="text-gray-300">Connect with other users, share tips, and get help from experienced members of our community.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                      <h4 className="font-semibold text-white mb-2">General Discussion</h4>
+                      <p className="text-sm text-gray-400 mb-3">Share experiences and discuss platform features</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>1,234 topics</span>
+                        <span>5,678 posts</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                      <h4 className="font-semibold text-white mb-2">Buyer Tips & Tricks</h4>
+                      <p className="text-sm text-gray-400 mb-3">Learn from experienced buyers</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>456 topics</span>
+                        <span>2,345 posts</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                      <h4 className="font-semibold text-white mb-2">Payment Help</h4>
+                      <p className="text-sm text-gray-400 mb-3">Get help with cryptocurrency payments</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>234 topics</span>
+                        <span>1,567 posts</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                      <h4 className="font-semibold text-white mb-2">Security & Privacy</h4>
+                      <p className="text-sm text-gray-400 mb-3">Best practices for staying secure</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>189 topics</span>
+                        <span>987 posts</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                    <h4 className="font-semibold text-white mb-2">Forum Guidelines</h4>
+                    <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
+                      <li>Be respectful to all community members</li>
+                      <li>No spam or promotional content</li>
+                      <li>Keep discussions relevant to the platform</li>
+                      <li>Report any inappropriate behavior</li>
+                    </ul>
+                  </div>
+
+                  <Button 
+                    className="w-full"
+                    style={{ backgroundColor: '#AD0539' }}
+                    onClick={() => {
+                      toast({
+                        title: "Forum Access",
+                        description: "Forum registration will be available soon!",
+                      });
+                    }}
+                  >
+                    Join Forum
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Video Tutorials Modal */}
+        {isVideoModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
+              <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#AD0539' }}>
+                    <Play className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Video Tutorials</h2>
+                </div>
+                <button
+                  onClick={() => setIsVideoModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Video 1 */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-white">Getting Started Guide</h3>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                        title="Getting Started Guide"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      ></iframe>
+                    </div>
+                    <p className="text-sm text-gray-400">Learn how to create an account and navigate the platform</p>
+                  </div>
+
+                  {/* Video 2 */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-white">Making Your First Purchase</h3>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src="https://www.youtube.com/embed/jNQXAC9IVRw"
+                        title="Making Your First Purchase"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      ></iframe>
+                    </div>
+                    <p className="text-sm text-gray-400">Step-by-step guide to purchasing products</p>
+                  </div>
+
+                  {/* Video 3 */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-white">Understanding Escrow Protection</h3>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src="https://www.youtube.com/embed/9bZkp7q19f0"
+                        title="Understanding Escrow Protection"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      ></iframe>
+                    </div>
+                    <p className="text-sm text-gray-400">How escrow protects your transactions</p>
+                  </div>
+
+                  {/* Video 4 */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-white">Payment Methods Explained</h3>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src="https://www.youtube.com/embed/kJQP7kiw5Fk"
+                        title="Payment Methods Explained"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      ></iframe>
+                    </div>
+                    <p className="text-sm text-gray-400">Learn about Bitcoin and Monero payments</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </BuyerLayout>
   );

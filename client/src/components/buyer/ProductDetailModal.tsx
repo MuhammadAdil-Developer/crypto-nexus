@@ -12,6 +12,7 @@ import { productService } from '@/services/productService';
 import vendorService from '@/services/vendorService';
 import wishlistService from '@/services/wishlistService';
 import PaymentModal from './PaymentModal';
+import { getImageUrl } from '@/config/api';
 
 interface Product {
   id: number;
@@ -204,7 +205,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `http://localhost:8000${url}`;
+    return getImageUrl(url);
   };
 
   const formatPrice = (price: string) => {

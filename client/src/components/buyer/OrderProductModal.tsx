@@ -9,6 +9,7 @@ import { DotLoader } from '@/components/ui/dot-loader';
 import vendorService from '@/services/vendorService';
 import { productService } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
+import { getImageUrl } from '@/config/api';
 
 interface Order {
   order_id: string;
@@ -151,7 +152,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getFullUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `http://localhost:8000${url}`;
+    return getImageUrl(url);
   };
 
   const formatPrice = (price: string) => {

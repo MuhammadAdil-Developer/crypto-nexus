@@ -15,6 +15,7 @@ import AdminDashboard from './pages/admin/admin-dashboard';
 import SignIn from './pages/auth/sign-in';
 import SignUp from './pages/auth/sign-up';
 import AdminSignIn from './pages/auth/admin-sign-in';
+import VenderSignIn from './pages/auth/vender-sign-in';
 import VendorApply from './pages/vendor/apply';
 import VendorApplySuccess from './pages/vendor/apply-success';
 import VendorPublicListings from './pages/vendor/public-listings';
@@ -61,6 +62,7 @@ function App() {
             <Route path="/sign-in" element={<SignIn />} />
             <Route path="/sign-up" element={<SignUp />} />
             <Route path="/admin-sign-in" element={<AdminSignIn />} />
+            <Route path="/vender-sign-in" element={<VenderSignIn />} />
             <Route path="/payment-test" element={<PaymentTest />} />
             
             {/* Buyer Dashboard Routes */}

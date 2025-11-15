@@ -9,6 +9,7 @@ import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText
 import vendorService, { VendorProduct } from "@/services/vendorService";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/ToastContainer";
+import { getImageUrl, getApiUrl } from "@/config/api";
 
 export default function VendorEditProduct() {
   const { id } = useParams<{ id: string }>();
@@ -137,6 +138,11 @@ export default function VendorEditProduct() {
               setGalleryImagePreviews(foundProduct.gallery_images.map((img: string) => 
                 img.startsWith('http') ? img : `http://localhost:8000${img}`
               ));
+              setMainImagePreview(getImageUrl(foundProduct.main_image));
+            }
+            if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
+              console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
+              setGalleryImagePreviews(foundProduct.gallery_images.map(img => getImageUrl(img)));
             }
           } else {
           console.error('❌ Edit product error:', response);
@@ -270,7 +276,7 @@ export default function VendorEditProduct() {
       setSaving(true);
       setError(null);
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products/${id}/resubmit/`, {
+      const response = await fetch(getApiUrl(`/products/${id}/resubmit/`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -448,6 +454,7 @@ export default function VendorEditProduct() {
                         : (product?.main_images && product.main_images.length > 0
                             ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
                             : ''))}
+                    src={mainImagePreview || getImageUrl(product?.main_image)}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
                     onError={(e) => {

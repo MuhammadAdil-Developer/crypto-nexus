@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { Link, useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
+import { getApiUrl } from "@/config/api";
 
 const STEPS = [
   { id: 1, title: "Basic Info", icon: User, description: "Personal and business details" },
@@ -192,7 +193,7 @@ export default function VendorApply() {
       }
 
       // Submit to backend API
-      const response = await fetch('http://localhost:8000/api/v1/vendors/applications/create/', {
+      const response = await fetch(getApiUrl('/vendors/applications/create/'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

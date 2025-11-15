@@ -47,6 +47,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
     maxAttempts: 3
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   const generateCaptcha = () => {
     const canvas = canvasRef.current;
@@ -55,8 +56,8 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = 400;
-    const height = 240;
+    const width = 350;
+    const height = 200;
     canvas.width = width;
     canvas.height = height;
 
@@ -252,13 +253,14 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       generateCaptcha();
+      setVideoError(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center backdrop-blur-sm overflow-hidden py-8">
+    <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center backdrop-blur-sm overflow-y-auto py-4 px-4" style={{ alignItems: 'center', minHeight: '100vh' }}>
       {/* Animated Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
@@ -272,45 +274,58 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       <div className="absolute bottom-12 right-12 w-32 h-32 border-2 border-purple-500/20 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
       <div className="absolute top-1/4 right-16 w-16 h-16 bg-gradient-to-br from-pink-500/10 to-purple-500/10 rotate-45 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
-      {/* Devil Video - Positioned at Top */}
-      <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
+      {/* Devil Video/GIF - Positioned at Top, Centered */}
+      <div className="relative z-40 mb-4 flex-shrink-0" style={{ order: 1 }}>
         <div className="relative">
-          <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-cyan-400/60 shadow-2xl" style={{
-            boxShadow: '0 0 30px rgba(0, 255, 255, 0.6), 0 0 60px rgba(0, 255, 255, 0.4), 0 0 90px rgba(0, 255, 255, 0.2)'
+          <div className="w-28 h-28 rounded-full overflow-hidden" style={{
+            border: 'none'
           }}>
+            {!videoError ? (
             <video 
               autoPlay 
               loop 
               muted 
               playsInline
+                className="w-full h-full object-cover"
+                style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
+                onError={() => {
+                  console.log('Video failed to load, trying GIF fallback');
+                  setVideoError(true);
+                }}
+              >
+                <source src="/assets/captcha/devil-video.mp4" type="video/mp4" />
+                <source src="/assets/captcha/devil-video.webm" type="video/webm" />
+              </video>
+            ) : (
+              <img 
+                src="/assets/captcha/devil-video.gif"
+                alt="Security Animation"
               className="w-full h-full object-cover"
               style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
               onError={(e) => {
+                  console.log('GIF also failed to load, showing fallback emoji');
                 e.currentTarget.style.display = 'none';
                 const fallback = e.currentTarget.nextElementSibling as HTMLElement;
                 if (fallback) fallback.style.display = 'flex';
               }}
-            >
-              <source src="/assets/captcha/devil-video.mp4" type="video/mp4" />
-              <source src="/assets/captcha/devil-video.gif" type="image/gif" />
-              <source src="/assets/captcha/devil-video.webm" type="video/webm" />
-            </video>
-            <div className="w-full h-full bg-gradient-to-br from-red-500 via-pink-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold" style={{ display: 'none' }}>
+              />
+            )}
+            <div className="w-full h-full flex items-center justify-center text-white text-4xl font-bold" style={{ display: 'none', background: 'transparent' }}>
               👹
             </div>
           </div>
-          {/* Pulsing Ring Animation */}
-          <div className="absolute inset-0 rounded-full border-4 border-cyan-400/30 animate-ping"></div>
+          {/* Pulsing Ring Animation - Removed */}
         </div>
       </div>
 
-      {/* Main Captcha Modal - Centered */}
-      <div className="relative border-2 border-pink-500/30 rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden" style={{
-        background: '#aa0a57c5',
+      {/* Main Captcha Modal - Below Video */}
+      <div className="relative border-2 border-pink-500/30 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-y-auto flex-shrink-0" style={{
+        background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.7) 0%, rgba(20, 20, 20, 0.7) 50%, rgba(236, 72, 153, 0.3) 100%)',
         boxShadow: '0 0 50px rgba(236, 72, 153, 0.3), 0 20px 50px rgba(0, 0, 0, 0.5)',
-        marginTop: '40px'
+        maxHeight: 'calc(100vh - 200px)',
+        order: 2
       }}>
-        {/* Close Button */}
+        {/* Close Button - Top Right */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-gray-800/80 hover:bg-gray-700 border border-gray-600 flex items-center justify-center transition-all duration-300 hover:scale-110 group"
@@ -318,15 +333,14 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
           <X className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
         </button>
 
-        {/* Header with Shield Icon */}
-        <div className="p-6 pb-3 text-center relative">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 border-2 border-pink-500/40 mb-3">
-            <Shield className="w-7 h-7 text-pink-500" />
-          </div>
+        {/* Instruction Header */}
+        <div className="p-4 pb-3 text-center relative">
+          <h3 className="text-base font-semibold text-white mb-1.5">{title}</h3>
+          <p className="text-xs text-gray-300 leading-relaxed px-2">{instruction}</p>
         </div>
         
         {/* Captcha Canvas */}
-        <div className="px-6 pb-6">
+        <div className="px-4 pb-6">
           <div className="relative rounded-xl overflow-hidden border-2 border-pink-500/40 shadow-lg">
             <canvas
               ref={canvasRef}
@@ -397,7 +411,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
           )}
 
           {/* AccountzClub Branding */}
-          <div className="mt-4 text-center">
+          <div className="mt-4 mb-2 text-center">
             <p className="text-gray-500 text-xs">Protected by <span className="text-pink-500 font-semibold">AccountzClub Security</span></p>
           </div>
         </div>
@@ -412,8 +426,8 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
         }
       `}</style>
 
-      {/* Logo Below Modal */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-40">
+      {/* Logo Below Modal - Always Below, Never Above, Centered */}
+      <div className="relative z-40 mt-4 flex-shrink-0" style={{ order: 3 }}>
         <img 
           src="/images/logo.png" 
           alt="AccountzClub Logo" 

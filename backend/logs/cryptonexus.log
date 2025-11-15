@@ -187418,3 +187418,313 @@ Traceback (most recent call last):
     raise RequestAborted()
 django.core.exceptions.RequestAborted
 INFO 2025-11-09 13:10:46,809 services 14184 7376 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:16:22,020 services 7844 14956 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+ERROR 2025-11-09 13:21:04,992 views 7844 13568 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:21:09,013 views 7844 11844 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:21:09,024 log 7844 15476 Internal Server Error: /api/v1/wishlist/stats/
+ERROR 2025-11-09 13:21:14,037 views 7844 3736 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:21:14,054 log 7844 15476 Internal Server Error: /api/v1/wishlist/stats/
+INFO 2025-11-09 13:24:27,098 admin_notifications 7844 5256 Admin notification sent: New Ticket Message
+INFO 2025-11-09 13:26:41,982 views 7844 7784 Buyer 855f82db-a1cd-4633-b2bd-289b3b5efdfc assigned strategy: top_sellers
+INFO 2025-11-09 13:26:45,272 views 7844 8436 Buyer 855f82db-a1cd-4633-b2bd-289b3b5efdfc assigned strategy: top_sellers
+INFO 2025-11-09 13:26:53,773 services 7844 16304 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:26:55,232 services 7844 16304 BTCPay invoice created successfully: {'id': 'BMgb5Lh1DwAdt58rHdL4TH', 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'amount': '619.00000000', 'paidAmount': '0', 'checkoutLink': 'http://88.99.143.151:23000/i/BMgb5Lh1DwAdt58rHdL4TH', 'status': 'New', 'additionalStatus': 'None', 'monitoringExpiration': 1762810915, 'expirationTime': 1762724515, 'createdTime': 1762723615, 'availableStatusesForManualMarking': ['Settled', 'Invalid'], 'archived': False, 'type': 'Standard', 'currency': 'BTC', 'metadata': {'orderId': 'ORD-036D598B', 'platform': 'CryptoNexus'}, 'checkout': {'speedPolicy': 'MediumSpeed', 'paymentMethods': ['BTC-CHAIN'], 'defaultPaymentMethod': None, 'expirationMinutes': 15, 'monitoringMinutes': 1440, 'paymentTolerance': 0.0, 'redirectURL': None, 'redirectAutomatically': False, 'defaultLanguage': None, 'lazyPaymentMethods': None}, 'receipt': {'enabled': True, 'showQR': True, 'showPayments': True}}
+INFO 2025-11-09 13:26:55,786 services 7844 8168 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:26:55,787 services 7844 8168 Webhook verification debug:
+INFO 2025-11-09 13:26:55,788 services 7844 8168   - Received signature: sha256=a1668f85833216fd98bf395ae7477e4a2c52b36fa76578195a9558013b2b3bff
+INFO 2025-11-09 13:26:55,789 services 7844 8168   - Configured secret: 2E8LrToLhNwHmZUwGCkKGzg8tSXx
+INFO 2025-11-09 13:26:55,789 services 7844 8168   - Payload length: 399
+INFO 2025-11-09 13:26:55,790 services 7844 8168   - Extracted signature: a1668f85833216fd...
+INFO 2025-11-09 13:26:55,790 services 7844 8168   - Expected signature: a1668f85833216fd...
+INFO 2025-11-09 13:26:55,790 services 7844 8168   - Signature valid: True
+INFO 2025-11-09 13:26:55,791 views 7844 8168 BTCPay webhook received and verified with signature: sha256=a1668f85833216fd98bf395ae7477e4a2c52b36fa76578195a9558013b2b3bff
+INFO 2025-11-09 13:26:55,791 services 7844 8168 Raw webhook payload: {'deliveryId': 'KHU5G2xcwGQPqmR8wfVNpA', 'webhookId': 'M2P98SpXZrEipP6VArGuGM', 'originalDeliveryId': 'KHU5G2xcwGQPqmR8wfVNpA', 'isRedelivery': False, 'type': 'InvoiceCreated', 'timestamp': 1762723615, 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'invoiceId': 'BMgb5Lh1DwAdt58rHdL4TH', 'metadata': {'orderId': 'ORD-036D598B', 'platform': 'CryptoNexus'}}
+INFO 2025-11-09 13:26:55,792 services 7844 8168 Payload type: <class 'dict'>
+INFO 2025-11-09 13:26:55,792 services 7844 8168 Payload keys: ['deliveryId', 'webhookId', 'originalDeliveryId', 'isRedelivery', 'type', 'timestamp', 'storeId', 'invoiceId', 'metadata']
+INFO 2025-11-09 13:26:55,793 services 7844 8168 Processing BTCPay webhook: invoice_id=BMgb5Lh1DwAdt58rHdL4TH, order_id=ORD-036D598B, status=None, type=InvoiceCreated
+INFO 2025-11-09 13:26:55,793 services 7844 8168 Metadata: {'orderId': 'ORD-036D598B', 'platform': 'CryptoNexus'}
+INFO 2025-11-09 13:26:57,583 services 7844 16304 BTCPay payment methods: [{'activated': True, 'destination': 'tb1qrlrk6hflu9rxru2r3sv25c3dhr28u5x4a5t3te', 'paymentLink': 'bitcoin:tb1qrlrk6hflu9rxru2r3sv25c3dhr28u5x4a5t3te?amount=619&pj=http://88.99.143.151:23000/BTC/pj', 'rate': '1.0', 'paymentMethodPaid': '0', 'totalPaid': '0', 'due': '619', 'amount': '619', 'paymentMethodFee': '0', 'payments': [], 'paymentMethodId': 'BTC-CHAIN', 'additionalData': {'feeMode': 'MultiplePaymentsOnly', 'paymentMethodFeeRate': 1.0, 'payjoinEnabled': True, 'recommendedFeeRate': 1.0, 'keyPath': '0/35', 'keyIndex': 35, 'accountDerivation': None}, 'currency': 'BTC'}]
+INFO 2025-11-09 13:26:57,584 services 7844 16304 Extracted BTC address: tb1qrlrk6hflu9rxru2r3sv25c3dhr28u5x4a5t3te
+ERROR 2025-11-09 13:26:58,291 services 7844 16304 Payment address creation error: Vendor BTC address not found in application
+ERROR 2025-11-09 13:26:58,295 views 7844 16304 Payment address generation failed for order ORD-036D598B: Vendor BTC address not found in application
+INFO 2025-11-09 13:27:01,565 admin_notifications 7844 16304 Admin notification sent: New Order Created
+INFO 2025-11-09 13:27:10,745 views 7844 16304 Notifications created for order ORD-036D598B
+INFO 2025-11-09 13:27:36,542 services 7844 3396 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+WARNING 2025-11-09 13:27:38,612 log 7844 15476 Not Found: /api/v1/orders/ORD-036D598B/
+INFO 2025-11-09 13:28:25,528 services 7844 11740 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:28:29,383 services 7844 7188 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:28:33,871 services 7844 1820 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:28:37,371 services 7844 5172 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:28:41,072 services 7844 12396 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:28:46,181 services 7844 10128 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:04,625 services 7844 2468 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:06,984 services 7844 12556 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:11,319 services 7844 13292 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:21,532 services 7844 3820 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:25,018 services 7844 9900 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:27,763 services 7844 11680 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:31,125 services 7844 3124 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:29:36,079 services 7844 15168 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:30:14,038 services 7844 13628 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:30:17,397 services 7844 14792 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:30:20,910 services 7844 5440 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:30:26,270 services 7844 9912 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:30:34,253 services 7844 11672 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:30:34,524 views 7844 11672 Payment address status updated for order ORD-036D598B
+INFO 2025-11-09 13:30:34,524 views 7844 11672 Order ORD-036D598B manually confirmed as paid
+WARNING 2025-11-09 13:30:34,982 redis 7844 11672 
+Setting ssl_cert_reqs=CERT_NONE when connecting to redis means that celery will not validate the identity of the redis broker when connecting. This leaves you vulnerable to man in the middle attacks.
+
+INFO 2025-11-09 13:30:43,796 views 7844 11672 Scheduled review prompt for order ORD-036D598B in 3 minutes
+INFO 2025-11-09 13:33:24,534 services 7844 16020 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:34:12,094 services 7844 3896 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+WARNING 2025-11-09 13:34:12,748 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:12,770 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:12,792 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:12,812 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:12,839 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:12,861 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:12,884 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:12,904 log 7844 15476 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-09 13:34:12,940 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:12,964 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:12,986 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,007 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,038 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,059 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,076 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,094 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,112 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,129 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,153 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,172 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,200 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,218 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,234 log 7844 15476 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-09 13:34:13,251 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,268 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,284 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,301 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,325 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,342 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,358 log 7844 15476 Unauthorized: /api/v1/payments/status/ORD-036D598B/
+WARNING 2025-11-09 13:34:13,379 log 7844 15476 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-09 13:34:13,396 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:13,439 log 7844 15476 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-09 13:34:13,467 log 7844 15476 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-09 13:34:13,490 log 7844 15476 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-09 13:34:20,929 log 7844 15476 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-09 13:34:26,554 log 7844 15476 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-09 13:34:26,587 log 7844 15476 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-09 13:34:26,680 log 7844 15476 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-09 13:34:26,767 log 7844 15476 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-09 13:34:33,341 log 7844 15476 Unauthorized: /api/v1/orders/
+WARNING 2025-11-09 13:34:47,250 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+WARNING 2025-11-09 13:34:47,355 log 7844 15476 Not Found: /api/v1/auth/refresh/
+ERROR 2025-11-09 13:35:14,278 views 7844 11512 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:35:14,284 log 7844 15476 Internal Server Error: /api/v1/wishlist/stats/
+ERROR 2025-11-09 13:35:18,924 views 7844 2612 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:35:18,934 log 7844 15476 Internal Server Error: /api/v1/wishlist/stats/
+WARNING 2025-11-09 13:35:20,819 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+INFO 2025-11-09 13:35:20,986 views 7844 6232 Buyer 855f82db-a1cd-4633-b2bd-289b3b5efdfc assigned strategy: top_sellers
+INFO 2025-11-09 13:35:42,811 views 7844 14756 Buyer 855f82db-a1cd-4633-b2bd-289b3b5efdfc assigned strategy: top_sellers
+WARNING 2025-11-09 13:35:42,952 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+INFO 2025-11-09 13:35:43,801 services 7844 9000 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:35:45,036 services 7844 9000 BTCPay invoice created successfully: {'id': 'U7u5zmzoYvVpeedUy81r9y', 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'amount': '529.00000000', 'paidAmount': '0', 'checkoutLink': 'http://88.99.143.151:23000/i/U7u5zmzoYvVpeedUy81r9y', 'status': 'New', 'additionalStatus': 'None', 'monitoringExpiration': 1762811444, 'expirationTime': 1762725044, 'createdTime': 1762724144, 'availableStatusesForManualMarking': ['Settled', 'Invalid'], 'archived': False, 'type': 'Standard', 'currency': 'BTC', 'metadata': {'orderId': 'ORD-2339D64B', 'platform': 'CryptoNexus'}, 'checkout': {'speedPolicy': 'MediumSpeed', 'paymentMethods': ['BTC-CHAIN'], 'defaultPaymentMethod': None, 'expirationMinutes': 15, 'monitoringMinutes': 1440, 'paymentTolerance': 0.0, 'redirectURL': None, 'redirectAutomatically': False, 'defaultLanguage': None, 'lazyPaymentMethods': None}, 'receipt': {'enabled': True, 'showQR': True, 'showPayments': True}}
+INFO 2025-11-09 13:35:45,769 services 7844 692 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:35:45,770 services 7844 692 Webhook verification debug:
+INFO 2025-11-09 13:35:45,781 services 7844 692   - Received signature: sha256=0f0ffe1e2f35d5bc2632006c91c369111e168568a547dccc1d8babb7d3faac39
+INFO 2025-11-09 13:35:45,782 services 7844 692   - Configured secret: 2E8LrToLhNwHmZUwGCkKGzg8tSXx
+INFO 2025-11-09 13:35:45,783 services 7844 692   - Payload length: 399
+INFO 2025-11-09 13:35:45,784 services 7844 692   - Extracted signature: 0f0ffe1e2f35d5bc...
+INFO 2025-11-09 13:35:45,785 services 7844 692   - Expected signature: 0f0ffe1e2f35d5bc...
+INFO 2025-11-09 13:35:45,785 services 7844 692   - Signature valid: True
+INFO 2025-11-09 13:35:45,786 views 7844 692 BTCPay webhook received and verified with signature: sha256=0f0ffe1e2f35d5bc2632006c91c369111e168568a547dccc1d8babb7d3faac39
+INFO 2025-11-09 13:35:45,786 services 7844 692 Raw webhook payload: {'deliveryId': 'Kqc2rJzkVjGYFC2pNwysVH', 'webhookId': 'M2P98SpXZrEipP6VArGuGM', 'originalDeliveryId': 'Kqc2rJzkVjGYFC2pNwysVH', 'isRedelivery': False, 'type': 'InvoiceCreated', 'timestamp': 1762724144, 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'invoiceId': 'U7u5zmzoYvVpeedUy81r9y', 'metadata': {'orderId': 'ORD-2339D64B', 'platform': 'CryptoNexus'}}
+INFO 2025-11-09 13:35:45,787 services 7844 692 Payload type: <class 'dict'>
+INFO 2025-11-09 13:35:45,788 services 7844 692 Payload keys: ['deliveryId', 'webhookId', 'originalDeliveryId', 'isRedelivery', 'type', 'timestamp', 'storeId', 'invoiceId', 'metadata']
+INFO 2025-11-09 13:35:45,788 services 7844 692 Processing BTCPay webhook: invoice_id=U7u5zmzoYvVpeedUy81r9y, order_id=ORD-2339D64B, status=None, type=InvoiceCreated
+INFO 2025-11-09 13:35:45,796 services 7844 692 Metadata: {'orderId': 'ORD-2339D64B', 'platform': 'CryptoNexus'}
+INFO 2025-11-09 13:35:47,364 services 7844 9000 BTCPay payment methods: [{'activated': True, 'destination': 'tb1qt6sac3k2ay48hfdyutf6v02ep82u8zsnue6dqs', 'paymentLink': 'bitcoin:tb1qt6sac3k2ay48hfdyutf6v02ep82u8zsnue6dqs?amount=529&pj=http://88.99.143.151:23000/BTC/pj', 'rate': '1.0', 'paymentMethodPaid': '0', 'totalPaid': '0', 'due': '529', 'amount': '529', 'paymentMethodFee': '0', 'payments': [], 'paymentMethodId': 'BTC-CHAIN', 'additionalData': {'feeMode': 'MultiplePaymentsOnly', 'paymentMethodFeeRate': 1.0, 'payjoinEnabled': True, 'recommendedFeeRate': 1.0, 'keyPath': '0/36', 'keyIndex': 36, 'accountDerivation': None}, 'currency': 'BTC'}]
+INFO 2025-11-09 13:35:47,365 services 7844 9000 Extracted BTC address: tb1qt6sac3k2ay48hfdyutf6v02ep82u8zsnue6dqs
+ERROR 2025-11-09 13:35:47,956 services 7844 9000 Payment address creation error: Vendor BTC address not found in application
+ERROR 2025-11-09 13:35:47,958 views 7844 9000 Payment address generation failed for order ORD-2339D64B: Vendor BTC address not found in application
+INFO 2025-11-09 13:35:51,103 admin_notifications 7844 9000 Admin notification sent: New Order Created
+WARNING 2025-11-09 13:35:54,944 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+WARNING 2025-11-09 13:35:58,092 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+INFO 2025-11-09 13:36:00,189 views 7844 9000 Notifications created for order ORD-2339D64B
+WARNING 2025-11-09 13:36:21,460 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+WARNING 2025-11-09 13:36:34,557 log 7844 15476 Unauthorized: /api/v1/notifications/mark-all-read/
+WARNING 2025-11-09 13:36:43,049 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+INFO 2025-11-09 13:37:01,102 views 7844 15568 Buyer 855f82db-a1cd-4633-b2bd-289b3b5efdfc assigned strategy: top_sellers
+INFO 2025-11-09 13:37:03,700 views 7844 2440 Buyer 855f82db-a1cd-4633-b2bd-289b3b5efdfc assigned strategy: top_sellers
+INFO 2025-11-09 13:37:13,531 services 7844 7784 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:37:14,786 services 7844 7784 BTCPay invoice created successfully: {'id': 'P7oJvrSQ4eqcLQu1xwQ3b8', 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'amount': '529.00000000', 'paidAmount': '0', 'checkoutLink': 'http://88.99.143.151:23000/i/P7oJvrSQ4eqcLQu1xwQ3b8', 'status': 'New', 'additionalStatus': 'None', 'monitoringExpiration': 1762811534, 'expirationTime': 1762725134, 'createdTime': 1762724234, 'availableStatusesForManualMarking': ['Settled', 'Invalid'], 'archived': False, 'type': 'Standard', 'currency': 'BTC', 'metadata': {'orderId': 'ORD-F8EB0FC5', 'platform': 'CryptoNexus'}, 'checkout': {'speedPolicy': 'MediumSpeed', 'paymentMethods': ['BTC-CHAIN'], 'defaultPaymentMethod': None, 'expirationMinutes': 15, 'monitoringMinutes': 1440, 'paymentTolerance': 0.0, 'redirectURL': None, 'redirectAutomatically': False, 'defaultLanguage': None, 'lazyPaymentMethods': None}, 'receipt': {'enabled': True, 'showQR': True, 'showPayments': True}}
+INFO 2025-11-09 13:37:15,326 services 7844 3712 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:37:15,327 services 7844 3712 Webhook verification debug:
+INFO 2025-11-09 13:37:15,332 services 7844 3712   - Received signature: sha256=da575e44e77d5bb90e3068fc6db9724131449d6c87658a83a769e9018f194347
+INFO 2025-11-09 13:37:15,335 services 7844 3712   - Configured secret: 2E8LrToLhNwHmZUwGCkKGzg8tSXx
+INFO 2025-11-09 13:37:15,337 services 7844 3712   - Payload length: 399
+INFO 2025-11-09 13:37:15,338 services 7844 3712   - Extracted signature: da575e44e77d5bb9...
+INFO 2025-11-09 13:37:15,339 services 7844 3712   - Expected signature: da575e44e77d5bb9...
+INFO 2025-11-09 13:37:15,340 services 7844 3712   - Signature valid: True
+INFO 2025-11-09 13:37:15,341 views 7844 3712 BTCPay webhook received and verified with signature: sha256=da575e44e77d5bb90e3068fc6db9724131449d6c87658a83a769e9018f194347
+INFO 2025-11-09 13:37:15,343 services 7844 3712 Raw webhook payload: {'deliveryId': 'C1aJ1nms1CoEvyA6C4SPjz', 'webhookId': 'M2P98SpXZrEipP6VArGuGM', 'originalDeliveryId': 'C1aJ1nms1CoEvyA6C4SPjz', 'isRedelivery': False, 'type': 'InvoiceCreated', 'timestamp': 1762724234, 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'invoiceId': 'P7oJvrSQ4eqcLQu1xwQ3b8', 'metadata': {'orderId': 'ORD-F8EB0FC5', 'platform': 'CryptoNexus'}}
+INFO 2025-11-09 13:37:15,344 services 7844 3712 Payload type: <class 'dict'>
+INFO 2025-11-09 13:37:15,344 services 7844 3712 Payload keys: ['deliveryId', 'webhookId', 'originalDeliveryId', 'isRedelivery', 'type', 'timestamp', 'storeId', 'invoiceId', 'metadata']
+INFO 2025-11-09 13:37:15,345 services 7844 3712 Processing BTCPay webhook: invoice_id=P7oJvrSQ4eqcLQu1xwQ3b8, order_id=ORD-F8EB0FC5, status=None, type=InvoiceCreated
+INFO 2025-11-09 13:37:15,345 services 7844 3712 Metadata: {'orderId': 'ORD-F8EB0FC5', 'platform': 'CryptoNexus'}
+INFO 2025-11-09 13:37:17,089 services 7844 7784 BTCPay payment methods: [{'activated': True, 'destination': 'tb1qzq4syak98al7caq2ukukct06uygsvja5edftjk', 'paymentLink': 'bitcoin:tb1qzq4syak98al7caq2ukukct06uygsvja5edftjk?amount=529&pj=http://88.99.143.151:23000/BTC/pj', 'rate': '1.0', 'paymentMethodPaid': '0', 'totalPaid': '0', 'due': '529', 'amount': '529', 'paymentMethodFee': '0', 'payments': [], 'paymentMethodId': 'BTC-CHAIN', 'additionalData': {'feeMode': 'MultiplePaymentsOnly', 'paymentMethodFeeRate': 1.0, 'payjoinEnabled': True, 'recommendedFeeRate': 1.0, 'keyPath': '0/37', 'keyIndex': 37, 'accountDerivation': None}, 'currency': 'BTC'}]
+INFO 2025-11-09 13:37:17,090 services 7844 7784 Extracted BTC address: tb1qzq4syak98al7caq2ukukct06uygsvja5edftjk
+ERROR 2025-11-09 13:37:17,671 services 7844 7784 Payment address creation error: Vendor BTC address not found in application
+ERROR 2025-11-09 13:37:17,671 views 7844 7784 Payment address generation failed for order ORD-F8EB0FC5: Vendor BTC address not found in application
+WARNING 2025-11-09 13:37:18,396 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+INFO 2025-11-09 13:37:20,666 admin_notifications 7844 7784 Admin notification sent: New Order Created
+WARNING 2025-11-09 13:37:30,068 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+INFO 2025-11-09 13:37:32,121 views 7844 7784 Notifications created for order ORD-F8EB0FC5
+WARNING 2025-11-09 13:37:32,659 log 7844 15476 Unauthorized: /api/v1/vendor/counts/
+WARNING 2025-11-09 13:37:32,725 log 7844 15476 Unauthorized: /api/v1/disputes/list/
+WARNING 2025-11-09 13:37:32,782 log 7844 15476 Unauthorized: /api/v1/disputes/list/
+INFO 2025-11-09 13:37:50,296 services 7844 1132 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+WARNING 2025-11-09 13:37:52,252 log 7844 15476 Not Found: /api/v1/orders/ORD-F8EB0FC5/
+INFO 2025-11-09 13:38:16,151 services 7844 14524 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:38:17,976 services 7844 216 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:38:19,768 services 7844 11996 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:38:21,700 services 7844 9048 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:38:23,608 services 7844 3896 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:38:35,431 services 7844 16196 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:38:35,706 views 7844 16196 Payment address status updated for order ORD-F8EB0FC5
+INFO 2025-11-09 13:38:35,707 views 7844 16196 Order ORD-F8EB0FC5 manually confirmed as paid
+WARNING 2025-11-09 13:38:36,066 redis 7844 16196 
+Setting ssl_cert_reqs=CERT_NONE when connecting to redis means that celery will not validate the identity of the redis broker when connecting. This leaves you vulnerable to man in the middle attacks.
+
+INFO 2025-11-09 13:38:38,667 views 7844 16196 Scheduled review prompt for order ORD-F8EB0FC5 in 3 minutes
+INFO 2025-11-09 13:40:18,244 services 7844 15368 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:40:23,428 services 7844 15012 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:40:31,602 services 7844 7400 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:40:49,612 services 7844 15644 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:41:56,733 services 7844 14756 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+INFO 2025-11-09 13:41:56,734 services 7844 14756 Webhook verification debug:
+INFO 2025-11-09 13:41:56,735 services 7844 14756   - Received signature: sha256=52d94c5ab6bcc82038c27eb321c93b79676aa9498ef22e166fd8725965e7e646
+INFO 2025-11-09 13:41:56,735 services 7844 14756   - Configured secret: 2E8LrToLhNwHmZUwGCkKGzg8tSXx
+INFO 2025-11-09 13:41:56,736 services 7844 14756   - Payload length: 425
+INFO 2025-11-09 13:41:56,736 services 7844 14756   - Extracted signature: 52d94c5ab6bcc820...
+INFO 2025-11-09 13:41:56,737 services 7844 14756   - Expected signature: 52d94c5ab6bcc820...
+INFO 2025-11-09 13:41:56,737 services 7844 14756   - Signature valid: True
+INFO 2025-11-09 13:41:56,737 views 7844 14756 BTCPay webhook received and verified with signature: sha256=52d94c5ab6bcc82038c27eb321c93b79676aa9498ef22e166fd8725965e7e646
+INFO 2025-11-09 13:41:56,738 services 7844 14756 Raw webhook payload: {'partiallyPaid': False, 'deliveryId': 'X5ge32FcF6tK61pommktTK', 'webhookId': 'M2P98SpXZrEipP6VArGuGM', 'originalDeliveryId': 'X5ge32FcF6tK61pommktTK', 'isRedelivery': False, 'type': 'InvoiceExpired', 'timestamp': 1762724516, 'storeId': 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio', 'invoiceId': 'BMgb5Lh1DwAdt58rHdL4TH', 'metadata': {'orderId': 'ORD-036D598B', 'platform': 'CryptoNexus'}}
+INFO 2025-11-09 13:41:56,738 services 7844 14756 Payload type: <class 'dict'>
+INFO 2025-11-09 13:41:56,739 services 7844 14756 Payload keys: ['partiallyPaid', 'deliveryId', 'webhookId', 'originalDeliveryId', 'isRedelivery', 'type', 'timestamp', 'storeId', 'invoiceId', 'metadata']
+INFO 2025-11-09 13:41:56,739 services 7844 14756 Processing BTCPay webhook: invoice_id=BMgb5Lh1DwAdt58rHdL4TH, order_id=ORD-036D598B, status=None, type=InvoiceExpired
+INFO 2025-11-09 13:41:56,739 services 7844 14756 Metadata: {'orderId': 'ORD-036D598B', 'platform': 'CryptoNexus'}
+INFO 2025-11-09 13:42:15,170 admin_notifications 7844 6932 Admin notification sent: Order Expired
+INFO 2025-11-09 13:42:15,293 admin_notifications 7844 7400 Admin notification sent: Order Expired
+INFO 2025-11-09 13:42:18,529 views 7844 6932 Order expiration notifications created for order ORD-60B76618
+INFO 2025-11-09 13:42:18,530 views 7844 6932 Order ORD-60B76618 expired successfully
+INFO 2025-11-09 13:42:18,804 views 7844 7400 Order expiration notifications created for order ORD-60B76618
+INFO 2025-11-09 13:42:18,804 views 7844 7400 Order ORD-60B76618 expired successfully
+ERROR 2025-11-09 13:42:30,001 views 7844 14540 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:42:30,010 log 7844 15476 Internal Server Error: /api/v1/wishlist/stats/
+ERROR 2025-11-09 13:42:33,868 views 7844 5712 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-09 13:42:33,889 log 7844 15476 Internal Server Error: /api/v1/wishlist/stats/
+INFO 2025-11-14 05:52:51,518 services 3040 17492 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+WARNING 2025-11-14 05:52:52,302 log 3040 12776 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 05:52:52,478 log 3040 12776 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 05:52:52,503 log 3040 12776 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 05:52:52,638 log 3040 2804 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 06:25:15,893 log 3040 12776 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:25:35,609 log 3040 2804 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:26:50,410 log 3040 19480 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:27:00,648 log 3040 14160 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:27:20,594 log 3040 24924 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:27:48,283 log 3040 27352 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:27:59,950 log 3040 17080 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 06:28:19,967 log 3040 11852 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:18:37,412 log 3040 12776 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:18:37,413 log 3040 19480 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:18:39,687 log 3040 2804 Bad Request: /api/v1/auth/login/
+INFO 2025-11-14 15:19:11,946 services 18632 15880 Monero RPC Service initialized: http://88.99.143.151:28083/json_rpc
+WARNING 2025-11-14 15:19:12,502 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:19:12,503 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:19:14,067 log 18632 27604 Bad Request: /api/v1/auth/login/
+WARNING 2025-11-14 15:19:17,615 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:19:17,645 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:19:18,859 log 18632 27604 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-14 15:19:18,860 log 18632 19484 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-14 15:19:19,076 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:19:19,114 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:24:07,789 log 18632 27604 Bad Request: /api/v1/auth/login/
+WARNING 2025-11-14 15:28:02,024 log 18632 19484 Bad Request: /api/v1/auth/login/
+WARNING 2025-11-14 15:30:49,396 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:30:49,427 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:30:49,470 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:30:49,508 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:31:45,678 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:31:45,731 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:31:45,788 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:31:45,830 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:32:21,585 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:32:21,630 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:32:21,666 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:32:21,705 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:32:47,640 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:32:47,688 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:32:47,723 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:32:47,761 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:34:01,356 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:34:01,399 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:34:01,430 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:34:01,466 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:35:36,946 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:35:36,979 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:35:37,130 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:35:37,195 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:35:53,215 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:35:53,252 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:35:53,292 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:35:53,335 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:36:00,231 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:36:00,284 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 15:36:00,299 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 15:36:00,333 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+ERROR 2025-11-14 15:45:44,852 views 18632 9144 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-14 15:45:44,863 log 18632 19484 Internal Server Error: /api/v1/wishlist/stats/
+ERROR 2025-11-14 15:45:48,694 views 18632 22336 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-14 15:45:48,778 log 18632 27604 Internal Server Error: /api/v1/wishlist/stats/
+WARNING 2025-11-14 15:45:51,581 log 18632 19484 Not Found: /media/products/images/Screenshot_from_2025-09-25_22-16-14.png
+WARNING 2025-11-14 15:45:51,581 log 18632 27604 Not Found: /media/products/images/Screenshot_from_2025-11-12_00-27-29.png
+WARNING 2025-11-14 15:45:51,582 log 18632 12704 Not Found: /media/products/images/Screenshot_from_2025-11-11_01-23-48.png
+WARNING 2025-11-14 23:50:01,103 log 18632 12704 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 23:50:01,148 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 23:50:01,388 log 18632 19484 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-14 23:50:01,392 log 18632 27604 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-14 23:50:01,461 log 18632 12704 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 23:50:01,575 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 23:52:24,798 log 18632 19484 Bad Request: /api/v1/auth/login/
+WARNING 2025-11-14 23:53:23,847 log 18632 27604 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 23:53:23,890 log 18632 12704 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-14 23:53:23,947 log 18632 19484 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-14 23:53:24,110 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+ERROR 2025-11-14 23:54:28,739 views 18632 10376 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-14 23:54:28,751 log 18632 19484 Internal Server Error: /api/v1/wishlist/stats/
+ERROR 2025-11-14 23:54:32,727 views 18632 11344 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-14 23:54:32,741 log 18632 12704 Internal Server Error: /api/v1/wishlist/stats/
+WARNING 2025-11-14 23:54:34,474 log 18632 12704 Not Found: /media/products/images/Screenshot_from_2025-11-12_00-27-29.png
+ERROR 2025-11-14 23:54:41,119 views 18632 27004 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-14 23:54:41,145 log 18632 19484 Internal Server Error: /api/v1/wishlist/stats/
+WARNING 2025-11-14 23:54:41,720 log 18632 27604 Not Found: /media/products/images/Screenshot_from_2025-11-11_01-23-48.png
+WARNING 2025-11-14 23:54:41,723 log 18632 19092 Not Found: /media/products/images/Screenshot_from_2025-11-12_00-27-29.png
+WARNING 2025-11-14 23:54:41,725 log 18632 12704 Not Found: /media/products/images/Screenshot_from_2025-09-25_22-16-14.png
+ERROR 2025-11-14 23:54:45,215 views 18632 27420 Error fetching wishlist stats: [<class 'decimal.InvalidOperation'>]
+ERROR 2025-11-14 23:54:45,231 log 18632 19484 Internal Server Error: /api/v1/wishlist/stats/
+WARNING 2025-11-15 01:00:51,100 log 18632 27604 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-15 01:01:03,881 log 18632 12704 Not Found: /api/v1/auth/refresh/
+WARNING 2025-11-15 01:01:32,933 log 18632 19092 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-15 01:02:33,116 log 18632 12704 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-15 01:03:32,968 log 18632 19484 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-15 01:04:33,020 log 18632 27604 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-15 01:05:32,635 log 18632 19092 Unauthorized: /api/v1/buyer/counts/
+WARNING 2025-11-15 01:05:40,773 log 18632 12704 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-15 01:05:40,917 log 18632 19484 Unauthorized: /api/v1/notifications/unread-count/
+WARNING 2025-11-15 01:05:41,251 log 18632 27604 Unauthorized: /api/v1/notifications/recent/
+WARNING 2025-11-15 01:05:43,577 log 18632 19092 Unauthorized: /api/v1/notifications/recent/

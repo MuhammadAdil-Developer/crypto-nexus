@@ -25,6 +25,7 @@ export default function SignIn() {
   const [requires2FA, setRequires2FA] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isSubmitting2FA, setIsSubmitting2FA] = useState(false);
   
   // Reset CAPTCHA state on page load
   useEffect(() => {
@@ -33,6 +34,17 @@ export default function SignIn() {
     setShowCaptchaModal(false);
     setPendingLoginAttempt(false);
   }, []);
+
+  // Auto-submit when 6 digits are entered in 2FA
+  useEffect(() => {
+    if (requires2FA && twoFactorCode.length === 6 && !isLoading && !isSubmitting2FA) {
+      const timer = setTimeout(() => {
+        handle2FASubmit();
+      }, 300); // Small delay to ensure state is updated
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [twoFactorCode, requires2FA, isLoading, isSubmitting2FA]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -189,14 +201,22 @@ export default function SignIn() {
     }
   };
 
-  const handle2FASubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handle2FASubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     
     if (twoFactorCode.length !== 6) {
       setErrors({ general: 'Please enter a valid 6-digit code' });
       return;
     }
     
+    // Prevent multiple submissions
+    if (isSubmitting2FA || isLoading) {
+      return;
+    }
+    
+    setIsSubmitting2FA(true);
     setIsLoading(true);
     setErrors({});
     
@@ -253,6 +273,7 @@ export default function SignIn() {
       }
     } finally {
       setIsLoading(false);
+      setIsSubmitting2FA(false);
     }
   };
 
@@ -311,12 +332,14 @@ export default function SignIn() {
           </div>
 
           <Card className="border border-blue-800/20 backdrop-blur-md shadow-2xl shadow-blue-900/10" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
-            <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ backgroundColor: '#AD0539' }}>
-                <Lock className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-white">Access Your Account</CardTitle>
-            </CardHeader>
+            {!requires2FA && (
+              <CardHeader className="text-center pb-4">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ backgroundColor: '#AD0539' }}>
+                  <Lock className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-white">Access Your Account</CardTitle>
+              </CardHeader>
+            )}
             <CardContent>
               {!requires2FA ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -402,7 +425,7 @@ export default function SignIn() {
               </form>
               ) : (
                 <form onSubmit={handle2FASubmit} className="space-y-6">
-                  <div className="text-center mb-4">
+                  <div className="text-center mb-4 pt-4">
                     <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ backgroundColor: '#AD0539' }}>
                       <Shield className="w-8 h-8 text-white" />
                     </div>
@@ -418,7 +441,9 @@ export default function SignIn() {
                       <InputOTP
                         maxLength={6}
                         value={twoFactorCode}
-                        onChange={(value) => setTwoFactorCode(value)}
+                        onChange={(value) => {
+                          setTwoFactorCode(value);
+                        }}
                       >
                         <InputOTPGroup>
                           <InputOTPSlot index={0} className="bg-black/40 border-gray-700/50 text-white focus:border-pink-500/50" />

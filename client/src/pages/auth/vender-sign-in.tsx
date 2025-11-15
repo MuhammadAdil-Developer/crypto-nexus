@@ -304,7 +304,7 @@ export default function VenderSignIn() {
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
-            <p className="text-gray-300">Welcome back to your crypto marketplace</p>
+            <p className="text-gray-300">Welcome back to AccountZ Club</p>
           </div>
 
           <Card className="border border-pink-800/30 bg-black/80 backdrop-blur-md shadow-2xl shadow-pink-900/20">

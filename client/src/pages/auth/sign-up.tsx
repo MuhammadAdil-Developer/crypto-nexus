@@ -299,7 +299,7 @@ export default function SignUp() {
           </Card>
 
         {/* Features */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
           <div className="text-center">
             <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
               <Shield className="w-4 h-4 text-blue-400" />

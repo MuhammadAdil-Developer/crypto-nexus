@@ -15,41 +15,53 @@ export function MarketplaceHeader() {
   };
 
   return (
-    <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50">
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row justify-between items-center py-3 gap-4 lg:gap-2 lg:overflow-hidden">
-          {/* Logo & Navigation */}
-          <div className="flex items-center space-x-8 flex-shrink-0 hidden lg:flex">
-            <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer">
-              <img 
-                src="/images/logo.png" 
-                alt="AccountzClub Logo" 
-                className="h-16 w-auto"
-                style={{ 
-                  imageRendering: '-webkit-optimize-contrast',
-                  transformOrigin: 'left center'
-                }}
-              />
-            </Link>
+    <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 sticky top-0 z-50">
+      <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-8">
+        {/* Mobile Layout: Logo + Buttons on top row, Search below */}
+        <div className="flex flex-col sm:flex-row justify-between items-center py-2 sm:py-3 gap-2 sm:gap-3 lg:gap-2">
+          {/* Top Row: Logo + Auth Buttons (Mobile) / Logo only (Desktop) */}
+          <div className="flex items-center justify-between w-full sm:w-auto order-1">
+            {/* Logo */}
+            <div className="flex items-center">
+              <Link to="/" className="flex items-center cursor-pointer">
+                <img 
+                  src="/images/logo.png" 
+                  alt="AccountzClub Logo" 
+                  className="h-10 sm:h-12 lg:h-16 w-auto"
+                  style={{ 
+                    imageRendering: '-webkit-optimize-contrast',
+                    transformOrigin: 'left center'
+                  }}
+                />
+              </Link>
+            </div>
             
-            <nav className="hidden lg:flex items-center space-x-6">
-              <Link href="/">
-                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium text-sm leading-none whitespace-nowrap" data-testid="nav-browse">BROWSE</span>
-              </Link>
-              <Link href="/categories">
-                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium text-sm leading-none whitespace-nowrap" data-testid="nav-categories">CATEGORIES</span>
-              </Link>
-              <Link href="/vendors">
-                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium text-sm leading-none whitespace-nowrap" data-testid="nav-vendors">VENDORS</span>
-              </Link>
-              <Link href="/support">
-                <span className="text-pink-600 hover:text-pink-500 cursor-pointer font-medium text-sm leading-none whitespace-nowrap" data-testid="nav-support">SUPPORT</span>
-              </Link>
-            </nav>
+            {/* Auth Actions - Mobile: Right side of top row */}
+            <div className="flex items-center space-x-2 sm:hidden">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSignUp}
+                className="border-pink-500/50 text-pink-400 hover:bg-pink-500/20 hover:border-pink-400 hover:text-pink-300 bg-transparent backdrop-blur-sm shadow-lg hover:shadow-pink-500/25 transition-all duration-300 hover:scale-105 font-medium text-xs px-3"
+                data-testid="signup-button"
+              >
+                <User className="w-3 h-3 mr-1.5" />
+                Sign Up
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={handleSignIn}
+                className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg hover:shadow-pink-500/50 transition-all duration-300 hover:scale-105 font-medium backdrop-blur-sm text-xs px-3"
+                data-testid="signin-button"
+              >
+                <LogIn className="w-3 h-3 mr-1.5" />
+                Sign In
+              </Button>
+            </div>
           </div>
           
-          {/* Search Bar */}
-          <div className="w-full lg:flex-1 lg:min-w-0 mx-2 lg:mx-2 order-3 lg:order-2 px-2">
+          {/* Search Bar - Mobile: Full width below, Desktop: Middle */}
+          <div className="w-full sm:flex-1 sm:min-w-0 order-2 sm:order-2 px-0 sm:px-4">
             <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="w-4 h-4 flex-shrink-0 text-gray-400" />
@@ -63,13 +75,13 @@ export function MarketplaceHeader() {
             </div>
           </div>
           
-          {/* Auth Actions */}
-          <div className="flex items-center space-x-4 order-2 lg:order-3 flex-shrink-0">
+          {/* Auth Actions - Desktop: Right side */}
+          <div className="hidden sm:flex items-center space-x-3 lg:space-x-4 order-3 flex-shrink-0">
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleSignUp}
-              className="border-pink-500/50 text-pink-400 hover:bg-pink-500/20 hover:border-pink-400 hover:text-pink-300 bg-transparent backdrop-blur-sm shadow-lg hover:shadow-pink-500/25 transition-all duration-300 hover:scale-105 font-medium"
+              className="border-pink-500/50 text-pink-400 hover:bg-pink-500/20 hover:border-pink-400 hover:text-pink-300 bg-transparent backdrop-blur-sm shadow-lg hover:shadow-pink-500/25 transition-all duration-300 hover:scale-105 font-medium text-sm"
               data-testid="signup-button"
             >
               <User className="w-4 h-4 mr-2" />
@@ -78,7 +90,7 @@ export function MarketplaceHeader() {
             <Button 
               size="sm" 
               onClick={handleSignIn}
-              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg hover:shadow-pink-500/50 transition-all duration-300 hover:scale-105 font-medium backdrop-blur-sm"
+              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg hover:shadow-pink-500/50 transition-all duration-300 hover:scale-105 font-medium backdrop-blur-sm text-sm"
               data-testid="signin-button"
             >
               <LogIn className="w-4 h-4 mr-2" />

@@ -87,20 +87,20 @@ export function HomePage() {
         }} />
       </div>
       
-      {/* Vertical Pink Line */}
-      <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-pink-500 to-pink-600 z-20"></div>
+      {/* Vertical Pink Line - Hidden on mobile, visible on larger screens */}
+      <div className="hidden sm:block absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-pink-500 to-pink-600 z-20"></div>
       
       {/* Hero Section */}
       <section className="bg-gradient-to-b from-transparent via-surface/50 to-surface relative z-10 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
           <div className="text-center">
             {/* AC Logo and THE ONE AND ONLY */}
-            <div className="mb-12 animate-fade-in-up">
-              <div className="mb-6 transform hover:scale-105 transition-transform duration-500">
+            <div className="mb-6 sm:mb-8 lg:mb-12 animate-fade-in-up">
+              <div className="mb-4 sm:mb-6 transform hover:scale-105 transition-transform duration-500">
                 <img 
                   src="/images/ac-logo-monogram.png" 
                   alt="AC Logo Monogram" 
-                  className="w-40 h-40 object-contain mx-auto drop-shadow-2xl"
+                  className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 object-contain mx-auto drop-shadow-2xl"
                   loading="eager"
                   fetchPriority="high"
                 />
@@ -109,7 +109,7 @@ export function HomePage() {
                 <img 
                   src="/images/the-one-and-only.png" 
                   alt="THE ONE AND ONLY" 
-                  className="h-10 object-contain mx-auto filter drop-shadow-lg"
+                  className="h-6 sm:h-8 lg:h-10 object-contain mx-auto filter drop-shadow-lg px-4"
                   loading="eager"
                   fetchPriority="high"
                 />
@@ -117,33 +117,33 @@ export function HomePage() {
             </div>
             
             {/* Search Bar */}
-            <div className="max-w-3xl mx-auto mb-12 animate-fade-in-up-delay">
+            <div className="max-w-3xl mx-auto mb-6 sm:mb-8 lg:mb-12 animate-fade-in-up-delay px-2">
               <div className="relative group">
                 <Input
                   type="text"
-                  placeholder="Search Netflix, Spotify, Gaming accounts..."
-                  className="pl-6 pr-20 py-6 rounded-3xl bg-white/10 backdrop-blur-md border-2 border-pink-500/30 text-text placeholder-muted focus:ring-4 focus:ring-pink-500/20 focus:border-pink-500 text-xl shadow-2xl transition-all duration-300 group-hover:border-pink-500/50"
+                  placeholder="Search Netflix, Spotify, Gaming..."
+                  className="pl-4 sm:pl-6 pr-16 sm:pr-20 py-4 sm:py-5 lg:py-6 rounded-2xl sm:rounded-3xl bg-white/10 backdrop-blur-md border-2 border-pink-500/30 text-text placeholder-muted focus:ring-4 focus:ring-pink-500/20 focus:border-pink-500 text-sm sm:text-base lg:text-xl shadow-2xl transition-all duration-300 group-hover:border-pink-500/50"
                   data-testid="hero-search-input"
                 />
-                <Button className="absolute inset-y-0 right-0 mr-3 my-3 bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 text-white w-14 h-14 rounded-2xl p-0 shadow-xl transform hover:scale-105 transition-all duration-300" data-testid="hero-search-button">
-                  <Search className="w-6 h-6" />
+                <Button className="absolute inset-y-0 right-0 mr-2 sm:mr-3 my-2 sm:my-3 bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 text-white w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl p-0 shadow-xl transform hover:scale-105 transition-all duration-300" data-testid="hero-search-button">
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
                 </Button>
               </div>
             </div>
             
-            {/* Trust Badges */}
-            <div className="flex items-center justify-center space-x-12 text-sm animate-fade-in-up-delay-2">
-              <div className="flex items-center bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300">
-                <Bitcoin className="text-warning w-5 h-5 mr-3 animate-bounce" />
-                <span className="font-medium">BTC & XMR Payments</span>
+            {/* Trust Badges - Stack on mobile, horizontal on desktop */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 lg:gap-6 xl:gap-12 text-xs sm:text-sm animate-fade-in-up-delay-2 px-4">
+              <div className="flex items-center bg-white/10 backdrop-blur-md px-4 sm:px-5 lg:px-6 py-2 sm:py-2.5 lg:py-3 rounded-full border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300 w-full sm:w-auto justify-center">
+                <Bitcoin className="text-warning w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 animate-bounce flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">BTC & XMR Payments</span>
               </div>
-              <div className="flex items-center bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300">
-                <Shield className="text-success w-5 h-5 mr-3 animate-bounce" />
-                <span className="font-medium">Escrow Protection</span>
+              <div className="flex items-center bg-white/10 backdrop-blur-md px-4 sm:px-5 lg:px-6 py-2 sm:py-2.5 lg:py-3 rounded-full border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300 w-full sm:w-auto justify-center">
+                <Shield className="text-success w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 animate-bounce flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">Escrow Protection</span>
               </div>
-              <div className="flex items-center bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300">
-                <UserX className="text-pink-500 w-5 h-5 mr-3 animate-bounce" />
-                <span className="font-medium">Anonymous Trading</span>
+              <div className="flex items-center bg-white/10 backdrop-blur-md px-4 sm:px-5 lg:px-6 py-2 sm:py-2.5 lg:py-3 rounded-full border border-pink-500/20 hover:border-pink-500/40 transition-all duration-300 w-full sm:w-auto justify-center">
+                <UserX className="text-pink-500 w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 animate-bounce flex-shrink-0" />
+                <span className="font-medium whitespace-nowrap">Anonymous Trading</span>
               </div>
             </div>
           </div>
@@ -151,32 +151,32 @@ export function HomePage() {
       </section>
       
       {/* Featured Categories */}
-      <section className="py-20 relative z-10">
+      <section className="py-8 sm:py-12 lg:py-20 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-black bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4 uppercase tracking-wider" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-3 sm:mb-4 uppercase tracking-wider px-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               Featured Categories
             </h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-pink-500 to-purple-600 mx-auto rounded-full"></div>
+            <div className="w-16 sm:w-20 lg:w-24 h-0.5 sm:h-1 bg-gradient-to-r from-pink-500 to-purple-600 mx-auto rounded-full"></div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
             {SAMPLE_CATEGORIES.map((category, index) => (
               <Card key={category.id} className="crypto-card cursor-pointer group border-pink-500/20 hover:border-pink-500/60 transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/20" data-testid={`category-${category.id}`} style={{ animationDelay: `${index * 100}ms` }}>
-                <CardContent className="p-8">
-                  <div className="relative overflow-hidden rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-500">
+                <CardContent className="p-4 sm:p-6 lg:p-8">
+                  <div className="relative overflow-hidden rounded-xl sm:rounded-2xl mb-4 sm:mb-5 lg:mb-6 group-hover:scale-110 transition-transform duration-500">
                   <img 
                     src={category.image} 
                     alt={category.title}
-                      className="w-full h-40 object-cover" 
+                      className="w-full h-32 sm:h-36 lg:h-40 object-cover" 
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
-                  <h3 className="text-xl font-bold text-text mb-3 uppercase tracking-wide group-hover:text-pink-500 transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{category.title}</h3>
-                  <p className="text-sm mb-6 uppercase text-gray-400 group-hover:text-gray-300 transition-colors duration-300">{category.description}</p>
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-text mb-2 sm:mb-3 uppercase tracking-wide group-hover:text-pink-500 transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{category.title}</h3>
+                  <p className="text-xs sm:text-sm mb-4 sm:mb-5 lg:mb-6 uppercase text-gray-400 group-hover:text-gray-300 transition-colors duration-300">{category.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-pink-500 text-sm font-bold uppercase bg-pink-500/10 px-3 py-1 rounded-full">{category.listings} listings</span>
-                    <ArrowRight className="w-5 h-5 group-hover:text-pink-500 group-hover:translate-x-1 transition-all duration-300" />
+                    <span className="text-pink-500 text-xs sm:text-sm font-bold uppercase bg-pink-500/10 px-2 sm:px-3 py-1 rounded-full">{category.listings} listings</span>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:text-pink-500 group-hover:translate-x-1 transition-all duration-300" />
                   </div>
                 </CardContent>
               </Card>
@@ -186,23 +186,23 @@ export function HomePage() {
       </section>
       
       {/* Featured Listings */}
-      <section className="py-20 bg-gradient-to-b from-surface to-bg relative z-10">
+      <section className="py-8 sm:py-12 lg:py-20 bg-gradient-to-b from-surface to-bg relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-black bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-4 uppercase tracking-wider" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent mb-3 sm:mb-4 uppercase tracking-wider px-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               Featured Listings
             </h2>
-            <div className="w-24 h-1 bg-gradient-to-r from-pink-500 to-purple-600 mx-auto rounded-full mb-8"></div>
-            <a href="#" className="inline-flex items-center text-pink-500 hover:text-pink-400 font-bold text-lg uppercase tracking-wide transition-all duration-300 hover:translate-x-2">
+            <div className="w-16 sm:w-20 lg:w-24 h-0.5 sm:h-1 bg-gradient-to-r from-pink-500 to-purple-600 mx-auto rounded-full mb-4 sm:mb-6 lg:mb-8"></div>
+            <a href="#" className="inline-flex items-center text-pink-500 hover:text-pink-400 font-bold text-sm sm:text-base lg:text-lg uppercase tracking-wide transition-all duration-300 hover:translate-x-2 px-4">
               View All Listings
-              <ArrowRight className="w-5 h-5 ml-2" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
             </a>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
             {SAMPLE_LISTINGS.map((listing) => (
               <Card key={listing.id} className="bg-bg border border-border hover:border-pink-500/30 transition-colors cursor-pointer" data-testid={`listing-${listing.id}`}>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-5 lg:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <StatusBadge 
                       status={listing.delivery} 
@@ -256,16 +256,16 @@ export function HomePage() {
       </section>
       
       {/* Privacy & Security Info */}
-      <section className="py-16 relative z-10">
+      <section className="py-8 sm:py-12 lg:py-16 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-text mb-4 uppercase">Why Choose AccountzClub?</h2>
-            <p className="max-w-2xl mx-auto">
+          <div className="text-center mb-8 sm:mb-10 lg:mb-12">
+            <h2 className="text-xl sm:text-2xl font-bold text-text mb-3 sm:mb-4 uppercase px-4">Why Choose AccountzClub?</h2>
+            <p className="max-w-2xl mx-auto text-sm sm:text-base px-4">
               We prioritize your privacy and security above all else, providing a safe environment for anonymous digital commerce.
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7 lg:gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-pink-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <UserX className="text-pink-500 w-8 h-8" />
@@ -295,15 +295,15 @@ export function HomePage() {
       
       {/* Footer */}
       <footer className="bg-gradient-to-b from-bg to-gray-900 border-t border-pink-500/20 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-            <div className="md:col-span-2">
-              <div className="flex items-center mb-6">
-            <Link href="/" className="flex items-center flex-shrink-0 pr-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-12">
+            <div className="sm:col-span-2 lg:col-span-2">
+              <div className="flex items-center mb-4 sm:mb-6">
+            <Link href="/" className="flex items-center flex-shrink-0 pr-4 sm:pr-8">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
-                className="h-18 w-auto"
+                className="h-12 sm:h-14 lg:h-18 w-auto"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
                   transformOrigin: 'left center'
@@ -312,17 +312,17 @@ export function HomePage() {
             </Link>
                 
               </div>
-              <p className="text-gray-300 mb-6 text-lg leading-relaxed">
+              <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base lg:text-lg leading-relaxed">
                 The secure, anonymous marketplace for digital accounts. Trade safely with cryptocurrency payments and escrow protection.
               </p>
-              <p className="text-sm text-gray-400 bg-gray-800/50 p-4 rounded-lg border border-pink-500/20">
+              <p className="text-xs sm:text-sm text-gray-400 bg-gray-800/50 p-3 sm:p-4 rounded-lg border border-pink-500/20">
                 🔒 We do not collect unnecessary personal data. Accounts are anonymous. Use recovery phrase to regain access.
               </p>
             </div>
             
             <div>
-              <h4 className="text-lg font-bold text-white mb-6 uppercase tracking-wide" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Marketplace</h4>
-              <ul className="space-y-4 text-sm">
+              <h4 className="text-base sm:text-lg font-bold text-white mb-4 sm:mb-6 uppercase tracking-wide" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Marketplace</h4>
+              <ul className="space-y-3 sm:space-y-4 text-xs sm:text-sm">
                 <li><a href="#" className="text-gray-300 hover:text-pink-500 transition-all duration-300 hover:translate-x-2 inline-block">Browse Listings</a></li>
                 <li><a href="#" className="text-gray-300 hover:text-pink-500 transition-all duration-300 hover:translate-x-2 inline-block">Categories</a></li>
                 <li><a href="#" className="text-gray-300 hover:text-pink-500 transition-all duration-300 hover:translate-x-2 inline-block">Featured Vendors</a></li>
@@ -331,8 +331,8 @@ export function HomePage() {
             </div>
             
             <div>
-              <h4 className="text-lg font-bold text-white mb-6 uppercase tracking-wide" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Support</h4>
-              <ul className="space-y-4 text-sm">
+              <h4 className="text-base sm:text-lg font-bold text-white mb-4 sm:mb-6 uppercase tracking-wide" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Support</h4>
+              <ul className="space-y-3 sm:space-y-4 text-xs sm:text-sm">
                 <li><a href="#" className="text-gray-300 hover:text-pink-500 transition-all duration-300 hover:translate-x-2 inline-block">Help Center</a></li>
                 <li><a href="#" className="text-gray-300 hover:text-pink-500 transition-all duration-300 hover:translate-x-2 inline-block">Dispute Resolution</a></li>
                 <li><a href="#" className="text-gray-300 hover:text-pink-500 transition-all duration-300 hover:translate-x-2 inline-block">Privacy Policy</a></li>
@@ -341,8 +341,8 @@ export function HomePage() {
             </div>
           </div>
           
-          <div className="border-t border-pink-500/20 mt-12 pt-8 text-center">
-            <p className="text-sm text-gray-400 flex items-center justify-center gap-2 flex-wrap">
+          <div className="border-t border-pink-500/20 mt-8 sm:mt-10 lg:mt-12 pt-6 sm:pt-7 lg:pt-8 text-center">
+            <p className="text-xs sm:text-sm text-gray-400 flex items-center justify-center gap-1 sm:gap-2 flex-wrap px-4">
               <span>© 2024</span>
               <Link href="/" className="inline-flex items-center">
                 <img 

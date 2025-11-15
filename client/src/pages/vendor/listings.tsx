@@ -250,85 +250,88 @@ export default function VendorListings() {
 
   return (
     <>
-      <div className="space-y-8 relative z-10">
+      <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">My Listings</h1>
-            <p className="text-gray-300 mt-1">Manage your product listings</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">My Listings</h1>
+            <p className="text-gray-300 mt-1 text-sm sm:text-base">Manage your product listings</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
             <Button
               variant="outline"
-              className="border-border text-gray-300 hover:bg-surface-2"
+              size="sm"
+              className="border-border text-gray-300 hover:bg-surface-2 text-xs sm:text-base w-full sm:w-auto"
               onClick={() => navigate('/vendor/listings/bulk-upload')}
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Bulk Upload
+              <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Bulk Upload</span>
+              <span className="sm:hidden">Bulk</span>
             </Button>
             <Button
-              className="bg-accent text-bg hover:bg-accent-2"
+              size="sm"
+              className="bg-accent text-bg hover:bg-accent-2 text-xs sm:text-base w-full sm:w-auto"
               onClick={() => navigate('/vendor/listings/add')}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
               Add Product
             </Button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-accent text-sm font-semibold">T</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-accent text-xs sm:text-sm font-semibold">T</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400">Total Products</p>
-                  <p className="text-lg font-bold text-white">{stats.totalProducts}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Total Products</p>
+                  <p className="text-base sm:text-lg font-bold text-white">{stats.totalProducts}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-green-400 text-sm font-semibold">A</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-green-400 text-xs sm:text-sm font-semibold">A</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400">Active Listings</p>
-                  <p className="text-lg font-bold text-white">{stats.activeListings}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Active Listings</p>
+                  <p className="text-base sm:text-lg font-bold text-white">{stats.activeListings}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-yellow-400 text-sm font-semibold">R</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-yellow-400 text-xs sm:text-sm font-semibold">R</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400">Under Review</p>
-                  <p className="text-lg font-bold text-white">{stats.underReview}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Under Review</p>
+                  <p className="text-base sm:text-lg font-bold text-white">{stats.underReview}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-red-400 text-sm font-semibold">O</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-500/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-red-400 text-xs sm:text-sm font-semibold">O</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400">Out of Stock</p>
-                  <p className="text-lg font-bold text-white">{stats.outOfStock}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Out of Stock</p>
+                  <p className="text-base sm:text-lg font-bold text-white">{stats.outOfStock}</p>
                 </div>
               </div>
             </CardContent>
@@ -337,22 +340,22 @@ export default function VendorListings() {
 
         {/* Filters */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div className="flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search listings..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                    className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 text-sm sm:text-base"
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                  <SelectTrigger className="w-full sm:w-40 bg-surface-2 border-border text-white text-sm sm:text-base">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="bg-surface-2 border-border">
@@ -363,9 +366,9 @@ export default function VendorListings() {
                     <SelectItem value="draft" className="text-white">Draft</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" className="border-border hover:bg-surface-2">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
+                <Button variant="outline" size="sm" className="border-border hover:bg-surface-2 text-xs sm:text-sm w-full sm:w-auto">
+                  <Filter className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Filter</span>
                 </Button>
               </div>
             </div>
@@ -374,12 +377,181 @@ export default function VendorListings() {
 
         {/* Products Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-pink-600">Products ({filteredProducts.length})</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Products ({filteredProducts.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              {/* Mobile Card View */}
+              <div className="block lg:hidden space-y-3 sm:space-y-4 p-4 sm:p-6">
+                {getPaginatedProducts().map((product) => (
+                  <div key={product.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div className="flex items-start space-x-3 mb-3">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                        {product.main_image ? (
+                          <img
+                            src={product.main_image}
+                            alt={product.headline}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-sm sm:text-base">📦</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium text-sm sm:text-base break-words mb-1">{product.headline}</p>
+                        <p className="text-gray-400 text-xs sm:text-sm truncate">{product.website}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 mb-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge className={`${getStatusColor(product.status)} text-[10px] sm:text-xs`}>
+                                {getStatusDisplayName(product.status)}
+                              </Badge>
+                            </TooltipTrigger>
+                            {product.status === 'rejected' && product.rejection_reason && (
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-semibold mb-1">Rejection Reason:</p>
+                                <p className="text-sm">{product.rejection_reason}</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
+                        {product.status === 'rejected' && product.rejection_reason && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRejectionProduct(product);
+                              setRejectionDialogOpen(true);
+                            }}
+                            className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            <Info className="w-3 h-3" />
+                          </Button>
+                        )}
+                        {product.escrow_enabled && (
+                          <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 text-[9px] sm:text-xs px-1.5 py-0.5">
+                            <Lock className="w-2.5 h-2.5 mr-0.5" />
+                            ESCROW
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3 text-xs sm:text-sm">
+                      <div>
+                        <span className="text-gray-400">Price:</span>
+                        <p className="text-white font-mono break-words">{parseFloat(product.price).toFixed(8)} BTC</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Views:</span>
+                        <p className="text-white">{product.views_count || 0}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Wishlist:</span>
+                        <div className="flex items-center space-x-1">
+                          <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
+                          <span className="text-white">{wishlistCounts[product.id] || 0}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Stock:</span>
+                        <p className={product.quantity_available > 0 ? 'text-green-400' : 'text-red-400'}>
+                          {product.quantity_available || 0}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="text-xs sm:text-sm text-gray-400 mb-3">
+                      Created: {new Date(product.created_at).toLocaleDateString()}
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 pt-3 border-t border-gray-700">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-white flex-1 text-xs sm:text-sm"
+                        onClick={() => navigate(`/vendor/listings/${product.id}`)}
+                      >
+                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">View</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-white flex-1 text-xs sm:text-sm"
+                        onClick={() => navigate(`/vendor/listings/edit/${product.id}`)}
+                      >
+                        <Edit className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white h-8 w-8 p-0">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-surface-2 border-border w-[90vw] sm:w-auto">
+                          <DropdownMenuItem
+                            className="text-white hover:bg-surface-3"
+                            onClick={() => navigate(`/vendor/listings/${product.id}`)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-white hover:bg-surface-3"
+                            onClick={() => navigate(`/vendor/products/edit/${product.id}`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Product
+                          </DropdownMenuItem>
+                          {product.status === 'rejected' && (
+                            <DropdownMenuItem
+                              className="text-blue-400 hover:bg-blue-500/10"
+                              onClick={() => {
+                                showToast({
+                                  type: 'info',
+                                  title: 'Edit Required',
+                                  message: 'Please edit the product to address the rejection reason before resubmitting.',
+                                });
+                                navigate(`/vendor/listings/edit/${product.id}`);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit & Resubmit
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            className="text-red-400 hover:bg-red-500/10"
+                            onClick={() => {
+                              setProductToDelete(product);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Product
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+                
+                {filteredProducts.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400 text-sm sm:text-base">No products found</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Desktop Table View */}
+              <table className="w-full hidden lg:table">
                 <thead className="bg-gray-800/50">
                   <tr>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Product</th>
@@ -477,7 +649,7 @@ export default function VendorListings() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 justify-end">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -551,7 +723,7 @@ export default function VendorListings() {
               </table>
               
               {filteredProducts.length === 0 && (
-                <div className="text-center py-8">
+                <div className="text-center py-8 hidden lg:block">
                   <p className="text-gray-400">No products found</p>
                 </div>
               )}
@@ -559,32 +731,32 @@ export default function VendorListings() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-border">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-4 border-t border-border">
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-400">
+                  <span className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
                   </span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="border-border text-gray-300 hover:bg-surface-2"
+                    className="border-border text-gray-300 hover:bg-surface-2 h-8 w-8 p-0"
                   >
-                    <ChevronsLeft className="w-4 h-4" />
+                    <ChevronsLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="border-border text-gray-300 hover:bg-surface-2"
+                    className="border-border text-gray-300 hover:bg-surface-2 h-8 w-8 p-0"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
-                  <span className="text-sm text-gray-400 px-2">
+                  <span className="text-xs sm:text-sm text-gray-400 px-2">
                     Page {currentPage} of {totalPages}
                   </span>
                   <Button
@@ -592,18 +764,18 @@ export default function VendorListings() {
                     size="sm"
                     onClick={() => setCurrentPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="border-border text-gray-300 hover:bg-surface-2"
+                    className="border-border text-gray-300 hover:bg-surface-2 h-8 w-8 p-0"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="border-border text-gray-300 hover:bg-surface-2"
+                    className="border-border text-gray-300 hover:bg-surface-2 h-8 w-8 p-0"
                   >
-                    <ChevronsRight className="w-4 h-4" />
+                    <ChevronsRight className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                 </div>
               </div>
@@ -614,20 +786,20 @@ export default function VendorListings() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-card border-gray-600">
+        <AlertDialogContent className="bg-card border-gray-600 mx-4 sm:mx-auto max-w-[95vw] sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete Product</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-300">
+            <AlertDialogTitle className="text-white text-base sm:text-lg">Delete Product</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300 text-sm sm:text-base break-words">
               Are you sure you want to delete "{productToDelete?.headline}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-700">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-700 w-full sm:w-auto text-sm sm:text-base">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => productToDelete && handleDeleteProduct(productToDelete.id.toString())}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto text-sm sm:text-base"
             >
               Delete
             </AlertDialogAction>
@@ -637,48 +809,49 @@ export default function VendorListings() {
 
       {/* Rejection Reason Dialog */}
       <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
-        <DialogContent className="bg-card border-gray-600 max-w-md">
+        <DialogContent className="bg-card border-gray-600 max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-400" />
+            <DialogTitle className="text-white flex items-center gap-2 text-base sm:text-lg">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
               Listing Rejected
             </DialogTitle>
-            <DialogDescription className="text-gray-300">
+            <DialogDescription className="text-gray-300 text-sm sm:text-base break-words">
               Your product "{selectedRejectionProduct?.headline}" was rejected for the following reason:
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-              <h4 className="text-red-300 font-semibold mb-2">Rejection Reason:</h4>
-              <p className="text-gray-300 text-sm leading-relaxed">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 sm:p-4">
+              <h4 className="text-red-300 font-semibold mb-2 text-sm sm:text-base">Rejection Reason:</h4>
+              <p className="text-gray-300 text-xs sm:text-sm leading-relaxed break-words">
                 {selectedRejectionProduct?.rejection_reason}
               </p>
             </div>
-            <div className="mt-4 text-xs text-gray-400">
-              <p><strong>Product:</strong> {selectedRejectionProduct?.headline}</p>
-              <p><strong>Website:</strong> {selectedRejectionProduct?.website}</p>
+            <div className="mt-4 text-xs sm:text-sm text-gray-400">
+              <p className="break-words"><strong>Product:</strong> {selectedRejectionProduct?.headline}</p>
+              <p className="break-words"><strong>Website:</strong> {selectedRejectionProduct?.website}</p>
               <p><strong>Price:</strong> {selectedRejectionProduct?.price} BTC</p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setRejectionDialogOpen(false)}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="border-gray-600 text-gray-300 hover:bg-gray-700 w-full sm:w-auto text-sm sm:text-base"
             >
               Close
             </Button>
             <Button
               onClick={() => {
                 if (selectedRejectionProduct) {
-                  handleResubmitProduct(selectedRejectionProduct.id);
                   setRejectionDialogOpen(false);
+                  navigate(`/vendor/listings/edit/${selectedRejectionProduct.id}`);
                 }
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto text-sm sm:text-base"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Resubmit for Review
+              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Resubmit for Review</span>
+              <span className="sm:hidden">Resubmit</span>
             </Button>
           </DialogFooter>
         </DialogContent>

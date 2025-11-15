@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText, Download } from "lucide-react";
 import vendorService, { VendorProduct } from "@/services/vendorService";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/ToastContainer";
@@ -46,8 +45,6 @@ export default function VendorEditProduct() {
     listing_title: '',
     category: '',
     sub_category: '',
-    verification_level: '',
-    region_restrictions: '',
     discount_percentage: '',
     delivery_method: '',
     special_features: [] as string[],
@@ -111,8 +108,6 @@ export default function VendorEditProduct() {
             listing_title: foundProduct.listing_title || '',
             category: foundProduct.category || '',
             sub_category: foundProduct.sub_category || '',
-            verification_level: foundProduct.verification_level || '',
-            region_restrictions: foundProduct.region_restrictions || '',
             discount_percentage: foundProduct.discount_percentage?.toString() || '',
               delivery_method: foundProduct.delivery_method || '',
             special_features: foundProduct.special_features || [],
@@ -126,11 +121,22 @@ export default function VendorEditProduct() {
             // Set existing images
             if (foundProduct.main_image) {
               console.log('🔍 Setting main image preview:', foundProduct.main_image);
-              setMainImagePreview(`http://localhost:8000${foundProduct.main_image}`);
+              const mainImgUrl = foundProduct.main_image.startsWith('http') 
+                ? foundProduct.main_image 
+                : `http://localhost:8000${foundProduct.main_image}`;
+              setMainImagePreview(mainImgUrl);
+            } else if (foundProduct.main_images && foundProduct.main_images.length > 0) {
+              console.log('🔍 Setting main image from main_images array:', foundProduct.main_images[0]);
+              const mainImgUrl = foundProduct.main_images[0].startsWith('http')
+                ? foundProduct.main_images[0]
+                : `http://localhost:8000${foundProduct.main_images[0]}`;
+              setMainImagePreview(mainImgUrl);
             }
             if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
               console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-              setGalleryImagePreviews(foundProduct.gallery_images.map(img => `http://localhost:8000${img}`));
+              setGalleryImagePreviews(foundProduct.gallery_images.map((img: string) => 
+                img.startsWith('http') ? img : `http://localhost:8000${img}`
+              ));
             }
           } else {
           console.error('❌ Edit product error:', response);
@@ -149,10 +155,6 @@ export default function VendorEditProduct() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -437,10 +439,15 @@ export default function VendorEditProduct() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Current Image Display */}
-              {(mainImagePreview || (product?.main_image && !mainImage)) && (
+              {(mainImagePreview || (product?.main_image && !mainImage) || (product?.main_images && product.main_images.length > 0 && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview || (product?.main_image ? `http://localhost:8000${product.main_image}` : '')}
+                    src={mainImagePreview || 
+                      (product?.main_image 
+                        ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
+                        : (product?.main_images && product.main_images.length > 0
+                            ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                            : ''))}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
                     onError={(e) => {
@@ -563,69 +570,66 @@ export default function VendorEditProduct() {
               <CardTitle className="text-xl font-bold text-white">Account Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="account_type" className="text-gray-300">Account Type</Label>
-                  <Select value={formData.account_type} onValueChange={(value) => handleSelectChange('account_type', value)}>
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Select account type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600">
-                      <SelectItem value="personal">Personal</SelectItem>
-                      <SelectItem value="business">Business</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="demo">Demo</SelectItem>
-                      <SelectItem value="vip">VIP</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="account_type"
+                    name="account_type"
+                    value={formData.account_type}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-600 text-white"
+                    placeholder="e.g., social"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="access_type" className="text-gray-300">Access Type</Label>
+                  <Input
+                    id="access_type"
+                    name="access_type"
+                    value={formData.access_type}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-600 text-white"
+                    placeholder="e.g., access"
+                  />
+                </div>
                 </div>
                 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="verification_level" className="text-gray-300">Verification Level</Label>
-                  <Select value={formData.verification_level} onValueChange={(value) => handleSelectChange('verification_level', value)}>
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Select verification level" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600">
-                      <SelectItem value="unverified">Unverified</SelectItem>
-                      <SelectItem value="email_verified">Email Verified</SelectItem>
-                      <SelectItem value="kyc_verified">KYC Verified</SelectItem>
-                      <SelectItem value="2fa_enabled">2FA Enabled</SelectItem>
-                      <SelectItem value="phone_verified">Phone Verified</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="account_balance" className="text-gray-300">Account Balance</Label>
+                  <Input
+                    id="account_balance"
+                    name="account_balance"
+                    value={formData.account_balance}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-600 text-white"
+                    placeholder="Enter account balance"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="access_method" className="text-gray-300">Access Method</Label>
+                  <Input
+                    id="access_method"
+                    name="access_method"
+                    value={formData.access_method}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-600 text-white"
+                    placeholder="Enter access method"
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="account_age" className="text-gray-300">Account Age</Label>
                   <Input
                     id="account_age"
                     name="account_age"
-                    type="date"
                     value={formData.account_age}
                     onChange={handleInputChange}
                     className="bg-gray-800 border-gray-600 text-white"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="access_method" className="text-gray-300">Access Method</Label>
-                  <Select value={formData.access_method} onValueChange={(value) => handleSelectChange('access_method', value)}>
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Select access method" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600">
-                      <SelectItem value="username_password">Username + Password</SelectItem>
-                      <SelectItem value="api_keys">API Keys</SelectItem>
-                      <SelectItem value="seed_phrase">Seed Phrase</SelectItem>
-                      <SelectItem value="software_license">Software License</SelectItem>
-                      <SelectItem value="access_token">Access Token</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  placeholder="e.g., N/A"
+                />
               </div>
             </CardContent>
           </Card>
@@ -636,56 +640,39 @@ export default function VendorEditProduct() {
               <CardTitle className="text-xl font-bold text-white">Delivery & Restrictions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="delivery_method" className="text-gray-300">Delivery Method</Label>
-                  <Select value={formData.delivery_method} onValueChange={(value) => handleSelectChange('delivery_method', value)}>
-                    <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                      <SelectValue placeholder="Select delivery method" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-600">
-                      <SelectItem value="instant_auto">Instant Auto-delivery</SelectItem>
-                      <SelectItem value="manual_approval">Manual after order approval</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="region_restrictions" className="text-gray-300">Region Restrictions</Label>
                   <Input
-                    id="region_restrictions"
-                    name="region_restrictions"
-                    value={formData.region_restrictions}
+                    id="delivery_method"
+                    name="delivery_method"
+                    value={formData.delivery_method}
                     onChange={handleInputChange}
                     className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="e.g., US, EU, Asia"
+                    placeholder="e.g., instant"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="delivery_time" className="text-gray-300">Delivery Time</Label>
+                  <Input
+                    id="delivery_time"
+                    name="delivery_time"
+                    value={formData.delivery_time}
+                    onChange={handleInputChange}
+                    className="bg-gray-800 border-gray-600 text-white"
+                    placeholder="e.g., manual_24h"
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Special Features & Tags */}
+          {/* Tags */}
           <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
-              <CardTitle className="text-xl font-bold text-white">Special Features & Tags</CardTitle>
+              <CardTitle className="text-xl font-bold text-white">Tags</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="special_features" className="text-gray-300">Special Features (comma separated)</Label>
-                <Input
-                  id="special_features"
-                  name="special_features"
-                  value={formData.special_features.join(', ')}
-                  onChange={(e) => {
-                    const features = e.target.value.split(',').map(f => f.trim()).filter(f => f);
-                    setFormData(prev => ({ ...prev, special_features: features }));
-                  }}
-                  className="bg-gray-800 border-gray-600 text-white"
-                  placeholder="e.g., Premium support, API access, 24/7 monitoring"
-                />
-              </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="tags" className="text-gray-300">Tags (comma separated)</Label>
                 <Input
@@ -702,6 +689,61 @@ export default function VendorEditProduct() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Additional Information */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Additional Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="additional_info" className="text-gray-300">Additional Information</Label>
+                <Textarea
+                  id="additional_info"
+                  name="additional_info"
+                  value={formData.additional_info}
+                  onChange={handleInputChange}
+                  className="bg-gray-800 border-gray-600 text-white min-h-[100px]"
+                  placeholder="Any extra information about the listing"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Documents Display */}
+          {product?.documents && product.documents.length > 0 && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Existing Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {product.documents.map((doc: string, index: number) => {
+                    const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                    const docName = doc.split('/').pop() || `Document ${index + 1}`;
+                    return (
+                      <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                        <FileText className="w-5 h-5 text-blue-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
+                          <p className="text-gray-400 text-xs truncate">{docName}</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
+                          onClick={() => window.open(docUrl, '_blank')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          View
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes for Buyer */}
           <Card className="border border-gray-700 bg-gray-900">
@@ -783,8 +825,13 @@ export default function VendorEditProduct() {
           <CardContent className="space-y-4">
             <div>
               <img
-                src={mainImagePreview || product.main_image || "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300"}
-                alt={formData.listing_title}
+                src={mainImagePreview || 
+                  (product?.main_image 
+                    ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
+                    : (product?.main_images && product.main_images.length > 0
+                        ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                        : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300"))}
+                alt={formData.listing_title || formData.headline}
                 className="w-full h-48 object-cover rounded-lg"
                 onError={(e) => {
                   e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300";
@@ -842,3 +889,4 @@ const getStatusDisplayName = (status: string) => {
       return status;
   }
 }; 
+

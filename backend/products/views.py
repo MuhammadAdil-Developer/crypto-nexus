@@ -1570,6 +1570,9 @@ def list_reviews(request, product_id):
                 'rating': r.rating,
                 'comment': r.comment,
                 'images': r.images,
+                'vendor_reply': r.vendor_reply,
+                'vendor_reply_date': r.vendor_reply_date.isoformat() if r.vendor_reply_date else None,
+                'conversation': r.conversation or [],
                 'user': {
                     'id': r.user.id,
                     'username': getattr(r.user, 'username', ''),
@@ -1731,6 +1734,9 @@ def list_vendor_reviews(request):
                 'rating': r.rating,
                 'comment': r.comment,
                 'images': r.images,
+                'vendor_reply': r.vendor_reply,
+                'vendor_reply_date': r.vendor_reply_date.isoformat() if r.vendor_reply_date else None,
+                'conversation': r.conversation or [],
                 'product': {
                     'id': r.product.id,
                     'headline': r.product.headline,
@@ -1758,6 +1764,162 @@ def list_vendor_reviews(request):
     except Exception as e:
         logger.error(f"Error listing vendor reviews: {str(e)}")
         return Response({'success': False, 'message': 'Failed to retrieve vendor reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reply_to_review(request, review_id):
+    """Vendor can reply to a review"""
+    try:
+        from django.utils import timezone
+        
+        # Get the review
+        review = get_object_or_404(ProductReview, id=review_id)
+        
+        # Check if the current user is the vendor of the product
+        if review.product.vendor != request.user:
+            return Response({
+                'success': False,
+                'message': 'You can only reply to reviews for your own products'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get reply text from request
+        reply_text = request.data.get('reply', '').strip()
+        if not reply_text:
+            return Response({
+                'success': False,
+                'message': 'Reply text is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update review with vendor reply
+        review.vendor_reply = reply_text
+        review.vendor_reply_date = timezone.now()
+        
+        # Add to conversation chain
+        if not review.conversation:
+            review.conversation = []
+        
+        is_chain_reply = len(review.conversation) > 0
+        review.conversation.append({
+            'author': 'vendor',
+            'message': reply_text,
+            'date': timezone.now().isoformat(),
+        })
+        review.save()
+        
+        # Create notification for the buyer (for both first reply and chain replies)
+        notification_title = 'Vendor replied to your review response' if is_chain_reply else 'Vendor replied to your review'
+        notification_message = f'Vendor replied to your review conversation for "{review.product.headline}"' if is_chain_reply else f'Vendor replied to your review for "{review.product.headline}"'
+        
+        Notification.objects.create(
+            user=review.user,
+            type='message',
+            title=notification_title,
+            message=notification_message,
+            data={
+                'review_id': str(review.id),
+                'product_id': review.product.id,
+                'product_headline': review.product.headline,
+                'vendor_username': request.user.username,
+                'is_chain_reply': is_chain_reply,
+            }
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Reply posted successfully',
+            'data': {
+                'id': str(review.id),
+                'vendor_reply': review.vendor_reply,
+                'vendor_reply_date': review.vendor_reply_date.isoformat(),
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error replying to review: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to post reply',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def buyer_reply_to_vendor(request, review_id):
+    """Buyer can reply to vendor's reply on their review"""
+    try:
+        from django.utils import timezone
+        
+        # Get the review
+        review = get_object_or_404(ProductReview, id=review_id)
+        
+        # Check if the current user is the buyer who wrote the review
+        if review.user != request.user:
+            return Response({
+                'success': False,
+                'message': 'You can only reply to your own reviews'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if vendor has replied
+        if not review.vendor_reply:
+            return Response({
+                'success': False,
+                'message': 'Vendor has not replied to this review yet'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get reply text from request
+        reply_text = request.data.get('reply', '').strip()
+        if not reply_text:
+            return Response({
+                'success': False,
+                'message': 'Reply text is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Add to conversation chain
+        if not review.conversation:
+            review.conversation = []
+        
+        is_chain_reply = len(review.conversation) > 0
+        review.conversation.append({
+            'author': 'buyer',
+            'message': reply_text,
+            'date': timezone.now().isoformat(),
+        })
+        review.save()
+        
+        # Create notification for the vendor (for both first reply and chain replies)
+        notification_title = 'Buyer replied to your review response' if is_chain_reply else 'Buyer replied to your review'
+        notification_message = f'Buyer replied to your review conversation for "{review.product.headline}"' if is_chain_reply else f'Buyer replied to your response on review for "{review.product.headline}"'
+        
+        Notification.objects.create(
+            user=review.product.vendor,
+            type='message',
+            title=notification_title,
+            message=notification_message,
+            data={
+                'review_id': str(review.id),
+                'product_id': review.product.id,
+                'product_headline': review.product.headline,
+                'buyer_username': request.user.username,
+                'is_chain_reply': is_chain_reply,
+            }
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Reply posted successfully',
+            'data': {
+                'id': str(review.id),
+                'conversation': review.conversation,
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error posting buyer reply: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to post reply',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -1812,6 +1974,9 @@ def list_buyer_reviews(request):
                 'rating': r.rating,
                 'comment': r.comment,
                 'images': r.images,
+                'vendor_reply': r.vendor_reply,
+                'vendor_reply_date': r.vendor_reply_date.isoformat() if r.vendor_reply_date else None,
+                'conversation': r.conversation or [],
                 'product': {
                     'id': r.product.id,
                     'headline': r.product.headline,
@@ -1917,6 +2082,9 @@ def buyer_reviews_simple(request):
                 'rating': r.rating,
                 'comment': r.comment,
                 'images': r.images,
+                'vendor_reply': r.vendor_reply,
+                'vendor_reply_date': r.vendor_reply_date.isoformat() if r.vendor_reply_date else None,
+                'conversation': r.conversation or [],
                 'product': {
                     'id': r.product.id,
                     'headline': r.product.headline,
@@ -2032,6 +2200,8 @@ def get_product_reviews(request, product_id):
                 'rating': review.rating,
                 'comment': review.comment,
                 'images': review.images or [],
+                'vendor_reply': review.vendor_reply,
+                'vendor_reply_date': review.vendor_reply_date.strftime('%Y-%m-%d %H:%M') if review.vendor_reply_date else None,
                 'buyer_username': review.user.username if review.user else 'Anonymous',
                 'created_at': review.created_at.strftime('%Y-%m-%d %H:%M'),
                 'time_ago': _get_time_ago(review.created_at)

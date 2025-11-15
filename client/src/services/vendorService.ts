@@ -94,6 +94,20 @@ class VendorService {
       };
     }
   }
+
+  async getVendorStatistics(vendorUsername: string) {
+    try {
+      const response = await api.get(`/vendors/statistics/${vendorUsername}/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching vendor statistics:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch vendor statistics',
+        data: null
+      };
+    }
+  }
 }
 
 export default new VendorService();

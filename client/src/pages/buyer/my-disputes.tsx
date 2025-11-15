@@ -127,75 +127,75 @@ export default function BuyerMyDisputes() {
   return (
     <BuyerLayout>
       <div className="min-h-screen bg-gray-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="space-y-4 sm:space-y-6 lg:space-y-8">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">My Disputes</h1>
-              <p className="text-gray-400">Track and manage your dispute cases</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">My Disputes</h1>
+              <p className="text-gray-400 text-sm sm:text-base">Track and manage your dispute cases</p>
             </div>
           </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <Card className="crypto-card">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Open Disputes</p>
-                <p className="text-2xl font-bold text-white">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Open Disputes</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {disputes.filter(d => d.status === 'open').length}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="crypto-card">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">In Progress</p>
-                <p className="text-2xl font-bold text-white">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">In Progress</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {disputes.filter(d => d.status === 'in_progress').length}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="crypto-card">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Resolved</p>
-                <p className="text-2xl font-bold text-white">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Resolved</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {disputes.filter(d => d.status === 'resolved').length}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="crypto-card">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Total Disputes</p>
-                <p className="text-2xl font-bold text-white">{disputes.length}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Total Disputes</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{disputes.length}</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -204,21 +204,21 @@ export default function BuyerMyDisputes() {
 
       {/* Filters */}
       <Card className="crypto-card">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   placeholder="Search disputes..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-800 border-gray-600 text-white"
+                  className="pl-10 bg-gray-800 border-gray-600 text-white text-sm sm:text-base"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48 bg-gray-800 border-gray-600 text-white">
+              <SelectTrigger className="w-full sm:w-48 bg-gray-800 border-gray-600 text-white text-sm sm:text-base">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -234,27 +234,27 @@ export default function BuyerMyDisputes() {
       </Card>
 
       {/* Disputes List */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {loading ? (
           <Card className="crypto-card">
-            <CardContent className="p-12">
-              <div className="flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin mr-3" />
-                <span className="text-gray-400">Loading your disputes...</span>
+            <CardContent className="p-8 sm:p-12">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-blue-400" />
+                <span className="text-gray-400 text-sm sm:text-base">Loading your disputes...</span>
               </div>
             </CardContent>
           </Card>
         ) : disputes.length === 0 ? (
           <Card className="crypto-card">
-            <CardContent className="p-12">
+            <CardContent className="p-8 sm:p-12">
               <div className="text-center">
-                <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">No Disputes Found</h3>
-                <p className="text-gray-400 mb-6">
+                <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No Disputes Found</h3>
+                <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base px-4">
                   You haven't created any disputes yet. If you have an issue with an order, you can create a dispute from your orders page.
                 </p>
                 <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base"
                   onClick={() => window.location.href = '/buyer/orders'}
                 >
                   Go to Orders
@@ -270,27 +270,30 @@ export default function BuyerMyDisputes() {
               dispute.description.toLowerCase().includes(searchTerm.toLowerCase())
             )
             .map((dispute) => (
-            <Card key={dispute.id} className="crypto-card">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <h3 className="text-lg font-semibold text-white">{dispute.title}</h3>
-                      <Badge className={getStatusColor(dispute.status)}>
+            <Card key={dispute.id} className="crypto-card overflow-hidden">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+                      <h3 className="text-base sm:text-lg font-semibold text-white break-words">{dispute.title}</h3>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className={`${getStatusColor(dispute.status)} text-xs`}>
                         {getStatusIcon(dispute.status)}
-                        <span className="ml-1 capitalize">{dispute.status.replace('_', ' ')}</span>
+                          <span className="ml-1 capitalize hidden sm:inline">{dispute.status.replace('_', ' ')}</span>
+                          <span className="ml-1 capitalize sm:hidden">{dispute.status.replace('_', ' ').split(' ')[0]}</span>
                       </Badge>
-                      <Badge className={getPriorityColor(dispute.priority)}>
-                        <span className="capitalize">{dispute.priority} Priority</span>
+                        <Badge className={`${getPriorityColor(dispute.priority)} text-xs`}>
+                          <span className="capitalize hidden sm:inline">{dispute.priority} Priority</span>
+                          <span className="capitalize sm:hidden">{dispute.priority}</span>
                       </Badge>
                       
                       {/* Resolution Badge */}
                       {dispute.resolution !== 'pending' && (
-                        <Badge className={
+                          <Badge className={`${
                           String(dispute.resolution) === 'buyer_wins' || String(dispute.resolution) === 'refund_full' || String(dispute.resolution) === 'refund_partial'
                             ? 'bg-green-500/20 text-green-400 border-green-500/30'
                             : 'bg-red-500/20 text-red-400 border-red-500/30'
-                        }>
+                          } text-xs`}>
                           {String(dispute.resolution) === 'buyer_wins' || String(dispute.resolution) === 'refund_full' || String(dispute.resolution) === 'refund_partial' ? (
                             <CheckCircle className="w-3 h-3 mr-1" />
                           ) : (
@@ -302,16 +305,17 @@ export default function BuyerMyDisputes() {
                           </span>
                         </Badge>
                       )}
+                      </div>
                     </div>
                     
-                    <p className="text-gray-400 mb-4 line-clamp-2">{dispute.description}</p>
+                    <p className="text-gray-400 mb-3 sm:mb-4 line-clamp-2 text-sm sm:text-base break-words">{dispute.description}</p>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
+                      <div className="break-words">
                         <span className="text-gray-400">Dispute ID:</span>
-                        <span className="text-white ml-2">#{dispute.dispute_id}</span>
+                        <span className="text-white ml-2 break-all">#{dispute.dispute_id}</span>
                       </div>
-                      <div>
+                      <div className="break-words">
                         <span className="text-gray-400">Category:</span>
                         <span className="text-white ml-2">
                           {disputeCategories.find(c => c.value === dispute.category)?.label || dispute.category}
@@ -330,20 +334,23 @@ export default function BuyerMyDisputes() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col space-y-2 md:ml-6">
+                  <div className="flex flex-row sm:flex-col gap-2 lg:ml-6 lg:flex-col">
                     <Button 
                       variant="outline" 
-                      className="border-border text-gray-300 hover:bg-surface-2 w-full md:w-auto"
+                      size="sm"
+                      className="border-border text-gray-300 hover:bg-surface-2 flex-1 sm:flex-none lg:w-auto text-xs sm:text-sm"
                       onClick={() => handleViewDetails(dispute)}
                     >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
+                      <Eye className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">View Details</span>
+                      <span className="sm:hidden">Details</span>
                     </Button>
                     
                     {/* View Chat button for active disputes */}
                     {(dispute.status === 'open' || dispute.status === 'in_progress') && (
                       <Button 
-                        className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none lg:w-auto text-xs sm:text-sm"
                         onClick={() => {
                           // Navigate to messages with context to open this dispute's chat
                           import('@/services/messagingService').then(({ messagingService }) => {
@@ -358,8 +365,9 @@ export default function BuyerMyDisputes() {
                           });
                         }}
                       >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        View Chat
+                        <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">View Chat</span>
+                        <span className="sm:hidden">Chat</span>
                       </Button>
                     )}
                   </div>
@@ -372,17 +380,17 @@ export default function BuyerMyDisputes() {
 
       {/* Dispute Detail Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">Dispute Details</DialogTitle>
+            <DialogTitle className="text-white text-lg sm:text-xl">Dispute Details</DialogTitle>
           </DialogHeader>
           
           {selectedDispute && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Basic Info */}
               <div>
-                <h4 className="text-white font-medium mb-2">Basic Information</h4>
-                <div className="space-y-2 text-sm">
+                <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Basic Information</h4>
+                <div className="space-y-2 text-xs sm:text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Title:</span>
                     <span className="text-white">{selectedDispute.title}</span>
@@ -415,8 +423,8 @@ export default function BuyerMyDisputes() {
               
               {/* Parties */}
               <div>
-                <h4 className="text-white font-medium mb-2">Parties</h4>
-                <div className="space-y-2 text-sm">
+                <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Parties</h4>
+                <div className="space-y-2 text-xs sm:text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Buyer:</span>
                     <span className="text-white">{selectedDispute.buyer_username}</span>
@@ -438,15 +446,15 @@ export default function BuyerMyDisputes() {
               
               {/* Description */}
               <div>
-                <h4 className="text-white font-medium mb-2">Description</h4>
-                <p className="text-gray-300 bg-gray-800 p-3 rounded-lg">{selectedDispute.description}</p>
+                <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Description</h4>
+                <p className="text-gray-300 bg-gray-800 p-3 rounded-lg text-xs sm:text-sm break-words">{selectedDispute.description}</p>
               </div>
               
               {/* Resolution Info */}
               {selectedDispute.resolution !== 'pending' && (
                 <div>
-                  <h4 className="text-white font-medium mb-2">Resolution Details</h4>
-                  <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+                  <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Resolution Details</h4>
+                  <div className="bg-gray-800 p-3 sm:p-4 rounded-lg space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Decision:</span>
                       <span className="text-white">

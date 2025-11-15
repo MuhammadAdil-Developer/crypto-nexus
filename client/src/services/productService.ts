@@ -185,10 +185,15 @@ class ProductService {
   }
 
   // Get public vendor products by username
-  async getVendorPublicProducts(vendorUsername: string): Promise<ProductListResponse> {
+  async getVendorPublicProducts(vendorUsername: string, params: { page?: number; page_size?: number } = {}): Promise<ProductListResponse> {
     console.log('🔍 getVendorPublicProducts called with vendorUsername:', vendorUsername);
-    console.log('🔍 Full URL will be:', `${API_BASE_URL}/products/vendor-public/${vendorUsername}/`);
-    return this.makeRequest<ProductListResponse>(`/vendor-public/${vendorUsername}/`);
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.append('page', params.page.toString());
+    if (params.page_size) searchParams.append('page_size', params.page_size.toString());
+    const qs = searchParams.toString();
+    const endpoint = qs ? `/vendor-public/${vendorUsername}/?${qs}` : `/vendor-public/${vendorUsername}/`;
+    console.log('🔍 Full URL will be:', `${API_BASE_URL}/products${endpoint}`);
+    return this.makeRequest<ProductListResponse>(endpoint);
   }
 
   // Create product
@@ -356,6 +361,22 @@ class ProductService {
     const qs = searchParams.toString();
     const endpoint = qs ? `/reviews/mine/simple/?${qs}` : '/reviews/mine/simple/';
     return this.makeRequest(endpoint);
+  }
+
+  // Reply to a review (vendor only)
+  async replyToReview(reviewId: string, reply: string): Promise<{ success: boolean; message: string; data: any }> {
+    return this.makeRequest(`/reviews/${reviewId}/reply/`, {
+      method: 'POST',
+      body: { reply },
+    });
+  }
+
+  // Buyer reply to vendor's reply
+  async buyerReplyToVendor(reviewId: string, reply: string): Promise<{ success: boolean; message: string; data: any }> {
+    return this.makeRequest(`/reviews/${reviewId}/buyer-reply/`, {
+      method: 'POST',
+      body: { reply },
+    });
   }
 
   // Product reviews for modal

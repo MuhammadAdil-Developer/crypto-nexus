@@ -428,30 +428,30 @@ export default function AdminPayouts() {
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="w-full sm:w-40 bg-surface-2 border-border text-white">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="failed">Failed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
                       <SelectTrigger className="w-full sm:w-40 bg-surface-2 border-border text-white">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="escrow">Escrow</SelectItem>
-                        <SelectItem value="direct">Direct</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="escrow">Escrow</SelectItem>
+                      <SelectItem value="direct">Direct</SelectItem>
+                    </SelectContent>
+                  </Select>
                   </div>
                 </div>
               </CardContent>
@@ -480,9 +480,9 @@ export default function AdminPayouts() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto -mx-4 sm:mx-0">
                   <div className="min-w-[800px] px-4 sm:px-0">
-                    <table className="w-full">
-                      <thead className="bg-gradient-to-r from-surface-2 to-surface-2/80">
-                        <tr>
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-surface-2 to-surface-2/80">
+                      <tr>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Vendor & Order</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Payout Amount</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide hidden lg:table-cell">Fees & Commission</th>
@@ -490,59 +490,59 @@ export default function AdminPayouts() {
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide hidden md:table-cell">Payment Method</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide hidden xl:table-cell">Timeline</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {payouts.map((payout) => (
-                          <tr key={payout.id} className="hover:bg-surface-2/30 transition-all duration-200 border-b border-border/20" data-testid={`payout-row-${payout.id}`}>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {payouts.map((payout) => (
+                        <tr key={payout.id} className="hover:bg-surface-2/30 transition-all duration-200 border-b border-border/20" data-testid={`payout-row-${payout.id}`}>
                             <td className="p-3 sm:p-4">
-                              <div>
+                            <div>
                                 <p className="font-medium text-white text-sm sm:text-base">{payout.vendor_name}</p>
                                 <p className="text-xs sm:text-sm text-gray-400">Order: {payout.order_id}</p>
                                 <p className="text-xs text-gray-500 hidden sm:block">Buyer: {payout.buyer_name}</p>
-                              </div>
-                            </td>
+                            </div>
+                          </td>
                             <td className="p-3 sm:p-4">
-                              <div>
+                            <div>
                                 <p className="font-mono text-white text-sm sm:text-base">{payout.amount} {payout.crypto_currency}</p>
-                                {payout.type === 'escrow' && payout.gross_amount && (
+                              {payout.type === 'escrow' && payout.gross_amount && (
                                   <p className="text-xs sm:text-sm text-gray-400">
-                                    Gross: {payout.gross_amount} {payout.crypto_currency}
-                                  </p>
+                                  Gross: {payout.gross_amount} {payout.crypto_currency}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                            <td className="p-3 sm:p-4 hidden lg:table-cell">
+                            {payout.type === 'escrow' && payout.platform_fee ? (
+                              <div>
+                                  <span className="font-mono text-accent text-sm">Platform: {payout.platform_fee} {payout.crypto_currency}</span>
+                                {payout.escrow_fee && (
+                                    <p className="text-xs sm:text-sm text-gray-400">Escrow: {payout.escrow_fee} {payout.crypto_currency}</p>
                                 )}
                               </div>
-                            </td>
-                            <td className="p-3 sm:p-4 hidden lg:table-cell">
-                              {payout.type === 'escrow' && payout.platform_fee ? (
-                                <div>
-                                  <span className="font-mono text-accent text-sm">Platform: {payout.platform_fee} {payout.crypto_currency}</span>
-                                  {payout.escrow_fee && (
-                                    <p className="text-xs sm:text-sm text-gray-400">Escrow: {payout.escrow_fee} {payout.crypto_currency}</p>
-                                  )}
-                                </div>
-                              ) : (
+                            ) : (
                                 <span className="text-gray-400 text-sm">Direct Payment</span>
-                              )}
-                            </td>
+                            )}
+                          </td>
                             <td className="p-3 sm:p-4">
-                              <div className="space-y-1">
-                                <div>
-                                  <span className="text-xs text-gray-400">Payment:</span>
-                                  <StatusBadge 
-                                    status={payout.payment_status === 'paid' ? 'Paid' : payout.payment_status} 
-                                    type={payout.payment_status === 'paid' ? 'success' : 'warning'} 
-                                  />
-                                </div>
-                                <div>
-                                  <span className="text-xs text-gray-400">Payout:</span>
-                                  <StatusBadge 
-                                    status={payout.status === 'pending' ? 'Awaiting' : payout.status} 
-                                    type={getStatusType(payout.status)} 
-                                  />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Type: {payout.type.toUpperCase()}
-                                </p>
+                            <div className="space-y-1">
+                              <div>
+                                <span className="text-xs text-gray-400">Payment:</span>
+                                <StatusBadge 
+                                  status={payout.payment_status === 'paid' ? 'Paid' : payout.payment_status} 
+                                  type={payout.payment_status === 'paid' ? 'success' : 'warning'} 
+                                />
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-400">Payout:</span>
+                                <StatusBadge 
+                                  status={payout.status === 'pending' ? 'Awaiting' : payout.status} 
+                                  type={getStatusType(payout.status)} 
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Type: {payout.type.toUpperCase()}
+                              </p>
                                 {/* Mobile: Show fees here */}
                                 <div className="lg:hidden mt-2 pt-2 border-t border-gray-700">
                                   {payout.type === 'escrow' && payout.platform_fee && (
@@ -554,86 +554,86 @@ export default function AdminPayouts() {
                                     </div>
                                   )}
                                 </div>
-                              </div>
-                            </td>
+                            </div>
+                          </td>
                             <td className="p-3 sm:p-4 hidden md:table-cell">
                               <Badge variant="outline" className="text-gray-300 text-xs">
-                                {payout.crypto_currency} Address
-                              </Badge>
-                              <p className="text-xs text-gray-500 mt-1 break-all">
-                                {payout.vendor_address.substring(0, 20)}...
-                              </p>
-                            </td>
+                              {payout.crypto_currency} Address
+                            </Badge>
+                            <p className="text-xs text-gray-500 mt-1 break-all">
+                              {payout.vendor_address.substring(0, 20)}...
+                            </p>
+                          </td>
                             <td className="p-3 sm:p-4 text-gray-300 hidden xl:table-cell">
-                              {payout.type === 'escrow' ? (
-                                <div>
+                            {payout.type === 'escrow' ? (
+                              <div>
                                   <p className="text-xs sm:text-sm">{payout.requested_at ? new Date(payout.requested_at).toLocaleDateString() : 'N/A'}</p>
-                                  {payout.auto_release_at && (
-                                    <p className="text-xs text-gray-500">
-                                      Auto-release: {new Date(payout.auto_release_at).toLocaleDateString()}
-                                    </p>
-                                  )}
-                                </div>
-                              ) : (
-                                <div>
+                                {payout.auto_release_at && (
+                                  <p className="text-xs text-gray-500">
+                                    Auto-release: {new Date(payout.auto_release_at).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
                                   <p className="text-xs sm:text-sm">{payout.created_at ? new Date(payout.created_at).toLocaleDateString() : 'N/A'}</p>
-                                  {payout.expires_at && (
-                                    <p className="text-xs text-gray-500">
-                                      Expires: {new Date(payout.expires_at).toLocaleDateString()}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </td>
+                                {payout.expires_at && (
+                                  <p className="text-xs text-gray-500">
+                                    Expires: {new Date(payout.expires_at).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </td>
                             <td className="p-3 sm:p-4">
                               <div className="flex flex-col gap-2">
                                 <div className="flex flex-wrap gap-2">
-                                  {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && payout.type === 'escrow' && (
-                                    <Button 
-                                      size="sm" 
+                              {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && payout.type === 'escrow' && (
+                                <Button 
+                                  size="sm" 
                                       className={`shadow-lg transition-all duration-200 text-xs sm:text-sm ${
-                                        payout.status === "failed" 
-                                          ? "bg-green-500 hover:bg-green-500 hover:shadow-green-500/25" 
-                                          : payout.status === "ready"
-                                          ? "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/25"
-                                          : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/25"
+                                    payout.status === "failed" 
+                                      ? "bg-green-500 hover:bg-green-500 hover:shadow-green-500/25" 
+                                      : payout.status === "ready"
+                                      ? "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/25"
+                                      : "bg-green-600 hover:bg-green-700 hover:shadow-green-500/25"
                                       } text-white flex-1 sm:flex-initial`}
-                                      onClick={() => handleReleaseClick(payout)}
-                                      data-testid={`approve-payout-${payout.id}`}
-                                    >
+                                  onClick={() => handleReleaseClick(payout)}
+                                  data-testid={`approve-payout-${payout.id}`}
+                                >
                                       <Check className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                                       <span className="hidden sm:inline">{payout.status === "failed" ? "Retry Release" : 
                                        payout.status === "ready" ? "Release Payment" : "Release"}</span>
                                       <span className="sm:hidden">Release</span>
-                                    </Button>
-                                  )}
-                                  {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && (
-                                    <Button 
-                                      variant="destructive"
-                                      size="sm" 
+                                </Button>
+                              )}
+                              {(payout.status === "pending" || payout.status === "ready" || payout.status === "failed") && (
+                                <Button 
+                                  variant="destructive"
+                                  size="sm" 
                                       className="bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25 transition-all duration-200 text-xs sm:text-sm flex-1 sm:flex-initial" 
-                                      onClick={() => processPayoutAction(payout.id, 'cancel')}
-                                      data-testid={`reject-payout-${payout.id}`}
-                                    >
+                                  onClick={() => processPayoutAction(payout.id, 'cancel')}
+                                  data-testid={`reject-payout-${payout.id}`}
+                                >
                                       <X className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                                       <span className="hidden sm:inline">Cancel</span>
                                       <span className="sm:hidden">X</span>
-                                    </Button>
-                                  )}
+                                </Button>
+                              )}
                                 </div>
-                                <Button 
-                                  variant="outline"
-                                  size="sm" 
+                              <Button 
+                                variant="outline"
+                                size="sm" 
                                   className="text-gray-300 hover:text-white hover:bg-surface-2/50 border-border/50 transition-all duration-200 text-xs sm:text-sm w-full sm:w-auto" 
-                                  onClick={() => handleViewDetails(payout)}
-                                  data-testid={`view-payout-${payout.id}`}
-                                >
+                                onClick={() => handleViewDetails(payout)}
+                                data-testid={`view-payout-${payout.id}`}
+                              >
                                   <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                                   <span className="hidden sm:inline">View Details</span>
                                   <span className="sm:hidden">Details</span>
-                                </Button>
-                              </div>
-                            </td>
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                       
@@ -690,9 +690,9 @@ export default function AdminPayouts() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto -mx-4 sm:mx-0">
                   <div className="min-w-[700px] px-4 sm:px-0">
-                    <table className="w-full">
-                      <thead className="bg-surface-2">
-                        <tr>
+                  <table className="w-full">
+                    <thead className="bg-surface-2">
+                      <tr>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Order ID</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300 hidden md:table-cell">Buyer</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300 hidden lg:table-cell">Vendor</th>
@@ -701,50 +701,50 @@ export default function AdminPayouts() {
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Status</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300 hidden xl:table-cell">Requested</th>
                           <th className="text-left p-3 sm:p-4 text-xs sm:text-sm font-medium text-gray-300">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {sampleRefunds.map((refund) => (
-                          <tr key={refund.id} className="hover:bg-surface-2/50" data-testid={`refund-row-${refund.id}`}>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {sampleRefunds.map((refund) => (
+                        <tr key={refund.id} className="hover:bg-surface-2/50" data-testid={`refund-row-${refund.id}`}>
                             <td className="p-3 sm:p-4">
                               <span className="font-mono text-accent text-xs sm:text-sm">{refund.orderId}</span>
-                            </td>
+                          </td>
                             <td className="p-3 sm:p-4 text-white hidden md:table-cell text-sm">{refund.buyer}</td>
                             <td className="p-3 sm:p-4 text-gray-300 hidden lg:table-cell text-sm">{refund.vendor}</td>
                             <td className="p-3 sm:p-4">
                               <span className="font-mono text-white text-xs sm:text-sm">{refund.amount}</span>
-                            </td>
+                          </td>
                             <td className="p-3 sm:p-4">
-                              <div className="max-w-xs">
+                            <div className="max-w-xs">
                                 <p className="text-gray-300 truncate text-xs sm:text-sm">{refund.reason}</p>
-                              </div>
-                            </td>
+                            </div>
+                          </td>
                             <td className="p-3 sm:p-4">
-                              <StatusBadge status={refund.status} type={refund.statusType} />
-                            </td>
+                            <StatusBadge status={refund.status} type={refund.statusType} />
+                          </td>
                             <td className="p-3 sm:p-4 text-gray-300 hidden xl:table-cell text-xs sm:text-sm">{refund.requestDate}</td>
                             <td className="p-3 sm:p-4">
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                {refund.status === "Pending" && (
-                                  <>
+                              {refund.status === "Pending" && (
+                                <>
                                     <Button variant="ghost" size="sm" className="text-success hover:text-green-400 text-xs" data-testid={`approve-refund-${refund.id}`}>
                                       <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    </Button>
+                                  </Button>
                                     <Button variant="ghost" size="sm" className="text-danger hover:text-red-400 text-xs" data-testid={`reject-refund-${refund.id}`}>
                                       <X className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    </Button>
-                                  </>
-                                )}
+                                  </Button>
+                                </>
+                              )}
                                 <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white text-xs" data-testid={`view-refund-${refund.id}`}>
                                   <span className="hidden sm:inline">View Order</span>
                                   <span className="sm:hidden">View</span>
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   </div>
                 </div>
               </CardContent>

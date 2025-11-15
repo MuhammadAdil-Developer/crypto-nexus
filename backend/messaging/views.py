@@ -514,6 +514,25 @@ def get_recent_activity(request):
                 'data': notif.data if hasattr(notif, 'data') else {}
             })
         
+        # Get recent review reply notifications
+        review_notifications = Notification.objects.filter(
+            user=user,
+            type='message',
+            title__icontains='reply'
+        ).order_by('-created_at')[:10]
+        
+        for notif in review_notifications:
+            recent_activities.append({
+                'id': f"review_{notif.id}",
+                'type': 'review_reply',
+                'title': notif.title,
+                'description': notif.message,
+                'time': get_time_ago(notif.created_at),
+                'status': 'info',
+                'timestamp': notif.created_at.isoformat(),
+                'data': notif.data if hasattr(notif, 'data') else {}
+            })
+        
         # Get recent messages from vendors
         conversations = Conversation.objects.filter(
             participants=user

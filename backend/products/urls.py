@@ -41,6 +41,8 @@ urlpatterns = [
     path('<int:product_id>/reviews/modal/', views.get_product_reviews, name='get_product_reviews'),
     path('reviews/vendor/', views.list_vendor_reviews, name='list_vendor_reviews'),
     path('reviews/mine/', views.list_buyer_reviews, name='list_buyer_reviews'),
+    path('reviews/<uuid:review_id>/reply/', views.reply_to_review, name='reply_to_review'),
+    path('reviews/<uuid:review_id>/buyer-reply/', views.buyer_reply_to_vendor, name='buyer_reply_to_vendor'),
     # UI-friendly simple review endpoints
     path('vendor/products/<int:product_id>/reviews/', views.vendor_product_reviews_simple, name='vendor_product_reviews_simple'),
     path('reviews/mine/simple/', views.buyer_reviews_simple, name='buyer_reviews_simple'),

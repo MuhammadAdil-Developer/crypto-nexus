@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, Loader2 } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, Loader2, FileText, Download, Tag, Key, Truck } from 'lucide-react';
+import { DotLoader } from '@/components/ui/dot-loader';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/productService';
 import vendorService from '@/services/vendorService';
@@ -105,8 +106,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     setLoadingVendorStats(true);
     try {
       const response = await vendorService.getVendorStatistics(product.vendor_username);
-      if (response.success) {
+      console.log('Vendor stats response:', response); // Debug log
+      // Response structure: { success: true, data: { member_since, total_sales, ... } }
+      if (response && response.success === true && response.data) {
+        console.log('Setting vendor stats:', response.data);
         setVendorStats(response.data);
+      } else if (response && response.data) {
+        // Handle case where response.data is already the data object
+        console.log('Setting vendor stats (fallback):', response.data);
+        setVendorStats(response.data);
+      } else {
+        console.warn('Invalid vendor stats response:', response);
       }
     } catch (error) {
       console.error('Error fetching vendor stats:', error);
@@ -320,11 +330,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
               {/* Product Images - Reduced height */}
               <div className="space-y-4">
                 <div className="h-48 bg-gray-800/30 rounded-xl overflow-hidden border border-gray-600/20">
-                  {product.main_image ? (
+                  {product.main_image || (product.main_images && product.main_images.length > 0) ? (
                     <img
-                      src={product.main_image}
+                      src={
+                        product.main_image
+                          ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
+                          : (product.main_images && product.main_images.length > 0
+                              ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                              : '')
+                      }
                       alt={product.headline || 'Product'}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -333,20 +352,50 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   )}
                 </div>
 
-                {/* Gallery Images */}
-                {product.gallery_images && product.gallery_images.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2">
-                    {product.gallery_images.map((image, index) => (
-                      <div key={index} className="aspect-square bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20">
-                        <img
-                          src={image}
+                {/* Gallery Images & Documents - Single Line */}
+                {(product.gallery_images && product.gallery_images.length > 0) || (product.documents && product.documents.length > 0) ? (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-3">Gallery Images & Documents</h4>
+                    <div className="flex flex-wrap gap-3">
+                      {product.gallery_images && product.gallery_images.map((image, index) => {
+                        const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                        return (
+                          <div key={`img-${index}`} className="aspect-square w-28 h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
+                            <img
+                              src={imageUrl}
                           alt={`${product.headline || 'Product'} ${index + 1}`}
                           className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                              }}
                         />
                       </div>
-                    ))}
+                        );
+                      })}
+                      {product.documents && product.documents.map((doc: string, index: number) => {
+                        const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                        const docName = doc.split('/').pop() || `Document ${index + 1}`;
+                        return (
+                          <div key={`doc-${index}`} className="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-colors min-w-[140px]">
+                            <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-sm font-medium truncate max-w-[120px]">{docName}</p>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-1.5 h-auto"
+                              onClick={() => window.open(docUrl, '_blank')}
+                              title="Download document"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* Product Info */}
@@ -526,24 +575,48 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
                     <Users className="w-5 h-5 mr-2 text-blue-400" />
                     Vendor Details
-                    {loadingVendorStats && <Loader2 className="w-4 h-4 ml-2 animate-spin text-blue-400" />}
+                    {loadingVendorStats && <DotLoader size="sm" color="text-blue-400" />}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Username:</span>
-                        <span className="text-white font-medium">{product.vendor_username}</span>
+                        <span className="text-white font-medium">{product.vendor_username || product.vendor?.username || 'N/A'}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Member Since:</span>
                         <span className="text-white">
-                          {vendorStats ? vendorStats.member_since : "Loading..."}
+                          {loadingVendorStats ? (
+                            <DotLoader size="sm" color="text-gray-400" />
+                          ) : vendorStats?.member_since ? (
+                            vendorStats.member_since
+                          ) : (product.vendor as any)?.date_joined ? (
+                            (() => {
+                              const dateJoined = new Date((product.vendor as any).date_joined);
+                              const now = new Date();
+                              const yearsSince = (now.getTime() - dateJoined.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+                              if (yearsSince >= 1) {
+                                return `${yearsSince.toFixed(1)} years ago`;
+                              } else {
+                                const monthsSince = yearsSince * 12;
+                                return `${Math.round(monthsSince)} months ago`;
+                              }
+                            })()
+                          ) : (
+                            'N/A'
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Total Sales:</span>
                         <span className="text-green-400 font-medium">
-                          {vendorStats ? vendorStats.total_sales : "Loading..."}
+                          {loadingVendorStats ? (
+                            <DotLoader size="sm" color="text-green-400" />
+                          ) : vendorStats?.total_sales ? (
+                            vendorStats.total_sales
+                          ) : (
+                            '0 products'
+                          )}
                         </span>
                       </div>
                     </div>
@@ -553,14 +626,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-400 fill-current" />
                           <span className="text-white">
-                            {vendorStats ? vendorStats.vendor_rating : "Loading..."}
+                            {loadingVendorStats ? (
+                              <DotLoader size="sm" color="text-yellow-400" />
+                            ) : vendorStats?.vendor_rating ? (
+                              vendorStats.vendor_rating
+                            ) : (
+                              'No rating'
+                            )}
                           </span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Completion Rate:</span>
                         <span className="text-green-400 font-medium">
-                          {vendorStats ? vendorStats.completion_rate : "Loading..."}
+                          {loadingVendorStats ? (
+                            <DotLoader size="sm" color="text-green-400" />
+                          ) : vendorStats?.completion_rate ? (
+                            vendorStats.completion_rate
+                          ) : (
+                            '100%'
+                          )}
                         </span>
                       </div>
                     </div>
@@ -613,21 +698,73 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   </div>
                 </div>
 
-                {/* Additional Product Details - if available */}
-                {product.access_method && (
+                {/* Account Details */}
+                {(product.access_method || product.account_age || product.delivery_method) && (
                   <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                    <h3 className="text-lg font-semibold text-white mb-3">Access Method</h3>
-                    <p className="text-gray-300">{product.access_method}</p>
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                      <Key className="w-5 h-5 mr-2 text-blue-400" />
+                      Account Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {product.access_method && (
+                        <div>
+                          <span className="text-gray-400 text-sm">Access Method:</span>
+                          <p className="text-white">{product.access_method}</p>
+                        </div>
+                      )}
+                      {product.account_age && (
+                        <div>
+                          <span className="text-gray-400 text-sm">Account Age:</span>
+                          <p className="text-white">{product.account_age}</p>
+                        </div>
+                      )}
+                      {product.delivery_method && (
+                        <div>
+                          <span className="text-gray-400 text-sm">Delivery Method:</span>
+                          <p className="text-white">{product.delivery_method}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                {product.account_age && (
+                {/* Tags & Special Features */}
+                {(product.tags && product.tags.length > 0) || (product.special_features && product.special_features.length > 0) ? (
                   <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                    <h3 className="text-lg font-semibold text-white mb-3">Account Age</h3>
-                    <p className="text-gray-300">{product.account_age}</p>
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                      <Tag className="w-5 h-5 mr-2 text-purple-400" />
+                      Tags & Features
+                    </h3>
+                    <div className="space-y-3">
+                      {product.tags && product.tags.length > 0 && (
+                        <div>
+                          <span className="text-gray-400 text-sm mb-2 block">Tags:</span>
+                          <div className="flex flex-wrap gap-2">
+                            {product.tags.map((tag: string, index: number) => (
+                              <Badge key={index} variant="outline" className="text-purple-400 border-purple-400">
+                                #{tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {product.special_features && product.special_features.length > 0 && (
+                        <div>
+                          <span className="text-gray-400 text-sm mb-2 block">Special Features:</span>
+                          <div className="flex flex-wrap gap-2">
+                            {product.special_features.map((feature: string, index: number) => (
+                              <Badge key={index} variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-400/30">
+                                {feature}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                ) : null}
 
+                {/* Region Restrictions */}
                 {product.region_restrictions && (
                   <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                     <h3 className="text-lg font-semibold text-white mb-3">Region Restrictions</h3>
@@ -635,18 +772,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   </div>
                 )}
 
+                {/* Notes for Buyer */}
                 {product.notes_for_buyer && (
                   <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                     <h3 className="text-lg font-semibold text-white mb-3">Notes for Buyer</h3>
-                    <p className="text-gray-300">{product.notes_for_buyer}</p>
+                    <p className="text-gray-300 leading-relaxed">{product.notes_for_buyer}</p>
                   </div>
                 )}
 
                 {/* Credentials Display */}
+                {product.credentials_display && (
                 <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                  <h3 className="text-lg font-semibold text-white mb-3">Delivery Method</h3>
-                  <p className="text-gray-300">{product.credentials_display || 'N/A'}</p>
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
+                      <Truck className="w-5 h-5 mr-2 text-orange-400" />
+                      Delivery Information
+                    </h3>
+                    <p className="text-gray-300">{product.credentials_display}</p>
                 </div>
+                )}
 
                 {/* Reviews Section */}
                 <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
@@ -670,8 +813,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   
                   {loadingReviews ? (
                     <div className="text-center py-8">
-                      <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
-                      <p className="text-gray-400">Loading reviews...</p>
+                      <DotLoader size="lg" color="text-yellow-400" />
+                      <p className="text-gray-400 mt-3">Loading reviews...</p>
                     </div>
                   ) : productReviews && productReviews.reviews.length > 0 ? (
                     <div>

@@ -131,38 +131,38 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
   };
 
   return (
-    <header className={`bg-gray-950 border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 ${hasBanner ? 'mt-16' : ''}`}>
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+    <header className={`bg-gray-950 border-b border-gray-800 px-6 py-4 ${hasBanner ? 'mt-16' : ''}`}>
+      <div className="flex items-center justify-between">
         {/* Right Controls - Search bar removed from header */}
-        <div className="flex items-center gap-2 sm:gap-4 ml-auto">
+        <div className="flex items-center space-x-4 ml-auto">
           {/* Notifications */}
           <DropdownMenu onOpenChange={handleNotificationDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="relative">
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full p-0 flex items-center justify-center text-[10px] sm:text-xs bg-red-500 text-white">
+                  <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white">
                     {unreadCount}
                   </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[90vw] sm:w-[360px] p-0 bg-gray-900 border-gray-700">
+            <DropdownMenuContent align="end" className="w-[360px] p-0 bg-gray-900 border-gray-700">
               {/* Header */}
               <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-                <div>
+                  <div>
                   <h3 className="font-semibold text-white text-sm">Notifications</h3>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {isLoadingNotifications ? (
+                      {isLoadingNotifications ? (
                       <span className="flex items-center gap-1">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Loading...
-                      </span>
-                    ) : (
-                      `${unreadCount} unread`
-                    )}
-                  </p>
-                </div>
+                          Loading...
+                        </span>
+                      ) : (
+                        `${unreadCount} unread`
+                      )}
+                    </p>
+                  </div>
                 <div className="flex items-center gap-2">
                   <Button 
                     variant="ghost" 

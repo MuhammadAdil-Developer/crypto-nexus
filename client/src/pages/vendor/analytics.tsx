@@ -275,16 +275,16 @@ export default function VendorAnalytics() {
   }, [period]);
 
   return (
-    <div className="space-y-8 relative z-10">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Analytics & Reports</h1>
-          <p className="text-gray-400">Track your performance and revenue insights</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Analytics & Reports</h1>
+          <p className="text-gray-400 text-sm sm:text-base">Track your performance and revenue insights</p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
               <SelectValue placeholder="Select time period" />
             </SelectTrigger>
             <SelectContent>
@@ -294,7 +294,7 @@ export default function VendorAnalytics() {
               <SelectItem value="1year">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => {
+          <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => {
             const root = document.getElementById('vendor-report-root');
             const content = root ? root.outerHTML : '';
             const win = window.open('', '_blank');
@@ -305,177 +305,178 @@ export default function VendorAnalytics() {
             win.print();
             win.close();
           }}>
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
+            <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export Report</span>
+            <span className="sm:hidden">Export</span>
           </Button>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div id="vendor-report-root" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="vendor-report-root" className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-400">Total Revenue</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">Total Revenue</p>
                 {loading ? (
                   <>
-                    <SkeletonBlock className="h-8 w-40 mt-2" />
-                    <SkeletonBlock className="h-4 w-48 mt-2" />
+                    <SkeletonBlock className="h-6 sm:h-8 w-24 sm:w-40 mt-2" />
+                    <SkeletonBlock className="h-3 sm:h-4 w-32 sm:w-48 mt-2" />
                   </>
                 ) : (
                   <>
-                    <p className="text-2xl font-bold text-white">
+                    <p className="text-lg sm:text-2xl font-bold text-white break-words">
                       {metrics.totalRevenue.toFixed(4)} BTC
                     </p>
-                    <p className="text-sm text-gray-400">From completed orders</p>
+                    <p className="text-xs sm:text-sm text-gray-400">From completed orders</p>
                   </>
                 )}
               </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <DollarSign className="w-6 h-6 text-green-600" />
+              <div className="bg-green-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 text-green-600" />
               </div>
             </div>
             {!loading && (
-              <div className="flex items-center mt-4">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600">+12.5% from last month</span>
+              <div className="flex items-center mt-3 sm:mt-4">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
+                <span className="text-xs sm:text-sm text-green-600">+12.5% from last month</span>
               </div>
             )}
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-400">Total Sales</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">Total Sales</p>
                 {loading ? (
                   <>
-                    <SkeletonBlock className="h-8 w-24 mt-2" />
-                    <SkeletonBlock className="h-4 w-36 mt-2" />
+                    <SkeletonBlock className="h-6 sm:h-8 w-20 sm:w-24 mt-2" />
+                    <SkeletonBlock className="h-3 sm:h-4 w-28 sm:w-36 mt-2" />
                   </>
                 ) : (
                   <>
-                    <p className="text-2xl font-bold text-white">{metrics.totalSales}</p>
-                    <p className="text-sm text-gray-400">Orders completed</p>
+                    <p className="text-lg sm:text-2xl font-bold text-white">{metrics.totalSales}</p>
+                    <p className="text-xs sm:text-sm text-gray-400">Orders completed</p>
                   </>
                 )}
               </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <Package className="w-6 h-6 text-blue-600" />
+              <div className="bg-blue-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <Package className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
             {!loading && (
-              <div className="flex items-center mt-4">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600">+8.3% from last month</span>
+              <div className="flex items-center mt-3 sm:mt-4">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
+                <span className="text-xs sm:text-sm text-green-600">+8.3% from last month</span>
               </div>
             )}
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-400">Unique Buyers</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">Unique Buyers</p>
                 {loading ? (
                   <>
-                    <SkeletonBlock className="h-8 w-24 mt-2" />
-                    <SkeletonBlock className="h-4 w-36 mt-2" />
+                    <SkeletonBlock className="h-6 sm:h-8 w-20 sm:w-24 mt-2" />
+                    <SkeletonBlock className="h-3 sm:h-4 w-28 sm:w-36 mt-2" />
                   </>
                 ) : (
                   <>
-                    <p className="text-2xl font-bold text-white">{metrics.uniqueBuyers}</p>
-                    <p className="text-sm text-gray-400">Active customers</p>
+                    <p className="text-lg sm:text-2xl font-bold text-white">{metrics.uniqueBuyers}</p>
+                    <p className="text-xs sm:text-sm text-gray-400">Active customers</p>
                   </>
                 )}
               </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <Users className="w-6 h-6 text-purple-600" />
+              <div className="bg-purple-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <Users className="w-4 h-4 sm:w-6 sm:h-6 text-purple-600" />
               </div>
             </div>
             {!loading && metrics.uniqueBuyers > 0 && (
-              <div className="flex items-center mt-4">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600">Active customer base</span>
+              <div className="flex items-center mt-3 sm:mt-4">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
+                <span className="text-xs sm:text-sm text-green-600">Active customer base</span>
               </div>
             )}
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-400">Store Views</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">Store Views</p>
                 {loading ? (
                   <>
-                    <SkeletonBlock className="h-8 w-24 mt-2" />
-                    <SkeletonBlock className="h-4 w-36 mt-2" />
+                    <SkeletonBlock className="h-6 sm:h-8 w-20 sm:w-24 mt-2" />
+                    <SkeletonBlock className="h-3 sm:h-4 w-28 sm:w-36 mt-2" />
                   </>
                 ) : (
                   <>
-                    <p className="text-2xl font-bold text-white">{metrics.storeViews}</p>
-                    <p className="text-sm text-gray-400">Profile visits</p>
+                    <p className="text-lg sm:text-2xl font-bold text-white">{metrics.storeViews}</p>
+                    <p className="text-xs sm:text-sm text-gray-400">Profile visits</p>
                   </>
                 )}
               </div>
-              <div className="bg-yellow-100 p-3 rounded-full">
-                <Eye className="w-6 h-6 text-yellow-600" />
+              <div className="bg-yellow-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <Eye className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-600" />
               </div>
             </div>
             {!loading && (
-              <div className="flex items-center mt-4">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600">+18.7% from last month</span>
+              <div className="flex items-center mt-3 sm:mt-4">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
+                <span className="text-xs sm:text-sm text-green-600">+18.7% from last month</span>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
         {/* Sales Chart - Always show bars */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-pink-600">Sales Over Time</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Sales Over Time</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             {loading ? (
-              <div className="h-80 grid grid-cols-6 gap-2">
+              <div className="h-64 sm:h-80 grid grid-cols-6 gap-2">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <SkeletonBlock key={i} className="h-full w-full" />
                 ))}
               </div>
             ) : (
-              <div className="h-80 flex items-end justify-between space-x-2">
+              <div className="h-64 sm:h-80 flex items-end justify-between space-x-1 sm:space-x-2 overflow-x-auto">
                 {salesData.map((data, index) => {
                   const maxValue = Math.max(...salesData.map(s => s.btc), 0.001);
                   const heightPercent = data.btc > 0 ? Math.max(5, (data.btc / maxValue) * 100) : 0;
                   
                   return (
-                    <div key={index} className="flex flex-col items-center space-y-2 flex-1">
-                      <div className="bg-gray-700 w-full rounded-lg overflow-hidden h-64 flex flex-col justify-end">
+                    <div key={index} className="flex flex-col items-center space-y-1 sm:space-y-2 flex-1 min-w-[50px]">
+                      <div className="bg-gray-700 w-full rounded-lg overflow-hidden h-48 sm:h-64 flex flex-col justify-end">
                         <div 
                           className={`${data.btc > 0 ? 'bg-blue-500' : 'bg-gray-600'} transition-all duration-500 ease-out`}
                           style={{ height: `${heightPercent}%` }}
                         ></div>
                       </div>
-                      <span className="text-xs text-gray-400 font-medium">{data.month}</span>
-                      <span className="text-xs text-gray-400">{data.btc.toFixed(4)} BTC</span>
+                      <span className="text-[10px] sm:text-xs text-gray-400 font-medium">{data.month}</span>
+                      <span className="text-[9px] sm:text-xs text-gray-400 break-words text-center">{data.btc.toFixed(4)} BTC</span>
                     </div>
                   );
                 })}
               </div>
             )}
             {!loading && (
-              <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
+              <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 text-xs sm:text-sm text-gray-400">
                 <span>Revenue trend for selected period</span>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 sm:space-x-4">
                   <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded mr-2"></div>
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded mr-1 sm:mr-2"></div>
                     <span>BTC Revenue</span>
                   </div>
                 </div>
@@ -486,49 +487,49 @@ export default function VendorAnalytics() {
 
         {/* Revenue Breakdown */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-pink-600">Revenue Breakdown</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Revenue Breakdown</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             {loading ? (
-              <div className="space-y-4">
-                <SkeletonBlock className="h-6 w-56" />
+              <div className="space-y-3 sm:space-y-4">
+                <SkeletonBlock className="h-5 sm:h-6 w-40 sm:w-56" />
                 <SkeletonBlock className="h-3 w-full" />
-                <SkeletonBlock className="h-6 w-40" />
+                <SkeletonBlock className="h-5 sm:h-6 w-32 sm:w-40" />
                 <SkeletonBlock className="h-3 w-full" />
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {revenueBreakdown.map((item, index) => (
                   <div key={index} className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-white">{item.source}</span>
-                      <span className="font-semibold text-white">{item.amount}</span>
+                      <span className="font-medium text-white text-sm sm:text-base">{item.source}</span>
+                      <span className="font-semibold text-white text-sm sm:text-base break-words">{item.amount}</span>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-3">
+                    <div className="w-full bg-gray-700 rounded-full h-2 sm:h-3">
                       <div 
-                        className={`${item.color} h-3 rounded-full transition-all duration-500`}
+                        className={`${item.color} h-2 sm:h-3 rounded-full transition-all duration-500`}
                         style={{ width: `${Math.max(item.percentage, 0)}%` }}
                       ></div>
                     </div>
-                    <div className="text-sm text-gray-400">{item.percentage}% of total revenue</div>
+                    <div className="text-xs sm:text-sm text-gray-400">{item.percentage}% of total revenue</div>
                   </div>
                 ))}
                 
-                <div className="mt-8 pt-6 border-t border-gray-700">
-                  <h4 className="font-semibold text-white mb-4">Payment Method Performance</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-700">
+                  <h4 className="font-semibold text-white mb-3 sm:mb-4 text-sm sm:text-base">Payment Method Performance</h4>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Average Order Value (BTC)</span>
-                      <span className="font-medium text-white">{paymentPerf.avgBtc.toFixed(4)} BTC</span>
+                      <span className="font-medium text-white break-words">{paymentPerf.avgBtc.toFixed(4)} BTC</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Average Order Value (XMR)</span>
-                      <span className="font-medium text-white">{paymentPerf.avgXmr.toFixed(4)} XMR</span>
+                      <span className="font-medium text-white break-words">{paymentPerf.avgXmr.toFixed(4)} XMR</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Most Popular Payment</span>
-                      <span className="font-medium text-white">{paymentPerf.popular.name} ({paymentPerf.popular.percent}%)</span>
+                      <span className="font-medium text-white break-words">{paymentPerf.popular.name} ({paymentPerf.popular.percent}%)</span>
                     </div>
                   </div>
                 </div>
@@ -540,47 +541,47 @@ export default function VendorAnalytics() {
 
       {/* Top Products */}
       <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-pink-600">Top Performing Products</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Top Performing Products</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           {loading ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-4 bg-gray-800 rounded-lg">
-                  <SkeletonBlock className="h-5 w-2/3" />
-                  <SkeletonBlock className="h-4 w-1/3 mt-2" />
+                <div key={i} className="p-3 sm:p-4 bg-gray-800 rounded-lg">
+                  <SkeletonBlock className="h-4 sm:h-5 w-2/3" />
+                  <SkeletonBlock className="h-3 sm:h-4 w-1/3 mt-2" />
                 </div>
               ))}
             </div>
           ) : topProducts.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {topProducts.map((product, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-blue-600 font-semibold text-sm">#{index + 1}</span>
+                <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-blue-600 font-semibold text-xs sm:text-sm">#{index + 1}</span>
                     </div>
-                    <div>
-                      <h4 className="font-medium text-white">{product.name}</h4>
-                      <p className="text-sm text-gray-400">{product.sales} {product.sales === 1 ? 'sale' : 'sales'}</p>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-medium text-white text-sm sm:text-base break-words">{product.name}</h4>
+                      <p className="text-xs sm:text-sm text-gray-400">{product.sales} {product.sales === 1 ? 'sale' : 'sales'}</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-6">
-                    <div className="text-right">
-                      <div className="font-semibold text-blue-400">{product.revenue}</div>
-                      <div className="text-xs text-gray-400">Revenue</div>
+                  <div className="flex items-center space-x-4 sm:space-x-6 flex-shrink-0">
+                    <div className="text-left sm:text-right">
+                      <div className="font-semibold text-blue-400 text-sm sm:text-base">{product.revenue}</div>
+                      <div className="text-[10px] sm:text-xs text-gray-400">Revenue</div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400">No orders yet for this period</p>
-              <p className="text-sm text-gray-500 mt-1">Sales data will appear here once you have orders</p>
+            <div className="text-center py-8 sm:py-12">
+              <Package className="w-10 h-10 sm:w-12 sm:h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm sm:text-base">No orders yet for this period</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">Sales data will appear here once you have orders</p>
             </div>
           )}
         </CardContent>

@@ -308,6 +308,9 @@ class ProductReview(BaseModel):
     rating = models.PositiveIntegerField(choices=[(i, i) for i in range(1, 6)])
     comment = models.TextField()
     images = models.JSONField(default=list)
+    vendor_reply = models.TextField(blank=True, null=True)
+    vendor_reply_date = models.DateTimeField(blank=True, null=True)
+    conversation = models.JSONField(default=list, blank=True)  # Store conversation chain: [{author: 'vendor'|'buyer', message: str, date: str}]
     
     class Meta:
         db_table = 'product_reviews'

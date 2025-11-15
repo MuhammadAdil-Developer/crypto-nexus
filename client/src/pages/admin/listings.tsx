@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Pagination } from "@/components/ui/pagination";
 import { useForm } from "react-hook-form";
-import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign, Loader2, Lock, CheckSquare, Square } from "lucide-react";
+import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign, Loader2, Lock, CheckSquare, Square, Package, Shield, Key, Truck, FileText, Download, Folder } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // API Service
@@ -22,17 +22,23 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 interface Product {
   id: number;
   headline: string | null;
+  listing_title?: string | null;
   website: string | null;
   account_type: string;
   access_type: string | null;
   account_balance: string | null;
+  account_age?: string | null;
+  access_method?: string | null;
   description: string;
   price: string;
   additional_info: string | null;
   delivery_time: string | null;
+  delivery_method?: string | null;
   credentials_display: string;
   main_image: string | null;
+  main_images?: string[];
   gallery_images: string[];
+  documents?: string[];
   status: string;
   is_featured: boolean;
   views_count: number;
@@ -41,7 +47,27 @@ interface Product {
   review_count: number;
   created_at: string;
   vendor_username: string;
+  vendor?: {
+    id: string;
+    username: string;
+    email: string;
+  };
+  category?: {
+    id: string;
+    name: string;
+  };
+  sub_category?: {
+    id: string;
+    name: string;
+  } | null;
   escrow_enabled?: boolean;
+  tags?: string[];
+  special_features?: string[];
+  region_restrictions?: string | null;
+  notes_for_buyer?: string | null;
+  quantity_available?: number;
+  discount_percentage?: string | null;
+  auto_delivery_script?: string | null;
 }
 
 export default function AdminListings() {
@@ -333,9 +359,46 @@ export default function AdminListings() {
     }
   };
 
-  const handleView = (product: Product) => {
-    setSelectedListing(product);
-    setViewListingModalOpen(true);
+  const handleView = async (product: Product) => {
+    try {
+      // Fetch full product details
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login to access admin panel",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/products/${product.id}/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setSelectedListing(data.data);
+          setViewListingModalOpen(true);
+        } else {
+          // Fallback to basic product data
+          setSelectedListing(product);
+          setViewListingModalOpen(true);
+        }
+      } else {
+        // Fallback to basic product data
+        setSelectedListing(product);
+        setViewListingModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+      // Fallback to basic product data
+      setSelectedListing(product);
+      setViewListingModalOpen(true);
+    }
   };
 
   // Bulk selection functions
@@ -987,6 +1050,27 @@ export default function AdminListings() {
                     </div>
                   </div>
 
+                  {/* Main Image */}
+                  {(selectedListing.main_image || (selectedListing.main_images && selectedListing.main_images.length > 0)) && (
+                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <h3 className="text-lg font-semibold text-white mb-3">Main Image</h3>
+                      <img
+                        src={
+                          selectedListing.main_image
+                            ? (selectedListing.main_image.startsWith('http') ? selectedListing.main_image : `http://localhost:8000${selectedListing.main_image}`)
+                            : (selectedListing.main_images && selectedListing.main_images.length > 0
+                                ? (selectedListing.main_images[0].startsWith('http') ? selectedListing.main_images[0] : `http://localhost:8000${selectedListing.main_images[0]}`)
+                                : '')
+                        }
+                        alt={selectedListing.headline || 'Product'}
+                        className="w-full h-64 object-cover rounded-lg"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                        }}
+                      />
+                    </div>
+                  )}
+
                   {/* Product Information */}
                   <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
                     <h3 className="text-lg font-semibold text-white mb-3">Product Information</h3>
@@ -994,19 +1078,19 @@ export default function AdminListings() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Headline</Label>
-                          <p className="text-white font-medium">{selectedListing.headline || 'N/A'}</p>
+                          <p className="text-white font-medium">{selectedListing.headline || selectedListing.listing_title || 'N/A'}</p>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Website</Label>
                           <p className="text-white font-medium">{selectedListing.website || 'N/A'}</p>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium text-gray-400">Account Type</Label>
-                          <p className="text-white font-medium">{selectedListing.account_type}</p>
+                          <Label className="text-sm font-medium text-gray-400">Category</Label>
+                          <p className="text-white font-medium">{selectedListing.category?.name || 'N/A'}</p>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium text-gray-400">Access Type</Label>
-                          <p className="text-white font-medium">{selectedListing.access_type || 'N/A'}</p>
+                          <Label className="text-sm font-medium text-gray-400">Sub Category</Label>
+                          <p className="text-white font-medium">{selectedListing.sub_category?.name || 'N/A'}</p>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Price</Label>
@@ -1016,8 +1100,20 @@ export default function AdminListings() {
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Vendor</Label>
-                          <p className="text-white font-medium">{selectedListing.vendor_username}</p>
+                          <p className="text-white font-medium">{selectedListing.vendor_username || selectedListing.vendor?.username || 'N/A'}</p>
                         </div>
+                        {selectedListing.quantity_available !== undefined && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Stock Available</Label>
+                            <p className="text-white font-medium">{selectedListing.quantity_available}</p>
+                          </div>
+                        )}
+                        {selectedListing.discount_percentage && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Discount</Label>
+                            <p className="text-green-400 font-medium">{selectedListing.discount_percentage}%</p>
+                          </div>
+                        )}
                       </div>
                       
                       <div>
@@ -1033,6 +1129,169 @@ export default function AdminListings() {
                       )}
                     </div>
                   </div>
+
+                  {/* Account Details */}
+                  <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                    <h3 className="text-lg font-semibold text-white mb-3">Account Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Account Type</Label>
+                        <p className="text-white font-medium">{selectedListing.account_type || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Access Type</Label>
+                        <p className="text-white font-medium">{selectedListing.access_type || 'N/A'}</p>
+                      </div>
+                      {selectedListing.account_balance && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Account Balance</Label>
+                          <p className="text-white font-medium">{selectedListing.account_balance}</p>
+                        </div>
+                      )}
+                      {selectedListing.account_age && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Account Age</Label>
+                          <p className="text-white font-medium">{selectedListing.account_age}</p>
+                        </div>
+                      )}
+                      {selectedListing.access_method && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Access Method</Label>
+                          <p className="text-white font-medium">{selectedListing.access_method}</p>
+                        </div>
+                      )}
+                      {selectedListing.credentials_display && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Credentials</Label>
+                          <p className="text-white font-medium">{selectedListing.credentials_display}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Delivery Information */}
+                  <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                    <h3 className="text-lg font-semibold text-white mb-3">Delivery Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {selectedListing.delivery_method && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Delivery Method</Label>
+                          <p className="text-white font-medium">{selectedListing.delivery_method}</p>
+                        </div>
+                      )}
+                      {selectedListing.delivery_time && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Delivery Time</Label>
+                          <p className="text-white font-medium">{selectedListing.delivery_time}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tags & Special Features */}
+                  {(selectedListing.tags && selectedListing.tags.length > 0) || (selectedListing.special_features && selectedListing.special_features.length > 0) || selectedListing.region_restrictions ? (
+                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <h3 className="text-lg font-semibold text-white mb-3">Tags & Features</h3>
+                      <div className="space-y-3">
+                        {selectedListing.tags && selectedListing.tags.length > 0 && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400 mb-2 block">Tags</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedListing.tags.map((tag: string, index: number) => (
+                                <Badge key={index} variant="outline" className="text-purple-400 border-purple-400">
+                                  #{tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {selectedListing.special_features && selectedListing.special_features.length > 0 && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400 mb-2 block">Special Features</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedListing.special_features.map((feature: string, index: number) => (
+                                <Badge key={index} variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-400/30">
+                                  {feature}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {selectedListing.region_restrictions && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400 mb-2 block">Region Restrictions</Label>
+                            <p className="text-white text-sm">{selectedListing.region_restrictions}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Notes for Buyer */}
+                  {selectedListing.notes_for_buyer && (
+                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <h3 className="text-lg font-semibold text-white mb-3">Notes for Buyer</h3>
+                      <p className="text-white text-sm leading-relaxed">{selectedListing.notes_for_buyer}</p>
+                    </div>
+                  )}
+
+                  {/* Gallery Images */}
+                  {selectedListing.gallery_images && selectedListing.gallery_images.length > 0 && (
+                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <h3 className="text-lg font-semibold text-white mb-3">Gallery Images</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {selectedListing.gallery_images.map((image: string, index: number) => {
+                          const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                          return (
+                            <div key={index} className="relative group">
+                              <img
+                                src={imageUrl}
+                                alt={`Gallery image ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-lg border border-gray-600 group-hover:border-blue-400 transition-colors"
+                                onError={(e) => {
+                                  e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                                <Eye className="w-6 h-6 text-white" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Documents */}
+                  {selectedListing.documents && selectedListing.documents.length > 0 && (
+                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <h3 className="text-lg font-semibold text-white mb-3">Documents</h3>
+                      <div className="space-y-3">
+                        {selectedListing.documents.map((doc: string, index: number) => {
+                          const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                          const docName = doc.split('/').pop() || `Document ${index + 1}`;
+                          return (
+                            <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                              <FileText className="w-5 h-5 text-blue-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
+                                <p className="text-gray-400 text-xs truncate">{docName}</p>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
+                                onClick={() => window.open(docUrl, '_blank')}
+                              >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Performance Metrics */}
                   <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
@@ -1052,7 +1311,7 @@ export default function AdminListings() {
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-green-500">
-                          {typeof selectedListing.rating === 'number' && !isNaN(selectedListing.rating) ? selectedListing.rating.toFixed(1) : '0.0'}
+                          {typeof selectedListing.rating === 'number' && !isNaN(selectedListing.rating) ? selectedListing.rating.toFixed(1) : parseFloat(selectedListing.rating || '0').toFixed(1)}
                         </div>
                         <p className="text-sm text-gray-400">Rating</p>
                       </div>

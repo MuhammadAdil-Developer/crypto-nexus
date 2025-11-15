@@ -428,69 +428,69 @@ export default function VendorOrders() {
 
   return (
     <>
-      <div className="space-y-8 relative z-10">
+      <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Orders & Sales</h1>
-            <p className="text-gray-400">Manage your customer orders and track sales</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Orders & Sales</h1>
+            <p className="text-gray-400 text-sm sm:text-base">Manage your customer orders and track sales</p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
             Export Orders
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-white">{orders.length}</div>
-              <p className="text-sm text-gray-400">Total Orders</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-xl sm:text-2xl font-bold text-white">{orders.length}</div>
+              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Orders</p>
             </CardContent>
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-blue-600">{orders.filter(order => order.status === "Processing").length}</div>
-              <p className="text-sm text-gray-400">Processing</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-xl sm:text-2xl font-bold text-blue-600">{orders.filter(order => order.status === "Processing").length}</div>
+              <p className="text-xs sm:text-sm text-gray-400 truncate">Processing</p>
             </CardContent>
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-purple-600">{orders.filter(order => order.status === "Shipped").length}</div>
-              <p className="text-sm text-gray-400">Shipped</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-xl sm:text-2xl font-bold text-purple-600">{orders.filter(order => order.status === "Shipped").length}</div>
+              <p className="text-xs sm:text-sm text-gray-400 truncate">Shipped</p>
             </CardContent>
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-green-600">{orders.filter(order => order.status === "Completed").length}</div>
-              <p className="text-sm text-gray-400">Completed</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{orders.filter(order => order.status === "Completed").length}</div>
+              <p className="text-xs sm:text-sm text-gray-400 truncate">Completed</p>
             </CardContent>
           </Card>
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-white">{orders.reduce((sum, order) => sum + parseFloat(order.amount.split(' ')[0]), 0).toFixed(8)} BTC</div>
-              <p className="text-sm text-gray-400">Total Revenue</p>
+          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10 col-span-2 lg:col-span-1">
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{orders.reduce((sum, order) => sum + parseFloat(order.amount.split(' ')[0]), 0).toFixed(8)} BTC</div>
+              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Revenue</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div className="flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search orders, buyers, products..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 text-sm sm:text-base"
                   />
                 </div>
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48">
+                <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -503,7 +503,7 @@ export default function VendorOrders() {
                 </SelectContent>
               </Select>
               <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-full sm:w-48">
+                <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
                   <SelectValue placeholder="Filter by date" />
                 </SelectTrigger>
                 <SelectContent>
@@ -519,78 +519,78 @@ export default function VendorOrders() {
 
         {/* Orders Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-pink-600">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">
               Orders ({filteredOrders.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
               {isLoading ? (
-                <div className="text-center py-12">
-                  <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
-                  <p className="text-gray-400 mt-4">Loading orders...</p>
+                <div className="text-center py-8 sm:py-12">
+                  <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 text-blue-600 animate-spin mx-auto" />
+                  <p className="text-gray-400 mt-4 text-sm sm:text-base">Loading orders...</p>
                 </div>
               ) : filteredOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 mb-4">
-                    <Package className="w-12 h-12 mx-auto" />
+                <div className="text-center py-8 sm:py-12">
+                  <div className="text-gray-400 mb-3 sm:mb-4">
+                    <Package className="w-10 h-10 sm:w-12 sm:h-12 mx-auto" />
                   </div>
-                  <h3 className="text-lg font-medium text-white mb-2">No orders found</h3>
-                  <p className="text-gray-400">Try adjusting your search or filter criteria.</p>
+                  <h3 className="text-base sm:text-lg font-medium text-white mb-2">No orders found</h3>
+                  <p className="text-gray-400 text-sm sm:text-base">Try adjusting your search or filter criteria.</p>
                 </div>
               ) : (
                 currentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex flex-col items-center">
+                <div key={order.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors overflow-hidden">
+                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="flex flex-col items-center flex-shrink-0">
                       <div className={`w-3 h-3 rounded-full ${getPriorityColor(order.priority)} mb-1`}></div>
-                      <span className="text-xs text-gray-400 uppercase">{order.priority}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{order.priority}</span>
                     </div>
                     
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="font-semibold text-white">{order.id}</h3>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
+                        <h3 className="font-semibold text-white text-sm sm:text-base truncate">{order.id}</h3>
                         {order.escrow && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-[10px] sm:text-xs">
                             Escrow
                           </Badge>
                         )}
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs">
                           {order.paymentMethod}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-400 mb-1">{order.product}</p>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-sm text-gray-400">by {order.buyer}</span>
-                        <span className="text-sm text-gray-400">{order.date} at {order.time}</span>
+                      <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{order.product}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0">
+                        <span className="text-xs sm:text-sm text-gray-400">by {order.buyer}</span>
+                        <span className="text-xs sm:text-sm text-gray-400">{order.date} at {order.time}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-6">
-                    <div className="text-right">
-                      <div className="font-semibold text-blue-600">{order.amount}</div>
-                      <div className="text-sm text-gray-400">{order.usdAmount}</div>
+                  <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
+                    <div className="text-left sm:text-right lg:text-right">
+                      <div className="font-semibold text-blue-600 text-sm sm:text-base">{order.amount}</div>
+                      <div className="text-xs sm:text-sm text-gray-400">{order.usdAmount}</div>
                     </div>
 
                     <div className="space-y-1">
-                      <Badge className={`border ${getStatusColor(order.status)}`}>
+                      <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(order.status)}`}>
                         {order.status}
                       </Badge>
                       {order.use_escrow && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[10px] px-1 py-0 h-4">
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4">
                             <Lock className="w-2 h-2 mr-0.5" />
                             ESCROW
                           </Badge>
                           {order.order_status === 'paid' && !order.confirmed_at && (
-                            <Badge className="bg-orange-500/20 text-orange-300 text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                            <Badge className="bg-orange-500/20 text-orange-300 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
                               Awaiting
                             </Badge>
                           )}
                           {order.confirmed_at && (
-                            <Badge className="bg-green-500/20 text-green-300 text-[10px] px-1 py-0 h-4">
+                            <Badge className="bg-green-500/20 text-green-300 text-[9px] sm:text-[10px] px-1 py-0 h-4">
                               <CheckCircle className="w-2 h-2 mr-0.5" />
                               Approved
                             </Badge>
@@ -599,25 +599,25 @@ export default function VendorOrders() {
                       )}
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-shrink-0">
                       {order.status === "Processing" && (
                         <>
-                          <Button size="sm" variant="outline" className="text-green-600 border-green-300">
-                            <Check className="w-4 h-4" />
+                          <Button size="sm" variant="outline" className="text-green-600 border-green-300 h-8 w-8 p-0">
+                            <Check className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
-                          <Button size="sm" variant="outline" className="text-red-600 border-red-300">
-                            <X className="w-4 h-4" />
+                          <Button size="sm" variant="outline" className="text-red-600 border-red-300 h-8 w-8 p-0">
+                            <X className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
                         </>
                       )}
                       
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
                           <DropdownMenuItem onClick={() => handleViewDetails(order)}>
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
@@ -657,15 +657,15 @@ export default function VendorOrders() {
 
             {/* Pagination */}
             {filteredOrders.length > 0 && (
-              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-700">
                 {/* Items per page selector */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-400">Show:</span>
+                <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-start">
+                  <span className="text-xs sm:text-sm text-gray-400">Show:</span>
                   <Select value={itemsPerPage.toString()} onValueChange={(value) => {
                     setItemsPerPage(parseInt(value));
                     setCurrentPage(1);
                   }}>
-                    <SelectTrigger className="w-20">
+                    <SelectTrigger className="w-16 sm:w-20 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -675,33 +675,33 @@ export default function VendorOrders() {
                       <SelectItem value="50">50</SelectItem>
                     </SelectContent>
                   </Select>
-                  <span className="text-sm text-gray-400">per page</span>
+                  <span className="text-xs sm:text-sm text-gray-400">per page</span>
                 </div>
 
                 {/* Pagination info */}
-                <div className="text-sm text-gray-400">
+                <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
                   Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} orders
                 </div>
 
                 {/* Pagination controls */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap justify-center">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={goToFirstPage}
                     disabled={currentPage === 1}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
                   >
-                    <ChevronsLeft className="w-4 h-4" />
+                    <ChevronsLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={goToPreviousPage}
                     disabled={currentPage === 1}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
 
                   {/* Page numbers */}
@@ -724,11 +724,11 @@ export default function VendorOrders() {
                           variant={currentPage === pageNum ? "default" : "outline"}
                           size="sm"
                           onClick={() => goToPage(pageNum)}
-                          className={
+                          className={`text-xs sm:text-sm h-8 ${
                             currentPage === pageNum
                               ? "bg-blue-600 text-white hover:bg-blue-700"
                               : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                          }
+                          }`}
                         >
                           {pageNum}
                         </Button>
@@ -741,18 +741,18 @@ export default function VendorOrders() {
                     size="sm"
                     onClick={goToNextPage}
                     disabled={currentPage === totalPages}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={goToLastPage}
                     disabled={currentPage === totalPages}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
                   >
-                    <ChevronsRight className="w-4 h-4" />
+                    <ChevronsRight className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                 </div>
               </div>
@@ -772,10 +772,10 @@ export default function VendorOrders() {
 
       {/* Status Update Modal */}
       {isStatusModalOpen && orderToUpdate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Update Order Status</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-white">Update Order Status</h3>
               <button
                 onClick={handleCloseStatusModal}
                 className="text-gray-400 hover:text-white"
@@ -785,14 +785,14 @@ export default function VendorOrders() {
             </div>
             
             <div className="space-y-4">
-              <div className="text-sm text-gray-400">
-                <p>Order ID: <span className="text-white font-mono">{orderToUpdate.id}</span></p>
-                <p>Product: <span className="text-white">{orderToUpdate.product}</span></p>
+              <div className="text-xs sm:text-sm text-gray-400">
+                <p className="break-words">Order ID: <span className="text-white font-mono">{orderToUpdate.id}</span></p>
+                <p className="break-words">Product: <span className="text-white">{orderToUpdate.product}</span></p>
                 <p>Current Status: <span className="text-white font-medium">{orderToUpdate.status}</span></p>
               </div>
               
               <div className="space-y-2">
-                <label className="text-sm text-gray-400">Select New Status:</label>
+                <label className="text-xs sm:text-sm text-gray-400">Select New Status:</label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     onClick={() => handleStatusChange("Pending")}

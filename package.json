@@ -14,7 +14,7 @@
     "docker:run": "docker run -d -p 5000:5000 --name cryptonexus-container cryptonexus",
     "docker:stop": "docker stop cryptonexus-container && docker rm cryptonexus-container",
     "docker:compose": "docker-compose up -d",
-    "docker:compose:down": "docker-compose down"image.png
+    "docker:compose:down": "docker-compose down"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

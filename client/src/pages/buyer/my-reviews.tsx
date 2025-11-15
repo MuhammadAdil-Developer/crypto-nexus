@@ -2,16 +2,22 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Star } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Star, MessageCircle, Reply, Loader2 } from "lucide-react";
 import { productService } from "@/services/productService";
 import { useToast } from "@/components/ui/ToastContainer";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function BuyerMyReviews() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replying, setReplying] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -36,6 +42,33 @@ export default function BuyerMyReviews() {
     const matchesRating = ratingFilter === 'all' || String(r.rating) === ratingFilter;
     return matchesSearch && matchesRating;
   });
+
+  const handleBuyerReply = async (reviewId: string) => {
+    if (!replyText.trim()) {
+      showToast({ title: 'Error', message: 'Please enter a reply', type: 'error' });
+      return;
+    }
+    
+    setReplying(true);
+    try {
+      const res = await productService.buyerReplyToVendor(reviewId, replyText);
+      if (res.success) {
+        showToast({ title: 'Success', message: 'Reply posted successfully', type: 'success' });
+        setReplyText("");
+        setReplyingTo(null);
+        // Reload reviews
+        const res2 = await productService.getMyReviewsSimple({ page: 1, page_size: 20 });
+        setReviews(res2.data || []);
+      } else {
+        showToast({ title: 'Error', message: res.message || 'Failed to post reply', type: 'error' });
+      }
+    } catch (error: any) {
+      console.error('Error posting reply:', error);
+      showToast({ title: 'Error', message: error.message || 'Failed to post reply', type: 'error' });
+    } finally {
+      setReplying(false);
+    }
+  };
 
   return (
     <BuyerLayout>
@@ -99,7 +132,110 @@ export default function BuyerMyReviews() {
                     <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleString()}</span>
                   </div>
                   <div className="text-sm text-gray-200 mb-1">{r.comment}</div>
-                  <div className="text-xs text-gray-400">Product: {r.product?.headline || ''}</div>
+                  <div className="text-xs text-gray-400 mb-3">Product: {r.product?.headline || ''}</div>
+                  
+                  {/* Conversation Chain */}
+                  {(r.vendor_reply || (r.conversation && r.conversation.length > 0)) && (
+                    <div className="mt-3 space-y-2">
+                      {/* Show vendor reply if exists and not in conversation yet */}
+                      {r.vendor_reply && (!r.conversation || r.conversation.length === 0) && (
+                        <div className="ml-4 p-3 bg-blue-900/30 rounded-lg border-l-4 border-blue-500">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <MessageCircle className="w-4 h-4 text-blue-400" />
+                            <span className="font-medium text-blue-300 text-xs">Vendor Reply</span>
+                            {r.vendor_reply_date && (
+                              <span className="text-xs text-blue-400/70">
+                                {new Date(r.vendor_reply_date).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-blue-200 text-sm break-words">{r.vendor_reply}</p>
+                        </div>
+                      )}
+                      
+                      {/* Show conversation chain */}
+                      {r.conversation && r.conversation.length > 0 && r.conversation.map((msg: any, idx: number) => (
+                        <div 
+                          key={idx} 
+                          className={`ml-4 p-3 rounded-lg border-l-4 ${
+                            msg.author === 'vendor' 
+                              ? 'bg-blue-900/30 border-blue-500' 
+                              : 'bg-green-900/30 border-green-500'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 mb-2">
+                            <MessageCircle className={`w-4 h-4 ${msg.author === 'vendor' ? 'text-blue-400' : 'text-green-400'}`} />
+                            <span className={`font-medium text-xs ${msg.author === 'vendor' ? 'text-blue-300' : 'text-green-300'}`}>
+                              {msg.author === 'vendor' ? 'Vendor' : 'You'}
+                            </span>
+                            {msg.date && (
+                              <span className={`text-xs ${msg.author === 'vendor' ? 'text-blue-400/70' : 'text-green-400/70'}`}>
+                                {new Date(msg.date).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-sm break-words ${msg.author === 'vendor' ? 'text-blue-200' : 'text-green-200'}`}>
+                            {msg.message}
+                          </p>
+                        </div>
+                      ))}
+                      
+                      {/* Reply button - show if last message is from vendor */}
+                      {r.vendor_reply && (
+                        <div className="ml-4 mt-2">
+                          <Dialog open={replyingTo === r.id} onOpenChange={(open) => {
+                            if (!open) {
+                              setReplyingTo(null);
+                              setReplyText("");
+                            } else {
+                              setReplyingTo(r.id);
+                            }
+                          }}>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="outline" className="text-xs">
+                                <Reply className="w-3 h-3 mr-2" />
+                                Reply
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Reply to Vendor</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <Textarea
+                                  placeholder="Write your reply..."
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  className="min-h-24"
+                                />
+                                <div className="flex justify-end space-x-3">
+                                  <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                      setReplyingTo(null);
+                                      setReplyText("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button onClick={() => handleBuyerReply(r.id)} disabled={replying}>
+                                    {replying ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Posting...
+                                      </>
+                                    ) : (
+                                      'Post Reply'
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}

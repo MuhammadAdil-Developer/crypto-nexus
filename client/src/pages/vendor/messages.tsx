@@ -443,97 +443,97 @@ export default function VendorMessages() {
   };
 
   return (
-      <div className="space-y-8 relative z-10">
+      <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Messages</h1>
-            <p className="text-gray-300">Communicate with your customers</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Messages</h1>
+            <p className="text-gray-300 text-sm sm:text-base">Communicate with your customers</p>
           </div>
           <div className="flex items-center space-x-4">
-            <Badge className="bg-red-100 text-red-800">
+            <Badge className="bg-red-100 text-red-800 text-xs sm:text-sm">
               {totalUnread} unread
             </Badge>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Total Conversations</p>
-              <p className="text-2xl font-bold text-white">{conversations.length}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Total Conversations</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{conversations.length}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <MessageSquare className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 ml-2">
+              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Unread Messages</p>
-              <p className="text-2xl font-bold text-white">{totalUnread}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Unread Messages</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{totalUnread}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
-              <MessageSquare className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center flex-shrink-0 ml-2">
+              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Active Buyers</p>
-              <p className="text-2xl font-bold text-white">{new Set(conversations.map(c => c.participants?.find((p: any) => p.id !== localStorage.getItem('userId'))?.id).filter(Boolean)).size}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Active Buyers</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{new Set(conversations.map(c => c.participants?.find((p: any) => p.id !== localStorage.getItem('userId'))?.id).filter(Boolean)).size}</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-              <Users className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 ml-2">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               </div>
         </div>
 
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Avg Response Time</p>
-              <p className="text-2xl font-bold text-white">2h</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Avg Response Time</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">2h</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
-              <Star className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center flex-shrink-0 ml-2">
+              <Star className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Messages Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 h-[calc(100vh-200px)] sm:h-[calc(100vh-180px)] lg:h-[calc(100vh-200px)]">
           {/* Conversations List */}
         <Card className="lg:col-span-1 border border-gray-700 bg-gray-900 h-full flex flex-col overflow-hidden">
-            <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="flex items-center justify-between text-base sm:text-lg">
                   <span>Conversations</span>
-              <Button variant="ghost" size="sm" onClick={loadConversations}>
+              <Button variant="ghost" size="sm" onClick={loadConversations} className="h-8 w-8 p-0">
                 <Search className="w-4 h-4" />
               </Button>
                 </CardTitle>
-              <div className="relative">
+              <div className="relative mt-2 sm:mt-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   placeholder="Search conversations..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                 />
               </div>
             </CardHeader>
           <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
             {loading ? (
-              <div className="p-4 text-center text-gray-400">Loading conversations...</div>
+              <div className="p-3 sm:p-4 text-center text-gray-400 text-xs sm:text-sm">Loading conversations...</div>
             ) : filteredConversations.length === 0 ? (
-              <div className="p-4 text-center text-gray-400">No conversations found</div>
+              <div className="p-3 sm:p-4 text-center text-gray-400 text-xs sm:text-sm">No conversations found</div>
             ) : (
               <div className="space-y-1">
                 {filteredConversations.map((conv) => {
@@ -541,35 +541,35 @@ export default function VendorMessages() {
                   return (
                   <div 
                     key={conv.id}
-                      className={`p-4 cursor-pointer transition-colors duration-200 ${
+                      className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${
                       selectedConversation?.id === conv.id 
                           ? 'bg-blue-900/20 border-r-2 border-blue-500' 
                           : 'hover:bg-gray-800'
                     }`}
                       onClick={() => handleConversationSelect(conv)}
                   >
-                    <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600">
-                          <AvatarFallback className="text-white font-semibold">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                          <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                             {buyer?.username?.charAt(0) || 'B'}
                           </AvatarFallback>
                         </Avatar>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-white truncate">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-medium text-white truncate text-sm sm:text-base">
                               {conv.product?.headline || conv.product?.title || buyer?.username || 'Buyer'}
                           </h4>
                             {conv.unread_count > 0 && (
-                            <Badge className="bg-red-500 text-white text-xs">
+                            <Badge className="bg-red-500 text-white text-[10px] sm:text-xs flex-shrink-0">
                                 {conv.unread_count}
                             </Badge>
                           )}
                           </div>
-                          <p className="text-sm text-gray-400 truncate">
+                          <p className="text-xs sm:text-sm text-gray-400 truncate">
                             {conv.last_message?.content || 'No messages yet'}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
                             {new Date(conv.updated_at).toLocaleDateString().replace(/\//g, ' • ')}
                           </p>
                         </div>
@@ -587,17 +587,17 @@ export default function VendorMessages() {
             {selectedConversation ? (
               <>
                 {/* Chat Header */}
-              <CardHeader className="border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600">
-                        <AvatarFallback className="text-white font-semibold">
+              <CardHeader className="border-b p-3 sm:p-6">
+                  <div className="flex items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                      <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                        <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                         {getBuyerFromConversation(selectedConversation)?.username?.charAt(0) || 'B'}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <h3 className="font-semibold text-white flex items-center space-x-2">
-                          <span>{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-white flex items-center space-x-2 text-sm sm:text-base">
+                          <span className="truncate">{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
                           {/* Dispute badge - show if this conversation was opened from dispute */}
                           {(() => {
                             // Check if this conversation was opened with dispute context
@@ -631,40 +631,40 @@ export default function VendorMessages() {
                             return null;
                           })()}
                         </h3>
-                        <p className="text-sm text-gray-400 flex items-center">
-                          <Package className="w-3 h-3 mr-1" />
-                          {selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}
+                        <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
+                          <Package className="w-3 h-3 mr-1 flex-shrink-0" />
+                          <span className="truncate">{selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}</span>
                         </p>
                       </div>
                     </div>
                     
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View Product</DropdownMenuItem>
-                      <DropdownMenuItem>View Buyer Profile</DropdownMenuItem>
-                      <DropdownMenuItem>Mark as Resolved</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">Block Buyer</DropdownMenuItem>
+                      <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
+                      <DropdownMenuItem className="text-xs sm:text-sm">View Product</DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs sm:text-sm">View Buyer Profile</DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs sm:text-sm">Mark as Resolved</DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-600 text-xs sm:text-sm">Block Buyer</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </CardHeader>
 
                 {/* Messages */}
-              <CardContent className="flex-1 p-4 flex flex-col min-h-0">
+              <CardContent className="flex-1 p-3 sm:p-4 flex flex-col min-h-0">
                 {loadingMessages ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                      <p className="text-gray-400 text-sm">Loading messages...</p>
+                      <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                      <p className="text-gray-400 text-xs sm:text-sm">Loading messages...</p>
                     </div>
                   </div>
                 ) : (
-                <div className="space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[400px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
+                <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 max-h-[300px] sm:max-h-[400px]" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                   {messages.map((message) => {
                     // Improved sender detection logic
                     let isOwnMessage = false;
@@ -751,13 +751,13 @@ export default function VendorMessages() {
                         key={message.id}
                         className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                       >
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative ${
+                        <div className={`max-w-[75%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${
                           isOwnMessage
                             ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
                             : 'bg-gray-700 text-white'
                         }`}>
-                          <p className="text-sm">{message.content}</p>
-                          <p className={`text-xs mt-1 ${
+                          <p className="text-xs sm:text-sm break-words">{message.content}</p>
+                          <p className={`text-[10px] sm:text-xs mt-1 ${
                             isOwnMessage ? 'text-blue-100' : 'text-gray-400'
                           }`}>
                             {formatTime(message.created_at)}
@@ -960,8 +960,8 @@ export default function VendorMessages() {
                 )}
 
                 {/* Message Input */}
-                <div className="p-4 border-t border-gray-700 flex-shrink-0 mt-auto">
-                  <div className="flex items-center space-x-3">
+                <div className="p-3 sm:p-4 border-t border-gray-700 flex-shrink-0 mt-auto">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
                     <Input
                       placeholder="Type your message..."
                       value={newMessage}
@@ -969,7 +969,7 @@ export default function VendorMessages() {
                         setNewMessage(e.target.value);
                         handleTyping(true);
                       }}
-                      className="flex-1"
+                      className="flex-1 text-sm sm:text-base"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && newMessage.trim()) {
                           handleSendMessage();
@@ -978,7 +978,7 @@ export default function VendorMessages() {
                     />
                     <Button 
                       size="sm"
-                      className="bg-blue-500 hover:bg-blue-600"
+                      className="bg-blue-500 hover:bg-blue-600 h-9 sm:h-10 w-9 sm:w-10 p-0 flex-shrink-0"
                       disabled={!newMessage.trim()}
                       onClick={handleSendMessage}
                     >
@@ -1006,21 +1006,21 @@ export default function VendorMessages() {
 
       {/* Custom Delete Confirmation Dialog */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Delete Message</h3>
-            <p className="text-gray-300 mb-6">Are you sure you want to delete this message? This action cannot be undone.</p>
-            <div className="flex space-x-3">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-4 sm:p-6 max-w-md w-full mx-auto">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Delete Message</h3>
+            <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Are you sure you want to delete this message? This action cannot be undone.</p>
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <Button 
                 onClick={confirmDeleteMessage}
-                className="bg-red-500 hover:bg-red-600 text-white flex-1"
+                className="bg-red-500 hover:bg-red-600 text-white flex-1 text-sm sm:text-base"
               >
                 Delete
               </Button>
               <Button 
                 onClick={() => setShowDeleteConfirm(null)}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 text-sm sm:text-base"
               >
                 Cancel
               </Button>
@@ -1031,21 +1031,21 @@ export default function VendorMessages() {
 
       {/* Custom Report Confirmation Dialog */}
       {showReportConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Report Message</h3>
-            <p className="text-gray-300 mb-6">Are you sure you want to report this message? This will flag it for review.</p>
-            <div className="flex space-x-3">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-4 sm:p-6 max-w-md w-full mx-auto">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Report Message</h3>
+            <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Are you sure you want to report this message? This will flag it for review.</p>
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <Button 
                 onClick={confirmReportMessage}
-                className="bg-red-500 hover:bg-red-600 text-white flex-1"
+                className="bg-red-500 hover:bg-red-600 text-white flex-1 text-sm sm:text-base"
               >
                 Report
               </Button>
               <Button 
                 onClick={() => setShowReportConfirm(null)}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 text-sm sm:text-base"
               >
                 Cancel
               </Button>

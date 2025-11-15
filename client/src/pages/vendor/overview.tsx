@@ -344,15 +344,15 @@ export default function VendorOverview() {
   };
 
   return (
-    <div className="space-y-8 relative z-10">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
       {/* AC Logo and Branding Section */}
-      <div className="flex flex-col items-center justify-center py-6">
+      <div className="flex flex-col items-center justify-center py-4 sm:py-6">
         {/* AC Logo Monogram */}
-        <div className="mb-4">
+        <div className="mb-3 sm:mb-4">
           <img 
             src="/images/ac-logo-monogram.png" 
             alt="AC Logo Monogram" 
-            className="w-48 h-48 object-contain"
+            className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain"
           />
         </div>
         
@@ -361,20 +361,20 @@ export default function VendorOverview() {
           <img 
             src="/images/the-one-and-only.png" 
             alt="THE ONE AND ONLY" 
-            className="h-8 object-contain"
+            className="h-6 sm:h-7 lg:h-8 object-contain"
             style={{ imageRendering: 'auto' }}
           />
         </div>
       </div>
 
       {/* ADD LISTING Button - Left Positioned */}
-      <div className="flex justify-start mb-8">
+      <div className="flex justify-start mb-4 sm:mb-6 lg:mb-8">
         <Button 
-          className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 text-lg font-semibold"
+          className="bg-pink-600 hover:bg-pink-700 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg font-semibold w-full sm:w-auto"
           onClick={handleAddNewProduct}
         >
-          <Plus className="w-5 h-5 mr-2" />
-          ADD LISTING
+          <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+          <span className="truncate">ADD LISTING</span>
         </Button>
       </div>
 
@@ -390,14 +390,14 @@ export default function VendorOverview() {
       />
 
       {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
         {/* Recent Orders */}
               <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-pink-600">RECENT ORDERS</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">RECENT ORDERS</CardTitle>
               <Button 
-                className="bg-pink-600 hover:bg-pink-700 text-white text-sm"
+                className="bg-pink-600 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto"
                 size="sm"
                 onClick={handleViewAllOrders}
               >
@@ -405,42 +405,41 @@ export default function VendorOverview() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
               {isLoadingOrders ? (
                 // Skeleton loader for orders
                 Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="p-4 bg-gray-800 rounded-lg animate-pulse">
+                  <div key={index} className="p-3 sm:p-4 bg-gray-800 rounded-lg animate-pulse">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="h-4 bg-gray-700 rounded w-32"></div>
-                      <div className="h-4 bg-gray-700 rounded w-20"></div>
+                      <div className="h-4 bg-gray-700 rounded w-24 sm:w-32"></div>
+                      <div className="h-4 bg-gray-700 rounded w-16 sm:w-20"></div>
                     </div>
-                    <div className="h-3 bg-gray-700 rounded w-48 mb-2"></div>
+                    <div className="h-3 bg-gray-700 rounded w-32 sm:w-48 mb-2"></div>
                     <div className="flex items-center justify-between">
-                      <div className="h-3 bg-gray-700 rounded w-24"></div>
-                      <div className="h-4 bg-gray-700 rounded w-16"></div>
+                      <div className="h-3 bg-gray-700 rounded w-20 sm:w-24"></div>
+                      <div className="h-4 bg-gray-700 rounded w-12 sm:w-16"></div>
                     </div>
                   </div>
                 ))
               ) : recentOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
-                    <Package className="w-8 h-8 text-gray-500" />
+                <div className="text-center py-8 sm:py-12">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <Package className="w-6 h-6 sm:w-8 sm:h-8 text-gray-500" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No Recent Orders</h3>
-                  <p className="text-sm text-gray-400">You don't have any recent orders yet.</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-white mb-2">No Recent Orders</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">You don't have any recent orders yet.</p>
                 </div>
               ) : (
                 recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-medium text-white">{order.order_id}</h4>
-                        <div className="text-right">
+                <div key={order.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2">
+                        <h4 className="font-medium text-white text-sm sm:text-base truncate">{order.order_id}</h4>
+                        <div className="text-left sm:text-right flex-shrink-0">
                           <div className="text-xs text-gray-400 mb-1">{formatDate(order.created_at)}</div>
                       <div className="flex items-center gap-1 flex-wrap">
-                        <Badge 
-                          className={
+                        <Badge className={`text-[10px] sm:text-xs ${
                             getStatusDisplay(order) === "Completed" 
                               ? "bg-emerald-500 text-white border-emerald-400" 
                               : getStatusDisplay(order) === "Processing"
@@ -448,23 +447,22 @@ export default function VendorOverview() {
                               : getStatusDisplay(order) === "Pending"
                               ? "bg-amber-500 text-white border-amber-400"
                               : "bg-pink-500 text-white border-pink-400"
-                          }
-                        >
+                          }`}>
                           {getStatusDisplay(order)}
                         </Badge>
                         {order.use_escrow && (
                           <>
-                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[10px] px-1 py-0 h-4">
+                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4">
                               <Lock className="w-2 h-2 mr-0.5" />
                               ESCROW
                             </Badge>
                             {order.order_status === 'paid' && !order.confirmed_at && (
-                              <Badge className="bg-orange-500/20 text-orange-300 text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                              <Badge className="bg-orange-500/20 text-orange-300 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
                                 Awaiting
                               </Badge>
                             )}
                             {order.confirmed_at && (
-                              <Badge className="bg-green-500/20 text-green-300 text-[10px] px-1 py-0 h-4">
+                              <Badge className="bg-green-500/20 text-green-300 text-[9px] sm:text-[10px] px-1 py-0 h-4">
                                 <CheckCircle className="w-2 h-2 mr-0.5" />
                                 Approved
                               </Badge>
@@ -474,10 +472,10 @@ export default function VendorOverview() {
                       </div>
                     </div>
                       </div>
-                      <p className="text-sm text-gray-300 mb-1">{order.product.headline}</p>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">by {order.buyer.username}</span>
-                        <span className="font-semibold text-pink-600">{order.total_amount} {order.crypto_currency}</span>
+                      <p className="text-xs sm:text-sm text-gray-300 mb-1 break-words">{order.product.headline}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                        <span className="text-xs sm:text-sm text-gray-400">by {order.buyer.username}</span>
+                        <span className="font-semibold text-pink-600 text-sm sm:text-base">{order.total_amount} {order.crypto_currency}</span>
                       </div>
                     </div>
                   </div>
@@ -489,57 +487,57 @@ export default function VendorOverview() {
 
         {/* Top Products */}
               <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-pink-600">TOP PRODUCTS</CardTitle>
-              <Button className="bg-pink-600 hover:bg-pink-700 text-white text-sm" size="sm">
-                <Package className="w-4 h-4 mr-2" />
-                Manage
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">TOP PRODUCTS</CardTitle>
+              <Button className="bg-pink-600 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto" size="sm">
+                <Package className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                <span className="sm:inline">Manage</span>
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
               {isLoadingTopProducts ? (
                 // Skeleton loader for top products
                 Array.from({ length: 5 }).map((_, index) => (
-                  <div key={index} className="p-4 bg-gray-800 rounded-lg animate-pulse">
+                  <div key={index} className="p-3 sm:p-4 bg-gray-800 rounded-lg animate-pulse">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="h-4 bg-gray-700 rounded w-48 mb-2"></div>
-                        <div className="flex items-center space-x-4">
-                          <div className="h-3 bg-gray-700 rounded w-16"></div>
-                          <div className="h-3 bg-gray-700 rounded w-20"></div>
+                        <div className="h-4 bg-gray-700 rounded w-32 sm:w-48 mb-2"></div>
+                        <div className="flex items-center space-x-3 sm:space-x-4">
+                          <div className="h-3 bg-gray-700 rounded w-12 sm:w-16"></div>
+                          <div className="h-3 bg-gray-700 rounded w-16 sm:w-20"></div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
-                        <div className="h-5 bg-gray-700 rounded w-12"></div>
+                        <div className="h-4 bg-gray-700 rounded w-12 sm:w-16 mb-1"></div>
+                        <div className="h-5 bg-gray-700 rounded w-10 sm:w-12"></div>
                       </div>
                     </div>
                   </div>
                 ))
               ) : topProducts.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
-                    <Package className="w-8 h-8 text-gray-500" />
+                <div className="text-center py-8 sm:py-12">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <Package className="w-6 h-6 sm:w-8 sm:h-8 text-gray-500" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No Products Found</h3>
-                  <p className="text-sm text-gray-400">Start by adding your first product listing.</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-white mb-2">No Products Found</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">Start by adding your first product listing.</p>
                 </div>
               ) : (
                 topProducts.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-white mb-1">{product.name}</h4>
-                      <div className="flex items-center space-x-4 text-sm text-gray-300">
+                  <div key={product.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-white mb-1 text-sm sm:text-base break-words">{product.name}</h4>
+                      <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-300">
                         <span>{product.sales} sales</span>
                         <span>Stock: {product.stock}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-pink-600">{product.revenue}</div>
-                      <Badge className={`mt-1 ${product.status === 'Active' ? 'bg-pink-600' : 'bg-gray-600'} text-white`}>
+                    <div className="text-left sm:text-right flex-shrink-0">
+                      <div className="font-semibold text-pink-600 text-sm sm:text-base">{product.revenue}</div>
+                      <Badge className={`mt-1 text-[10px] sm:text-xs ${product.status === 'Active' ? 'bg-pink-600' : 'bg-gray-600'} text-white`}>
                         {product.status}
                       </Badge>
                     </div>
@@ -553,37 +551,38 @@ export default function VendorOverview() {
 
       {/* Recent Messages */}
               <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-bold text-pink-600">RECENT MESSAGES</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">RECENT MESSAGES</CardTitle>
             <Button 
             variant="outline" 
             size="sm"
-            className="border-pink-600 text-pink-400 hover:bg-pink-600 hover:text-white transition-colors"
+            className="border-pink-600 text-pink-400 hover:bg-pink-600 hover:text-white transition-colors text-xs sm:text-sm w-full sm:w-auto"
             onClick={() => navigate('/vendor/messages')}
           >
-            <MessageSquare className="w-3 h-3 mr-1" />
-            View All Messages
+            <MessageSquare className="w-3 h-3 sm:mr-1" />
+            <span className="hidden sm:inline">View All Messages</span>
+            <span className="sm:hidden">View All</span>
           </Button>
         </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="space-y-3 sm:space-y-4">
             {isLoadingMessages ? (
               // Skeleton loader for messages
               Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="p-4 bg-gray-800 rounded-lg animate-pulse">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-gray-700 rounded-full"></div>
-                    <div className="flex-1">
+                <div key={index} className="p-3 sm:p-4 bg-gray-800 rounded-lg animate-pulse">
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-700 rounded-full flex-shrink-0"></div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
-                        <div className="h-4 bg-gray-700 rounded w-24"></div>
+                        <div className="h-4 bg-gray-700 rounded w-20 sm:w-24"></div>
                         <div className="w-2 h-2 bg-gray-700 rounded-full"></div>
                       </div>
-                      <div className="h-3 bg-gray-700 rounded w-32 mb-1"></div>
-                      <div className="h-3 bg-gray-700 rounded w-48"></div>
+                      <div className="h-3 bg-gray-700 rounded w-24 sm:w-32 mb-1"></div>
+                      <div className="h-3 bg-gray-700 rounded w-36 sm:w-48"></div>
                     </div>
-                    <div className="h-3 bg-gray-700 rounded w-12"></div>
+                    <div className="h-3 bg-gray-700 rounded w-10 sm:w-12 flex-shrink-0"></div>
                   </div>
                 </div>
               ))
@@ -593,39 +592,30 @@ export default function VendorOverview() {
                   <MessageSquare className="w-6 h-6 text-gray-600" />
                 </div>
                 <h3 className="text-base font-medium text-white mb-1">No Recent Messages</h3>
-                <p className="text-gray-400 mb-3 text-sm">You haven't received any messages from buyers yet.</p>
-                {/* <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-pink-600 text-pink-400 hover:bg-pink-600 hover:text-white transition-colors"
-                  onClick={() => navigate('/vendor/messages')}
-                >
-                  <MessageSquare className="w-3 h-3 mr-1" />
-                  View All Messages
-                </Button> */}
+                <p className="text-gray-400 mb-3 text-xs sm:text-sm">You haven't received any messages from buyers yet.</p>
               </div>
             ) : (
               recentMessages.map((message) => (
-                <div key={message.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-pink-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold">
+                <div key={message.id} className="flex items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-pink-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-semibold text-xs sm:text-sm">
                         {message.buyer.substring(0, 2).toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-white">{message.buyer}</h4>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h4 className="font-medium text-white text-sm sm:text-base truncate">{message.buyer}</h4>
                         {message.unread && (
-                          <div className="w-2 h-2 bg-pink-600 rounded-full"></div>
+                          <div className="w-2 h-2 bg-pink-600 rounded-full flex-shrink-0"></div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-300">{message.product}</p>
-                      <p className="text-sm text-gray-400 truncate">{message.lastMessage}</p>
+                      <p className="text-xs sm:text-sm text-gray-300 break-words">{message.product}</p>
+                      <p className="text-xs sm:text-sm text-gray-400 truncate">{message.lastMessage}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-400">{message.time}</span>
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-[10px] sm:text-xs text-gray-400">{message.time}</span>
                   </div>
                 </div>
               ))
@@ -636,34 +626,37 @@ export default function VendorOverview() {
 
       {/* Quick Actions */}
               <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-pink-600">QUICK ACTIONS</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">QUICK ACTIONS</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Button 
-              className="bg-pink-600 hover:bg-pink-700 text-white h-16 cursor-pointer"
+              className="bg-pink-600 hover:bg-pink-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
               onClick={() => navigate('/vendor/listings/add')}
             >
-              <Plus className="w-5 h-5 mr-2" />
-              Add Product
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+              <span className="hidden sm:inline">Add Product</span>
+              <span className="sm:hidden">Add</span>
             </Button>
             <Button 
-              className="bg-gray-800 hover:bg-gray-600 text-white h-16 cursor-pointer"
+              className="bg-gray-800 hover:bg-gray-600 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
               onClick={() => navigate('/vendor/analytics')}
             >
-              <TrendingUp className="w-5 h-5 mr-2" />
-              View Analytics
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+              <span className="hidden sm:inline">View Analytics</span>
+              <span className="sm:hidden">Analytics</span>
             </Button>
             <Button 
-              className="bg-gray-800 hover:bg-gray-600 text-white h-16 cursor-pointer"
+              className="bg-gray-800 hover:bg-gray-600 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
               onClick={() => navigate('/vendor/reviews')}
             >
-              <Star className="w-5 h-5 mr-2" />
-              Check Reviews
+              <Star className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+              <span className="hidden sm:inline">Check Reviews</span>
+              <span className="sm:hidden">Reviews</span>
             </Button>
             <Button 
-              className="bg-gray-800 hover:bg-gray-600 text-white h-16 cursor-pointer"
+              className="bg-gray-800 hover:bg-gray-600 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base sm:col-span-2 lg:col-span-1"
               onClick={() => {
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
@@ -679,8 +672,9 @@ export default function VendorOverview() {
                 }
               }}
             >
-              <Eye className="w-5 h-5 mr-2" />
-              Preview Store
+              <Eye className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+              <span className="hidden sm:inline">Preview Store</span>
+              <span className="sm:hidden">Preview</span>
             </Button>
           </div>
         </CardContent>

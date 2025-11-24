@@ -252,19 +252,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             {/* Product Info */}
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-white truncate">
-                    {product.listing_title}
-                  </h3>
-                  <p className="text-gray-400 text-sm mt-1 line-clamp-2">
-                    {product.description}
-                  </p>
-                </div>
-                
-                <div className="sm:ml-4 text-right">
-                  <p className="text-xl font-bold text-white">
-                    {formatPrice(product.price)} BTC
-                  </p>
+                 <div className="flex-1 min-w-0">
+                   <h3 className="text-lg font-semibold truncate" style={{ color: '#AD0539' }}>
+                     {product.listing_title}
+                   </h3>
+                   <p className="text-gray-400 text-sm mt-1 line-clamp-2">
+                     {product.description}
+                   </p>
+                 </div>
+                 
+                 <div className="sm:ml-4 text-right">
+                   <p className="text-xl font-bold" style={{ color: '#AD0539' }}>
+                     {formatPrice(product.price)} BTC
+                   </p>
                   <p className="text-gray-400 text-sm">
                     {product.quantity_available || 0} available
                   </p>
@@ -382,19 +382,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   }
 
   return (
-    <Card className="bg-card border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200 group overflow-hidden">
-      <CardContent className="p-0">
-        {/* Product Image - Reduced height */}
-        <div className="relative h-32 bg-gray-800/30 overflow-hidden border-b border-gray-600/20">
+    <Card className="border-2 border-teal-500/30 hover:border-cyan-400/60 transition-all duration-300 group overflow-hidden rounded-xl shadow-lg h-full" style={{ backgroundColor: '#0E1A26' }}>
+      <CardContent className="p-0 h-full flex flex-col">
+        {/* Product Image - Small width and height like Netflix cards */}
+        <div className="relative h-[170px] overflow-hidden flex items-center justify-center p-8" style={{ backgroundColor: '#0E1A26' }}>
           {getProductImage() ? (
             <img
               src={getProductImage() || undefined}
               alt={product.listing_title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="max-w-[140px] max-h-[140px] object-contain group-hover:scale-110 transition-transform duration-500"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <span className="text-gray-400 text-4xl">📦</span>
+            <div className="w-[120px] h-[120px] flex items-center justify-center">
+              <span className="text-gray-500 text-6xl">📦</span>
             </div>
           )}
           
@@ -443,24 +443,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           </div>
         </div>
 
-        {/* Product Info */}
-        <div className="p-3 space-y-2">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-white truncate">
+        {/* Product Info - Fixed height with proper spacing */}
+        <div className="p-4 pb-3 flex flex-col flex-1" style={{ backgroundColor: '#0E1A26' }}>
+          <div className="space-y-2 flex-1">
+            <h3 className="text-lg line-clamp-1" style={{ color: '#AD0539' }}>
               {product.listing_title}
             </h3>
-            <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">
+            <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">
               {product.description}
             </p>
           </div>
 
-          {/* Price and Availability */}
-          <div className="flex items-center justify-between">
+          {/* Price and Rating */}
+          <div className="flex items-center justify-between mt-3 mb-3">
             <div>
-              <p className="text-lg font-bold text-white">
+              <p className="text-medium" style={{ color: '#AD0539' }}>
                 {formatPrice(product.price)} BTC
               </p>
-              <p className="text-gray-400 text-xs">
+              <p className="text-gray-500 text-xs">
                 {product.quantity_available || 0} available
               </p>
             </div>
@@ -468,74 +468,58 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <div className="flex items-center space-x-1 text-xs text-gray-400">
                 <Star className="w-3 h-3 fill-current text-yellow-400" />
                 <span>{product.rating || '0.0'}</span>
-                <span>({product.review_count || 0})</span>
               </div>
             </div>
           </div>
 
-          {/* Delivery Method */}
-          <div className="flex items-center justify-between">
-            {product.delivery_method && (
-              <Badge className={getDeliveryMethodColor(product.delivery_method)}>
-                {product.delivery_method.toUpperCase()}
-              </Badge>
-            )}
-            <div className="flex items-center space-x-1 text-xs text-gray-400">
-              <User className="w-3 h-3" />
-              <span>{product.vendor.username}</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex space-x-1 pt-1">
+          {/* Action Buttons - Narrower width */}
+          <div className="flex space-x-1.5 mt-auto pb-2">
             <Button
               onClick={handleViewProduct}
               variant="outline"
               size="sm"
-              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700/50 text-xs py-1"
+              className="flex-1 border-teal-600/50 text-gray-300 hover:bg-teal-900/30 text-xs py-2 h-9 min-w-0 px-2"
             >
               <Eye className="w-3 h-3 mr-1" />
-              View
+              <span className="text-[10px]">View</span>
             </Button>
             
-            {/* Buy Button - Disabled if out of stock */}
             <Button
               onClick={handleBuyNow}
               size="sm"
               disabled={product.quantity_available <= 0}
-              className={`flex-1 text-xs py-1 shadow-lg ${
+              className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${
                 product.quantity_available > 0 
-                  ? 'bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white' 
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-pink-700 to-pink-800 hover:from-pink-800 hover:to-pink-800 text-white shadow-lg' 
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
               }`}
             >
               <ShoppingCart className="w-3 h-3 mr-1" />
-              {product.quantity_available > 0 ? 'Buy' : 'Out of Stock'}
+              <span className="text-[10px]">Buy</span>
             </Button>
             
-            {/* Cart Button - Disabled if out of stock */}
             {isInCart(product.id) ? (
               <Button
                 onClick={handleRemoveFromCart}
                 size="sm"
-                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs py-1 shadow-lg"
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white text-xs py-2 h-9 min-w-0 px-2"
               >
                 <Check className="w-3 h-3 mr-1" />
-                In Cart
+                <span className="text-[10px]">Added</span>
               </Button>
             ) : (
               <Button
                 onClick={handleAddToCart}
                 size="sm"
                 disabled={product.quantity_available <= 0}
-                className={`flex-1 text-xs py-1 shadow-lg ${
+                className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${
                   product.quantity_available > 0 
-                    ? 'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white' 
-                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white' 
+                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                 }`}
               >
                 <Plus className="w-3 h-3 mr-1" />
-                {product.quantity_available > 0 ? 'Add' : 'Out of Stock'}
+                <span className="text-[10px]">Add</span>
               </Button>
             )}
           </div>

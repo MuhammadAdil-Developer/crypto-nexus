@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
+import { CloudflareTurnstile } from "@/components/security/CloudflareTurnstile";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -22,6 +23,9 @@ export default function SignUp() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -67,6 +71,11 @@ export default function SignUp() {
       return;
     }
 
+    if (!turnstileToken) {
+      setTurnstileError('Please complete the Cloudflare security check to continue.');
+      return;
+    }
+
     // Show captcha modal instead of submitting directly
     setShowCaptchaModal(true);
   };
@@ -84,17 +93,36 @@ export default function SignUp() {
     setCaptchaToken(null);
   };
 
+  const handleTurnstileVerify = (token: string) => {
+    setTurnstileToken(token);
+    setTurnstileError(null);
+  };
+
+  const handleTurnstileExpire = () => {
+    setTurnstileToken(null);
+    setTurnstileError("Security check expired. Please verify again.");
+  };
+
   const performRegistration = async (token?: string) => {
     setIsLoading(true);
     setErrors({});
+    setTurnstileError(null);
 
     try {
       // Use the passed token or fall back to state
       const finalToken = token || captchaToken;
+      const currentTurnstileToken = turnstileToken;
+
+      if (!currentTurnstileToken) {
+        setTurnstileError('Please complete the Cloudflare security check to continue.');
+        setIsLoading(false);
+        return;
+      }
       
       const registrationData = {
         ...formData,
-        captcha_token: finalToken
+        captcha_token: finalToken,
+        cloudflare_token: currentTurnstileToken
       };
       
       console.log('🔍 Registration data being sent:', {
@@ -126,6 +154,8 @@ export default function SignUp() {
       });
     } finally {
       setIsLoading(false);
+      setTurnstileToken(null);
+      setTurnstileResetKey(prev => prev + 1);
     }
   };
 
@@ -258,6 +288,21 @@ export default function SignUp() {
                     <p className="text-red-400 text-sm">{errors.confirm_password}</p>
                   )}
                 </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
+                <CloudflareTurnstile
+                  action="buyer_register"
+                  theme="dark"
+                  size="flexible"
+                  retryKey={turnstileResetKey}
+                  onVerify={handleTurnstileVerify}
+                  onExpire={handleTurnstileExpire}
+                  onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
+                  className="mt-1"
+                />
+                {turnstileError && <p className="text-red-400 text-sm">{turnstileError}</p>}
+              </div>
 
               {/* General Error */}
               {errors.general && (

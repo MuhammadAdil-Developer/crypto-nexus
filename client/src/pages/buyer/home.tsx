@@ -66,10 +66,10 @@ interface Order {
 }
 
 const categories = [
-  { id: 1, name: "Streaming", icon: Play, count: "1,247", color: "from-red-500 to-pink-500" },
-  { id: 2, name: "Software", icon: Code, count: "892", color: "from-blue-500 to-cyan-500" },
-  { id: 3, name: "Gaming", icon: Gamepad2, count: "567", color: "from-green-500 to-emerald-500" },
-  { id: 4, name: "Design", icon: Image, count: "423", color: "from-teal-500 to-cyan-500" },
+  { id: 1, name: "Streaming Services", icon: Play, count: "21", color: "from-red-500 to-pink-500", services: "NETFLIX, SPOTIFY, DISNEY+, HULU + MORE" },
+  { id: 2, name: "Software", icon: Code, count: "892", color: "from-red-500 to-pink-500", services: "ADOBE, MICROSOFT, AUTODESK + MORE" },
+  { id: 3, name: "Gaming", icon: Gamepad2, count: "567", color: "from-red-500 to-pink-500", services: "STEAM, EPIC GAMES, XBOX + MORE" },
+  { id: 4, name: "Design", icon: Image, count: "423", color: "from-red-500 to-pink-500", services: "FIGMA, SKETCH, CANVA + MORE" },
 ];
 
 const topVendors = [
@@ -138,7 +138,8 @@ function BuyerHomeContent() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const [duplicatedProducts, setDuplicatedProducts] = useState<Product[]>([]);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Messaging state is now handled by MessagingProvider
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -169,19 +170,43 @@ function BuyerHomeContent() {
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 
-  // Enhanced smooth auto-slide effect - only when not hovered
+  // Auto-slide effect with 5 second interval
   useEffect(() => {
-    if (!trendingProducts.length || isHovered) return;
+    if (!trendingProducts.length || !isAutoPlaying) return;
     
-    const interval = setInterval(() => {
+    scrollIntervalRef.current = setInterval(() => {
       setCurrentSlide((prev) => {
-        // Simply increment without resetting - infinite scroll
-        return prev + 0.01; // Slower, smoother movement
+        const maxSlide = Math.ceil(trendingProducts.length / 4) - 1;
+        return prev >= maxSlide ? 0 : prev + 1;
       });
-    }, 10); // Smooth interval for animation
+    }, 5000); // Auto scroll every 5 seconds
     
-    return () => clearInterval(interval);
-  }, [trendingProducts.length, isHovered]);
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [trendingProducts.length, isAutoPlaying]);
+
+  const handlePrevSlide = () => {
+    setIsAutoPlaying(false);
+    setCurrentSlide((prev) => {
+      const maxSlide = Math.ceil(trendingProducts.length / 4) - 1;
+      return prev <= 0 ? maxSlide : prev - 1;
+    });
+    // Resume auto-play after 10 seconds
+    setTimeout(() => setIsAutoPlaying(true), 10000);
+  };
+
+  const handleNextSlide = () => {
+    setIsAutoPlaying(false);
+    setCurrentSlide((prev) => {
+      const maxSlide = Math.ceil(trendingProducts.length / 4) - 1;
+      return prev >= maxSlide ? 0 : prev + 1;
+    });
+    // Resume auto-play after 10 seconds
+    setTimeout(() => setIsAutoPlaying(true), 10000);
+  };
 
   // Helper function to get cached data
   const getCachedData = (key: string) => {
@@ -249,8 +274,6 @@ function BuyerHomeContent() {
     const cached = getCachedData(CACHE_KEYS.TRENDING_PRODUCTS);
     if (cached !== null && cached.length > 0) {
       setTrendingProducts(cached);
-      const tripled = [...cached, ...cached, ...cached];
-      setDuplicatedProducts(tripled);
       setTrendingProductsFetched(true);
       setLoading(false); // Ensure loader is off when using cache
       return;
@@ -267,21 +290,13 @@ function BuyerHomeContent() {
         if (response.success && response.data) {
           setTrendingProducts(response.data);
           setCachedData(CACHE_KEYS.TRENDING_PRODUCTS, response.data);
-          
-          // Create duplicated array for infinite scroll
-          // Triple the products to ensure smooth infinite scrolling
-          const tripled = [...response.data, ...response.data, ...response.data];
-          setDuplicatedProducts(tripled);
-          
         } else {
           console.error("API returned success: false");
           setTrendingProducts([]);
-          setDuplicatedProducts([]);
         }
       } catch (error) {
         console.error("Error fetching trending products:", error);
         setTrendingProducts([]);
-        setDuplicatedProducts([]);
       } finally {
         setLoading(false);
         setTrendingProductsFetched(true);
@@ -838,13 +853,13 @@ function BuyerHomeContent() {
               <Copy className="w-4 h-4" />
             </Button>
             {pendingOrdersCount > 1 && (
-              <Link href="/buyer/orders">
+              <Link to="/buyer/orders">
                 <Button size="sm" className="bg-blue-700 text-white hover:bg-blue-800">
                   View All ({pendingOrdersCount})
                 </Button>
               </Link>
             )}
-            <Link href="/buyer/payment-test">
+            <Link to="/buyer/payment-test">
               <Button size="sm" className="bg-white text-blue-600 hover:bg-gray-100">
                 Pay Now
               </Button>
@@ -854,174 +869,179 @@ function BuyerHomeContent() {
       )}
 
       <BuyerLayout hasBanner={activeOrder && !isLoadingOrder && timeRemaining > 0}>
-        <div className="space-y-6">
-          {/* Hero Search Section */}
-          <div className="relative rounded-2xl bg-gradient-to-br from-blue-900/20 via-teal-900/20 to-cyan-900/20 border border-gray-700/50 p-6 sm:p-8">
-            <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-sm rounded-2xl"></div>
-            <div className="relative">
-              <div className="text-center mb-6 sm:mb-8">
-                <h1 className="text-3xl lg:text-5xl font-bold text-white mb-3 sm:mb-4">
-                  Find Your Perfect Digital Account
-                </h1>
-                <p className="text-base sm:text-xl text-gray-300 max-w-2xl mx-auto">
-                  Browse thousands of premium accounts from verified vendors with crypto payments
-                </p>
-              </div>
-              <div className="max-w-4xl mx-auto relative">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-                  <div className="flex-1 relative" ref={searchRef}>
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
-                    <Input
-                      placeholder="Search for Netflix, Spotify, Steam, Adobe..."
-                      value={homeSearchQuery}
-                      onChange={(e) => {
-                        setHomeSearchQuery(e.target.value);
-                        setShowSuggestions(true);
-                      }}
-                      onFocus={() => setShowSuggestions(true)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleHomeSearch();
-                        }
-                      }}
-                      className="pl-12 pr-4 py-3 sm:py-4 text-base sm:text-lg bg-gray-800/80 border-gray-600 text-white placeholder-gray-400 rounded-xl backdrop-blur-sm"
-                    />
-                  </div>
-                  <Button 
-                    size="lg" 
-                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 rounded-xl"
-                    onClick={() => handleHomeSearch()}
-                  >
-                    Search
-                  </Button>
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto px-6 py-3 sm:py-4 rounded-xl border-gray-600">
-                    <Filter className="w-5 h-5" />
-                  </Button>
-                </div>
-                {/* Auto-suggestions dropdown - positioned relative to max-w-4xl container */}
-                {showSuggestions && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] max-h-80 overflow-y-auto">
-                    {isLoadingSuggestions ? (
-                      <div className="px-4 py-3 text-center">
-                        <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
-                      </div>
-                    ) : searchSuggestions.length > 0 ? (
-                      <>
-                        {homeSearchQuery.trim() && (
-                          <div
-                            onClick={() => handleHomeSearch()}
-                            className="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
-                          >
-                            <div className="flex items-center">
-                              <Search className="w-4 h-4 text-gray-400 mr-3" />
-                              <span className="text-white">Search for "{homeSearchQuery}"</span>
-                            </div>
-                          </div>
-                        )}
-                        {searchSuggestions.map((suggestion, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            className="px-4 py-3 hover:bg-gray-700 cursor-pointer flex items-center justify-between"
-                          >
-                            <div className="flex items-center flex-1">
-                              <Search className="w-4 h-4 text-gray-400 mr-3" />
-                              <span className="text-white">{suggestion.term}</span>
-                            </div>
-                            {suggestion.count > 0 && (
-                              <span className="text-xs text-gray-400">{suggestion.count}+ views</span>
-                            )}
-                          </div>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="px-4 py-3 text-gray-400 text-center">
-                        No products found
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+        <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
+          {/* AC Logo and Branding Section - Same as Vendor */}
+          <div className="flex flex-col items-center justify-center py-4 sm:py-6">
+            {/* AC Logo Monogram */}
+            <div className="mb-3 sm:mb-4">
+              <img 
+                src="/images/ac-logo-monogram.png" 
+                alt="AC Logo Monogram" 
+                className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain"
+              />
+            </div>
+            
+            {/* THE ONE AND ONLY Text */}
+            <div className="mb-0">
+              <img 
+                src="/images/the-one-and-only.png" 
+                alt="THE ONE AND ONLY" 
+                className="h-6 sm:h-7 lg:h-8 object-contain"
+                style={{ imageRendering: 'auto' }}
+              />
             </div>
           </div>
 
-          {/* Dashboard Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-gradient-to-br from-blue-900/30 to-blue-800/30 border-blue-700/50 hover:scale-105 transition-transform duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <ShoppingCart className="w-6 h-6 text-blue-400" />
+          {/* Search Bar Section - Exactly like Image */}
+          <div className="max-w-4xl mx-auto relative mb-6 sm:mb-8">
+            <div className="relative flex items-center" ref={searchRef}>
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+                <Input
+                  placeholder="Search for accounts..."
+                  value={homeSearchQuery}
+                  onChange={(e) => {
+                    setHomeSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleHomeSearch();
+                    }
+                  }}
+                  className="w-full pl-12 pr-16 py-3 sm:py-4 text-base sm:text-lg bg-white text-gray-900 placeholder-gray-500 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                />
+              </div>
+              <Button 
+                size="lg" 
+                className="absolute right-2 w-10 h-10 sm:w-12 sm:h-12 rounded-full p-0 flex items-center justify-center shadow-lg transition-all duration-200"
+                style={{ backgroundColor: '#AD0539' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c10647'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#AD0539'}
+                onClick={() => handleHomeSearch()}
+              >
+                <Search className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
+              </Button>
+            </div>
+            {/* Auto-suggestions dropdown - positioned relative to max-w-4xl container */}
+            {showSuggestions && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] max-h-80 overflow-y-auto">
+                {isLoadingSuggestions ? (
+                  <div className="px-4 py-3 text-center">
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-white min-h-[32px]">
+                ) : searchSuggestions.length > 0 ? (
+                  <>
+                    {homeSearchQuery.trim() && (
+                      <div
+                        onClick={() => handleHomeSearch()}
+                        className="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700"
+                      >
+                        <div className="flex items-center">
+                          <Search className="w-4 h-4 text-gray-400 mr-3" />
+                          <span className="text-white">Search for "{homeSearchQuery}"</span>
+                        </div>
+                      </div>
+                    )}
+                    {searchSuggestions.map((suggestion, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="px-4 py-3 hover:bg-gray-700 cursor-pointer flex items-center justify-between"
+                      >
+                        <div className="flex items-center flex-1">
+                          <Search className="w-4 h-4 text-gray-400 mr-3" />
+                          <span className="text-white">{suggestion.term}</span>
+                        </div>
+                        {suggestion.count > 0 && (
+                          <span className="text-xs text-gray-400">{suggestion.count}+ views</span>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="px-4 py-3 text-gray-400 text-center">
+                    No products found
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Dashboard Stats Cards - Exactly like Image */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <Card className="border border-gray-700 bg-gray-900 hover:shadow-lg transition-shadow duration-200 relative z-10">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Orders</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
                       {isLoadingOrdersData ? <span className="inline-block animate-pulse">... </span> : totalOrders}
                     </p>
-                    <p className="text-sm text-blue-300">Total Orders</p>
+                  </div>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-pink-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Wishlist Items Card (unchanged) */}
-            <Card className="bg-gradient-to-br from-green-900/30 to-emerald-800/30 border-green-700/50 hover:scale-105 transition-transform duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                    <Heart className="w-6 h-6 text-green-400" />
+            <Card className="border border-gray-700 bg-gray-900 hover:shadow-lg transition-shadow duration-200 relative z-10">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Wishlist Items</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white">{wishlistCount}</p>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-white">{wishlistCount}</p>
-                    <p className="text-sm text-green-300">Wishlist Items</p>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                    <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-red-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* New Messages Card (placeholder data) */}
-            <Card className="bg-gradient-to-br from-teal-900/30 to-cyan-800/30 border-teal-700/50 hover:scale-105 transition-transform duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-teal-500/20 rounded-xl flex items-center justify-center">
-                    <MessageSquare className="w-6 h-6 text-teal-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-white min-h-[32px]">
+            <Card className="border border-gray-700 bg-gray-900 hover:shadow-lg transition-shadow duration-200 relative z-10">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">New Messages</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
                       {isLoadingMessages ? <span className="inline-block animate-pulse">...</span> : unreadCount}
                     </p>
-                    <p className="text-sm text-teal-300">New Messages</p>
+                  </div>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                    <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-pink-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Active Orders Card */}
-            <Card className="bg-gradient-to-br from-orange-900/30 to-amber-800/30 border-orange-700/50 hover:scale-105 transition-transform duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                    <Package className="w-6 h-6 text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-white min-h-[32px]">
+            <Card className="border border-gray-700 bg-gray-900 hover:shadow-lg transition-shadow duration-200 relative z-10">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Active Orders</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
                       {isLoadingOrdersData ? <span className="inline-block animate-pulse">... </span> : activeOrders}
                     </p>
-                    <p className="text-sm text-orange-300">Active Orders{!isLoadingOrdersData && pendingOrdersCount > 0 ? ` (Pending: ${pendingOrdersCount})` : ''}</p>
+                  </div>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-red-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Browse Categories */}
+          {/* Browse Categories - Exactly like Image */}
           <section>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center">
-                <Sparkles className="w-7 h-7 mr-3 text-yellow-400" />
-                Browse Categories
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6 ml-5">
+              <h2 className="text-xl sm:text-2xl font-bold text-pink-600 uppercase tracking-wide ml-5" style={{ color: '#AD0539' }}>
+                FEATURED CATEGORIES
               </h2>
-              <Link href="/buyer/listings">
-                <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300">
+              <Link to="/buyer/listings">
+                <Button variant="ghost" className="w-full sm:w-auto text-white hover:text-pink-400">
                   View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
@@ -1030,13 +1050,29 @@ function BuyerHomeContent() {
               {categories.map((category) => {
                 const Icon = category.icon;
                 return (
-                  <Card key={category.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
-                    <CardContent className="p-6 text-center">
-                      <div className={`w-16 h-16 mx-auto mb-4 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                        <Icon className="w-8 h-8 text-white" />
+                  <Card key={category.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900 overflow-hidden">
+                    <CardContent className="p-0">
+                      {/* Image/Icon Section - Top Part - Original Category Icon */}
+                      <div className="relative h-32 sm:h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
+                        <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-20`}></div>
+                        <div className="relative z-10 w-full h-full flex items-center justify-center">
+                          <div className={`w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
+                            <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                          </div>
+                        </div>
                       </div>
-                      <h3 className="font-semibold text-white mb-2">{category.name}</h3>
-                      <p className="text-sm text-gray-400">{category.count} products</p>
+                      
+                      {/* Content Section */}
+                      <div className="p-4 sm:p-5">
+                        <h3 className="font-bold mb-2 text-sm sm:text-base uppercase tracking-wide" style={{ color: '#AD0539' }}>{category.name}</h3>
+                        <p className="text-xs sm:text-sm text-white mb-2 leading-relaxed">{category.services}</p>
+                        <div className="flex items-center justify-between mt-3">
+                          <p className="text-xs sm:text-sm font-medium" style={{ color: '#AD0539' }}>{category.count} LISTINGS</p>
+                          <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
+                          </div>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -1044,129 +1080,122 @@ function BuyerHomeContent() {
             </div>
           </section>
 
-          {/* Enhanced Trending Products Carousel */}
+          {/* Trending Now - Clean 4 cards layout */}
           <section>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center">
-                <TrendingUp className="w-7 h-7 mr-3 text-green-400" />
-                Trending Now
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide" style={{ color: '#AD0539' }}>
+                FEATURED LISTINGS
               </h2>
               <div className="flex items-center space-x-2 sm:space-x-4">
-                <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Hot Deals
-                </Badge>
-                <div className="text-sm text-gray-400">
-                  {trendingProducts.length} Products Available
-                </div>
+                <Link to="/buyer/listings">
+                  <Button variant="ghost" className="text-cyan-400 hover:text-cyan-300">
+                    View All <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
               </div>
             </div>
             
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400"></div>
               </div>
             ) : (
-              <div 
-                className="relative overflow-hidden rounded-xl"
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-              >
-                {/* Smooth Infinite Carousel - No Reset */}
-                <div 
-                  className="flex transition-none" 
-                  style={{ 
-                    transform: `translateX(-${(currentSlide * 33.333) % (trendingProducts.length * 100)}%)`
-                  }}
-                >
-                  {/* Create enough duplicates for seamless infinite scroll */}
-                  {Array(6).fill(trendingProducts).flat().map((product, index) => (
-                    <div 
-                      key={`${product.id}-${index}`} 
-                      className="flex-none w-full sm:w-1/2 lg:w-1/3 px-3"
+              <div className="relative max-w-[1200px] mx-auto">
+                {/* Navigation Buttons - Smaller & Compact */}
+                {trendingProducts.length > 4 && (
+                  <>
+                    <button
+                      onClick={handlePrevSlide}
+                      className="absolute -left-8 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-gray-900/95 to-gray-800/95 hover:from-gray-800 hover:to-gray-700 text-white p-2 rounded-full shadow-lg border border-cyan-500/60 hover:border-cyan-400 transition-all duration-300 backdrop-blur-md hover:scale-105 active:scale-95"
+                      aria-label="Previous"
                     >
-                      <div className="relative group">
-                        <ProductCard 
-                          product={{
-                            ...product,
-                            vendor: typeof product.vendor === "string" ? product.vendor : product.vendor?.username || product.vendor_username || "Unknown Vendor",
-                            rating: parseFloat(product.rating as string) || 4.5,
-                            trending: true,
-                            category: product.category?.name || "General"
-                          }} 
-                        />
-                        
-                        {/* Hover overlay with product details */}
-                        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-center justify-center p-4">
-                          <div className="text-center text-white">
-                            <h4 className="font-semibold mb-2 text-sm">
-                              {product.headline || product.listing_title || "Untitled Product"}
-                            </h4>
-                            <p className="text-xs text-gray-300 mb-3 line-clamp-2">
-                              {product.description || "No description available"}
-                            </p>
-                            <div className="flex items-center justify-center space-x-2 text-xs">
-                              <Badge variant="outline" className="text-xs">
-                                {product.category?.name || "General"}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {product.account_type}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
+                      <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+                    </button>
+                    <button
+                      onClick={handleNextSlide}
+                      className="absolute -right-8 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-gray-900/95 to-gray-800/95 hover:from-gray-800 hover:to-gray-700 text-white p-2 rounded-full shadow-lg border border-cyan-500/60 hover:border-cyan-400 transition-all duration-300 backdrop-blur-md hover:scale-105 active:scale-95"
+                      aria-label="Next"
+                    >
+                      <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
+                    </button>
+                  </>
+                )}
 
-                        {/* Special badges */}
-                        {product.is_featured && (
-                          <Badge className="absolute -top-2 -left-2 bg-yellow-500 text-black z-10 text-xs">
-                            Featured
-                          </Badge>
-                        )}
-                        {product.delivery_time === 'instant_auto' && (
-                          <Badge className="absolute -top-2 -right-2 bg-green-500 text-white z-10 text-xs">
-                            Instant
-                          </Badge>
-                        )}
+                {/* Cards Container - Clean 4 cards per view */}
+                <div className="overflow-hidden">
+                  <div 
+                    className="flex transition-transform duration-700 ease-in-out"
+                    style={{ 
+                      transform: `translateX(-${currentSlide * 100}%)`
+                    }}
+                  >
+                    {Array.from({ length: Math.ceil(trendingProducts.length / 4) }).map((_, groupIndex) => (
+                      <div key={groupIndex} className="min-w-full flex gap-4 px-2">
+                        {trendingProducts.slice(groupIndex * 4, (groupIndex * 4) + 4).map((product) => (
+                          <div key={product.id} className="w-[calc(25%-8px)] flex-shrink-0">
+                            <ProductCard product={product as any} />
+                          </div>
+                        ))}
+                        {/* Fill empty spaces if less than 4 cards */}
+                        {trendingProducts.slice(groupIndex * 4, (groupIndex * 4) + 4).length < 4 &&
+                          Array.from({ length: 4 - trendingProducts.slice(groupIndex * 4, (groupIndex * 4) + 4).length }).map((_, idx) => (
+                            <div key={`empty-${idx}`} className="w-[calc(25%-8px)] flex-shrink-0" />
+                          ))
+                        }
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-                
-                {/* Pause indicator when hovered */}
-                {isHovered && (
-                  <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-xs">
-                    Paused
+
+                {/* Slide Indicators */}
+                {trendingProducts.length > 4 && (
+                  <div className="flex justify-center mt-6 space-x-2">
+                    {Array.from({ length: Math.ceil(trendingProducts.length / 4) }).map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setCurrentSlide(idx);
+                          setIsAutoPlaying(false);
+                          setTimeout(() => setIsAutoPlaying(true), 10000);
+                        }}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          idx === currentSlide 
+                            ? 'w-8 bg-cyan-400' 
+                            : 'w-2 bg-gray-600 hover:bg-gray-500'
+                        }`}
+                        aria-label={`Go to slide ${idx + 1}`}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
             )}
             
-            {/* Product stats - simplified without timer info */}
+            {/* Product stats */}
             {!loading && trendingProducts.length > 0 && (
               <div className="flex justify-center mt-6 text-sm text-gray-400">
                 <div className="flex items-center space-x-6">
                   <div className="flex items-center space-x-2">
-                    <Eye className="w-4 h-4" />
-                    <span>Showing all {trendingProducts.length} products</span>
+                    <Package className="w-4 h-4" />
+                    <span>{trendingProducts.length} products</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Package className="w-4 h-4" />
-                    <span>Hover to pause</span>
+                    <Timer className="w-4 h-4" />
+                    <span>Auto-scrolls every 5s</span>
                   </div>
                 </div>
               </div>
             )}
           </section>
 
-          {/* Recent Orders Section */}
+          {/* Recent Orders Section - Exactly like Image */}
           <section>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center">
-                <Package className="w-7 h-7 mr-3 text-blue-400" />
-                Recent Orders
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide" style={{ color: '#AD0539' }}>
+                RECENT ORDERS
               </h2>
-              <Link href="/buyer/orders">
-                <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300">
+              <Link to="/buyer/orders">
+                <Button variant="ghost" className="w-full sm:w-auto text-white hover:text-pink-400">
                   View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
@@ -1193,7 +1222,7 @@ function BuyerHomeContent() {
                       <div className="flex-1">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-white mb-1">{order.product?.headline || order.title}</h3>
+                            <h3 className="font-semibold mb-1" style={{ color: '#AD0539' }}>{order.product?.headline || order.title}</h3>
                             <p className="text-sm text-gray-400 mb-2">{typeof order.vendor === "string" ? order.vendor : order.vendor?.username}</p>
                             <div className="flex items-center space-x-4 text-xs text-gray-500">
                               <span>Order: {order.order_id || order.id}</span>
@@ -1408,15 +1437,14 @@ function BuyerHomeContent() {
             </div>
           )}
 
-          {/* Top Vendors Section */}
+          {/* Top Vendors Section - Exactly like Image */}
           <section>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center">
-                <Award className="w-7 h-7 mr-3 text-yellow-400" />
-                Top Vendors
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide" style={{ color: '#AD0539' }}>
+                TOP VENDORS
               </h2>
-              <Link href="/vendors">
-                <Button variant="ghost" className="w-full sm:w-auto text-blue-400 hover:text-blue-300">
+              <Link to="/vendors">
+                <Button variant="ghost" className="w-full sm:w-auto text-white hover:text-pink-400">
                   View All <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
@@ -1426,7 +1454,7 @@ function BuyerHomeContent() {
                 <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                   <CardContent className="p-6 text-center">
                     <div className="relative mb-4">
-                      <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-teal-600 rounded-full flex items-center justify-center">
+                      <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
                         <span className="text-white font-bold text-lg">{vendor.avatar}</span>
                       </div>
                       {vendor.verified && (
@@ -1435,7 +1463,7 @@ function BuyerHomeContent() {
                         </div>
                       )}
                     </div>
-                    <h3 className="font-semibold text-white mb-2">{vendor.name}</h3>
+                    <h3 className="font-semibold mb-2" style={{ color: '#AD0539' }}>{vendor.name}</h3>
                     <p className="text-xs text-gray-400 mb-3">{vendor.specialization}</p>
                     <div className="flex items-center justify-center space-x-1 mb-3">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
@@ -1468,23 +1496,22 @@ function BuyerHomeContent() {
 
           {/* Activity and Actions Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            {/* Quick Actions Section - First */}
+            {/* Quick Actions Section - Exactly like Image */}
             <section>
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-                <Zap className="w-7 h-7 mr-3 text-yellow-400" />
-                Quick Actions
+              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide mb-4 sm:mb-6" style={{ color: '#AD0539' }}>
+                QUICK ACTIONS
               </h2>
               <div className="space-y-4">
                 <Link to="/buyer/orders">
-                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                          <Package className="w-6 h-6 text-blue-400" />
+                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">Track Orders</h3>
+                          <p className="text-sm text-gray-400">{activeOrders} active orders</p>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-white">Track Orders</h3>
-                          <p className="text-sm text-gray-400">3 active orders</p>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                          <Package className="w-5 h-5 sm:w-6 sm:h-6 text-pink-400" />
                         </div>
                       </div>
                     </CardContent>
@@ -1492,14 +1519,11 @@ function BuyerHomeContent() {
                 </Link>
                 
                 <Link to="/buyer/messages">
-                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-teal-500/20 rounded-xl flex items-center justify-center">
-                          <MessageSquare className="w-6 h-6 text-teal-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-white">Messages</h3>
+                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">Messages</h3>
                           <p className="text-sm text-gray-400">
                             {isLoadingMessages ? (
                               <span className="flex items-center">
@@ -1511,21 +1535,24 @@ function BuyerHomeContent() {
                             )}
                           </p>
                         </div>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                          <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-pink-400" />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 </Link>
                 
                 <Link to="/buyer/transaction-history">
-                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                          <Bitcoin className="w-6 h-6 text-orange-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-white">Transaction History</h3>
+                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">Transaction History</h3>
                           <p className="text-sm text-gray-400">View all payments</p>
+                        </div>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                          <Bitcoin className="w-5 h-5 sm:w-6 sm:h-6 text-red-400" />
                         </div>
                       </div>
                     </CardContent>
@@ -1533,15 +1560,15 @@ function BuyerHomeContent() {
                 </Link>
                 
                 <Link to="/buyer/support">
-                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                          <Crown className="w-6 h-6 text-yellow-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-white">Premium Support</h3>
+                  <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">Premium Support</h3>
                           <p className="text-sm text-gray-400">24/7 assistance</p>
+                        </div>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
+                          <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-pink-400" />
                         </div>
                       </div>
                     </CardContent>
@@ -1550,11 +1577,10 @@ function BuyerHomeContent() {
               </div>
             </section>
 
-            {/* Recent Activity Section - Second */}
+            {/* Recent Activity Section - Exactly like Image */}
             <section>
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-                <Clock className="w-7 h-7 mr-3 text-blue-400" />
-                Recent Activity
+              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide mb-4 sm:mb-6" style={{ color: '#AD0539' }}>
+                RECENT ACTIVITY
               </h2>
               <div className="space-y-4">
                 {recentActivity.length === 0 ? (
@@ -1566,8 +1592,8 @@ function BuyerHomeContent() {
                   </Card>
                 ) : (
                   recentActivity.map((activity) => (
-                    <Card key={activity.id} className="border-gray-700 bg-gray-900 hover:bg-gray-800/80 transition-colors duration-200">
-                      <CardContent className="p-5">
+                    <Card key={activity.id} className="border border-gray-700 bg-gray-900 hover:bg-gray-800/80 transition-colors duration-200">
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-start space-x-4">
                           <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
                             activity.status === 'success' ? 'bg-green-400' :

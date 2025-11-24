@@ -131,7 +131,7 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
   };
 
   return (
-    <header className={`bg-gray-950 border-b border-gray-800 px-6 py-4 ${hasBanner ? 'mt-16' : ''}`}>
+    <header className={`bg-transparent border-b border-gray-800/50 backdrop-blur-[1px] px-6 py-4 relative z-10 ${hasBanner ? 'mt-16' : ''}`} style={{ backdropFilter: 'blur(1px)' }}>
       <div className="flex items-center justify-between">
         {/* Right Controls - Search bar removed from header */}
         <div className="flex items-center space-x-4 ml-auto">

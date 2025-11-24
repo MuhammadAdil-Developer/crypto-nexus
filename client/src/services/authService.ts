@@ -83,12 +83,14 @@ export interface UserRegistrationData {
   password: string;
   confirm_password: string;
   captcha_token?: string;
+  cloudflare_token?: string;
 }
 
 export interface UserLoginData {
   username: string;
   password: string;
   captcha_token?: string;
+  cloudflare_token?: string;
 }
 
 export interface User {

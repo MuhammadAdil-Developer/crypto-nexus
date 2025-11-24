@@ -100,7 +100,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
   return (
     <div 
       className={cn(
-        "bg-gray-950 border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col",
+        "buyer-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg relative z-10",
         expanded ? "w-64" : "w-16",
         hasBanner ? "pt-16" : ""
       )}
@@ -108,17 +108,24 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       onMouseLeave={() => onExpandedChange(false)}
     >
       {/* Logo */}
-      <div className="px-3 py-2 border-b border-gray-800">
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer">
+      <div className="px-3 py-2 border-b border-gray-800 relative z-[100] bg-transparent" style={{ isolation: 'isolate' }}>
+        <div className="flex items-center relative z-[100]">
+          <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer relative z-[100]" style={{ filter: 'none', backdropFilter: 'none', isolation: 'isolate' }}>
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
-                className="h-10 w-auto"
+                className="h-10 w-auto relative z-[100]"
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',
                   transform: 'scale(1.0) translateY(0px)',
-                  transformOrigin: 'left center'
+                  transformOrigin: 'left center',
+                  position: 'relative',
+                  zIndex: 100,
+                  filter: 'none !important',
+                  backdropFilter: 'none !important',
+                  WebkitBackdropFilter: 'none !important',
+                  isolation: 'isolate',
+                  willChange: 'auto'
                 }}
               />
             </Link>
@@ -138,14 +145,11 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
             <Link key={item.href} to={item.href}>
               <div 
                 className={cn(
-                  "relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer",
+                  "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
                   isActive 
-                    ? "text-white shadow-lg" 
-                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    ? "text-pink-600 bg-pink-600/10" 
+                    : "text-white hover:bg-gray-800 hover:text-pink-600"
                 )}
-                style={{
-                  background: isActive ? 'linear-gradient(to right,rgba(34, 211, 238, 0.81), #85144A)' : 'transparent'
-                }}
                 data-testid={`buyer-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
@@ -155,7 +159,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
                     <span className="font-medium">{item.title}</span>
                     {count !== null && count > 0 && (
                       <Badge 
-                        className={cn("text-xs text-white min-w-[20px] h-5 flex items-center justify-center px-1.5 rounded-full", badgeColor)}
+                        className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center transition-all duration-300 animate-in fade-in zoom-in"
                       >
                         {count > 99 ? '99+' : count}
                       </Badge>
@@ -164,7 +168,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
                 ) : (
                   <>
                     {count !== null && count > 0 && (
-                      <div className={cn("absolute -top-1 -right-1 w-3 h-3 rounded-full", badgeColor)}></div>
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-600 rounded-full"></div>
                     )}
                     
                     {/* Tooltip */}
@@ -187,16 +191,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       <div className="p-2 border-t border-gray-800">
         <Link to="/vendor/apply">
           <div 
-            className="relative group flex items-center px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer text-gray-400 hover:text-white border border-gray-700 hover:border-fuchsia-400"
-            style={{
-              background: 'transparent'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, #22d3ee, #85144A)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
+            className="relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-white hover:bg-gray-800 hover:text-pink-600"
           >
             <Store className="w-5 h-5 flex-shrink-0" />
             
@@ -219,12 +214,12 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       {/* User Profile */}
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
             <User className="text-white w-4 h-4" />
           </div>
           {expanded && (
-            <div className="ml-3">
-              <p className="text-sm font-medium text-white">crypto_buyer</p>
+            <div className="ml-3 min-w-0">
+              <p className="text-sm font-medium text-white truncate">crypto_buyer</p>
               <p className="text-xs text-gray-400">Premium Member</p>
             </div>
           )}

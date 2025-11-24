@@ -8,6 +8,7 @@ import { Eye, EyeOff, Lock, User, Shield } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { CloudflareTurnstile } from "@/components/security/CloudflareTurnstile";
 
 export default function VenderSignIn() {
   const navigate = useNavigate();
@@ -25,6 +26,9 @@ export default function VenderSignIn() {
   const [requires2FA, setRequires2FA] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   
   // Reset CAPTCHA state on page load
   useEffect(() => {
@@ -75,6 +79,11 @@ export default function VenderSignIn() {
       return;
     }
 
+    if (!turnstileToken) {
+      setTurnstileError('Please complete the Cloudflare security check to continue.');
+      return;
+    }
+
     // Proceed with login if CAPTCHA is verified
     await performLogin();
   };
@@ -103,24 +112,44 @@ export default function VenderSignIn() {
     setCaptchaToken(null);
   };
 
+  const handleTurnstileVerify = (token: string) => {
+    setTurnstileToken(token);
+    setTurnstileError(null);
+  };
+
+  const handleTurnstileExpire = () => {
+    setTurnstileToken(null);
+    setTurnstileError("Security check expired. Please verify again.");
+  };
+
   const performLogin = async (token?: string) => {
     setIsLoading(true);
     setErrors({});
+    setTurnstileError(null);
 
     try {
       // Use the passed token or fall back to state
       const finalToken = token || captchaToken;
+      const currentTurnstileToken = turnstileToken;
+
+      if (!currentTurnstileToken) {
+        setTurnstileError('Please complete the Cloudflare security check to continue.');
+        setIsLoading(false);
+        return;
+      }
       
       console.log('🔍 Attempting login with data:', {
         username: formData.username,
         password: '***',
-        captcha_token: finalToken
+        captcha_token: finalToken,
+        cloudflare_token: currentTurnstileToken ? '[present]' : '[missing]'
       });
 
       const loginData = {
         username: formData.username,
         password: formData.password,
-        ...(finalToken && { captcha_token: finalToken })  // Only include if token exists
+        ...(finalToken && { captcha_token: finalToken }),  // Only include if token exists
+        cloudflare_token: currentTurnstileToken
       };
       
       console.log('🔍 Final login data being sent:', loginData);
@@ -186,6 +215,8 @@ export default function VenderSignIn() {
       }
     } finally {
       setIsLoading(false);
+      setTurnstileToken(null);
+      setTurnstileResetKey(prev => prev + 1);
     }
   };
 
@@ -373,6 +404,21 @@ export default function VenderSignIn() {
                       Forgot password?
                     </span>
                   </Link>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
+                  <CloudflareTurnstile
+                    action="vendor_login"
+                    theme="dark"
+                    size="flexible"
+                    retryKey={turnstileResetKey}
+                    onVerify={handleTurnstileVerify}
+                    onExpire={handleTurnstileExpire}
+                    onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
+                    className="mt-1"
+                  />
+                  {turnstileError && <p className="text-red-500 text-xs">{turnstileError}</p>}
                 </div>
 
                 <Button 

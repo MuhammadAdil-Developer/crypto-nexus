@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, Crown, Database, Server, Key } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
+import { CloudflareTurnstile } from "@/components/security/CloudflareTurnstile";
 
 export default function AdminSignIn() {
   const navigate = useNavigate();
@@ -21,6 +22,9 @@ export default function AdminSignIn() {
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showCaptchaModal, setShowCaptchaModal] = useState(false);
   const [pendingLoginAttempt, setPendingLoginAttempt] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   
   // Reset CAPTCHA state on page load
   useEffect(() => {
@@ -71,6 +75,11 @@ export default function AdminSignIn() {
       return;
     }
 
+    if (!turnstileToken) {
+      setTurnstileError('Please complete the Cloudflare security check to continue.');
+      return;
+    }
+
     // Proceed with login if CAPTCHA is verified
     await performLogin();
   };
@@ -95,17 +104,36 @@ export default function AdminSignIn() {
     setCaptchaToken(null);
   };
 
+  const handleTurnstileVerify = (token: string) => {
+    setTurnstileToken(token);
+    setTurnstileError(null);
+  };
+
+  const handleTurnstileExpire = () => {
+    setTurnstileToken(null);
+    setTurnstileError("Security check expired. Please verify again.");
+  };
+
   const performLogin = async (token?: string) => {
     setIsLoading(true);
     setErrors({});
+    setTurnstileError(null);
 
     try {
       // Use the passed token or fall back to state
       const finalToken = token || captchaToken;
+      const currentTurnstileToken = turnstileToken;
+
+      if (!currentTurnstileToken) {
+        setTurnstileError('Please complete the Cloudflare security check to continue.');
+        setIsLoading(false);
+        return;
+      }
       
       const loginData = {
         ...formData,
-        ...(finalToken && { captcha_token: finalToken })  // Only include if token exists
+        ...(finalToken && { captcha_token: finalToken }),  // Only include if token exists
+        cloudflare_token: currentTurnstileToken
       };
       
       const response = await authService.login(loginData as any);
@@ -148,6 +176,8 @@ export default function AdminSignIn() {
       }
     } finally {
       setIsLoading(false);
+      setTurnstileToken(null);
+      setTurnstileResetKey(prev => prev + 1);
     }
   };
 
@@ -308,6 +338,21 @@ export default function AdminSignIn() {
                   <span className="text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer">
                     Reset access
                   </span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
+                <CloudflareTurnstile
+                  action="admin_login"
+                  theme="dark"
+                  size="flexible"
+                  retryKey={turnstileResetKey}
+                  onVerify={handleTurnstileVerify}
+                  onExpire={handleTurnstileExpire}
+                  onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
+                  className="mt-1"
+                />
+                  {turnstileError && <p className="text-red-400 text-sm">{turnstileError}</p>}
                 </div>
 
                 <Button 

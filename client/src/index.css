@@ -182,4 +182,59 @@
     background-position: 0 0, 0 0, 0 0, 0 0;
     pointer-events: none;
   }
+
+  /* Buyer Dashboard Backgrounds - Similar to Vendor */
+  .buyer-main-background {
+    background: #0a0a0f url('/images/buyer-main-bg.png') center/cover no-repeat fixed;
+    position: relative;
+    min-height: 100vh;
+  }
+
+  .buyer-main-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .buyer-sidebar-background {
+    background: linear-gradient(135deg, #1a0a0f 0%, #2d1b2e 25%, #1a0a0f 50%, #2d1b2e 75%, #1a0a0f 100%);
+    position: relative;
+  }
+
+  .buyer-sidebar-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 20% 20%, rgba(255, 20, 147, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(255, 0, 0, 0.15) 0%, transparent 40%),
+      linear-gradient(30deg, transparent 30%, rgba(255, 20, 147, 0.08) 50%, transparent 70%),
+      linear-gradient(-30deg, transparent 30%, rgba(255, 0, 0, 0.08) 50%, transparent 70%);
+    background-size: 150px 150px, 200px 200px, 80px 80px, 80px 80px;
+    background-position: 0 0, 50px 50px, 0 0, 25px 25px;
+    pointer-events: none;
+  }
+
+  .buyer-sidebar-background::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255, 20, 147, 0.05) 3px, rgba(255, 20, 147, 0.05) 6px),
+      repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(255, 0, 0, 0.05) 3px, rgba(255, 0, 0, 0.05) 6px);
+    background-size: 15px 15px;
+    pointer-events: none;
+  }
 }

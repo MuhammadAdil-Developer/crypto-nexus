@@ -46,9 +46,9 @@ class VendorApplication(models.Model):
     ]
     
     # Basic Info
-    business_name = models.CharField(max_length=200)
+    business_name = models.CharField(max_length=200, blank=True, null=True)
     vendor_username = models.CharField(max_length=100, unique=True)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     contact = models.CharField(max_length=100, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     website = models.URLField(blank=True, null=True)
@@ -56,7 +56,7 @@ class VendorApplication(models.Model):
     
     # Store Info
     store_description = models.TextField()
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, blank=True, null=True)
     sub_category = models.CharField(max_length=100, blank=True, null=True)
     business_type = models.CharField(max_length=20, choices=BUSINESS_TYPE_CHOICES, blank=True, null=True)
     years_in_business = models.CharField(max_length=20, choices=YEARS_CHOICES, blank=True, null=True)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
-import { CloudflareTurnstile } from "@/components/security/CloudflareTurnstile";
+import { CloudflareTurnstile, CloudflareTurnstileHandle } from "@/components/security/CloudflareTurnstile";
 
 export default function SignUp() {
+
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -17,8 +18,8 @@ export default function SignUp() {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
-    confirm_password: ""
-  });
+    confirm_password: "",
+    });
   const [errors, setErrors] = useState<{ username?: string; password?: string; confirm_password?: string; general?: string; captcha?: string }>({});
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVerified, setCaptchaVerified] = useState(false);
@@ -26,6 +27,11 @@ export default function SignUp() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
+    // Auto-open rules modal on component mount
+  useEffect(() => {
+    
+  }, []); // Empty dependency - run once on mount
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -83,6 +89,11 @@ export default function SignUp() {
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
     setCaptchaVerified(true);
+    // Execute Cloudflare Turnstile after circle captcha is verified
+    // This ensures user interaction is required
+    setTimeout(() => {
+      turnstileRef.current?.execute();
+    }, 100);
     // Proceed with registration after captcha verification, passing the token directly
     performRegistration(token);
   };
@@ -122,8 +133,8 @@ export default function SignUp() {
       const registrationData = {
         ...formData,
         captcha_token: finalToken,
-        cloudflare_token: currentTurnstileToken
-      };
+        cloudflare_token: currentTurnstileToken,
+};
       
       console.log('🔍 Registration data being sent:', {
         username: registrationData.username,
@@ -292,6 +303,7 @@ export default function SignUp() {
               <div className="space-y-2">
                 <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
                 <CloudflareTurnstile
+                  ref={turnstileRef}
                   action="buyer_register"
                   theme="dark"
                   size="flexible"
@@ -363,8 +375,7 @@ export default function SignUp() {
             </div>
             <p className="text-gray-400 text-xs">Global</p>
           </div>
-        </div>
-      </div>
+        </div></div>
 
       {/* Captcha Modal */}
       <CircleCaptchaModal

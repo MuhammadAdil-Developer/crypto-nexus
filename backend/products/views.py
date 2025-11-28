@@ -395,9 +395,30 @@ def get_buyer_products(request):
 def create_product(request):
     """Create a new product"""
     try:
-        # Add vendor information to the data
+        # Prepare incoming data and allow admins to create listings for a specified vendor
         data = request.data.copy()
-        data['vendor'] = request.user.id
+        # If admin provided a vendor username, resolve it to the user's id
+        try:
+            if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':
+                vendor_username = data.get('vendor_username') or data.get('vendor')
+                if vendor_username:
+                    from users.models import User
+                    # If vendor_username looks like a UUID or id, the serializer will handle it; otherwise try username
+                    try:
+                        vendor_obj = User.objects.get(username=str(vendor_username))
+                        data['vendor'] = vendor_obj.id
+                    except User.DoesNotExist:
+                        # leave vendor as-is (serializer will validate)
+                        pass
+                else:
+                    # No vendor provided by admin, fall back to admin as vendor (rare)
+                    data['vendor'] = request.user.id
+            else:
+                # Non-admins must be the vendor
+                data['vendor'] = request.user.id
+        except Exception:
+            # Best-effort: ensure vendor fallback
+            data['vendor'] = request.user.id
         
         # Debug logging
         logger.info(f"Request data keys: {list(data.keys())}")
@@ -415,6 +436,84 @@ def create_product(request):
                 notify_admin_product_created(product)
             except Exception as e:
                 logger.error(f"Failed to notify admin about product: {e}")
+            
+            # Notify the vendor (if different from creator) about the new listing
+            try:
+                from shared.models import Notification
+                from asgiref.sync import async_to_sync
+                from channels.layers import get_channel_layer
+
+                vendor_user = getattr(product, 'vendor', None)
+                # Create DB notification for vendor
+                if vendor_user:
+                    Notification.objects.create(
+                        user=vendor_user,
+                        type='listing_approval',
+                        title='New product listing created',
+                        message=f'An admin created a new listing "{product.headline}" for your vendor account. Please review your listing.',
+                        data={'product_id': str(product.id), 'action_url': '/vendor/listings'}
+                    )
+
+                # Create a confirmation notification for the admin who created it
+                try:
+                    Notification.objects.create(
+                        user=request.user,
+                        type='system',
+                        title='Product created',
+                        message=f'You created the product "{product.headline}" successfully.',
+                        data={'product_id': str(product.id), 'action_url': '/admin/listings'}
+                    )
+                except Exception:
+                    pass
+
+                # Send realtime events to vendor and admin creator
+                try:
+                    channel_layer = get_channel_layer()
+                    if channel_layer and vendor_user:
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{vendor_user.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'id': f'prod_{product.id}',
+                                    'type': 'listing_approval',
+                                    'title': 'New product listing',
+                                    'message': f'An admin created "{product.headline}" for your vendor account',
+                                    'is_read': False,
+                                    'data': {'product_id': str(product.id), 'action_url': '/vendor/listings'},
+                                    'action_url': '/vendor/listings',
+                                    'created_at': product.created_at.isoformat(),
+                                    'priority': 'normal'
+                                }
+                            }
+                        )
+
+                    # Notify the creating admin specifically (single user)
+                    try:
+                        if channel_layer:
+                            async_to_sync(channel_layer.group_send)(
+                                f'realtime_{request.user.id}',
+                                {
+                                    'type': 'order_notification',
+                                    'data': {
+                                        'id': f'prod_admin_{product.id}',
+                                        'type': 'system',
+                                        'title': 'Product created',
+                                        'message': f'You created the product "{product.headline}" successfully',
+                                        'is_read': False,
+                                        'data': {'product_id': str(product.id), 'action_url': '/admin/listings'},
+                                        'action_url': '/admin/listings',
+                                        'created_at': product.created_at.isoformat(),
+                                        'priority': 'low'
+                                    }
+                                }
+                            )
+                    except Exception:
+                        pass
+                except Exception as e:
+                    logger.error(f"Error sending real-time notifications for product create: {e}")
+            except Exception as e:
+                logger.error(f"Failed to notify vendor/admin about product creation: {e}")
             
             return Response({
                 'success': True,
@@ -895,7 +994,7 @@ def buyer_listings(request):
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
                     # Combine product views with vendor diversity
-                    vendor_hash = (p.vendor_id * 7919) % 1000  # For diversity
+                    vendor_hash = (abs(hash(str(p.vendor_id))) * 7919) % 1000  # For diversity
                     return (-(p.views_count or 0), -stats.get('total_views', 0), vendor_hash)
                 products_list.sort(key=_sort_key)
                 
@@ -917,7 +1016,7 @@ def buyer_listings(request):
                 # Mix multiple criteria with rotation: weight different factors
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
-                    vendor_hash = (p.vendor_id * 7919) % 1000
+                    vendor_hash = (abs(hash(str(p.vendor_id))) * 7919) % 1000
                     
                     # Weighted score: rating (40%) + orders (30%) + views (20%) + diversity (10%)
                     rating_score = (stats.get('avg_rating', 0) or 0) * 4

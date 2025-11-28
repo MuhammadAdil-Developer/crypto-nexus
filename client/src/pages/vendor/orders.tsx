@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MoreVertical, Eye, MessageSquare, Package, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle, Star } from "lucide-react";
+import { Search, MoreVertical, Eye, MessageSquare, Package, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle, Star, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/ToastContainer";
 import { OrderProductModal } from "@/components/buyer/OrderProductModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { productService } from "@/services/productService";
+import { RefundModal } from "@/components/vendor/RefundModal";
 
 // Transform API data to match existing structure
 const transformOrderData = (apiOrder: Order) => {
@@ -196,6 +197,8 @@ export default function VendorOrders() {
   const [isReviewsOpen, setIsReviewsOpen] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [orderForRefund, setOrderForRefund] = useState<any>(null);
   const { showToast } = useToast();
 
   // Pagination state
@@ -364,6 +367,36 @@ export default function VendorOrders() {
       setIsUpdatingStatus(false);
       setUpdatingStatusType(null);
     }
+  };
+
+  // Refund handlers
+  const handleRequestRefund = (order: any) => {
+    setOrderForRefund(order);
+    setIsRefundModalOpen(true);
+  };
+
+  const handleRefundModalClose = () => {
+    setIsRefundModalOpen(false);
+    setOrderForRefund(null);
+  };
+
+  const handleRefundSuccess = () => {
+    handleRefundModalClose();
+    showToast({
+      title: "Refund Requested",
+      message: "Your refund request has been submitted. We'll process it within 24-48 hours.",
+      type: "success"
+    });
+    // Optionally refresh orders
+    fetchOrders();
+  };
+
+  const handleRefundError = (message: string) => {
+    showToast({
+      title: "Refund Error",
+      message: message,
+      type: "error"
+    });
   };
 
   const filteredOrders = orders.filter(order => {
@@ -633,6 +666,14 @@ export default function VendorOrders() {
                           <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)}>
                             <Star className="w-4 h-4 mr-2" />
                             View Reviews
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleRequestRefund(order)}
+                            className={order.status === "Completed" || order.status === "Processing" ? "text-orange-600" : "text-gray-400 cursor-not-allowed"}
+                            disabled={order.status !== "Completed" && order.status !== "Processing"}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Request Refund
                           </DropdownMenuItem>
                           {order.status === "Processing" && (
                             <>
@@ -908,6 +949,15 @@ export default function VendorOrders() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Refund Modal */}
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        order={orderForRefund}
+        onClose={handleRefundModalClose}
+        onSuccess={handleRefundSuccess}
+        onError={handleRefundError}
+      />
     </>
   );
 }

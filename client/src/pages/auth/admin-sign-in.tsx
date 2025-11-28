@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Lock, User, Shield, Crown, Database, Server, Key } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
-import { CloudflareTurnstile } from "@/components/security/CloudflareTurnstile";
+import { CloudflareTurnstile, CloudflareTurnstileHandle } from "@/components/security/CloudflareTurnstile";
 
 export default function AdminSignIn() {
   const navigate = useNavigate();
@@ -25,6 +25,7 @@ export default function AdminSignIn() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
   
   // Reset CAPTCHA state on page load
   useEffect(() => {
@@ -90,6 +91,12 @@ export default function AdminSignIn() {
     setShowCaptchaModal(false); // Close CAPTCHA modal
     // Only clear captcha error, keep other errors
     setErrors(prev => ({ ...prev, captcha: undefined }));
+    
+    // Execute Cloudflare Turnstile after circle captcha is verified
+    // This ensures user interaction is required
+    setTimeout(() => {
+      turnstileRef.current?.execute();
+    }, 100);
     
     // If there was a pending login attempt, proceed with login automatically
     if (pendingLoginAttempt) {
@@ -187,7 +194,6 @@ export default function AdminSignIn() {
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <video 
           autoPlay 
-          loop 
           muted 
           playsInline
           className="w-full h-full object-cover"
@@ -198,6 +204,10 @@ export default function AdminSignIn() {
           onLoadedData={(e) => {
             // Ensure smooth rendering when video is loaded
             e.currentTarget.style.opacity = '1';
+          }}
+          onEnded={(e) => {
+            // Pause at the last frame when video ends
+            e.currentTarget.pause();
           }}
           onError={(e) => {
             console.error('Video failed to load:', e);
@@ -343,6 +353,7 @@ export default function AdminSignIn() {
                 <div className="space-y-2">
                   <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
                 <CloudflareTurnstile
+                  ref={turnstileRef}
                   action="admin_login"
                   theme="dark"
                   size="flexible"

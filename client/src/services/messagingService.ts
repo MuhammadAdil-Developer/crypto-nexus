@@ -6,6 +6,7 @@ class MessagingService {
   private onMessageCallback: ((message: any) => void) | null = null;
   private onTypingCallback: ((data: any) => void) | null = null;
   private onConversationInfoCallback: ((data: any) => void) | null = null;
+  private onConversationLockedCallback: ((data: any) => void) | null = null;
   private baseUrl = API_BASE_URL;
 
   private getToken(): string | null {
@@ -186,6 +187,26 @@ class MessagingService {
     }
   }
 
+  async lockConversation(conversationId: string, lock: boolean = true): Promise<any> {
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationId}/lock/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ lock }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || errorData.message || 'Failed to lock conversation';
+      throw new Error(errorMessage);
+    }
+
+    return response.json();
+  }
+
   async editMessage(messageId: string, content: string): Promise<void> {
     const token = localStorage.getItem('accessToken');
     const response = await fetch(`${API_BASE_URL}/messaging/messages/${messageId}/edit/`, {
@@ -255,6 +276,11 @@ class MessagingService {
           case 'conversation_info':
             if (this.onConversationInfoCallback) {
               this.onConversationInfoCallback(data.data);
+            }
+            break;
+          case 'conversation_locked':
+            if (this.onConversationLockedCallback) {
+              this.onConversationLockedCallback(data.data);
             }
             break;
           case 'error':
@@ -395,6 +421,10 @@ class MessagingService {
 
   onConversationInfo(callback: (data: any) => void): void {
     this.onConversationInfoCallback = callback;
+  }
+
+  onConversationLocked(callback: (data: any) => void): void {
+    this.onConversationLockedCallback = callback;
   }
 
   // Utility Methods

@@ -204,7 +204,10 @@ export default function AdminNotifications() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-gray-300 text-sm leading-relaxed mb-3">{notification.message}</p>
+                         {/* Subtitle/Details Line */}
+                         <p className="text-gray-300 text-sm leading-relaxed mb-3">
+                           {notification.orderId ? notification.orderId : notification.message}
+                         </p>
                         
                         {/* Additional Details */}
                         <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -213,12 +216,6 @@ export default function AdminNotifications() {
                             {notification.type}
                           </span>
                           <span>{notification.time}</span>
-                          {notification.orderId && (
-                            <span className="flex items-center gap-1">
-                              <Package className="w-3 h-3" />
-                              Order: {notification.orderId}
-                            </span>
-                          )}
                           {notification.productTitle && (
                             <span className="truncate max-w-[200px]" title={notification.productTitle}>
                               {notification.productTitle}

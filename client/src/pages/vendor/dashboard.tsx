@@ -13,6 +13,7 @@ import VendorAds from "./ads";
 import VendorDisputes from "./disputes";
 import VendorSupport from "./support";
 import VendorPayouts from "./payouts";
+import VendorRefunds from "./refunds";
 import VendorSettings from "./settings";
 import BulkUpload from "./bulk-upload";
 import VendorNotifications from "./notifications";
@@ -37,6 +38,7 @@ export default function VendorDashboard() {
         <Route path="/disputes" element={<VendorDisputes />} />
         <Route path="/support" element={<VendorSupport />} />
         <Route path="/payouts" element={<VendorPayouts />} />
+        <Route path="/refunds" element={<VendorRefunds />} />
         <Route path="/settings" element={<VendorSettings />} />
         <Route path="*" element={<VendorOverview />} />
       </Routes>

@@ -12,6 +12,15 @@ import { ArrowLeft, Copy, QrCode, Shield, Clock, CheckCircle, AlertTriangle, Wal
 import { useToast } from '@/hooks/use-toast';
 import { getApiUrl } from '@/config/api';
 import paymentService, { PaymentAddress, PaymentStatus } from '@/services/paymentService';
+import { orderService } from '@/services/orderService';
+
+
+function normalizeCartItem(item: any) {
+  const productId = Number(item?.product?.id ?? item?.id ?? item?.product_id ?? item?.productId ?? 0) || 0;
+  const quantity = Number(item?.quantity ?? item?.qty ?? 1);
+  const price = (item?.price ?? item?.unit_price ?? '0').toString();
+  return { ...item, productId, quantity, price, use_escrow: Boolean(item?.use_escrow ?? false) };
+}
 
 interface Product {
   id: number;
@@ -26,17 +35,21 @@ interface Product {
 }
 
 interface PaymentModalProps {
-  product: Product | null;
+  product?: Product | null;
+  items?: any[];
   isOpen: boolean;
   onClose: () => void;
   onBack: () => void;
+  onSuccess?: () => void;
 }
 
-const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, onBack }) => {
+const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen, onClose, onBack, onSuccess }) => {
+  console.log('DEBUG PaymentModal props:', { product, items, isOpen });
+
   const { toast } = useToast();
   const [step, setStep] = useState(1); // 1: Payment Method, 2: Payment Type, 3: Payment Details, 4: Confirmation
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
-  const [paymentType, setPaymentType] = useState<string>(''); // 'wallet', 'buy', 'exchange'
+  const [paymentType, setPaymentType] = useState<string>('wallet'); // only wallet is supported
   const [useEscrow, setUseEscrow] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [paymentAddress, setPaymentAddress] = useState('');
@@ -47,10 +60,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
   
   // Real API integration states
   const [realPaymentAddress, setRealPaymentAddress] = useState<PaymentAddress | null>(null);
+  const [realPaymentAddresses, setRealPaymentAddresses] = useState<PaymentAddress[] | null>(null);
   const [realPaymentStatus, setRealPaymentStatus] = useState<PaymentStatus | null>(null);
   const [pollingInterval, setPollingInterval] = useState<number | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+
+  // Support bulk purchases: derive a display product from items when product is not provided
+  const effectiveProduct: Product | null = product ?? (items && items.length > 0 ? {
+    id: 0,
+    listing_title: `Bulk Purchase (${items.length} items)`,
+    price: items.reduce((sum, it) => sum + ((parseFloat(it.price) || 0) * (Number(it.quantity || 1))), 0).toString(),
+    vendor: { username: 'Multiple Vendors' },
+    accepted_cryptocurrencies: items[0]?.accepted_cryptocurrencies || ['BTC','XMR'],
+    escrow_available: true,
+    escrow_enabled: false
+  } as Product : null);
+
   
   // Credit card form data
   const [cardData, setCardData] = useState({
@@ -69,14 +95,80 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
 
   // Real payment creation
 
-  const createRealPayment = async () => {
-    if (!product || !selectedCrypto || !paymentType) return;
+    const createRealPayment = async () => {
+    // Prevent duplicate runs
+    if (orderId && (!items || items.length === 0)) {
+      return;
+    }
+    // Need either single product or items for bulk
+    if ((!product || !product.id) && (!items || items.length === 0)) return;
+    if (!selectedCrypto || !paymentType) return;
 
     setIsCreatingPayment(true);
     setApiError(null);
 
     try {
-      // First create order
+      // Bulk flow: create an order per item, then create payment addresses per order
+      if (items && items.length > 0) {
+        const createdOrders: any[] = [];
+        const paymentAddresses: any[] = [];
+        for (const it of items) {
+          const itn = normalizeCartItem(it);
+          if (!itn.productId) {
+            throw new Error('Invalid product id in cart item');
+          }
+          const orderData = {
+            product: itn.productId,
+            quantity: itn.quantity,
+            crypto_currency: selectedCrypto,
+            use_escrow: itn.use_escrow
+          };
+
+          // create order via orderService
+          const order = await orderService.createOrder(orderData);
+          createdOrders.push(order);
+
+          const oid = order.order_id || order.id || order.order_id || order.id;
+          const amount = (parseFloat(itn.price || '0') * itn.quantity).toString();
+
+          const pay = await paymentService.createPaymentAddress({
+            order_id: oid,
+            crypto_currency: selectedCrypto,
+            amount: amount,
+            payment_type: paymentType as "wallet" | "buy" | "exchange",
+            use_escrow: itn.use_escrow
+          });
+          paymentAddresses.push(pay);
+        }
+
+        setRealPaymentAddresses(paymentAddresses);
+        setRealPaymentAddress(paymentAddresses[0] || null);
+        setOrderId(createdOrders[0]?.order_id || createdOrders[0]?.id || '');
+
+        // start polling first order
+        if (pollingInterval) {
+          paymentService.stopPaymentPolling(pollingInterval);
+        }
+        const firstOrderId = createdOrders[0]?.order_id || createdOrders[0]?.id;
+        if (firstOrderId) {
+          const interval = paymentService.startPaymentPolling(firstOrderId, (status: PaymentStatus) => {
+            setRealPaymentStatus(status);
+            if (status.status === 'paid') {
+              toast({ title: 'Payment Confirmed!', description: 'At least one order has been paid.' });
+              setStep(4);
+            } else if (status.status === 'expired') {
+              toast({ title: 'Payment Expired', description: 'Payment window has expired.', variant: 'destructive' });
+            }
+          });
+          setPollingInterval(interval);
+        }
+
+        toast({ title: 'Orders Created & Payment Addresses Generated', description: 'Please complete payments for each vendor separately.' });
+        setStep(3);
+        return;
+      }
+
+      // Single-item flow (existing behavior)
       const orderData = {
         product: product.id,
         quantity: quantity,
@@ -100,105 +192,49 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
       const order = await orderResponse.json();
       const orderIdGenerated = order.order_id || order.data?.order_id;
       setOrderId(orderIdGenerated);
-      
-      // Dispatch event to refresh orders and recent activity
-      window.dispatchEvent(new CustomEvent('order_created', { 
-        detail: { order_id: orderIdGenerated } 
-      }));
-      
-      // Then create payment address
-      let paymentData: PaymentAddress;
-      try {
-        paymentData = await paymentService.createPaymentAddress({
-          order_id: orderIdGenerated,
-          crypto_currency: selectedCrypto,
-          amount: totalPrice.toString(),
-          payment_type: paymentType as "wallet" | "buy" | "exchange",
-          use_escrow: useEscrow
-        });
-        
-        setRealPaymentAddress(paymentData);
-        setPaymentAddress(paymentData.payment_address);
-        setPaymentAmount(paymentData.expected_amount);
-        
-        // Update order with payment address
-        await fetch(getApiUrl(`/orders/${orderIdGenerated}/`), {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
-          },
-          body: JSON.stringify({
-            payment_address: paymentData.payment_address
-          })
-        });
-      } catch (error: any) {
-        // Check if error is about expired order
-        if (error.message && error.message.includes('expired')) {
-          toast({
-            title: "Order Expired",
-            description: "This order has expired. You can create a new order.",
-            variant: "destructive",
-          });
-          onClose();
-          return;
-        }
-        throw error; // Re-throw other errors
-      }
+      window.dispatchEvent(new CustomEvent('order_created', { detail: { order_id: orderIdGenerated } }));
 
-      // Start polling for payment status
+      // Then create payment address for single order
+      const paymentData = await paymentService.createPaymentAddress({
+        order_id: orderIdGenerated,
+        crypto_currency: selectedCrypto,
+        amount: totalPrice.toString(),
+        payment_type: paymentType as "wallet" | "buy" | "exchange",
+        use_escrow: useEscrow
+      });
+
+      setRealPaymentAddress(paymentData);
+      setPaymentAddress(paymentData.payment_address);
+      setPaymentAmount(paymentData.expected_amount);
+
       if (pollingInterval) {
         paymentService.stopPaymentPolling(pollingInterval);
       }
-
-      const interval = paymentService.startPaymentPolling(
-        orderIdGenerated,
-        (status: PaymentStatus) => {
-          setRealPaymentStatus(status);
-          
-          if (status.status === "paid") {
-            toast({
-              title: "Payment Confirmed! ✅",
-              description: "Your payment has been successfully confirmed.",
-            });
-            setStep(4); // Move to confirmation step
-          } else if (status.status === "expired") {
-            toast({
-              title: "Payment Expired ⏰",
-              description: "Payment window has expired. Please try again.",
-              variant: "destructive"
-            });
-          }
+      const interval = paymentService.startPaymentPolling(orderIdGenerated, (status: PaymentStatus) => {
+        setRealPaymentStatus(status);
+        if (status.status === "paid") {
+          toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
+          setStep(4);
+        } else if (status.status === "expired") {
+          toast({ title: "Payment Expired", description: "Payment window has expired. Please try again.", variant: "destructive" });
         }
-      );
-
-      setPollingInterval(interval);
-
-      toast({
-        title: "Order Created & Payment Address Generated! 🚀",
-        description: `Order #${orderIdGenerated} created. Send ${paymentData.expected_amount} ${selectedCrypto} to the address below.`,
       });
-
-
-      console.log("✅ Order created successfully, moving to step 3", { orderIdGenerated, paymentData });
-      setStep(3); // Move to payment details step
+      setPollingInterval(interval);
+      toast({ title: "Order Created & Payment Address Generated!", description: `Order #${orderIdGenerated} created. Send ${paymentData.expected_amount} ${selectedCrypto} to the address below.` });
+      setStep(3);
 
     } catch (error: any) {
-
-      console.log("❌ Error details:", { error, message: error.message, stack: error.stack });
-      console.error("Payment creation error:", error);
+      console.error('Payment creation error:', error);
       setApiError(error.message);
-      toast({
-        title: "Error Creating Order",
-        description: error.message || "Failed to create order and payment address",
-        variant: "destructive"
-      });
+      toast({ title: "Error Creating Order", description: error.message || "Failed to create order and payment address", variant: "destructive" });
     } finally {
       setIsCreatingPayment(false);
     }
-  };
+  };;
 
-  const totalPrice = product ? (parseFloat(product.price) * quantity) : 0;
+  const totalPrice = (items && items.length > 0)
+    ? items.reduce((sum, it) => sum + ((parseFloat(it.price) || 0) * (Number(it.quantity || 1))), 0)
+    : (effectiveProduct ? (parseFloat(effectiveProduct.price) * quantity) : 0);
 
   // Timer countdown
   useEffect(() => {
@@ -217,7 +253,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
   };
 
   const calculateTotal = () => {
-    const basePrice = parseFloat(product?.price || '0');
+    const basePrice = parseFloat(effectiveProduct?.price || '0');
     const total = basePrice * quantity;
     // Only charge escrow fee if user opts in for non-escrow products
     const escrowFee = (useEscrow && !product?.escrow_enabled) ? total * 0.02 : 0; // 2% escrow fee only for optional escrow
@@ -246,21 +282,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
       });
       return;
     }
+    setPaymentType('wallet');
     setStep(2);
   };
 
   const handlePaymentTypeSubmit = async () => {
-    if (!paymentType) {
-      toast({
-        title: "Payment Method Required",
-        description: "Please select how you want to pay",
-        variant: "destructive"
-      });
-      return;
+    if (isCreatingPayment) return; // prevent duplicate submissions
+    setIsCreatingPayment(true);
+    try {
+      // Create real payment address using API
+      await createRealPayment();
+    } finally {
+      setIsCreatingPayment(false);
     }
-
-    // Create real payment address using API
-    await createRealPayment();
   };
 
   const copyToClipboard = (text: string, type: string) => {
@@ -321,10 +355,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
     }, 2000);
   };
 
-  if (!isOpen || !product) return null;
+  if (!isOpen || (!effectiveProduct && (!items || items.length === 0))) return null;
 
   const pricing = calculateTotal();
-  const availableCryptos = product.accepted_cryptocurrencies || ['BTC', 'XMR'];
+  const availableCryptos = effectiveProduct?.accepted_cryptocurrencies || ['BTC', 'XMR'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -355,7 +389,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
                   {step === 3 && "Complete Payment"}
                   {step === 4 && "Payment Status"}
                 </h1>
-                <p className="text-gray-400 text-sm">{product.listing_title}</p>
+                <p className="text-gray-400 text-sm">{effectiveProduct?.listing_title}</p>
               </div>
             </div>
             
@@ -392,11 +426,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
                 <CardContent className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-gray-300">Product</span>
-                    <span className="text-white">{product.listing_title}</span>
+                    <span className="text-white">{effectiveProduct?.listing_title}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Seller</span>
-                    <span className="text-white">@{product.vendor.username}</span>
+                    <span className="text-white">@{effectiveProduct?.vendor?.username}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300">Quantity</span>
@@ -478,7 +512,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
               </Card>
 
               {/* Escrow Information */}
-              {product.escrow_enabled && (
+              {effectiveProduct?.escrow_enabled && (
                 <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30">
                   <CardContent className="pt-6">
                     <div className="flex items-start space-x-3">
@@ -507,7 +541,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
               )}
 
               {/* Optional Escrow Option for non-escrow products */}
-              {!product.escrow_enabled && product.escrow_available && (
+              {!effectiveProduct?.escrow_enabled && effectiveProduct?.escrow_available && (
                 <Card className="bg-gray-800 border-gray-700">
                   <CardContent className="pt-6">
                     <div className="flex items-start space-x-3">
@@ -531,7 +565,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
               )}
 
               <Button 
-                onClick={handlePaymentMethodSubmit}
+                onClick={handlePaymentMethodSubmit} disabled={isCreatingPayment}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
                 size="lg"
               >
@@ -545,139 +579,54 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, isOpen, onClose, o
             <div className="space-y-6">
               <Card className="bg-gray-800 border-gray-700">
                 <CardHeader>
-                  <CardTitle className="text-white">How do you want to pay?</CardTitle>
-                  <p className="text-gray-400 text-sm">Choose your preferred payment method for {selectedCrypto}</p>
+                  <CardTitle className="text-white">Pay with Your Crypto Wallet</CardTitle>
+                  <p className="text-gray-400 text-sm">
+                    We currently support only self-custody wallet payments. Follow the instructions below to submit your BTC safely.
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <RadioGroup value={paymentType} onValueChange={setPaymentType}>
-                    {/* Option 1: Existing Wallet */}
-                    <div className="flex items-center space-x-3 p-4 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
-                      <RadioGroupItem value="wallet" id="wallet" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <Wallet className="w-6 h-6 text-blue-500" />
-                        <div>
-                          <Label htmlFor="wallet" className="text-white font-medium cursor-pointer">
-                            Pay with My Crypto Wallet
-                          </Label>
-                          <p className="text-gray-400 text-sm">
-                            I already have {selectedCrypto} and want to send from my own wallet
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-green-400 border-green-400">
-                        Instant
-                      </Badge>
-                    </div>
-
-                    {/* Option 2: Buy Crypto */}
-                    <div className="flex items-center space-x-3 p-4 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
-                      <RadioGroupItem value="buy" id="buy" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">$</span>
-                        </div>
-                        <div>
-                          <Label htmlFor="buy" className="text-white font-medium cursor-pointer">
-                            Buy Crypto with Credit Card
-                          </Label>
-                          <p className="text-gray-400 text-sm">
-                            I want to buy {selectedCrypto} now and pay automatically
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-blue-400 border-blue-400">
-                        Easy
-                      </Badge>
-                    </div>
-
-                    {/* Option 3: Exchange Connection */}
-                    <div className="flex items-center space-x-3 p-4 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
-                      <RadioGroupItem value="exchange" id="exchange" />
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">Ex</span>
-                        </div>
-                        <div>
-                          <Label htmlFor="exchange" className="text-white font-medium cursor-pointer">
-                            Connect My Exchange Account
-                          </Label>
-                          <p className="text-gray-400 text-sm">
-                            Use my Binance, Coinbase, or other exchange account
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-purple-400 border-purple-400">
-                        Secure
-                      </Badge>
-                    </div>
-                  </RadioGroup>
-                </CardContent>
-              </Card>
-
-              {/* Payment Type Info */}
-              {paymentType === 'wallet' && (
-                <Card className="bg-blue-900/20 border-blue-700">
-                  <CardContent className="pt-6">
+                  <div className="space-y-4 text-sm text-gray-200">
                     <div className="flex items-start gap-3">
                       <Wallet className="w-5 h-5 text-blue-400 mt-0.5" />
                       <div>
-                        <h3 className="text-white font-medium mb-2">Using Your Own Wallet</h3>
-                        <ul className="space-y-1 text-gray-300 text-sm">
-                          <li>• You'll get a payment address to send {selectedCrypto} to</li>
-                          <li>• Send the exact amount from your wallet app</li>
-                          <li>• Payment is detected automatically</li>
-                          <li>• No extra fees (just network fees)</li>
+                        <p className="font-semibold text-white">What you need</p>
+                        <ul className="mt-2 space-y-1 text-gray-300">
+                          <li>• A BTC wallet you control (Ledger, Sparrow, BlueWallet, etc.)</li>
+                          <li>• The ability to send exact on-chain payments</li>
+                          <li>• Access to scan a QR or copy/paste the address</li>
                         </ul>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {paymentType === 'buy' && (
-                <Card className="bg-green-900/20 border-green-700">
-                  <CardContent className="pt-6">
+                    <Separator className="bg-gray-700" />
                     <div className="flex items-start gap-3">
-                      <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center mt-0.5">
-                        <span className="text-white text-xs font-bold">$</span>
-                      </div>
+                      <Clock className="w-5 h-5 text-yellow-400 mt-0.5" />
                       <div>
-                        <h3 className="text-white font-medium mb-2">Buy Crypto with Card</h3>
-                        <ul className="space-y-1 text-gray-300 text-sm">
-                          <li>• Enter your credit/debit card details</li>
-                          <li>• We'll buy {selectedCrypto} instantly for you</li>
-                          <li>• Payment is sent automatically to the seller</li>
-                          <li>• Small processing fee applies (~3%)</li>
-                        </ul>
+                        <p className="font-semibold text-white">How it works</p>
+                        <ol className="mt-2 space-y-1 text-gray-300 list-decimal list-inside">
+                          <li>We generate a unique BTC address and amount for this order.</li>
+                          <li>You send the exact amount from your wallet within 30 minutes.</li>
+                          <li>Our system tracks the blockchain and confirms once payment lands.</li>
+                        </ol>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                </CardContent>
+              </Card>
 
-              {paymentType === 'exchange' && (
-                <Card className="bg-purple-900/20 border-purple-700">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center mt-0.5">
-                        <span className="text-white text-xs font-bold">Ex</span>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-medium mb-2">Exchange Connection</h3>
-                        <ul className="space-y-1 text-gray-300 text-sm">
-                          <li>• Connect your exchange account securely</li>
-                          <li>• Transfer {selectedCrypto} directly from your balance</li>
-                          <li>• Uses read-only API keys (safe)</li>
-                          <li>• Lower fees than buying new crypto</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <Card className="bg-blue-900/15 border-blue-800/40">
+                <CardContent className="pt-6">
+                  <h3 className="text-white font-medium mb-3">Pro tips</h3>
+                  <ul className="space-y-2 text-gray-300 text-sm">
+                    <li>• Send only BTC on-chain (no Lightning, no exchange internal transfers).</li>
+                    <li>• Double-check the address and amount before pressing send.</li>
+                    <li>• Network fees come from your wallet—send the exact total we provide.</li>
+                    <li>• For large orders, send from a clean wallet to avoid exchange holds.</li>
+                  </ul>
+                </CardContent>
+              </Card>
 
               <Button 
-                onClick={handlePaymentTypeSubmit}
+                onClick={handlePaymentTypeSubmit} disabled={isCreatingPayment}
                 disabled={isCreatingPayment}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
                 size="lg"

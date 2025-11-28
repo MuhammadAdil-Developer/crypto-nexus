@@ -66,7 +66,7 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
-  product_id: number;
+  product: number;
   quantity: number;
   crypto_currency: string;
   use_escrow: boolean;
@@ -115,10 +115,22 @@ class OrderService {
 
   async updateOrderStatus(orderId: string, statusData: UpdateOrderStatusRequest): Promise<Order> {
     try {
-      const response = await api.patch(`/orders/${orderId}/`, statusData);
+      // Backwards-compatible: allow passing a string for statusData
+      const payload = typeof statusData === 'string' ? { order_status: statusData } : statusData;
+      const response = await api.patch(`/orders/${orderId}/`, payload);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to update order status');
+    }
+  }
+
+  // Admin convenience: confirm order (alias to confirmDelivery)
+  async confirmOrder(orderId: string): Promise<Order> {
+    try {
+      const response = await api.post(`/orders/${orderId}/confirm_delivery/`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Failed to confirm order');
     }
   }
 

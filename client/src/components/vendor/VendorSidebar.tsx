@@ -13,7 +13,8 @@ import {
   HelpCircle,
   Store,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -66,7 +67,8 @@ const VENDOR_NAV_CATEGORIES = [
   {
     title: "Finance",
     items: [
-      { title: "Payouts", icon: Wallet, href: "/vendor/payouts", countKey: "payouts" }
+      { title: "Payouts", icon: Wallet, href: "/vendor/payouts", countKey: "payouts" },
+      { title: "Refunds", icon: RefreshCw, href: "/vendor/refunds", countKey: "refunds" }
     ]
   },
   {

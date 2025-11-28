@@ -290,10 +290,11 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                             
                             {/* Content */}
                         <div className="flex-1 min-w-0">
-                              <p className="text-sm text-white leading-snug">
-                                <span className="font-medium">{notification.title}</span>
-                                {' '}
-                                <span className="text-gray-400">{notification.message}</span>
+                              <p className="text-sm font-medium text-white leading-snug">
+                                {notification.title}
+                              </p>
+                              <p className="text-sm text-gray-400 leading-snug mt-1">
+                                {notification.message}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
                             </div>

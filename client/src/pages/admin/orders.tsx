@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
-import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download } from "lucide-react";
+import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download, MessageSquare } from "lucide-react";
 import { SAMPLE_ORDERS } from "@/lib/constants";
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,12 @@ export default function AdminOrders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currencyFilter, setCurrencyFilter] = useState('all');
+  // Order chat state
+  const [isOrderChatOpen, setIsOrderChatOpen] = useState(false);
+  const [orderChatMessages, setOrderChatMessages] = useState<any[]>([]);
+  const [orderChatLoading, setOrderChatLoading] = useState(false);
+  const [orderChatConversation, setOrderChatConversation] = useState<any | null>(null);
+  const [orderChatInput, setOrderChatInput] = useState('');
   
   // Pagination state - Changed default to 10
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,7 +115,8 @@ export default function AdminOrders() {
   
   const handleRefundOrder = async (orderId: string) => {
     try {
-      await orderService.updateOrderStatus(orderId, 'refunded');
+      // send explicit object to API
+      await orderService.updateOrderStatus(orderId, { order_status: 'refunded' });
       toast({
         title: "Order Refunded",
         description: "Order has been refunded successfully",
@@ -121,6 +128,81 @@ export default function AdminOrders() {
         description: error.message,
         variant: "destructive"
       });
+    }
+  };
+
+  // Open chat modal for an order (admin -> buyer)
+  const openOrderChat = async (order: Order) => {
+    try {
+      setOrderChatLoading(true);
+      setOrderChatMessages([]);
+      setOrderChatConversation(null);
+
+      // Try to get product ID
+      const productId = order.product?.id || order.product || null;
+      if (!productId) {
+        toast({ title: 'Error', description: 'No product associated with this order', variant: 'destructive' });
+        return;
+      }
+
+      // Try fetching existing conversation by product
+      let conversation: any = null;
+      try {
+        conversation = await (await import('@/services/messagingService')).messagingService.getConversationByProduct(productId);
+      } catch (err) {
+        // No conversation found for the product - will attempt to create
+        conversation = null;
+      }
+
+      if (!conversation) {
+        // Try to create a conversation between admin and buyer
+        const recipientId = order.buyer?.id || order.buyer || null;
+        if (!recipientId) {
+          toast({ title: 'Error', description: 'Unable to determine buyer to start conversation', variant: 'destructive' });
+          return;
+        }
+
+        try {
+          conversation = await (await import('@/services/messagingService')).messagingService.createProductConversation(productId, recipientId);
+        } catch (createErr: any) {
+          console.error('Failed to create conversation:', createErr);
+          toast({ title: 'Error', description: 'Failed to create conversation', variant: 'destructive' });
+          return;
+        }
+      }
+
+      // Load messages for the conversation
+      try {
+        const messages = await (await import('@/services/messagingService')).messagingService.getConversationMessages(conversation.id, 1, 1000);
+        setOrderChatMessages(messages || []);
+      } catch (msgErr) {
+        console.warn('Failed to load messages:', msgErr);
+        setOrderChatMessages([]);
+      }
+
+      setOrderChatConversation(conversation);
+      setIsOrderChatOpen(true);
+    } catch (error) {
+      console.error('openOrderChat error:', error);
+      toast({ title: 'Error', description: 'Unable to open chat for this order', variant: 'destructive' });
+    } finally {
+      setOrderChatLoading(false);
+    }
+  };
+
+  const sendOrderChatMessage = async () => {
+    if (!orderChatConversation || !orderChatInput.trim()) return;
+
+    try {
+      const messaging = (await import('@/services/messagingService')).messagingService;
+      // Use sendMessage which will attempt websocket then fallback to API
+      const temp = await messaging.sendMessage(orderChatInput.trim(), orderChatConversation.id);
+      // Append temporary message for immediate feedback
+      setOrderChatMessages(prev => [...prev, temp]);
+      setOrderChatInput('');
+    } catch (error: any) {
+      console.error('sendOrderChatMessage error:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to send message', variant: 'destructive' });
     }
   };
 
@@ -230,16 +312,30 @@ export default function AdminOrders() {
         }).join(','))
       ].join('\n');
       
-      // Create and download CSV file
+      // Create and download CSV file (robust handling)
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const filename = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
+
+      if ((window as any).navigator && (window as any).navigator.msSaveBlob) {
+        try {
+          (window as any).navigator.msSaveBlob(blob, filename);
+        } catch (err) {
+          console.error('msSaveBlob failed:', err);
+        }
+      } else {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        try {
+          link.click();
+        } catch (err) {
+          window.open(url, '_blank');
+        }
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(url), 500);
+      }
       
       toast({
         title: "Export Successful",
@@ -580,6 +676,15 @@ export default function AdminOrders() {
                               <CreditCard className="w-4 h-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-indigo-400 hover:text-indigo-300"
+                            onClick={() => openOrderChat(order)}
+                            data-testid={`message-order-${order.id}`}
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -602,6 +707,50 @@ export default function AdminOrders() {
           </CardContent>
         </Card>
         
+      {/* Order Chat Modal */}
+      <Dialog open={isOrderChatOpen} onOpenChange={setIsOrderChatOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-2xl lg:max-w-3xl max-h-[80vh] bg-card text-white overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-lg">
+              {orderChatConversation ? (
+                <div>
+                  <div className="font-medium">Conversation: {orderChatConversation.id}</div>
+                  <div className="text-sm text-gray-400">Product: {orderChatConversation.product?.headline || 'N/A'}</div>
+                </div>
+              ) : 'Conversation'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="p-4 max-h-[60vh] overflow-y-auto space-y-3 bg-gray-900 rounded-lg">
+            {orderChatLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+              </div>
+            ) : orderChatMessages.length === 0 ? (
+              <div className="text-center text-gray-400 py-8">No messages yet for this conversation.</div>
+            ) : (
+              orderChatMessages.map((m: any, i: number) => (
+                <div key={m.id || i} className={`flex ${m.sender?.id === (JSON.parse(localStorage.getItem('user') || '{}').id) ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`px-3 py-2 rounded-lg ${m.sender?.id === (JSON.parse(localStorage.getItem('user') || '{}').id) ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-white'}`}>
+                    <div className="text-xs opacity-80 mb-1">{m.sender?.username || 'Unknown'}</div>
+                    <div className="text-sm whitespace-pre-wrap">{m.content}</div>
+                    <div className="text-xs opacity-60 text-right mt-1">{m.created_at ? new Date(m.created_at).toLocaleString() : ''}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="px-4 py-3 border-t border-gray-700 bg-card">
+            <div className="flex items-center gap-2">
+              <Input value={orderChatInput} onChange={(e) => setOrderChatInput(e.target.value)} placeholder="Type a message..." />
+              <Button onClick={sendOrderChatMessage} disabled={!orderChatInput.trim()}>Send</Button>
+              <Button variant="outline" onClick={() => setIsOrderChatOpen(false)}>Close</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Order Details Modal - VERTICAL LAYOUT FOR DESCRIPTION & PAYMENT ADDRESS */}
         <Dialog open={viewOrderModalOpen} onOpenChange={setViewOrderModalOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] bg-card text-white border border-gray-600/30 shadow-2xl overflow-hidden">

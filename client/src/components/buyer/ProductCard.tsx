@@ -33,6 +33,7 @@ interface Product {
   delivery_method?: string | null;
   status: string;
   created_at: string;
+  updated_at?: string;
   main_image?: string | null;
   main_images: string[];
   gallery_images: string[];
@@ -229,159 +230,154 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     setIsPaymentModalOpen(false);
   };
 
-  if (viewMode === 'list') {
-    return (
-      <Card className="bg-card border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0">
-            {/* Product Image */}
-            <div className="w-24 h-24 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 flex-shrink-0">
+  const listViewCard = (
+    <Card className="bg-gray-950 border border-gray-800/80 rounded-xl shadow-sm">
+      <CardContent className="p-0">
+        <div className="hidden lg:grid grid-cols-[2fr,1.2fr,1fr,1fr,1fr,0.7fr,auto] gap-4 items-center px-4 py-3 text-sm text-gray-200">
+          <div
+            className="flex items-center gap-3 min-w-0 cursor-pointer rounded-lg hover:bg-gray-900/70 transition-colors px-2 py-1"
+            onClick={handleViewProduct}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleViewProduct()}
+          >
+            <div className="w-10 h-10 bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
               {getProductImage() ? (
-                <img
-                  src={getProductImage() || undefined}
-                  alt={product.listing_title}
-                  className="w-full h-full object-cover"
-                />
+                <img src={getProductImage() || undefined} alt={product.listing_title} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-gray-400 text-2xl">📦</span>
-                </div>
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-lg">📦</div>
               )}
             </div>
-
-            {/* Product Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                 <div className="flex-1 min-w-0">
-                   <h3 className="text-lg font-semibold truncate" style={{ color: '#AD0539' }}>
-                     {product.listing_title}
-                   </h3>
-                   <p className="text-gray-400 text-sm mt-1 line-clamp-2">
-                     {product.description}
-                   </p>
-                 </div>
-                 
-                 <div className="sm:ml-4 text-right">
-                   <p className="text-xl font-bold" style={{ color: '#AD0539' }}>
-                     {formatPrice(product.price)} BTC
-                   </p>
-                  <p className="text-gray-400 text-sm">
-                    {product.quantity_available || 0} available
-                  </p>
-                </div>
-              </div>
-
-              {/* Tags and Features */}
-              <div className="mt-3 space-y-1">
-                <div className="flex flex-wrap gap-1">
-                  {/* Stock Status Badge */}
-                  {product.quantity_available > 0 ? (
-                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1.5 py-0.5">
-                      In Stock
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs px-1.5 py-0.5">
-                      Out of Stock
-                    </Badge>
-                  )}
-                  
-                  {product.account_type && (
-                    <Badge className={`${getAccountTypeColor(product.account_type)} text-xs px-1.5 py-0.5`}>
-                      {product.account_type.replace('_', ' ').toUpperCase()}
-                    </Badge>
-                  )}
-                  {product.verification_level && (
-                    <Badge className={`${getVerificationColor(product.verification_level)} text-xs px-1.5 py-0.5`}>
-                      {product.verification_level.toUpperCase()}
-                    </Badge>
-                  )}
-                  {product.delivery_method && (
-                    <Badge className={`${getDeliveryMethodColor(product.delivery_method)} text-xs px-1.5 py-0.5`}>
-                      {product.delivery_method.toUpperCase()}
-                    </Badge>
-                  )}
-                </div>
-                {product.escrow_enabled && (
-                  <div className="flex">
-                    <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 hover:from-yellow-500 hover:to-amber-500 transition-all duration-200 shadow-lg text-xs px-1.5 py-0.5">
-                      <Lock className="w-2.5 h-2.5 mr-0.5" />
-                      ESCROW
-                    </Badge>
-                  </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-base font-semibold text-white truncate">{product.listing_title}</p>
+                {product.category?.name && (
+                  <Badge className="bg-pink-600/80 text-white border-pink-400/70 text-[10px] px-1.5 py-0.5">
+                    {product.category.name}
+                  </Badge>
                 )}
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Button
-                  onClick={handleViewProduct}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700/50"
-                >
-                  <Eye className="w-4 h-4 mr-1" />
-                  View
-                </Button>
-                
-                {/* Buy Now Button - Disabled if out of stock */}
-                <Button
-                  onClick={handleBuyNow}
-                  size="sm"
-                  disabled={product.quantity_available <= 0}
-                  className={`${
-                    product.quantity_available > 0 
-                      ? 'bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white shadow-lg' 
-                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <ShoppingCart className="w-4 h-4 mr-1" />
-                  {product.quantity_available > 0 ? 'Buy Now' : 'Out of Stock'}
-                </Button>
-                
-                {/* Cart Button - Disabled if out of stock */}
-                {isInCart(product.id) ? (
-                  <Button
-                    onClick={handleRemoveFromCart}
-                    size="sm"
-                    className="w-24 sm:w-20 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
-                  >
-                    <Check className="w-4 h-4 mr-1" />
-                    In Cart
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleAddToCart}
-                    size="sm"
-                    disabled={product.quantity_available <= 0}
-                    className={`${
-                      product.quantity_available > 0 
-                        ? 'bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg' 
-                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    {product.quantity_available > 0 ? 'Add' : 'Out of Stock'}
-                  </Button>
-                )}
-                
-                <Button
-                  onClick={handleWishlistToggle}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700/50"
-                  disabled={wishlistLoading}
-                >
-                  <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
-                </Button>
-              </div>
+              <p className="text-xs text-gray-400 truncate">{product.description}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+          <div>
+            <p className="font-medium">{product.vendor.username}</p>
+            <p className="text-xs text-gray-500">{product.sub_category?.name || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase">Checked</p>
+            <p className="font-medium">{new Date(product.created_at).toLocaleDateString()}</p>
+          </div>
+          <div className="space-y-1">
+            {product.account_type && (
+              <Badge className={`${getAccountTypeColor(product.account_type)} text-xs px-2 py-0.5`}>
+                {product.account_type.replace('_', ' ').toUpperCase()}
+              </Badge>
+            )}
+            {product.verification_level && (
+              <Badge className={`${getVerificationColor(product.verification_level)} text-xs px-2 py-0.5`}>
+                {product.verification_level.toUpperCase()}
+              </Badge>
+            )}
+          </div>
+          <div>
+            <p className="font-semibold text-blue-200">{formatPrice(product.price)} BTC</p>
+            <p className="text-xs text-gray-500">{product.quantity_available} in stock</p>
+          </div>
+          <div className="flex items-center gap-1 text-sm text-gray-200">
+            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+            <span>{(parseFloat(product.rating as any) || 0).toFixed(1)}</span>
+            <span className="text-xs text-gray-500">({product.review_count || 0})</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleViewProduct}
+              variant="ghost"
+              size="sm"
+              className="text-gray-300 hover:text-white hover:bg-gray-800"
+            >
+              View
+            </Button>
+            <Button
+              onClick={handleBuyNow}
+              size="sm"
+              disabled={product.quantity_available <= 0}
+              className={product.quantity_available > 0 ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
+            >
+              Buy
+            </Button>
+            {isInCart(product.id) ? (
+              <Button onClick={handleRemoveFromCart} size="sm" className="bg-green-500 text-white">
+                Added
+              </Button>
+            ) : (
+              <Button
+                onClick={handleAddToCart}
+                size="sm"
+                disabled={product.quantity_available <= 0}
+                className={product.quantity_available > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
+              >
+                Add
+              </Button>
+            )}
+            <Button
+              onClick={handleWishlistToggle}
+              variant="ghost"
+              size="icon"
+              className="text-gray-400 hover:text-red-400"
+              disabled={wishlistLoading}
+            >
+              <Heart className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
+            </Button>
+          </div>
+        </div>
 
-  return (
+        {/* Mobile / tablet fallback */}
+        <div className="lg:hidden p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 bg-gray-800/40 rounded-lg overflow-hidden">
+              {getProductImage() ? (
+                <img src={getProductImage() || undefined} alt={product.listing_title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500">📦</div>
+              )}
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white">{product.listing_title}</p>
+              <p className="text-xs text-gray-400">{product.vendor.username}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <div>
+              <p className="text-gray-400">Price</p>
+              <p className="font-semibold text-blue-200">{formatPrice(product.price)} BTC</p>
+            </div>
+            <div className="text-right">
+              <p className="text-gray-400">Stock</p>
+              <p className="font-semibold">{product.quantity_available}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleViewProduct} size="sm" variant="outline" className="flex-1 border-gray-700 text-gray-200">
+              View
+            </Button>
+            <Button onClick={handleBuyNow} size="sm" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white">
+              Buy
+            </Button>
+            <Button
+              onClick={isInCart(product.id) ? handleRemoveFromCart : handleAddToCart}
+              size="sm"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isInCart(product.id) ? 'Remove' : 'Add'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const gridViewCard = (
     <Card className="border-2 border-teal-500/30 hover:border-cyan-400/60 transition-all duration-300 group overflow-hidden rounded-xl shadow-lg h-full" style={{ backgroundColor: '#0E1A26' }}>
       <CardContent className="p-0 h-full flex flex-col">
         {/* Product Image - Small width and height like Netflix cards */}
@@ -446,9 +442,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         {/* Product Info - Fixed height with proper spacing */}
         <div className="p-4 pb-3 flex flex-col flex-1" style={{ backgroundColor: '#0E1A26' }}>
           <div className="space-y-2 flex-1">
-            <h3 className="text-lg line-clamp-1" style={{ color: '#AD0539' }}>
-              {product.listing_title}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-2xl font-semibold text-white leading-tight line-clamp-1">
+                {product.listing_title}
+              </h3>
+              {product.category?.name && (
+                <Badge className="bg-pink-600/80 text-white border-pink-400/70 text-[10px] px-1.5 py-0.5">
+                  {product.category.name}
+                </Badge>
+              )}
+            </div>
             <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">
               {product.description}
             </p>
@@ -457,7 +460,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           {/* Price and Rating */}
           <div className="flex items-center justify-between mt-3 mb-3">
             <div>
-              <p className="text-medium" style={{ color: '#AD0539' }}>
+              <p className="text-base font-semibold text-blue-200">
                 {formatPrice(product.price)} BTC
               </p>
               <p className="text-gray-500 text-xs">
@@ -467,7 +470,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <div className="text-right">
               <div className="flex items-center space-x-1 text-xs text-gray-400">
                 <Star className="w-3 h-3 fill-current text-yellow-400" />
-                <span>{product.rating || '0.0'}</span>
+                <span>{(parseFloat(product.rating as any) || 0).toFixed(1)}</span>
               </div>
             </div>
           </div>
@@ -525,8 +528,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           </div>
         </div>
       </CardContent>
+    </Card>
+  );
 
-      {/* Product Detail Modal */}
+  const renderedCard = viewMode === 'list' ? listViewCard : gridViewCard;
+
+  return (
+    <>
+      {renderedCard}
+
       {isModalOpen && (
         <ProductDetailModal
           product={product as any}
@@ -535,7 +545,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         />
       )}
 
-      {/* Payment Modal */}
       {isPaymentModalOpen && (
         <PaymentModal
           product={product as any}
@@ -544,7 +553,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           onBack={handleClosePaymentModal}
         />
       )}
-    </Card>
+    </>
   );
 };
 

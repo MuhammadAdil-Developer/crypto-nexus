@@ -60,16 +60,30 @@ export default function AdminMessages() {
         }).join(','))
       ].join('\n');
       
-      // Create and download CSV file
+      // Create and download CSV file (robust handling)
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `messages_export_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const filename = `messages_export_${new Date().toISOString().split('T')[0]}.csv`;
+
+      if ((window as any).navigator && (window as any).navigator.msSaveBlob) {
+        try {
+          (window as any).navigator.msSaveBlob(blob, filename);
+        } catch (err) {
+          console.error('msSaveBlob failed:', err);
+        }
+      } else {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        try {
+          link.click();
+        } catch (err) {
+          window.open(url, '_blank');
+        }
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(url), 500);
+      }
       
       toast({
         title: "Export Successful",
@@ -230,9 +244,9 @@ export default function AdminMessages() {
 
   const confirmLockConversation = async () => {
     try {
-      // In a real implementation, you'd call an API to lock the conversation
-      // await messagingService.lockConversation(conversationToLock.id);
-      
+      // Call API to lock the conversation
+      await messagingService.lockConversation(conversationToLock.id);
+
       // Update the conversation status locally
       setConversations(prev => 
         prev.map(conv => 

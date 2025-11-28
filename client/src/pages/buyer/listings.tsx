@@ -62,11 +62,20 @@ function BuyerListingsContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   // Default to server-provided ordering (personalized) so different buyers see different orders
   const [sortBy, setSortBy] = useState("server");
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode, setViewMode] = useState("list");
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{id: string, name: string, count: number}[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isBulkPurchaseOpen, setIsBulkPurchaseOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(12); // Items per page
+  const [pagination, setPagination] = useState({
+    page: 1,
+    page_size: 12,
+    total_count: 0,
+    total_pages: 1
+  });
+
   const { toast } = useToast();
   const { getTotalItems } = useCart();
 
@@ -81,7 +90,7 @@ function BuyerListingsContent() {
   // Fetch products from API
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [currentPage]);
 
   // Filter and sort products
   useEffect(() => {
@@ -151,7 +160,7 @@ function BuyerListingsContent() {
         return;
       }
   
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${currentPage}&page_size=${pageSize}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -166,6 +175,16 @@ function BuyerListingsContent() {
         console.log('📦 Products array:', productsArray);
         setProducts(productsArray);
         setFilteredProducts(productsArray);
+
+        // Handle pagination info
+        if (data.pagination) {
+          setPagination({
+            page: data.pagination.page || 1,
+            page_size: data.pagination.page_size || pageSize,
+            total_count: data.pagination.total_count || 0,
+            total_pages: data.pagination.total_pages || 1
+          });
+        }
         
         // Extract categories from products
         const categoryMap = new Map();
@@ -233,6 +252,40 @@ function BuyerListingsContent() {
       product.listing_title.toLowerCase().includes(query.toLowerCase()) ||
       product.vendor.username.toLowerCase().includes(query.toLowerCase())
     ));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.total_pages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxPagesToShow = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(pagination.total_pages, startPage + maxPagesToShow - 1);
+    
+    if (endPage - startPage < maxPagesToShow - 1) {
+      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    }
+
+    if (startPage > 1) {
+      pages.push(1);
+      if (startPage > 2) pages.push('...');
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    if (endPage < pagination.total_pages) {
+      if (endPage < pagination.total_pages - 1) pages.push('...');
+      pages.push(pagination.total_pages);
+    }
+
+    return pages;
   };
 
   if (isLoading) {
@@ -315,7 +368,7 @@ function BuyerListingsContent() {
                          sortBy === "price-low" ? "Price: Low to High" :
                          sortBy === "price-high" ? "Price: High to Low" :
                          sortBy === "rating" ? "Highest Rated" :
-                         sortBy === "popular" ? "Most Popular" : "Newest"}
+                         sortBy === "popular" ? "Most Popular" : "Personalized"}
                 <ChevronDown className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -356,55 +409,64 @@ function BuyerListingsContent() {
           Showing {filteredProducts.length} of {products.length} products
         </div>
 
-        {/* Main Content with Categories and Products */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Sidebar - Categories */}
-          <div className="w-full lg:w-64 flex-shrink-0">
-            <Card className="bg-gray-800 border-gray-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-white text-lg">Categories</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                      selectedCategory === category.id
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">{category.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {category.count}
-                      </Badge>
-                    </div>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+        {/* Main Content - Products Grid/List */}
+        <div>
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-lg mb-2">No products found</div>
+              <p className="text-gray-500">Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div className={viewMode === "grid" ? 
+              "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" : 
+              "space-y-4"
+            }>
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} viewMode={viewMode as "grid" | "list"} />
+              ))}
+            </div>
+          )}
+        
+          {/* Pagination Controls */}
+          {pagination.total_pages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
 
-          {/* Right Side - Products Grid/List */}
-          <div className="flex-1">
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 text-lg mb-2">No products found</div>
-                <p className="text-gray-500">Try adjusting your search or filters</p>
-              </div>
-            ) : (
-              <div className={viewMode === "grid" ? 
-                "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" : 
-                "space-y-4"
-              }>
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} viewMode={viewMode as "grid" | "list"} />
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page, idx) => (
+                  page === "..." ? (
+                    <span key={`dots-${idx}`} className="px-2 text-gray-400">...</span>
+                  ) : (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page as number)}
+                      className={currentPage === page ? "bg-purple-600" : ""}
+                    >
+                      {page}
+                    </Button>
+                  )
                 ))}
               </div>
-            )}
-          </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === pagination.total_pages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </div>
         
         {/* Cart Sidebar */}

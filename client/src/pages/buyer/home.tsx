@@ -1,3 +1,5 @@
+import { PrivacyPolicyModal } from "@/components/PrivacyPolicyModal";
+import { TermsConditionsModal } from "@/components/TermsConditionsModal";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { ProductCard } from "@/components/buyer/ProductCard";
 import { CartProvider } from "@/contexts/CartContext";
@@ -66,10 +68,10 @@ interface Order {
 }
 
 const categories = [
-  { id: 1, name: "Streaming Services", icon: Play, count: "21", color: "from-red-500 to-pink-500", services: "NETFLIX, SPOTIFY, DISNEY+, HULU + MORE" },
-  { id: 2, name: "Software", icon: Code, count: "892", color: "from-red-500 to-pink-500", services: "ADOBE, MICROSOFT, AUTODESK + MORE" },
-  { id: 3, name: "Gaming", icon: Gamepad2, count: "567", color: "from-red-500 to-pink-500", services: "STEAM, EPIC GAMES, XBOX + MORE" },
-  { id: 4, name: "Design", icon: Image, count: "423", color: "from-red-500 to-pink-500", services: "FIGMA, SKETCH, CANVA + MORE" },
+  { id: 1, name: "Streaming Services", icon: Play, count: "21", color: "from-red-500 to-pink-900", services: "NETFLIX, SPOTIFY, DISNEY+, HULU + MORE" },
+  { id: 2, name: "Software", icon: Code, count: "892", color: "from-red-500 to-pink-800", services: "ADOBE, MICROSOFT, AUTODESK + MORE" },
+  { id: 3, name: "Gaming", icon: Gamepad2, count: "567", color: "from-red-500 to-pink-900", services: "STEAM, EPIC GAMES, XBOX + MORE" },
+  { id: 4, name: "Design", icon: Image, count: "423", color: "from-red-500 to-pink-800", services: "FIGMA, SKETCH, CANVA + MORE" },
 ];
 
 const topVendors = [
@@ -119,6 +121,8 @@ const topVendors = [
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 function BuyerHomeContent() {
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [topVendorsData, setTopVendorsData] = useState<any[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
@@ -172,6 +176,24 @@ function BuyerHomeContent() {
 
   // Auto-slide effect with 5 second interval
   useEffect(() => {
+    
+    // Dev/testing: force-show legal modals when URL contains ?forceShowLegal=1 (dev only)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (import.meta.env.DEV && params.get('forceShowLegal') === '1') {
+        localStorage.removeItem('legal_confirmed_privacy');
+        localStorage.removeItem('legal_confirmed_terms');
+      }
+    } catch(e) { /* ignore in SSR */ }
+
+    // Check if legal documents have been confirmed
+    const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
+    const termsConfirmed = localStorage.getItem('legal_confirmed_terms');
+    if (!privacyConfirmed) {
+      setShowPrivacyModal(true);
+    } else if (!termsConfirmed) {
+      setShowTermsModal(true);
+    }
     if (!trendingProducts.length || !isAutoPlaying) return;
     
     scrollIntervalRef.current = setInterval(() => {
@@ -822,6 +844,20 @@ function BuyerHomeContent() {
 
   return (
     <>
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => {
+          // After privacy is confirmed, show terms
+          if (!localStorage.getItem('legal_confirmed_terms')) {
+            setShowTermsModal(true);
+          }
+          setShowPrivacyModal(false);
+        }}
+      />
+      <TermsConditionsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
       {/* Order Payment Banner */}
       {activeOrder && !isLoadingOrder && timeRemaining > 0 && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-900/30 to-blue-800/30 border-b border-blue-700/50 text-white px-4 py-3 flex items-center justify-between">
@@ -877,7 +913,8 @@ function BuyerHomeContent() {
               <img 
                 src="/images/ac-logo-monogram.png" 
                 alt="AC Logo Monogram" 
-                className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain"
+                className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 object-contain"
+                style={{ filter: 'brightness(0.6) contrast(1.1) saturate(0.9)', imageRendering: '-webkit-optimize-contrast' }}
               />
             </div>
             
@@ -886,8 +923,8 @@ function BuyerHomeContent() {
               <img 
                 src="/images/the-one-and-only.png" 
                 alt="THE ONE AND ONLY" 
-                className="h-6 sm:h-7 lg:h-8 object-contain"
-                style={{ imageRendering: 'auto' }}
+                className="h-5 sm:h-6 lg:h-7 object-contain"
+                style={{ filter: 'brightness(0.75) contrast(1.2) saturate(0.85)', imageRendering: '-webkit-optimize-contrast' }}
               />
             </div>
           </div>
@@ -959,7 +996,7 @@ function BuyerHomeContent() {
                         )}
                       </div>
                     ))}
-                  </>
+                    </>
                 ) : (
                   <div className="px-4 py-3 text-gray-400 text-center">
                     No products found
@@ -1049,8 +1086,9 @@ function BuyerHomeContent() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {categories.map((category) => {
                 const Icon = category.icon;
+
                 return (
-                  <Card key={category.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900 overflow-hidden">
+                        <Card key={category.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900 overflow-hidden">
                     <CardContent className="p-0">
                       {/* Image/Icon Section - Top Part - Original Category Icon */}
                       <div className="relative h-32 sm:h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
@@ -1075,7 +1113,8 @@ function BuyerHomeContent() {
                       </div>
                     </CardContent>
                   </Card>
-                );
+                
+    );
               })}
             </div>
           </section>
@@ -1118,7 +1157,8 @@ function BuyerHomeContent() {
                     >
                       <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
                     </button>
-                  </>
+                    </>
+
                 )}
 
                 {/* Cards Container - Clean 4 cards per view */}

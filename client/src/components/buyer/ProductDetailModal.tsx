@@ -449,7 +449,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-400 text-sm">Price</p>
-                    <p className="text-3xl font-bold text-white">
+                    <p className="text-2xl font-bold text-white">
                       {formatPrice(product.price)} BTC
                     </p>
                     {product.discount_percentage && parseFloat(product.discount_percentage) > 0 && (
@@ -461,7 +461,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   <div className="text-right">
                     <p className="text-gray-400 text-sm">Available</p>
                     <p className="text-xl font-semibold text-white">
-                      {product.quantity_available || 0} units
+                      {product.quantity_available || 0} accounts
                     </p>
                   </div>
                 </div>

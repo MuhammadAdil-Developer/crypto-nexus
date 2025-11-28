@@ -10,7 +10,13 @@ from .serializers import (
     OrderDisputeSerializer
 )
 from payments.services import BTCPayServerService, MoneroRPCService
-from payments.models import PaymentStatus, PaymentAddress
+from payments.models import PaymentStatus, PaymentAddress, RefundRequest
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
+from payments.models import RefundRequest
+from django.db.models import Sum
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -816,3 +822,230 @@ class OrderViewSet(viewsets.ModelViewSet):
                 {'success': False, 'error': 'Failed to get credentials'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class RefundRequestAPIView(APIView):
+    """Create a refund request (vendor initiates)"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            order_id = request.data.get('order_id')
+            refund_type = request.data.get('refund_type', 'full')
+            amount = request.data.get('amount')
+            reason = request.data.get('reason')
+            notes = request.data.get('notes', '')
+            
+            # Validation
+            if not order_id or not reason:
+                return Response({
+                    'success': False,
+                    'message': 'order_id and reason are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Get order - IMPORTANT: Use correct field name
+            # Try both order_id (string) and id (UUID) depending on your model
+            try:
+                order = Order.objects.get(order_id=order_id)
+            except Order.DoesNotExist:
+                try:
+                    order = Order.objects.get(id=order_id)
+                except Order.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'message': f'Order {order_id} not found'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Verify vendor ownership
+            if order.vendor != request.user:
+                return Response({
+                    'success': False,
+                    'message': 'You can only request refunds for your own orders'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Check if order is completed or processing
+            if order.order_status not in ['completed', 'paid', 'processing', 'delivered']:
+                return Response({
+                    'success': False,
+                    'message': f'Cannot refund orders with status: {order.order_status}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate refund type and amount
+            if refund_type == 'partial':
+                if not amount:
+                    return Response({
+                        'success': False,
+                        'message': 'Amount is required for partial refunds'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                try:
+                    refund_amount = float(amount)
+                    order_amount = float(order.total_amount)
+                    
+                    if refund_amount <= 0 or refund_amount > order_amount:
+                        return Response({
+                            'success': False,
+                            'message': f'Refund amount must be between 0 and {order_amount}'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except ValueError:
+                    return Response({
+                        'success': False,
+                        'message': 'Invalid amount format'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                refund_amount = order.total_amount
+            
+            # Check for duplicate pending refund
+            existing_refund = RefundRequest.objects.filter(
+                order=order,
+                status__in=['pending', 'approved']
+            ).first()
+            
+            if existing_refund:
+                return Response({
+                    'success': False,
+                    'message': f'A refund request already exists for this order (Status: {existing_refund.status})'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create refund request - Use order object, NOT order_id
+            refund = RefundRequest.objects.create(
+                order=order,  # ✅ Pass ORDER OBJECT, not order_id string
+                vendor=request.user,
+                amount=refund_amount,
+                refund_type=refund_type,
+                reason=reason,
+                notes=notes,
+                status='pending'
+            )
+            
+            # Send admin notification
+            try:
+                from shared.models import Notification
+                Notification.objects.create(
+                    user_id=1,
+                    type='refund',
+                    title='New Refund Request',
+                    message=f'Vendor {request.user.username} requested a {refund_type} refund for order {order.order_id}',
+                    data={
+                        'refund_id': str(refund.id),
+                        'order_id': str(order.id),
+                        'vendor_username': request.user.username,
+                        'amount': str(refund_amount),
+                        'action_url': '/admin/refunds'
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to send admin notification for refund: {str(e)}")
+            
+            return Response({
+                'success': True,
+                'message': 'Refund request submitted successfully',
+                'refund': {
+                    'id': str(refund.id),
+                    'order_id': str(order.id),
+                    'amount': str(refund.amount),
+                    'refund_type': refund.refund_type,
+                    'status': refund.status,
+                    'created_at': refund.created_at.isoformat()
+                }
+            }, status=status.HTTP_201_CREATED)
+        
+        except Order.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Order not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Refund request error: {str(e)}")
+            return Response({
+                'success': False,
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VendorRefundsAPIView(APIView):
+    """Get vendor's refund requests"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            page = int(request.query_params.get('page', 1))
+            limit = int(request.query_params.get('limit', 10))
+            status_filter = request.query_params.get('status', None)
+            
+            # Filter refunds for this vendor
+            refunds = RefundRequest.objects.filter(vendor=request.user).order_by('-created_at')
+            
+            if status_filter:
+                refunds = refunds.filter(status=status_filter)
+            
+            # Pagination
+            total = refunds.count()
+            start = (page - 1) * limit
+            end = start + limit
+            refunds_page = refunds[start:end]
+            
+            data = []
+            for refund in refunds_page:
+                data.append({
+                    'id': str(refund.id),
+                    'order_id': refund.order.order_id,
+                    'buyer': refund.order.buyer.username,
+                    'amount': str(refund.amount),
+                    'crypto_currency': str(refund.order.crypto_currency),
+                    'reason': refund.reason,
+                    'refund_type': refund.refund_type,
+                    'status': refund.status,
+                    'created_at': refund.created_at.isoformat(),
+                    'updated_at': refund.updated_at.isoformat(),
+                    'completed_at': refund.completed_at.isoformat() if refund.completed_at else None
+                })
+            
+            return Response({
+                'success': True,
+                'data': data,
+                'total': total
+            })
+        
+        except Exception as e:
+            logger.error(f"Get vendor refunds error: {str(e)}")
+            return Response({
+                'success': False,
+                'message': str(e),
+                'data': [],
+                'total': 0
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VendorRefundStatsAPIView(APIView):
+    """Get vendor's refund statistics"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            refunds = RefundRequest.objects.filter(vendor=request.user)
+            
+            total_refunds = refunds.count()
+            pending_refunds = refunds.filter(status='pending').count()
+            completed_refunds = refunds.filter(status='completed').count()
+            
+            total_refunded = refunds.filter(
+                status='completed'
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            return Response({
+                'success': True,
+                'total_refunds': total_refunds,
+                'pending_refunds': pending_refunds,
+                'completed_refunds': completed_refunds,
+                'total_refunded_amount': str(total_refunded)
+            })
+        
+        except Exception as e:
+            logger.error(f"Get refund stats error: {str(e)}")
+            return Response({
+                'success': False,
+                'total_refunds': 0,
+                'pending_refunds': 0,
+                'completed_refunds': 0,
+                'total_refunded_amount': '0'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

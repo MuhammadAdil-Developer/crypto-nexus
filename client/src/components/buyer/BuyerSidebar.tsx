@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Home, 
   List, 
@@ -16,6 +16,7 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useBuyerCounts } from "@/contexts/BuyerCountsContext";
+import { authService } from "@/services/authService";
 
 interface BuyerSidebarProps {
   expanded: boolean;
@@ -83,6 +84,28 @@ const BUYER_NAV_ITEMS = [
 export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: BuyerSidebarProps) {
   const location = useLocation();
   const { localCounts } = useBuyerCounts();
+  const [username, setUsername] = useState<string>("Buyer");
+
+  // Get current user's username
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    if (user && user.username) {
+      setUsername(user.username);
+    } else {
+      // Fallback: try to get from localStorage directly
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData.username) {
+            setUsername(userData.username);
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+    }
+  }, []);
 
   const getCount = (countKey: keyof { messages: number; orders: number; support: number } | null): number | null => {
     if (!countKey) return null;
@@ -100,7 +123,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
   return (
     <div 
       className={cn(
-        "buyer-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg relative z-10",
+        "buyer-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg relative z-10 h-full",
         expanded ? "w-64" : "w-16",
         hasBanner ? "pt-16" : ""
       )}
@@ -219,7 +242,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
           </div>
           {expanded && (
             <div className="ml-3 min-w-0">
-              <p className="text-sm font-medium text-white truncate">crypto_buyer</p>
+              <p className="text-sm font-medium text-white truncate">{username}</p>
               <p className="text-xs text-gray-400">Premium Member</p>
             </div>
           )}

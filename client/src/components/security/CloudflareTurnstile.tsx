@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/lib/utils";
 
 declare global {
@@ -23,8 +23,13 @@ declare global {
       ) => string;
       remove: (widgetId: string) => void;
       reset: (widgetId?: string) => void;
+      execute: (widgetId?: string) => void;
     };
   }
+}
+
+export interface CloudflareTurnstileHandle {
+  execute: () => void;
 }
 
 const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -113,7 +118,7 @@ export interface CloudflareTurnstileProps {
   onLoad?: () => void;
 }
 
-export function CloudflareTurnstile({
+export const CloudflareTurnstile = forwardRef<CloudflareTurnstileHandle, CloudflareTurnstileProps>(({
   siteKey = import.meta.env.VITE_CF_TURNSTILE_SITE_KEY,
   action,
   cData,
@@ -128,7 +133,7 @@ export function CloudflareTurnstile({
   onExpire,
   onError,
   onLoad,
-}: CloudflareTurnstileProps) {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const onVerifyRef = useRef(onVerify);
@@ -249,6 +254,22 @@ export function CloudflareTurnstile({
     };
   }, [scriptReady, siteKey]); // CRITICAL: Only these two dependencies
 
+  // Expose execute method to parent via ref
+  useImperativeHandle(ref, () => ({
+    execute: () => {
+      if (widgetIdRef.current && window.turnstile?.execute) {
+        try {
+          window.turnstile.execute(widgetIdRef.current);
+        } catch (e) {
+          console.warn("Execute failed:", e);
+          onErrorRef.current?.("Failed to execute security check.");
+        }
+      } else {
+        onErrorRef.current?.("Security check not ready. Please wait.");
+      }
+    },
+  }), []);
+
   // Separate effect for retry functionality
   useEffect(() => {
     if (retryKey === undefined || retryKey === 0) return;
@@ -286,6 +307,8 @@ export function CloudflareTurnstile({
       </div>
     </div>
   );
-}
+});
+
+CloudflareTurnstile.displayName = "CloudflareTurnstile";
 
 export default CloudflareTurnstile;

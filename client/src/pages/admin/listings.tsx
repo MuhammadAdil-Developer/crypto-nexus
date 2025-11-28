@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,16 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Pagination } from "@/components/ui/pagination";
-import { useForm } from "react-hook-form";
-import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign, Loader2, Lock, CheckSquare, Square, Package, Shield, Key, Truck, FileText, Download, Folder } from "lucide-react";
+import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, CheckCircle, XCircle, Clock, User, Tag, DollarSign, Loader2, Lock, CheckSquare, Square, Package, Shield, Key, Truck, FileText, Download, Folder, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // API Service
-import { API_BASE_URL } from '@/config/api';
+import { API_BASE_URL, getApiUrl } from '@/config/api';
+import authService from '@/services/authService';
 
 interface Product {
   id: number;
@@ -71,6 +72,144 @@ interface Product {
 }
 
 export default function AdminListings() {
+  const [createListingModalOpen, setCreateListingModalOpen] = useState(false);
+  const [creatingListing, setCreatingListing] = useState(false);
+  const createForm = useForm({
+    defaultValues: {
+      title: "",
+      website: "",
+      description: "",
+      vendor: "",
+      account_type: "social",
+      access_type: "full_ownership",
+      access_method: "email_password",
+      account_balance: "",
+      additional_info: "",
+      price: "0",
+      discount_percentage: "0",
+      delivery_time: "instant_auto",
+      delivery_method: "instant",
+      credentials: "",
+      region_restrictions: "",
+      notes_for_buyer: "",
+      quantity_available: "1"
+    }
+  });
+
+  const handleCreateListing = async (data: any) => {
+    try {
+      setCreatingListing(true);
+
+      const token = authService.getToken() || localStorage.getItem('accessToken');
+      if (!token) {
+        toast({ title: 'Authentication Error', description: 'Please login to create product', variant: 'destructive' });
+        return;
+      }
+
+      // Validate required fields
+      if (!data.title || !data.website || !data.description || !data.vendor || !data.account_type || !data.access_type || !data.delivery_time) {
+        toast({ title: 'Validation Error', description: 'Please fill all required fields', variant: 'destructive' });
+        return;
+      }
+
+      // Use multipart/form-data like vendor flow to support images/files
+      const formDataPayload = new FormData();
+      formDataPayload.append('headline', data.title || '');
+      formDataPayload.append('website', data.website || '');
+      formDataPayload.append('description', data.description || '');
+      formDataPayload.append('account_type', data.account_type || 'social');
+      formDataPayload.append('access_type', data.access_type || 'full_ownership');
+      formDataPayload.append('access_method', data.access_method || 'email_password');
+      formDataPayload.append('price', data.price || '0');
+      formDataPayload.append('discount_percentage', data.discount_percentage || '0');
+      formDataPayload.append('delivery_time', data.delivery_time || 'instant_auto');
+      formDataPayload.append('delivery_method', data.delivery_method || 'instant');
+      if (data.account_balance) formDataPayload.append('account_balance', data.account_balance);
+      if (data.additional_info) formDataPayload.append('additional_info', data.additional_info);
+      if (data.credentials) formDataPayload.append('credentials', data.credentials);
+      if (data.region_restrictions) formDataPayload.append('region_restrictions', data.region_restrictions);
+      if (data.notes_for_buyer) formDataPayload.append('notes_for_buyer', data.notes_for_buyer);
+      if (data.quantity_available) formDataPayload.append('quantity_available', data.quantity_available);
+      if (data.vendor) formDataPayload.append('vendor_username', data.vendor);
+
+      const response = await fetch(getApiUrl('/products/create/'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formDataPayload
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.success !== false) {
+        toast({ title: 'Success', description: 'Product created successfully' });
+        setCreateListingModalOpen(false);
+        createForm.reset();
+        fetchAllProducts();
+      } else {
+        toast({ 
+          title: 'Error', 
+          description: result.message || 'Failed to create product', 
+          variant: 'destructive' 
+        });
+        if (result.errors) {
+          console.error('Validation errors:', result.errors);
+        }
+      }
+    } catch (error) {
+      console.error('Create product error:', error);
+      toast({ title: 'Error', description: 'Failed to create product', variant: 'destructive' });
+    } finally {
+      setCreatingListing(false);
+    }
+  };
+
+  // Vendor selector state and helpers
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [vendorSearch, setVendorSearch] = useState('');
+  const [vendorLoading, setVendorLoading] = useState(false);
+  const vendorSearchTimeout = useRef<number | null>(null as any);
+
+  const fetchVendors = async (search: string = '') => {
+    try {
+      setVendorLoading(true);
+      const token = authService.getToken() || localStorage.getItem('accessToken');
+      if (!token) return;
+
+      let url = `${API_BASE_URL}/vendors/approved/?page_size=50`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) return setVendors([]);
+      const data = await res.json();
+      // Support multiple shapes
+      const list = (data?.data && Array.isArray(data.data)) ? data.data : (data.results || data || []);
+      setVendors(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error('Failed to fetch vendors', e);
+      setVendors([]);
+    } finally {
+      setVendorLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // fetch initial vendor list when modal opens
+    if (createListingModalOpen) fetchVendors('');
+  }, [createListingModalOpen]);
+
+  useEffect(() => {
+    // debounce vendor search
+    if (vendorSearchTimeout.current) window.clearTimeout(vendorSearchTimeout.current);
+    vendorSearchTimeout.current = window.setTimeout(() => {
+      fetchVendors(vendorSearch);
+    }, 250) as any;
+    return () => {
+      if (vendorSearchTimeout.current) window.clearTimeout(vendorSearchTimeout.current);
+    };
+  }, [vendorSearch]);
   const [viewListingModalOpen, setViewListingModalOpen] = useState(false);
   const [editListingModalOpen, setEditListingModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -583,6 +722,228 @@ export default function AdminListings() {
           <div>
             <h1 className="text-2xl font-bold text-white">Product Listings</h1>
             <p className="text-gray-300 mt-1">Manage all marketplace product listings</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCreateListingModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Add Product
+            </Button>
+
+            <Dialog open={createListingModalOpen} onOpenChange={setCreateListingModalOpen}>
+              <DialogTrigger asChild>
+                <div style={{ display: 'none' }} />
+              </DialogTrigger>
+              <DialogContent className="max-h-[95vh] w-full sm:max-w-2xl mx-auto p-4 sm:p-6 overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-xl sm:text-2xl">Add Product</DialogTitle>
+                  <DialogDescription className="text-sm">Create a new product listing (admin)</DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={createForm.handleSubmit(handleCreateListing)} className="space-y-4 mt-4">
+                  {/* Vendor Selection */}
+                  <div>
+                    <Label className="text-sm font-medium">Vendor * (search)</Label>
+                    <Input
+                      placeholder="Search vendor username or shop name..."
+                      value={vendorSearch}
+                      onChange={(e) => setVendorSearch(e.target.value)}
+                      className="bg-surface-2 border-border text-white text-sm mt-1"
+                    />
+                    <div className="mt-2 max-h-40 overflow-y-auto bg-surface-2 border border-border rounded">
+                      {vendorLoading ? (
+                        <div className="p-3 text-gray-400 text-sm">Searching vendors...</div>
+                      ) : vendors.length === 0 ? (
+                        <div className="p-3 text-gray-400 text-sm">No vendors found</div>
+                      ) : (
+                        vendors.map((v: any) => (
+                          <div
+                            key={v.id || v.vendor_username}
+                            className="p-3 hover:bg-gray-700/40 cursor-pointer text-white border-b border-border/30 last:border-b-0"
+                            onClick={() => {
+                              createForm.setValue('vendor', v.vendor_username);
+                              setVendorSearch('');
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0">
+                                <div className="font-medium text-sm">{v.business_name || v.vendor_username}</div>
+                                <div className="text-xs text-gray-400">@{v.vendor_username}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {createForm.getValues('vendor') && (
+                      <p className="text-xs text-green-400 mt-2">✓ Selected: {createForm.getValues('vendor')}</p>
+                    )}
+                  </div>
+
+                  {/* Main Product Info */}
+                  <div className="space-y-3 border-t border-gray-600/30 pt-4">
+                    <h3 className="text-sm font-semibold text-gray-300">Product Information</h3>
+                    
+                    <div>
+                      <Label className="text-sm">Title *</Label>
+                      <Input {...createForm.register('title', { required: true })} placeholder="e.g., Premium Zoom Account" className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Website *</Label>
+                      <Input {...createForm.register('website', { required: true })} placeholder="e.g., zoom.com" className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Description *</Label>
+                      <Textarea {...createForm.register('description', { required: true })} placeholder="Detailed description of the account" rows={3} className="text-sm mt-1" />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm">Account Type *</Label>
+                        <Select defaultValue={createForm.getValues('account_type')} onValueChange={(v) => createForm.setValue('account_type', v)}>
+                          <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-surface-2 border-border">
+                            <SelectItem value="messengers">Messengers</SelectItem>
+                            <SelectItem value="streaming">Streaming</SelectItem>
+                            <SelectItem value="gaming">Gaming</SelectItem>
+                            <SelectItem value="social">Social Media</SelectItem>
+                            <SelectItem value="trading">Trading/Exchange</SelectItem>
+                            <SelectItem value="software">Software</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Access Type *</Label>
+                        <Select defaultValue={createForm.getValues('access_type')} onValueChange={(v) => createForm.setValue('access_type', v)}>
+                          <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-surface-2 border-border">
+                            <SelectItem value="full_ownership">Full Ownership</SelectItem>
+                            <SelectItem value="access">Access</SelectItem>
+                            <SelectItem value="shared">Shared</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm">Delivery Time *</Label>
+                        <Select defaultValue={createForm.getValues('delivery_time')} onValueChange={(v) => createForm.setValue('delivery_time', v)}>
+                          <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-surface-2 border-border">
+                            <SelectItem value="instant_auto">Instant Auto-delivery</SelectItem>
+                            <SelectItem value="manual_24h">Manual delivery within 24hrs</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Access Method</Label>
+                        <Select defaultValue={createForm.getValues('access_method')} onValueChange={(v) => createForm.setValue('access_method', v)}>
+                          <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-surface-2 border-border">
+                            <SelectItem value="email_password">Email & Password</SelectItem>
+                            <SelectItem value="url_token">URL & Token</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing & Account Info */}
+                  <div className="space-y-3 border-t border-gray-600/30 pt-4">
+                    <h3 className="text-sm font-semibold text-gray-300">Pricing & Account Details</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm">Price (USD) *</Label>
+                        <Input {...createForm.register('price', { required: true })} type="number" step="0.01" placeholder="0.00" className="text-sm mt-1" />
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Discount % (optional)</Label>
+                        <Input {...createForm.register('discount_percentage')} type="number" step="0.01" placeholder="0" className="text-sm mt-1" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Account Balance</Label>
+                      <Input {...createForm.register('account_balance')} placeholder="e.g., $100 credit" className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Quantity Available</Label>
+                      <Input {...createForm.register('quantity_available')} type="number" placeholder="1" className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Region Restrictions</Label>
+                      <Input {...createForm.register('region_restrictions')} placeholder="e.g., US only, EU restricted" className="text-sm mt-1" />
+                    </div>
+                  </div>
+
+                  {/* Credentials & Notes */}
+                  <div className="space-y-3 border-t border-gray-600/30 pt-4">
+                    <h3 className="text-sm font-semibold text-gray-300">Credentials & Additional Info</h3>
+                    
+                    <div>
+                      <Label className="text-sm">Credentials</Label>
+                      <Textarea {...createForm.register('credentials')} placeholder="Username:password or other access details" rows={2} className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Additional Information</Label>
+                      <Textarea {...createForm.register('additional_info')} placeholder="Any extra details about the account" rows={2} className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Notes for Buyer</Label>
+                      <Textarea {...createForm.register('notes_for_buyer')} placeholder="Instructions or warnings for the buyer" rows={2} className="text-sm mt-1" />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-end gap-2 border-t border-gray-600/30 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      onClick={() => setCreateListingModalOpen(false)}
+                      className="text-sm w-full sm:w-auto"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={creatingListing}
+                      className="text-sm w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                    >
+                      {creatingListing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Product
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

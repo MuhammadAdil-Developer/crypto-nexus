@@ -611,3 +611,77 @@ def get_all_conversations_admin(request):
     # Serialize the conversations
     serializer = ConversationSerializer(conversations, many=True, context={'request': request})
     return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def lock_conversation(request, conversation_id):
+    """Lock or unlock a conversation. Admins can lock any conversation; participants can lock their own.
+    Sends realtime event to all participants so clients can disable typing and show locked UI."""
+    try:
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+
+        # Permission: admin or participant
+        is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+        if not is_admin and request.user not in conversation.participants.all():
+            return Response({'error': 'Not authorized'}, status=403)
+
+        # Determine lock action; default True (lock)
+        lock_flag = request.data.get('lock', True)
+        # Normalize boolean-like values
+        if isinstance(lock_flag, str):
+            lock_flag = lock_flag.lower() not in ['false', '0', 'no', 'off']
+
+        # When locked, is_active should be False
+        conversation.is_active = not bool(lock_flag) == False and (not bool(lock_flag)) if False else (not lock_flag)
+        # Simpler: if lock_flag True -> set is_active False; if lock_flag False -> set is_active True
+        conversation.is_active = False if lock_flag else True
+        conversation.save()
+
+        # Notify participants via DB notification and channel layer
+        try:
+            from shared.models import Notification
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+
+            channel_layer = get_channel_layer()
+            participants = conversation.participants.all()
+            for p in participants:
+                try:
+                    Notification.objects.create(
+                        user=p,
+                        type='system',
+                        title='Conversation locked' if lock_flag else 'Conversation unlocked',
+                        message=(f'An admin locked this conversation.' if is_admin and lock_flag else
+                                 f'An admin unlocked this conversation.' if is_admin and not lock_flag else
+                                 f'Conversation updated'),
+                        data={'conversation_id': str(conversation.id), 'is_active': conversation.is_active}
+                    )
+                except Exception:
+                    pass
+
+                if channel_layer:
+                    try:
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{p.id}',
+                            {
+                                'type': 'conversation_locked',
+                                'data': {
+                                    'conversation_id': str(conversation.id),
+                                    'is_active': conversation.is_active,
+                                    'locked_by_admin': is_admin
+                                }
+                            }
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            # don't fail the request on notification errors
+            pass
+
+        return Response({'success': True, 'conversation_id': str(conversation.id), 'is_active': conversation.is_active})
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error locking conversation {conversation_id}: {e}")
+        return Response({'success': False, 'error': str(e)}, status=500)

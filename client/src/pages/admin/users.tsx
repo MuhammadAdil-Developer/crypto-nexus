@@ -753,7 +753,7 @@ export default function AdminUsers() {
                 Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-card border border-border shadow-xl">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-card border border-border shadow-xl">
               <DialogHeader>
                 <DialogTitle className="text-white">Add New User</DialogTitle>
               </DialogHeader>
@@ -1307,7 +1307,7 @@ export default function AdminUsers() {
         
         {/* User Details Modal */}
         <Dialog open={userDetailsModalOpen} onOpenChange={setUserDetailsModalOpen}>
-          <DialogContent className="sm:max-w-[500px] bg-card border border-border shadow-xl">
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-card border border-border shadow-xl">
             <DialogHeader>
               <DialogTitle className="text-white">User Details</DialogTitle>
             </DialogHeader>
@@ -1478,7 +1478,7 @@ export default function AdminUsers() {
         
         {/* Edit User Modal */}
         <Dialog open={editUserModalOpen} onOpenChange={setEditUserModalOpen}>
-          <DialogContent className="sm:max-w-[500px] bg-card border border-border shadow-xl">
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-card border border-border shadow-xl">
             <DialogHeader>
               <DialogTitle className="text-white">Edit User</DialogTitle>
             </DialogHeader>
@@ -1702,7 +1702,7 @@ export default function AdminUsers() {
 
         {/* User Activity Modal */}
         <Dialog open={activityModalOpen} onOpenChange={setActivityModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] bg-card text-white border border-gray-600/30">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card text-white border border-gray-600/30">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-white">
                 User Activity - {selectedUser?.username}
@@ -1784,7 +1784,7 @@ export default function AdminUsers() {
 
         {/* Reset Password Modal */}
         <Dialog open={resetPasswordModalOpen} onOpenChange={setResetPasswordModalOpen}>
-          <DialogContent className="sm:max-w-[450px] bg-card border border-border shadow-xl">
+          <DialogContent className="sm:max-w-[450px] max-h-[80vh] overflow-y-auto bg-card border border-border shadow-xl">
             <DialogHeader>
               <DialogTitle className="text-white">Reset Password</DialogTitle>
             </DialogHeader>

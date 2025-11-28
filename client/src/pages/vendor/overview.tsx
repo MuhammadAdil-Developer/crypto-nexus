@@ -1,3 +1,5 @@
+import { PrivacyPolicyModal } from "@/components/PrivacyPolicyModal";
+import { TermsConditionsModal } from "@/components/TermsConditionsModal";
 import { VendorOverviewCards } from "@/components/vendor/VendorOverviewCards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,8 @@ interface Order {
 
 
 export default function VendorOverview() {
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
@@ -262,6 +266,24 @@ export default function VendorOverview() {
   };
 
   useEffect(() => {
+    
+    // Dev/testing: force-show legal modals when URL contains ?forceShowLegal=1 (dev only)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (import.meta.env.DEV && params.get('forceShowLegal') === '1') {
+        localStorage.removeItem('legal_confirmed_privacy');
+        localStorage.removeItem('legal_confirmed_terms');
+      }
+    } catch(e) { /* ignore in SSR */ }
+
+    // Check if legal documents have been confirmed
+    const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
+    const termsConfirmed = localStorage.getItem('legal_confirmed_terms');
+    if (!privacyConfirmed) {
+      setShowPrivacyModal(true);
+    } else if (!termsConfirmed) {
+      setShowTermsModal(true);
+    }
     fetchRecentOrders();
     fetchActiveListings();
     fetchTopProducts();
@@ -344,6 +366,21 @@ export default function VendorOverview() {
   };
 
   return (
+    <>
+    <PrivacyPolicyModal
+      isOpen={showPrivacyModal}
+      onClose={() => {
+        // After privacy is confirmed, show terms
+        if (!localStorage.getItem('legal_confirmed_terms')) {
+          setShowTermsModal(true);
+        }
+        setShowPrivacyModal(false);
+      }}
+    />
+    <TermsConditionsModal
+      isOpen={showTermsModal}
+      onClose={() => setShowTermsModal(false)}
+    />
     <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
       {/* AC Logo and Branding Section */}
       <div className="flex flex-col items-center justify-center py-4 sm:py-6">
@@ -352,7 +389,8 @@ export default function VendorOverview() {
           <img 
             src="/images/ac-logo-monogram.png" 
             alt="AC Logo Monogram" 
-            className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain"
+            className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 object-contain"
+            style={{ filter: 'brightness(0.8) contrast(1.1) saturate(0.9)', imageRendering: '-webkit-optimize-contrast' }}
           />
         </div>
         
@@ -361,8 +399,8 @@ export default function VendorOverview() {
           <img 
             src="/images/the-one-and-only.png" 
             alt="THE ONE AND ONLY" 
-            className="h-6 sm:h-7 lg:h-8 object-contain"
-            style={{ imageRendering: 'auto' }}
+            className="h-5 sm:h-6 lg:h-7 object-contain"
+            style={{ filter: 'brightness(0.75) contrast(1.2) saturate(0.85)', imageRendering: '-webkit-optimize-contrast' }}
           />
         </div>
       </div>
@@ -370,7 +408,7 @@ export default function VendorOverview() {
       {/* ADD LISTING Button - Left Positioned */}
       <div className="flex justify-start mb-4 sm:mb-6 lg:mb-8">
         <Button 
-          className="bg-pink-600 hover:bg-pink-700 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg font-semibold w-full sm:w-auto"
+          className="bg-pink-800 hover:bg-pink-700 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg w-full sm:w-auto"
           onClick={handleAddNewProduct}
         >
           <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
@@ -397,7 +435,7 @@ export default function VendorOverview() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
               <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">RECENT ORDERS</CardTitle>
               <Button 
-                className="bg-pink-600 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto"
+                className="bg-pink-800 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto"
                 size="sm"
                 onClick={handleViewAllOrders}
               >
@@ -490,7 +528,7 @@ export default function VendorOverview() {
           <CardHeader className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
               <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">TOP PRODUCTS</CardTitle>
-              <Button className="bg-pink-600 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto" size="sm">
+              <Button className="bg-pink-800 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto" size="sm">
                 <Package className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
                 <span className="sm:inline">Manage</span>
               </Button>
@@ -632,7 +670,7 @@ export default function VendorOverview() {
         <CardContent className="p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Button 
-              className="bg-pink-600 hover:bg-pink-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
+              className="bg-pink-800 hover:bg-pink-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
               onClick={() => navigate('/vendor/listings/add')}
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
@@ -680,5 +718,6 @@ export default function VendorOverview() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 } 

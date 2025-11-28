@@ -54,6 +54,10 @@ export default function AdminPayouts() {
   const [isReleasing, setIsReleasing] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [refundsLoading, setRefundsLoading] = useState(false);
+  const [selectedRefund, setSelectedRefund] = useState<any | null>(null);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -196,6 +200,31 @@ export default function AdminPayouts() {
     fetchPayouts();
   }, [typeFilter, statusFilter, searchTerm]);
 
+  // Fetch refunds for admin customer-refund section
+  const fetchRefunds = async () => {
+    try {
+      setRefundsLoading(true);
+      const response = await api.get('/payments/admin/refunds/');
+      if (response.data && response.data.success) {
+        setRefunds(response.data.data || []);
+      } else if (response.data && Array.isArray(response.data)) {
+        // fallback if API returns raw array
+        setRefunds(response.data || []);
+      } else {
+        setRefunds([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch refunds', err);
+      setRefunds([]);
+    } finally {
+      setRefundsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRefunds();
+  }, []);
+
   const getStatusType = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -222,44 +251,58 @@ export default function AdminPayouts() {
     setModalOpen(true);
   };
 
-  const sampleRefunds = [
-    {
-      id: 1,
-      orderId: "ORD-2844",
-      buyer: "privacy_first",
-      vendor: "PremiumDigital",
-      amount: "0.0015 BTC",
-      reason: "Account credentials not working",
-      status: "Pending",
-      statusType: "warning" as const,
-      requestDate: "1 hour ago",
-      escrowReleased: false
-    },
-    {
-      id: 2,
-      orderId: "ORD-2831",
-      buyer: "crypto_buyer_89",
-      vendor: "StreamAccounts",
-      amount: "0.0008 BTC",
-      reason: "Wrong account type delivered",
-      status: "Approved",
-      statusType: "success" as const,
-      requestDate: "4 hours ago",
-      escrowReleased: true
-    },
-    {
-      id: 3,
-      orderId: "ORD-2823",
-      buyer: "anon_user_423",
-      vendor: "DigitalServices",
-      amount: "0.0012 BTC",
-      reason: "Vendor not responding",
-      status: "Processing",
-      statusType: "accent" as const,
-      requestDate: "1 day ago",
-      escrowReleased: false
+  // Helper to map API status to StatusBadge types
+  const refundStatusType = (status: string) => {
+    switch ((status || '').toLowerCase()) {
+      case 'pending':
+      case 'requested':
+        return 'warning';
+      case 'approved':
+      case 'completed':
+        return 'success';
+      case 'rejected':
+        return 'danger';
+      case 'processing':
+        return 'accent';
+      default:
+        return 'warning';
     }
-  ];
+  };
+
+  const handleApproveRefund = async (refundId: string) => {
+    try {
+      const res = await api.post(`/payments/admin/refunds/${refundId}/approve/`);
+      if (res.data && res.data.success) {
+        toast({ title: 'Refund Approved', description: res.data.message || 'Refund approved', variant: 'default' });
+        fetchRefunds();
+        fetchPayouts();
+      } else {
+        toast({ title: 'Error', description: res.data?.error || 'Failed to approve refund', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.response?.data?.error || 'Failed to approve refund', variant: 'destructive' });
+    }
+  };
+
+  const handleRejectRefund = async (refundId: string, reason?: string) => {
+    try {
+      const res = await api.post(`/payments/admin/refunds/${refundId}/reject/`, { reason: reason || 'Rejected by admin' });
+      if (res.data && res.data.success) {
+        toast({ title: 'Refund Rejected', description: res.data.message || 'Refund rejected', variant: 'default' });
+        fetchRefunds();
+        fetchPayouts();
+      } else {
+        toast({ title: 'Error', description: res.data?.error || 'Failed to reject refund', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.response?.data?.error || 'Failed to reject refund', variant: 'destructive' });
+    }
+  };
+
+  const handleViewRefund = (refund: any) => {
+    setSelectedRefund(refund);
+    setRefundModalOpen(true);
+  };
 
   return (
       <main className="flex-1 overflow-y-auto bg-bg p-3 md:p-6">
@@ -704,45 +747,57 @@ export default function AdminPayouts() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {sampleRefunds.map((refund) => (
+                      {refundsLoading ? (
+                        <tr>
+                          <td colSpan={8} className="p-6 text-center">
+                            <div className="text-gray-400">Loading refunds...</div>
+                          </td>
+                        </tr>
+                      ) : refunds.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-6 text-center text-gray-400">No refund requests found</td>
+                        </tr>
+                      ) : (
+                        refunds.map((refund: any) => (
                         <tr key={refund.id} className="hover:bg-surface-2/50" data-testid={`refund-row-${refund.id}`}>
                             <td className="p-3 sm:p-4">
-                              <span className="font-mono text-accent text-xs sm:text-sm">{refund.orderId}</span>
+                              <span className="font-mono text-accent text-xs sm:text-sm">{refund.order?.order_number ?? refund.order?.id ?? refund.order_id ?? ''}</span>
                           </td>
-                            <td className="p-3 sm:p-4 text-white hidden md:table-cell text-sm">{refund.buyer}</td>
-                            <td className="p-3 sm:p-4 text-gray-300 hidden lg:table-cell text-sm">{refund.vendor}</td>
+                            <td className="p-3 sm:p-4 text-white hidden md:table-cell text-sm">{refund.buyer?.username ?? refund.buyer_name ?? refund.buyer}</td>
+                            <td className="p-3 sm:p-4 text-gray-300 hidden lg:table-cell text-sm">{refund.vendor?.username ?? refund.vendor_name ?? refund.vendor}</td>
                             <td className="p-3 sm:p-4">
                               <span className="font-mono text-white text-xs sm:text-sm">{refund.amount}</span>
                           </td>
                             <td className="p-3 sm:p-4">
                             <div className="max-w-xs">
-                                <p className="text-gray-300 truncate text-xs sm:text-sm">{refund.reason}</p>
+                                <p className="text-gray-300 truncate text-xs sm:text-sm">{refund.reason ?? refund.notes}</p>
                             </div>
                           </td>
                             <td className="p-3 sm:p-4">
-                            <StatusBadge status={refund.status} type={refund.statusType} />
+                            <StatusBadge status={refund.status ?? 'Unknown'} type={refundStatusType(refund.status ?? '')} />
                           </td>
-                            <td className="p-3 sm:p-4 text-gray-300 hidden xl:table-cell text-xs sm:text-sm">{refund.requestDate}</td>
+                            <td className="p-3 sm:p-4 text-gray-300 hidden xl:table-cell text-xs sm:text-sm">{new Date(refund.created_at ?? refund.requested_at ?? Date.now()).toLocaleString()}</td>
                             <td className="p-3 sm:p-4">
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                              {refund.status === "Pending" && (
+                              {(refund.status || '').toLowerCase() === 'pending' && (
                                 <>
-                                    <Button variant="ghost" size="sm" className="text-success hover:text-green-400 text-xs" data-testid={`approve-refund-${refund.id}`}>
+                                    <Button variant="ghost" size="sm" className="text-success hover:text-green-400 text-xs" data-testid={`approve-refund-${refund.id}`} onClick={() => handleApproveRefund(refund.id)}>
                                       <Check className="w-3 h-3 sm:w-4 sm:h-4" />
                                   </Button>
-                                    <Button variant="ghost" size="sm" className="text-danger hover:text-red-400 text-xs" data-testid={`reject-refund-${refund.id}`}>
+                                    <Button variant="ghost" size="sm" className="text-danger hover:text-red-400 text-xs" data-testid={`reject-refund-${refund.id}`} onClick={() => handleRejectRefund(refund.id)}>
                                       <X className="w-3 h-3 sm:w-4 sm:h-4" />
                                   </Button>
                                 </>
                               )}
-                                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white text-xs" data-testid={`view-refund-${refund.id}`}>
+                                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white text-xs" data-testid={`view-refund-${refund.id}`} onClick={() => handleViewRefund(refund)}>
                                   <span className="hidden sm:inline">View Order</span>
                                   <span className="sm:hidden">View</span>
                               </Button>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ))
+                      )}
                     </tbody>
                   </table>
                   </div>
@@ -1116,6 +1171,122 @@ export default function AdminPayouts() {
                   </Card>
                 )}
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Refund Details Modal */}
+        <Dialog open={refundModalOpen} onOpenChange={setRefundModalOpen}>
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-hidden bg-gradient-to-br from-surface to-surface-2 text-white border-2 border-border/50 shadow-2xl mx-4 sm:mx-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-white">Refund Request Details</DialogTitle>
+            </DialogHeader>
+
+            {selectedRefund ? (
+              <div className="space-y-4 p-4 max-h-[75vh] overflow-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-400">Order:</p>
+                    <p className="font-mono text-white">{selectedRefund.order?.order_id ?? selectedRefund.order_id ?? selectedRefund.order_pk ?? ''}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Status:</p>
+                    <StatusBadge status={selectedRefund.status} type={refundStatusType(selectedRefund.status)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-400">Buyer:</p>
+                    <p className="text-white">{selectedRefund.buyer_name ?? selectedRefund.buyer?.username ?? selectedRefund.buyer}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Vendor:</p>
+                    <p className="text-white">{selectedRefund.vendor_name ?? selectedRefund.vendor?.username ?? selectedRefund.vendor}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-gray-400">Amount:</p>
+                  <p className="font-mono text-white">{selectedRefund.amount}</p>
+                </div>
+
+                <div>
+                  <p className="text-gray-400">Reason:</p>
+                  <p className="text-gray-300">{selectedRefund.reason ?? selectedRefund.notes}</p>
+                </div>
+
+                {selectedRefund.transaction_hash && (
+                  <div>
+                    <p className="text-gray-400">Transaction Hash:</p>
+                    <p className="font-mono text-white break-all">{selectedRefund.transaction_hash}</p>
+                  </div>
+                )}
+
+                {/* Order Details */}
+                {selectedRefund.order && (
+                  <Card className="bg-surface-2 border-border">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-white">Order Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm text-gray-300">
+                        <div className="flex justify-between"><span>Order ID</span><span className="font-mono text-white">{selectedRefund.order.order_id ?? selectedRefund.order_id}</span></div>
+                        <div className="flex justify-between"><span>Total Amount</span><span className="font-mono text-white">{selectedRefund.order.total_amount}</span></div>
+                        <div className="flex justify-between"><span>Unit Price</span><span className="font-mono text-white">{selectedRefund.order.unit_price}</span></div>
+                        <div className="flex justify-between"><span>Quantity</span><span className="text-white">{selectedRefund.order.quantity}</span></div>
+                        <div className="flex justify-between"><span>Crypto</span><span className="text-white">{selectedRefund.order.crypto_currency}</span></div>
+                        <div className="flex justify-between"><span>Order Status</span><span className="text-white">{selectedRefund.order.order_status}</span></div>
+                        <div className="flex justify-between"><span>Payment Status</span><span className="text-white">{selectedRefund.order.payment_status}</span></div>
+                        {/* Removed delivered/product credentials for anonymity */}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Product Details */}
+                {selectedRefund.product && (
+                  <Card className="bg-surface-2 border-border">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-white">Product Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm text-gray-300">
+                        <div className="flex justify-between"><span>Headline</span><span className="text-white">{selectedRefund.product.headline}</span></div>
+                        <div className="flex justify-between"><span>Price</span><span className="font-mono text-white">{selectedRefund.product.price}</span></div>
+                        {selectedRefund.product.description && <div><span className="text-gray-400">Description</span><p className="text-gray-300 text-sm mt-1">{selectedRefund.product.description}</p></div>}
+                        {selectedRefund.product.main_images && selectedRefund.product.main_images.length > 0 && (
+                          <div>
+                            <span className="text-gray-400">Images</span>
+                            <div className="flex gap-2 mt-2">
+                              {selectedRefund.product.main_images.map((img: string, idx: number) => (
+                                <img key={idx} src={img} alt={`img-${idx}`} className="w-20 h-12 object-cover rounded" />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Product credentials hidden for anonymity */}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex space-x-3 pt-4">
+                  {(selectedRefund.status || '').toLowerCase() === 'pending' && (
+                    <>
+                      <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => { handleApproveRefund(selectedRefund.id); setRefundModalOpen(false); }}>
+                        <Check className="w-4 h-4 mr-2" /> Approve
+                      </Button>
+                      <Button variant="destructive" onClick={() => { handleRejectRefund(selectedRefund.id); setRefundModalOpen(false); }}>
+                        <X className="w-4 h-4 mr-2" /> Reject
+                      </Button>
+                    </>
+                  )}
+                  {/* <Button variant="outline" onClick={() => setRefundModalOpen(false)}>Close</Button> */}
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 text-center text-gray-400">No refund selected</div>
             )}
           </DialogContent>
         </Dialog>

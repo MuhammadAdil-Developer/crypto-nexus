@@ -149,35 +149,25 @@ def list_applications(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_application(request):
-    """Create a new vendor application or update existing one"""
+    """Create a new vendor application or update existing one - simplified anonymous version"""
     try:
-        # Get form data
-        business_name = request.data.get('business_name')
+        # Get simplified form data (anonymous marketplace - no personal info required)
+        application_message = request.data.get('application_message', '').strip()
         vendor_username = request.data.get('vendor_username') or request.user.username
-        email = request.data.get('email') or getattr(request.user, 'email', f"{vendor_username}@accountzclub.com")
-        contact = request.data.get('contact', '')
-        phone = request.data.get('phone', '')
-        website = request.data.get('website', '')
-        social_media = request.data.get('social_media', '')
-        store_description = request.data.get('store_description')
-        category = request.data.get('category')
-        sub_category = request.data.get('sub_category', '')
-        business_type = request.data.get('business_type', '')
-        years_in_business = request.data.get('years_in_business', '')
-        target_market = request.data.get('target_market')
-        btc_address = request.data.get('btc_address', '')
-        xmr_address = request.data.get('xmr_address', '')
-        preferred_payment = request.data.get('preferred_payment', '')
-        business_address = request.data.get('business_address', '')
-        business_license = request.data.get('business_license', '')
-        tax_id = request.data.get('tax_id', '')
-        insurance = request.data.get('insurance', '')
-        business_plan = request.data.get('business_plan', '')
+        email = getattr(request.user, 'email', f"{vendor_username}@accountzclub.com")
         
-        # Handle file uploads
-        logo = request.FILES.get('logo')
-        documents = request.FILES.get('documents')  # Single file
-        images = request.FILES.get('images')  # Single file
+        # Validate required fields
+        if not application_message:
+            return Response({
+                'success': False,
+                'message': 'Application message is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if len(application_message) < 1000:
+            return Response({
+                'success': False,
+                'message': 'Application message must be at least 1,000 characters'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if application already exists for this vendor
         existing_application = None
@@ -187,38 +177,11 @@ def create_application(request):
             pass
         
         if existing_application:
-            # Update existing application
-            was_pending = existing_application.status == 'pending'
-            existing_application.business_name = business_name
-            existing_application.contact = contact
-            existing_application.phone = phone
-            existing_application.website = website
-            existing_application.social_media = social_media
-            existing_application.store_description = store_description
-            existing_application.category = category
-            existing_application.sub_category = sub_category
-            existing_application.business_type = business_type
-            existing_application.years_in_business = years_in_business
-            existing_application.target_market = target_market
-            existing_application.btc_address = btc_address
-            existing_application.xmr_address = xmr_address
-            existing_application.preferred_payment = preferred_payment
-            existing_application.business_address = business_address
-            existing_application.business_license = business_license
-            existing_application.tax_id = tax_id
-            existing_application.insurance = insurance
-            existing_application.business_plan = business_plan
+            # Update existing application with new message
+            existing_application.store_description = application_message
             # Don't reset status to pending if already approved - allow updates
             if existing_application.status != 'approved':
                 existing_application.status = 'pending'
-            
-            # Handle file uploads if provided
-            if logo:
-                existing_application.logo = logo
-            if documents:
-                existing_application.documents = documents
-            if images:
-                existing_application.images = images
             
             existing_application.save()
             
@@ -239,39 +202,16 @@ def create_application(request):
                 'action': 'updated'
             }, status=status.HTTP_200_OK)
         else:
-            # Create new application
+            # Create new application with minimal required fields
+            # Store the message in store_description field
             application = VendorApplication.objects.create(
-                business_name=business_name,
+                business_name=vendor_username,  # Use username as business name for anonymous marketplace
                 vendor_username=vendor_username,
                 email=email,
-                contact=contact,
-                phone=phone,
-                website=website,
-                social_media=social_media,
-                store_description=store_description,
-                category=category,
-                sub_category=sub_category,
-                business_type=business_type,
-                years_in_business=years_in_business,
-                target_market=target_market,
-                btc_address=btc_address,
-                xmr_address=xmr_address,
-                preferred_payment=preferred_payment,
-                business_address=business_address,
-                business_license=business_license,
-                tax_id=tax_id,
-                insurance=insurance,
-                business_plan=business_plan,
+                store_description=application_message,  # Store the application message here
+                category='Other',  # Default category
                 status='pending'
             )
-            
-            # Handle file uploads if provided
-            if logo:
-                application.logo = logo
-            if documents:
-                application.documents = documents
-            if images:
-                application.images = images
             
             application.save()
             
@@ -292,6 +232,9 @@ def create_application(request):
             }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating vendor application: {e}")
         return Response({
             'success': False,
             'message': 'Failed to submit application',

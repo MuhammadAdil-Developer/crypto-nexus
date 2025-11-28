@@ -41,6 +41,7 @@ export function MessagesPanel({
   const [showProductReference, setShowProductReference] = useState(false);
   const [productReferenceData, setProductReferenceData] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isConversationLocked, setIsConversationLocked] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -247,6 +248,18 @@ export function MessagesPanel({
       // Handle conversation info updates
     });
 
+    messagingService.onConversationLocked((data) => {
+      // Handle conversation locked event
+      setIsConversationLocked(!data.is_active);
+      if (!data.is_active) {
+        toast({
+          title: "Conversation Locked",
+          description: "This conversation has been blocked by admin. Please contact support.",
+          variant: "destructive",
+        });
+      }
+    });
+
     return () => {
       messagingService.disconnect();
     };
@@ -285,6 +298,9 @@ export function MessagesPanel({
     setLoadingMessages(true);
     try {
       setSelectedConversation(conversation);
+      
+      // Check if conversation is locked (is_active = false means locked)
+      setIsConversationLocked(!conversation.is_active);
       
       // Store selected conversation in localStorage
       localStorage.setItem('selectedConversation', JSON.stringify(conversation));
@@ -847,29 +863,42 @@ export function MessagesPanel({
               )}
 
               {/* Message Input */}
-              <div className="flex items-center space-x-2 border-t border-gray-700 pt-3 sm:pt-4 mt-auto flex-shrink-0">
-                <Input
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    handleTyping(true);
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && newMessage.trim()) {
-                      handleSendMessage();
-                    }
-                  }}
-                  className="flex-1 text-sm sm:text-base"
-                />
-                <Button 
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 h-9 sm:h-10 px-3 sm:px-4 flex-shrink-0"
-                  disabled={!newMessage.trim()}
-                  onClick={handleSendMessage}
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
+              <div className="flex flex-col space-y-2 border-t border-gray-700 pt-3 sm:pt-4 mt-auto flex-shrink-0">
+                {/* Lock Notification */}
+                {isConversationLocked && (
+                  <div className="bg-red-900/20 border border-red-700/50 text-red-400 rounded-lg p-3 text-sm flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-red-400 rounded-full flex-shrink-0" />
+                    <span>This chat has been blocked by admin. Please contact support.</span>
+                  </div>
+                )}
+                
+                <div className="flex items-center space-x-2">
+                  <Input
+                    placeholder="Type your message..."
+                    value={newMessage}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      if (!isConversationLocked) {
+                        handleTyping(true);
+                      }
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && newMessage.trim() && !isConversationLocked) {
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={isConversationLocked}
+                    className="flex-1 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <Button 
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-9 sm:h-10 px-3 sm:px-4 flex-shrink-0"
+                    disabled={!newMessage.trim() || isConversationLocked}
+                    onClick={handleSendMessage}
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </>

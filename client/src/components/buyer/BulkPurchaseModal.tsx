@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, CreditCard, Package, Bitcoin } from 'lucide-react';
+import { X, CreditCard, Package, Bitcoin, AlertCircle, ShoppingCart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import PaymentModal from './PaymentModal';
 import { orderService } from '@/services/orderService';
@@ -31,61 +31,44 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
   const [isCreatingOrders, setIsCreatingOrders] = React.useState(false);
   const { toast } = useToast();
 
-  // Create a combined product for payment modal
-  const combinedProduct: BulkProduct | null = cartItems.length > 0 ? {
-    id: 999999, // Special ID for bulk purchase
-    listing_title: `Bulk Purchase (${getTotalItems()} items)`,
-    price: getTotalPrice().toString(),
-    vendor: {
-      username: 'Multiple Vendors'
-    },
-    accepted_cryptocurrencies: ['BTC', 'ETH', 'LTC'],
-    escrow_available: true
-  } : null;
+  // Calculate total with proper price parsing
+  const calculatedTotal = useMemo(() => {
+    return cartItems.reduce((total, item) => {
+      const price = parseFloat(item.price) || 0;
+      return total + (price * item.quantity);
+    }, 0);
+  }, [cartItems]);
+
+  // Bulk purchase uses real cart items; no combined placeholder ID
+  const combinedTitle = cartItems.length > 0 ? `Bulk Purchase (${getTotalItems()} items)` : null;
 
   const handlePayNow = async () => {
-    try {
-      setIsCreatingOrders(true);
-      
-      // Create individual orders for each cart item
-      const orderPromises = cartItems.map(async (item) => {
-        return await orderService.createOrder({
-          product_id: item.id,
-          quantity: item.quantity,
-          crypto_currency: 'BTC', // Default to BTC, user can change in payment modal
-          use_escrow: true
-        });
-      });
-      
-      // Wait for all orders to be created
-      const createdOrders = await Promise.all(orderPromises);
-      
-      console.log('Bulk orders created:', createdOrders);
-      
-      // Clear cart after successful order creation
-      clearCart();
-      
+    if (cartItems.length === 0) {
       toast({
-        title: "Orders Created Successfully",
-        message: `${createdOrders.length} orders have been created and are ready for payment`
+        title: "Empty Cart",
+        description: "Please add items to your cart before checkout",
+        variant: "destructive",
       });
-      
-      // Open payment modal for the first order (or we can create a combined payment)
-      setIsPaymentModalOpen(true);
-      
-    } catch (error) {
-      console.error('Failed to create bulk orders:', error);
-      toast({
-        title: "Order Creation Failed",
-        message: "Failed to create orders. Please try again."
-      });
-    } finally {
-      setIsCreatingOrders(false);
+      return;
     }
-  };
+
+    // Do not create orders here. Open payment modal and let PaymentModal handle order creation after payment selection.
+    setIsPaymentModalOpen(true);
+  };;
 
   const handlePaymentClose = () => {
     setIsPaymentModalOpen(false);
+    onClose();
+  };
+
+  const handlePaymentSuccess = () => {
+    clearCart();
+    setIsPaymentModalOpen(false);
+    onClose();
+    toast({
+      title: "Payment Processing",
+      description: "Your payment is being processed. Orders will be confirmed shortly."
+    });
   };
 
   const handlePaymentBack = () => {
@@ -97,77 +80,135 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <Card className="relative w-full max-w-2xl bg-gray-900 border-gray-700">
-        <CardHeader className="flex flex-row items-center justify-between">
+      <Card className="relative w-full max-w-2xl bg-gray-900 border-gray-700 max-h-[90vh] overflow-y-auto">
+        <CardHeader className="sticky top-0 bg-gray-900 border-b border-gray-700 flex flex-row items-center justify-between">
           <CardTitle className="text-white flex items-center">
-            <CreditCard className="w-5 h-5 mr-2" />
-            Bulk Purchase ({getTotalItems()} items)
+            <Package className="w-5 h-5 mr-2" />
+            Bulk Purchase Summary
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg">
-                <div className="w-12 h-12 bg-gray-700 rounded overflow-hidden">
-                  {item.main_images?.[0] ? (
-                    <img src={item.main_images[0]} alt={item.listing_title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">📦</div>
-                  )}
+
+        <CardContent className="space-y-6 p-6">
+          {/* Items List */}
+          <div>
+            <h3 className="text-white font-semibold mb-4 flex items-center">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Items in Cart ({getTotalItems()})
+            </h3>
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {cartItems.length === 0 ? (
+                <div className="p-4 bg-gray-800/50 rounded-lg text-gray-400 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Your cart is empty
                 </div>
-                <div className="flex-1">
-                  <h4 className="text-white font-medium">{item.listing_title}</h4>
-                  <p className="text-gray-400 text-sm">Qty: {item.quantity}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold">{(parseFloat(item.price) * item.quantity).toFixed(8)} BTC</p>
-                </div>
-              </div>
-            ))}
+              ) : (
+                cartItems.map((item) => {
+                  const itemTotal = (parseFloat(item.price) || 0) * item.quantity;
+                  return (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="w-12 h-12 bg-gray-700 rounded overflow-hidden flex-shrink-0">
+                          {item.main_images?.[0] ? (
+                            <img src={item.main_images[0]} alt={item.listing_title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                              No Image
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-white font-medium truncate text-sm">{item.listing_title}</h4>
+                          <p className="text-gray-400 text-xs">
+                            Vendor: {item.vendor?.username || 'Unknown'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary" className="text-xs">
+                              Qty: {item.quantity}
+                            </Badge>
+                            <span className="text-gray-400 text-xs">
+                              @ {parseFloat(item.price).toFixed(8)} BTC each
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <p className="text-white font-bold text-sm">{itemTotal.toFixed(8)}</p>
+                        <p className="text-gray-400 text-xs">BTC</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-          
-          <div className="border-t border-gray-700 pt-4">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-xl font-bold text-white">Total Amount:</span>
-              <span className="text-2xl font-bold text-blue-400">{getTotalPrice().toFixed(8)} BTC</span>
+
+          {/* Price Summary */}
+          <div className="border-t border-gray-700 pt-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Subtotal:</span>
+              <span className="text-white font-medium">{calculatedTotal.toFixed(8)} BTC</span>
             </div>
-            
-            <div className="flex space-x-3">
-              <Button onClick={onClose} variant="outline" className="flex-1">
-                Cancel
-              </Button>
-              <Button 
-                onClick={handlePayNow} 
-                disabled={isCreatingOrders}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isCreatingOrders ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Creating Orders...
-                  </>
-                ) : (
-                  <>
-                    <Bitcoin className="w-4 h-4 mr-2" />
-                    Pay Now
-                  </>
-                )}
-              </Button>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Network Fees:</span>
+              <span className="text-white font-medium">Calculated at checkout</span>
             </div>
+            <div className="border-t border-gray-600 pt-2 mt-2 flex justify-between items-center">
+              <span className="text-xl font-bold text-white">Total:</span>
+              <span className="text-2xl font-bold text-yellow-400">{calculatedTotal.toFixed(8)} BTC</span>
+            </div>
+          </div>
+
+          {/* Payment Method Info */}
+          <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-3">
+            <p className="text-blue-300 text-sm flex items-start">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+              <span>
+                Payment will be divided among vendors based on their portions. Click "Proceed to Payment" to continue.
+              </span>
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button 
+              onClick={onClose} 
+              variant="outline" 
+              className="flex-1 bg-gray-800 border-gray-700 hover:bg-gray-700"
+            >
+              Continue Shopping
+            </Button>
+            <Button 
+              onClick={handlePayNow} 
+              disabled={isCreatingOrders || cartItems.length === 0}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
+            >
+              {isCreatingOrders ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Proceed to Payment
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
       
       {/* Payment Modal */}
-      {combinedProduct && (
+      {cartItems.length > 0 && (
         <PaymentModal
-          product={combinedProduct}
+          items={cartItems}
           isOpen={isPaymentModalOpen}
           onClose={handlePaymentClose}
           onBack={handlePaymentBack}
+          onSuccess={handlePaymentSuccess}
         />
       )}
     </div>

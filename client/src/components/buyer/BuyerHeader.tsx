@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw, Star, AlertTriangle, Loader2, MoreVertical } from "lucide-react";
+import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw, Star, AlertTriangle, Loader2, MoreVertical, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import notificationService from "@/services/notificationService";
 
-export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
+export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: boolean; onMenuClick?: () => void }) {
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [userData, setUserData] = useState({
@@ -132,7 +132,17 @@ export function BuyerHeader({ hasBanner = false }: { hasBanner?: boolean }) {
 
   return (
     <header className={`bg-transparent border-b border-gray-800/50 backdrop-blur-[1px] px-6 py-4 relative z-10 ${hasBanner ? 'mt-16' : ''}`} style={{ backdropFilter: 'blur(1px)' }}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="lg:hidden text-white"
+            onClick={onMenuClick}
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
+        </div>
         {/* Right Controls - Search bar removed from header */}
         <div className="flex items-center space-x-4 ml-auto">
           {/* Notifications */}

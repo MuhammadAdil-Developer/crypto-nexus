@@ -12,6 +12,7 @@ interface TicketConversationProps {
   ticketId: string;
   isAdmin?: boolean;
   onMessageSent?: () => void;
+  templateText?: string;
 }
 
 interface TicketMessage {
@@ -25,13 +26,20 @@ interface TicketMessage {
   sender_email?: string;
 }
 
-export function TicketConversation({ ticketId, isAdmin = false, onMessageSent }: TicketConversationProps) {
+export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, templateText }: TicketConversationProps) {
   const { toast } = useToast();
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
+
+  // Insert template text when provided
+  useEffect(() => {
+    if (templateText) {
+      setNewMessage(templateText);
+    }
+  }, [templateText]);
 
   useEffect(() => {
     fetchMessages();

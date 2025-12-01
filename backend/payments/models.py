@@ -5,8 +5,8 @@ import uuid
 from enum import Enum
 
 
-class RefundRequest(models.Model):
-    """Model for tracking vendor refund requests"""
+class RefundRequest(BaseModel):
+    """Model for tracking buyer-initiated refund requests with vendor decision window and dispute flow"""
     
     REFUND_TYPES = [
         ('full', 'Full Refund'),
@@ -14,26 +14,64 @@ class RefundRequest(models.Model):
     ]
     
     STATUSES = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
+        ('pending_vendor', 'Pending Vendor Approval'),
+        ('pending_admin', 'Pending Admin Review'),
+        ('vendor_approved', 'Vendor Approved'),
+        ('vendor_rejected', 'Vendor Rejected'),
+        ('disputed', 'Disputed'),
+        ('admin_approved', 'Admin Approved'),
+        ('admin_rejected', 'Admin Rejected'),
         ('completed', 'Completed'),
-        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.OneToOneField('orders.Order', on_delete=models.CASCADE, related_name='refund_request')
-    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='refund_requests')
+    
+    # Buyer initiates, vendor responds
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_refund_requests')
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='vendor_refund_requests')
     
     amount = models.DecimalField(max_digits=20, decimal_places=8)
     refund_type = models.CharField(max_length=20, choices=REFUND_TYPES, default='full')
-    reason = models.CharField(max_length=255)
+    reason = models.TextField()  # Changed from CharField to TextField
     notes = models.TextField(blank=True, null=True)
     
-    status = models.CharField(max_length=20, choices=STATUSES, default='pending', db_index=True)
-    rejection_reason = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUSES, default='pending_vendor', db_index=True)
     
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    # Vendor decision
+    vendor_decision = models.CharField(max_length=20, choices=[('approved', 'Approved'), ('rejected', 'Rejected')], blank=True, null=True)
+    vendor_decision_at = models.DateTimeField(blank=True, null=True)
+    vendor_decision_notes = models.TextField(blank=True)
+    vendor_decision_deadline = models.DateTimeField(blank=True, null=True)  # e.g., 48 hours from creation
+    
+    # Admin decision (for disputes)
+    admin_decision = models.CharField(max_length=20, choices=[
+        ('buyer_wins', 'Buyer Wins'),
+        ('vendor_wins', 'Vendor Wins'),
+        ('partial_refund', 'Partial Refund')
+    ], blank=True, null=True)
+    admin_decision_amount = models.DecimalField(max_digits=20, decimal_places=8, blank=True, null=True)
+    admin_decision_at = models.DateTimeField(blank=True, null=True)
+    admin_decision_notes = models.TextField(blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_refunds')
+    
+    # Vendor refund processing (when admin favors buyer)
+    vendor_refund_required = models.BooleanField(default=False)
+    vendor_refund_deadline = models.DateTimeField(blank=True, null=True)
+    vendor_refund_completed = models.BooleanField(default=False)
+    vendor_refund_transaction_hash = models.CharField(max_length=255, blank=True, null=True)
+    vendor_payment_source = models.CharField(
+        max_length=20,
+        choices=[('platform', 'Platform Wallet'), ('external', 'External Wallet')],
+        blank=True,
+        null=True
+    )
+    vendor_external_wallet_address = models.CharField(max_length=255, blank=True, null=True)
+    last_reminder_sent = models.DateTimeField(blank=True, null=True)
+    
+    # Legacy fields for backward compatibility
+    rejection_reason = models.TextField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     transaction_hash = models.CharField(max_length=255, blank=True, null=True)
     
@@ -42,12 +80,31 @@ class RefundRequest(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['vendor', '-created_at']),
+            models.Index(fields=['buyer', '-created_at']),
             models.Index(fields=['status']),
             models.Index(fields=['order']),
+            models.Index(fields=['vendor_refund_required', 'vendor_refund_completed']),
+            models.Index(fields=['vendor_decision_deadline']),
         ]
     
     def __str__(self):
         return f"Refund {self.refund_type} - Order {self.order.order_id} - {self.status}"
+    
+    @property
+    def is_vendor_decision_overdue(self):
+        """Check if vendor decision deadline has passed"""
+        if self.vendor_decision_deadline:
+            from django.utils import timezone
+            return timezone.now() > self.vendor_decision_deadline and self.status == 'pending_vendor'
+        return False
+    
+    @property
+    def is_vendor_refund_overdue(self):
+        """Check if vendor refund deadline has passed"""
+        if self.vendor_refund_deadline and self.vendor_refund_required:
+            from django.utils import timezone
+            return timezone.now() > self.vendor_refund_deadline and not self.vendor_refund_completed
+        return False
 
 class PaymentStatus(Enum):
     """Payment status enumeration"""

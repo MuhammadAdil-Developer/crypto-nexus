@@ -13,7 +13,12 @@ from .views import (
     get_recent_messages,
     get_unread_count,
     get_recent_activity,
-    get_all_conversations_admin
+    get_all_conversations_admin,
+    block_user,
+    unblock_user,
+    get_blocked_users,
+    report_user,
+    get_user_attachments
 )
 
 urlpatterns = [
@@ -38,5 +43,12 @@ urlpatterns = [
     path('recent-messages/', get_recent_messages, name='recent-messages'),
     path('unread-count/', get_unread_count, name='unread-count'),
     path('recent-activity/', get_recent_activity, name='recent-activity'),
+    
+    # User blocking and reporting
+    path('users/<uuid:user_id>/block/', block_user, name='block-user'),
+    path('users/<uuid:user_id>/unblock/', unblock_user, name='unblock-user'),
+    path('users/blocked/', get_blocked_users, name='blocked-users'),
+    path('users/report/', report_user, name='report-user'),
+    path('users/<uuid:user_id>/attachments/', get_user_attachments, name='user-attachments'),
 ]
 

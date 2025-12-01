@@ -272,9 +272,46 @@ def assign_ticket(request, pk):
     if assigned_to_id:
         try:
             from django.contrib.auth import get_user_model
+            from shared.models import Notification
             User = get_user_model()
             assigned_user = User.objects.get(id=assigned_to_id, user_type='admin')
+            old_assigned = ticket.assigned_to
             ticket.assigned_to = assigned_user
+            ticket.save()
+            
+            # Notify assigned admin
+            try:
+                Notification.objects.create(
+                    user=assigned_user,
+                    type='ticket_assigned',
+                    title='Ticket Assigned',
+                    message=f'You have been assigned to ticket #{ticket.ticket_id}: {ticket.subject}',
+                    data={
+                        'ticket_id': str(ticket.id),
+                        'ticket_id_display': ticket.ticket_id,
+                        'action_url': '/admin/tickets'
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Error creating notification for assigned admin: {e}")
+            
+            # Notify ticket opener
+            try:
+                Notification.objects.create(
+                    user=ticket.user,
+                    type='ticket_response',
+                    title='Ticket Assigned',
+                    message=f'Your ticket #{ticket.ticket_id} has been assigned to an admin for review',
+                    data={
+                        'ticket_id': str(ticket.id),
+                        'ticket_id_display': ticket.ticket_id,
+                        'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Error creating notification for ticket opener: {e}")
+            
+            return Response({'message': 'Ticket assigned successfully'})
         except User.DoesNotExist:
             return Response(
                 {'error': 'Invalid admin user'}, 
@@ -282,9 +319,8 @@ def assign_ticket(request, pk):
             )
     else:
         ticket.assigned_to = None
-    
-    ticket.save()
-    return Response({'message': 'Ticket assigned successfully'})
+        ticket.save()
+        return Response({'message': 'Ticket unassigned successfully'})
 
 
 @api_view(['POST'])
@@ -311,6 +347,66 @@ def close_ticket(request, pk):
     
     return Response({'message': 'Ticket closed successfully'})
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reopen_ticket(request, pk):
+    """Reopen a closed ticket (admin only)"""
+    if not is_admin_user(request.user):
+        return Response(
+            {'error': 'Admin access required'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        ticket = Ticket.objects.get(id=pk)
+    except Ticket.DoesNotExist:
+        return Response(
+            {'error': 'Ticket not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if ticket.status != 'closed':
+        return Response(
+            {'error': 'Ticket is not closed'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    ticket.status = 'open'
+    ticket.closed_at = None
+    ticket.save()
+    
+    return Response({'message': 'Ticket reopened successfully'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_admin_users(request):
+    """Get list of admin users for ticket assignment"""
+    if not is_admin_user(request.user):
+        return Response(
+            {'error': 'Admin access required'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin_users = User.objects.filter(
+            user_type='admin',
+            is_active=True,
+            is_deleted=False
+        ).values('id', 'username')
+        
+        return Response({
+            'success': True,
+            'data': list(admin_users)
+        })
+    except Exception as e:
+        logger.error(f"Error getting admin users: {e}")
+        return Response(
+            {'error': 'Failed to retrieve admin users'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

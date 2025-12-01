@@ -174,7 +174,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
 
     async def chat_message(self, event):
-        message_data = event['message_data']
+        # Handle both 'data' and 'message_data' keys for compatibility
+        message_data = event.get('data') or event.get('message_data')
+        
+        if not message_data:
+            return
         
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
@@ -204,7 +208,35 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def conversation_info(self, event):
         await self.send(text_data=json.dumps({
             'type': 'conversation_info',
-            'data': event['data']
+            'data': event.get('data', {})
+        }))
+    
+    async def conversation_updated(self, event):
+        """Handle conversation update events (for real-time list updates)"""
+        # This event is sent to realtime_{user_id} groups, not chat groups
+        # So we don't need to handle it here, but we'll add it to prevent errors
+        pass
+    
+    async def message_edited(self, event):
+        """Handle message edit events"""
+        # Handle both data structures: {message: {...}, conversation_id: ...} or direct message object
+        event_data = event.get('data', {})
+        message_data = event_data.get('message') or event_data
+        
+        if message_data:
+            await self.send(text_data=json.dumps({
+                'type': 'message_edited',
+                'data': {
+                    'message': message_data,
+                    'conversation_id': event_data.get('conversation_id') or message_data.get('conversation')
+                }
+            }))
+    
+    async def message_deleted(self, event):
+        """Handle message delete events"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'data': event.get('data', {})
         }))
 
     @database_sync_to_async
@@ -633,4 +665,32 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'order_notification',
             'data': event['data']
+        }))
+    
+    async def conversation_updated(self, event):
+        """Handle conversation update events (for real-time list updates)"""
+        await self.send(text_data=json.dumps({
+            'type': 'conversation_updated',
+            'data': event.get('data', {})
+        }))
+    
+    async def conversation_locked(self, event):
+        """Handle conversation locked/unlocked events"""
+        await self.send(text_data=json.dumps({
+            'type': 'conversation_locked',
+            'data': event.get('data', {})
+        }))
+    
+    async def message_edited(self, event):
+        """Handle message edit events"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_edited',
+            'data': event.get('data', {})
+        }))
+    
+    async def message_deleted(self, event):
+        """Handle message delete events"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'data': event.get('data', {})
         }))

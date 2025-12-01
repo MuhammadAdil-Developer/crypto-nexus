@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
 import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
+import { RequestRefundModal } from "./RequestRefundModal";
 import { useNavigate } from "react-router-dom";
 
 const getStatusIcon = (status: string) => {
@@ -85,6 +86,8 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const [reviewProductId, setReviewProductId] = useState<number | null>(null);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [orderToConfirm, setOrderToConfirm] = useState<Order | null>(null);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [orderForRefund, setOrderForRefund] = useState<Order | null>(null);
   const [timers, setTimers] = useState<Record<string, number>>({});
   const [expiredOrders, setExpiredOrders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -298,6 +301,19 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
   const handleCreateDispute = (order: Order) => {
     navigate(`/buyer/create-dispute?orderId=${order.id}`);
+  };
+
+  const handleRequestRefund = (order: Order) => {
+    setOrderForRefund(order);
+    setRefundModalOpen(true);
+  };
+
+  const handleRefundSuccess = () => {
+    if (onOrderUpdate) {
+      onOrderUpdate();
+    } else {
+      window.location.reload();
+    }
   };
 
   const handleApproveOrderClick = (order: Order) => {
@@ -756,6 +772,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                               Leave Review
                             </DropdownMenuItem>
                           )}
+                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed" || order.order_status === "processing") && (
+                            <DropdownMenuItem onClick={() => handleRequestRefund(order)} className="text-blue-400">
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Request Refund
+                            </DropdownMenuItem>
+                          )}
                           {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
                             <DropdownMenuItem onClick={() => handleCreateDispute(order)} className="text-orange-600">
                               <AlertTriangle className="w-4 h-4 mr-2" />
@@ -876,6 +898,21 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
             </div>
           </div>
         </div>
+      )}
+
+      {/* Refund Request Modal */}
+      {orderForRefund && (
+        <RequestRefundModal
+          open={refundModalOpen}
+          onClose={() => {
+            setRefundModalOpen(false);
+            setOrderForRefund(null);
+          }}
+          orderId={orderForRefund.order_id}
+          orderAmount={orderForRefund.total_amount}
+          currency={orderForRefund.crypto_currency}
+          onSuccess={handleRefundSuccess}
+        />
       )}
     </>
   );

@@ -140,6 +140,22 @@ class RealtimeService {
         console.log('📦 Triggering order_notification callbacks');
         this.triggerCallbacks('order_notification', actualPayload);
         break;
+      case 'conversation_updated':
+        console.log('💬 Triggering conversation_updated callbacks');
+        this.triggerCallbacks('conversation_updated', actualPayload);
+        break;
+      case 'conversation_locked':
+        console.log('🔒 Triggering conversation_locked callbacks');
+        this.triggerCallbacks('conversation_locked', actualPayload);
+        break;
+      case 'message_edited':
+        console.log('✏️ Triggering message_edited callbacks');
+        this.triggerCallbacks('message_edited', actualPayload);
+        break;
+      case 'message_deleted':
+        console.log('🗑️ Triggering message_deleted callbacks');
+        this.triggerCallbacks('message_deleted', actualPayload);
+        break;
       default:
         console.log('❓ Unknown realtime message type:', type);
     }

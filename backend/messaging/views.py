@@ -6,6 +6,9 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
 from shared.models import Conversation, Message
+import logging
+
+logger = logging.getLogger(__name__)
 from .serializers import (
     ConversationSerializer, 
     MessageSerializer, 
@@ -96,12 +99,39 @@ class MessageListCreateView(generics.ListCreateAPIView):
             id=conversation_id
         )
         
+        # Check if conversation is locked
+        if not conversation.is_active:
+            return Response(
+                {'error': 'This conversation has been locked'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if user is blocked
+        recipient = conversation.participants.exclude(id=request.user.id).first()
+        if recipient and request.user.blocked_users.filter(id=recipient.id).exists():
+            return Response(
+                {'error': 'You have blocked this user'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if recipient and recipient.blocked_users.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'This user has blocked you'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         serializer = self.get_serializer(
             data=request.data, 
             context={'request': request}
         )
         if serializer.is_valid():
             message = serializer.save()
+            
+            # Serialize message for real-time delivery (must be done before using it)
+            response_serializer = MessageSerializer(message, context={'request': request})
+            
+            # Update conversation's last_message and updated_at
+            conversation.last_message = message
+            conversation.save()
             
             # Create notification for recipient
             from shared.models import Notification
@@ -112,7 +142,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                 user=message.recipient,
                 type='message',
                 title='New message',
-                message=f"{request.user.username} sent you a message about {product_title}: {message.content[:100]}",
+                message=f"{request.user.username} sent you a message about {product_title}: {message.content[:100] if message.content else 'a file'}",
                 data={
                     'conversation_id': str(conversation.id),
                     'sender_username': request.user.username,
@@ -126,6 +156,37 @@ class MessageListCreateView(generics.ListCreateAPIView):
             channel_layer = get_channel_layer()
             if channel_layer:
                 try:
+                    # Send message via WebSocket to conversation group for real-time delivery
+                    async_to_sync(channel_layer.group_send)(
+                        f'chat_{conversation.id}',
+                        {
+                            'type': 'chat_message',
+                            'data': response_serializer.data
+                        }
+                    )
+                    
+                    # Send conversation update to both participants for real-time list update
+                    for participant in conversation.participants.all():
+                        # Get updated conversation data
+                        from .serializers import ConversationSerializer
+                        from django.test import RequestFactory
+                        factory = RequestFactory()
+                        mock_request = factory.get('/')
+                        mock_request.user = participant
+                        conv_serializer = ConversationSerializer(conversation, context={'request': mock_request})
+                        
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{participant.id}',
+                            {
+                                'type': 'conversation_updated',
+                                'data': {
+                                    'conversation': conv_serializer.data,
+                                    'action': 'message_sent',
+                                    'message_id': str(message.id)
+                                }
+                            }
+                        )
+                    
                     # Send notification to recipient
                     async_to_sync(channel_layer.group_send)(
                         f'realtime_{message.recipient.id}',
@@ -135,7 +196,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
                                 'id': f'msg_{conversation.id}_{message.id}',
                                 'type': 'message',
                                 'title': 'New message',
-                                'message': f"{request.user.username} sent you a message about {product_title}: {message.content[:100]}",
+                                'message': f"{request.user.username} sent you a message about {product_title}: {message.content[:100] if message.content else 'a file'}",
                                 'is_read': False,
                                 'data': {
                                     'conversation_id': str(conversation.id),
@@ -378,6 +439,36 @@ def edit_message(request, message_id):
         message.metadata['edited_at'] = timezone.now().isoformat()
         message.save()
         
+        # Send real-time update to conversation participants
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            serializer = MessageSerializer(message, context={'request': request})
+            # Send to conversation group (for users connected to this chat)
+            async_to_sync(channel_layer.group_send)(
+                f'chat_{message.conversation.id}',
+                {
+                    'type': 'message_edited',
+                    'data': {
+                        'message': serializer.data,
+                        'conversation_id': str(message.conversation.id)
+                    }
+                }
+            )
+            # Also send to each participant's real-time channel (for users not in chat)
+            for participant in message.conversation.participants.all():
+                async_to_sync(channel_layer.group_send)(
+                    f'realtime_{participant.id}',
+                    {
+                        'type': 'message_edited',
+                        'data': {
+                            'message': serializer.data,
+                            'conversation_id': str(message.conversation.id)
+                        }
+                    }
+                )
+        
         serializer = MessageSerializer(message, context={'request': request})
         return Response(serializer.data)
         
@@ -401,7 +492,39 @@ def delete_message(request, message_id):
         if time_diff.total_seconds() > 3600:  # 1 hour
             return Response({'error': 'Message too old to delete'}, status=status.HTTP_400_BAD_REQUEST)
         
+        conversation_id = str(message.conversation.id)
+        message_id = str(message.id)
         message.delete()
+        
+        # Send real-time update to conversation participants
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            # Send to conversation group
+            async_to_sync(channel_layer.group_send)(
+                f'chat_{conversation_id}',
+                {
+                    'type': 'message_deleted',
+                    'data': {
+                        'message_id': message_id,
+                        'conversation_id': conversation_id
+                    }
+                }
+            )
+            # Also send to each participant's real-time channel
+            conversation = message.conversation
+            for participant in conversation.participants.all():
+                async_to_sync(channel_layer.group_send)(
+                    f'realtime_{participant.id}',
+                    {
+                        'type': 'message_deleted',
+                        'data': {
+                            'message_id': message_id,
+                            'conversation_id': conversation_id
+                        }
+                    }
+                )
         
         return Response({'status': 'Message deleted successfully'})
         
@@ -632,9 +755,7 @@ def lock_conversation(request, conversation_id):
         if isinstance(lock_flag, str):
             lock_flag = lock_flag.lower() not in ['false', '0', 'no', 'off']
 
-        # When locked, is_active should be False
-        conversation.is_active = not bool(lock_flag) == False and (not bool(lock_flag)) if False else (not lock_flag)
-        # Simpler: if lock_flag True -> set is_active False; if lock_flag False -> set is_active True
+        # When locked, is_active should be False (but conversation is NOT removed)
         conversation.is_active = False if lock_flag else True
         conversation.save()
 
@@ -643,9 +764,13 @@ def lock_conversation(request, conversation_id):
             from shared.models import Notification
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
+            from .serializers import ConversationSerializer
+            from django.test import RequestFactory
 
             channel_layer = get_channel_layer()
             participants = conversation.participants.all()
+            factory = RequestFactory()
+            
             for p in participants:
                 try:
                     Notification.objects.create(
@@ -662,6 +787,12 @@ def lock_conversation(request, conversation_id):
 
                 if channel_layer:
                     try:
+                        # Get updated conversation data for real-time list update
+                        mock_request = factory.get('/')
+                        mock_request.user = p
+                        conv_serializer = ConversationSerializer(conversation, context={'request': mock_request})
+                        
+                        # Send conversation locked event
                         async_to_sync(channel_layer.group_send)(
                             f'realtime_{p.id}',
                             {
@@ -670,6 +801,18 @@ def lock_conversation(request, conversation_id):
                                     'conversation_id': str(conversation.id),
                                     'is_active': conversation.is_active,
                                     'locked_by_admin': is_admin
+                                }
+                            }
+                        )
+                        
+                        # Send conversation update to move blocked chat to top
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{p.id}',
+                            {
+                                'type': 'conversation_updated',
+                                'data': {
+                                    'conversation': conv_serializer.data,
+                                    'action': 'conversation_locked' if lock_flag else 'conversation_unlocked'
                                 }
                             }
                         )
@@ -685,3 +828,206 @@ def lock_conversation(request, conversation_id):
         logger = logging.getLogger(__name__)
         logger.error(f"Error locking conversation {conversation_id}: {e}")
         return Response({'success': False, 'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def block_user(request, user_id):
+    """Block a user"""
+    try:
+        user_to_block = get_object_or_404(User, id=user_id, is_deleted=False)
+        
+        if user_to_block == request.user:
+            return Response({'error': 'Cannot block yourself'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Add to blocked users
+        request.user.blocked_users.add(user_to_block)
+        
+        # Log activity
+        from shared.utils import log_user_activity
+        log_user_activity(
+            user=request.user,
+            activity_type='user_block',
+            description=f'User {request.user.username} blocked {user_to_block.username}',
+            metadata={'blocked_user_id': str(user_to_block.id), 'blocked_username': user_to_block.username}
+        )
+        
+        return Response({'success': True, 'message': f'User {user_to_block.username} has been blocked'})
+    except Exception as e:
+        logger.error(f"Error blocking user {user_id}: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unblock_user(request, user_id):
+    """Unblock a user"""
+    try:
+        user_to_unblock = get_object_or_404(User, id=user_id, is_deleted=False)
+        
+        # Remove from blocked users
+        request.user.blocked_users.remove(user_to_unblock)
+        
+        # Log activity
+        from shared.utils import log_user_activity
+        log_user_activity(
+            user=request.user,
+            activity_type='user_unblock',
+            description=f'User {request.user.username} unblocked {user_to_unblock.username}',
+            metadata={'unblocked_user_id': str(user_to_unblock.id), 'unblocked_username': user_to_unblock.username}
+        )
+        
+        return Response({'success': True, 'message': f'User {user_to_unblock.username} has been unblocked'})
+    except Exception as e:
+        logger.error(f"Error unblocking user {user_id}: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_blocked_users(request):
+    """Get list of blocked users"""
+    try:
+        blocked_users = request.user.blocked_users.filter(is_deleted=False).values('id', 'username')
+        return Response({'success': True, 'data': list(blocked_users)})
+    except Exception as e:
+        logger.error(f"Error getting blocked users: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_user(request):
+    """Report a user"""
+    try:
+        from shared.models import UserReport, Notification
+        from shared.utils import log_user_activity
+        
+        reported_user_id = request.data.get('reported_user_id')
+        reason = request.data.get('reason')
+        description = request.data.get('description', '')
+        conversation_id = request.data.get('conversation_id')
+        message_id = request.data.get('message_id')
+        
+        if not reported_user_id or not reason:
+            return Response(
+                {'error': 'reported_user_id and reason are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        reported_user = get_object_or_404(User, id=reported_user_id, is_deleted=False)
+        
+        if reported_user == request.user:
+            return Response({'error': 'Cannot report yourself'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if already reported for this conversation
+        if conversation_id:
+            existing_report = UserReport.objects.filter(
+                reporter=request.user,
+                reported_user=reported_user,
+                conversation_id=conversation_id,
+                status='pending'
+            ).first()
+            if existing_report:
+                return Response(
+                    {'error': 'You have already reported this user for this conversation'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Create report
+        report = UserReport.objects.create(
+            reporter=request.user,
+            reported_user=reported_user,
+            reason=reason,
+            description=description,
+            conversation_id=conversation_id,
+            message_id=message_id
+        )
+        
+        # Notify all admins
+        admin_users = User.objects.filter(user_type='admin', is_active=True, is_deleted=False)
+        for admin in admin_users:
+            Notification.objects.create(
+                user=admin,
+                type='system',
+                title='User Report Submitted',
+                message=f'{request.user.username} reported {reported_user.username} for: {reason}. {description[:100]}',
+                data={
+                    'report_id': str(report.id),
+                    'reporter_id': str(request.user.id),
+                    'reported_user_id': str(reported_user.id),
+                    'reason': reason,
+                    'conversation_id': str(conversation_id) if conversation_id else None,
+                    'message_id': str(message_id) if message_id else None,
+                }
+            )
+        
+        # Log activity
+        log_user_activity(
+            user=request.user,
+            activity_type='user_report',
+            description=f'User {request.user.username} reported {reported_user.username}',
+            metadata={
+                'reported_user_id': str(reported_user.id),
+                'reported_username': reported_user.username,
+                'reason': reason,
+                'report_id': str(report.id)
+            }
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'User reported successfully. Admin has been notified.',
+            'report_id': str(report.id)
+        })
+    except Exception as e:
+        logger.error(f"Error reporting user: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_attachments(request, user_id):
+    """Get all attachments from messages with a specific user"""
+    try:
+        other_user = get_object_or_404(User, id=user_id, is_deleted=False)
+        
+        # Get all conversations between current user and other user
+        conversations = Conversation.objects.filter(
+            participants=request.user
+        ).filter(participants=other_user)
+        
+        # Get all messages with attachments from these conversations
+        attachments = []
+        for conv in conversations:
+            messages = Message.objects.filter(
+                conversation=conv
+            ).exclude(attachment='').exclude(attachment__isnull=True)
+            
+            for msg in messages:
+                if msg.attachment:
+                    attachments.append({
+                        'id': str(msg.id),
+                        'message_id': str(msg.id),
+                        'file_name': msg.metadata.get('file_name', msg.attachment.name),
+                        'file_url': request.build_absolute_uri(msg.attachment.url),
+                        'file_size': msg.metadata.get('file_size', 0),
+                        'file_type': msg.message_type,
+                        'created_at': msg.created_at.isoformat(),
+                        'sender': {
+                            'id': str(msg.sender.id),
+                            'username': msg.sender.username
+                        }
+                    })
+        
+        # Sort by created_at descending
+        attachments.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return Response({
+            'success': True,
+            'data': attachments,
+            'count': len(attachments)
+        })
+    except Exception as e:
+        logger.error(f"Error getting user attachments: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

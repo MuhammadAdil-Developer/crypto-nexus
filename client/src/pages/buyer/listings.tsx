@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Grid, List as ListIcon, ChevronDown, Star, Eye, Heart, ShoppingCart } from "lucide-react";
+import { Search, Filter, Grid, List as ListIcon, Table, ChevronDown, Star, Eye, Heart, ShoppingCart } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { ProductCard } from "@/components/buyer/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ function BuyerListingsContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   // Default to server-provided ordering (personalized) so different buyers see different orders
   const [sortBy, setSortBy] = useState("server");
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{id: string, name: string, count: number}[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -196,12 +196,11 @@ function BuyerListingsContent() {
         const categoryList = Array.from(categoryMap.entries()).map(([name, count]) => ({
           id: name.toLowerCase().replace(/\s+/g, '-'),
           name,
-          count: count as number,
-          slug: name.toLowerCase().replace(/\s+/g, '-')
+          count: count as number
         }));
         
         setCategories([
-          { id: "all", name: "All Categories", count: productsArray.length, slug: "all" },
+          { id: "all", name: "All Categories", count: productsArray.length },
           ...categoryList
         ]);
         
@@ -390,6 +389,7 @@ function BuyerListingsContent() {
               size="sm"
               onClick={() => setViewMode("grid")}
               className={`rounded-r-none ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+              title="Grid View"
             >
               <Grid className="w-4 h-4" />
             </Button>
@@ -397,9 +397,19 @@ function BuyerListingsContent() {
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
-              className={`rounded-l-none ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+              className={`rounded-none border-x border-gray-600 ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+              title="List View"
             >
               <ListIcon className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+              className={`rounded-l-none ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+              title="Table View"
+            >
+              <Table className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -409,13 +419,99 @@ function BuyerListingsContent() {
           Showing {filteredProducts.length} of {products.length} products
         </div>
 
-        {/* Main Content - Products Grid/List */}
+        {/* Main Content - Products Grid/List/Table */}
         <div>
           {filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 text-lg mb-2">No products found</div>
               <p className="text-gray-500">Try adjusting your search or filters</p>
             </div>
+          ) : viewMode === "table" ? (
+            <Card className="bg-gray-800 border-gray-700">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-900 border-b border-gray-700">
+                      <tr>
+                        <th className="text-left p-4 text-sm font-semibold text-gray-300">Product</th>
+                        <th className="text-left p-4 text-sm font-semibold text-gray-300">Category</th>
+                        <th className="text-left p-4 text-sm font-semibold text-gray-300">Vendor</th>
+                        <th className="text-left p-4 text-sm font-semibold text-gray-300">Price</th>
+                        <th className="text-left p-4 text-sm font-semibold text-gray-300">Rating</th>
+                        <th className="text-left p-4 text-sm font-semibold text-gray-300">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {filteredProducts.map((product) => (
+                        <tr key={product.id} className="hover:bg-gray-700/50 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                                {product.main_image ? (
+                                  <img
+                                    src={product.main_image}
+                                    alt={product.listing_title}
+                                    className="w-full h-full object-cover rounded-lg"
+                                  />
+                                ) : (
+                                  <span className="text-gray-400 text-lg">📦</span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-white font-medium truncate">{product.listing_title}</p>
+                                <p className="text-gray-400 text-xs truncate">{product.description?.substring(0, 50)}...</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <Badge variant="outline" className="text-purple-400 border-purple-400">
+                              {product.category?.name || "N/A"}
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-white">{product.vendor?.username || "N/A"}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-white font-mono">{product.price}</span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-1">
+                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                              <span className="text-white">
+                                {product.rating ? (typeof product.rating === 'number' ? product.rating.toFixed(1) : parseFloat(String(product.rating)).toFixed(1)) : "N/A"}
+                              </span>
+                              <span className="text-gray-400 text-xs">({product.review_count || 0})</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-400 hover:text-blue-300"
+                                onClick={() => window.open(`/buyer/product/${product.id}`, '_blank')}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-pink-400 hover:text-pink-300"
+                                onClick={() => {
+                                  // Add to cart logic
+                                }}
+                              >
+                                <ShoppingCart className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           ) : (
             <div className={viewMode === "grid" ? 
               "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" : 

@@ -6,8 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Filter, Eye, MessageSquare, Clock, User, Ticket as TicketIcon, Plus, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Search, Filter, Eye, MessageSquare, Clock, User, Ticket as TicketIcon, Plus, Loader2, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import ticketService from "@/services/ticketService";
@@ -27,6 +27,13 @@ export default function AdminTickets() {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [ticketToAssign, setTicketToAssign] = useState<string | null>(null);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
   const [newTicket, setNewTicket] = useState({
     subject: '',
     category: '',
@@ -149,14 +156,58 @@ export default function AdminTickets() {
     }
   };
 
-  const handleAssignTicket = async (ticketId: string, assignedTo: string) => {
+  const handleAssignTicketClick = (ticketId: string) => {
+    setTicketToAssign(ticketId);
+    setIsAssignModalOpen(true);
+    fetchAdminUsers();
+  };
+
+  const fetchAdminUsers = async () => {
     try {
-      const response = await ticketService.assignTicket(ticketId, assignedTo);
+      setLoadingAdmins(true);
+      const response = await ticketService.getAdminUsers();
+      if (response.success && response.data) {
+        setAdminUsers(response.data);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to fetch admin users",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch admin users",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  const handleAssignTicket = async () => {
+    if (!ticketToAssign || !selectedAdminId) {
+      toast({
+        title: "Error",
+        description: "Please select an admin user first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsAssigning(true);
+      const response = await ticketService.assignTicket(ticketToAssign, selectedAdminId);
       if (response.success) {
         toast({
           title: "Success",
           description: "Ticket assigned successfully"
         });
+        setIsAssignModalOpen(false);
+        setTicketToAssign(null);
+        setSelectedAdminId(null);
         fetchTickets();
       } else {
         toast({
@@ -172,6 +223,8 @@ export default function AdminTickets() {
         description: "Failed to assign ticket",
         variant: "destructive"
       });
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -530,6 +583,10 @@ export default function AdminTickets() {
                               variant="ghost" 
                               size="sm" 
                               className="text-gray-400 hover:text-white" 
+                              onClick={() => {
+                                setSelectedTicketId(ticket.id);
+                                setIsTicketModalOpen(true);
+                              }}
                               data-testid={`reply-ticket-${ticket.id}`}
                             >
                               <MessageSquare className="w-4 h-4" />
@@ -539,7 +596,7 @@ export default function AdminTickets() {
                                 variant="ghost" 
                                 size="sm" 
                                 className="text-accent hover:text-blue-400" 
-                                onClick={() => handleAssignTicket(ticket.id, 'current-user')}
+                                onClick={() => handleAssignTicketClick(ticket.id)}
                                 data-testid={`assign-ticket-${ticket.id}`}
                               >
                                 Assign
@@ -577,7 +634,25 @@ export default function AdminTickets() {
               <div className="p-4 bg-surface-2 rounded-lg">
                 <h4 className="text-white font-medium mb-2">Account Recovery</h4>
                 <p className="text-sm text-gray-400 mb-3">Thank you for contacting support. To help you recover your account, please provide your recovery phrase...</p>
-                <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface" data-testid="use-template-recovery">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-border text-gray-300 hover:bg-surface" 
+                  data-testid="use-template-recovery"
+                  onClick={() => {
+                    const template = "Thank you for contacting support. To help you recover your account, please provide your recovery phrase and we'll assist you immediately.";
+                    setSelectedTemplate(template);
+                    if (selectedTicketId) {
+                      setIsTicketModalOpen(true);
+                    } else {
+                      toast({
+                        title: "Select a ticket",
+                        description: "Please click on a ticket first, then use the template",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                >
                   Use Template
                 </Button>
               </div>
@@ -585,7 +660,25 @@ export default function AdminTickets() {
               <div className="p-4 bg-surface-2 rounded-lg">
                 <h4 className="text-white font-medium mb-2">Order Issue</h4>
                 <p className="text-sm text-gray-400 mb-3">We apologize for the issue with your order. Please provide your order ID and we'll investigate immediately...</p>
-                <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface" data-testid="use-template-order">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-border text-gray-300 hover:bg-surface" 
+                  data-testid="use-template-order"
+                  onClick={() => {
+                    const template = "We apologize for the issue with your order. Please provide your order ID and we'll investigate immediately. We'll get back to you within 24 hours.";
+                    setSelectedTemplate(template);
+                    if (selectedTicketId) {
+                      setIsTicketModalOpen(true);
+                    } else {
+                      toast({
+                        title: "Select a ticket",
+                        description: "Please click on a ticket first, then use the template",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                >
                   Use Template
                 </Button>
               </div>
@@ -593,7 +686,25 @@ export default function AdminTickets() {
               <div className="p-4 bg-surface-2 rounded-lg">
                 <h4 className="text-white font-medium mb-2">General Inquiry</h4>
                 <p className="text-sm text-gray-400 mb-3">Thank you for reaching out. We've received your inquiry and will respond within 24 hours...</p>
-                <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface" data-testid="use-template-general">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-border text-gray-300 hover:bg-surface" 
+                  data-testid="use-template-general"
+                  onClick={() => {
+                    const template = "Thank you for reaching out. We've received your inquiry and will respond within 24 hours. If this is urgent, please mark it as high priority.";
+                    setSelectedTemplate(template);
+                    if (selectedTicketId) {
+                      setIsTicketModalOpen(true);
+                    } else {
+                      toast({
+                        title: "Select a ticket",
+                        description: "Please click on a ticket first, then use the template",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                >
                   Use Template
                 </Button>
               </div>
@@ -601,7 +712,25 @@ export default function AdminTickets() {
               <div className="p-4 bg-surface-2 rounded-lg">
                 <h4 className="text-white font-medium mb-2">Vendor Application</h4>
                 <p className="text-sm text-gray-400 mb-3">Thank you for your vendor application. We'll review your submission and respond within 3-5 business days...</p>
-                <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface" data-testid="use-template-vendor">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-border text-gray-300 hover:bg-surface" 
+                  data-testid="use-template-vendor"
+                  onClick={() => {
+                    const template = "Thank you for your vendor application. We'll review your submission and respond within 3-5 business days. You'll receive an email notification once the review is complete.";
+                    setSelectedTemplate(template);
+                    if (selectedTicketId) {
+                      setIsTicketModalOpen(true);
+                    } else {
+                      toast({
+                        title: "Select a ticket",
+                        description: "Please click on a ticket first, then use the template",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                >
                   Use Template
                 </Button>
               </div>
@@ -612,14 +741,90 @@ export default function AdminTickets() {
         {/* Ticket Detail Modal */}
         <TicketDetailModal
           isOpen={isTicketModalOpen}
-          onClose={() => setIsTicketModalOpen(false)}
+          onClose={() => {
+            setIsTicketModalOpen(false);
+            setSelectedTemplate(null);
+          }}
           ticketId={selectedTicketId}
           isAdmin={true}
+          templateText={selectedTemplate || undefined}
           onTicketUpdated={() => {
             fetchTickets();
             fetchStatistics();
           }}
         />
+
+        {/* Assign Ticket Modal */}
+        <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
+          <DialogContent className="max-w-md bg-card text-white border border-gray-600/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-white">
+                Assign Ticket
+              </DialogTitle>
+              <DialogDescription className="text-gray-400">
+                Select an admin user to assign this ticket to
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {loadingAdmins ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                  <span className="ml-3 text-gray-400">Loading admin users...</span>
+                </div>
+              ) : adminUsers.length === 0 ? (
+                <p className="text-gray-400 text-center py-4">No admin users available</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                  {adminUsers.map((admin) => (
+                    <div
+                      key={admin.id}
+                      onClick={() => setSelectedAdminId(admin.id)}
+                      className={`w-full p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedAdminId === admin.id
+                          ? 'border-accent bg-accent/10 text-white'
+                          : 'border-border text-white hover:bg-surface-2/50'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <User className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="truncate">{admin.username}</span>
+                        {selectedAdminId === admin.id && (
+                          <Check className="w-4 h-4 ml-auto text-accent flex-shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end space-x-2 pt-4 border-t border-gray-600/30">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAssignModalOpen(false);
+                    setTicketToAssign(null);
+                    setSelectedAdminId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAssignTicket}
+                  disabled={!selectedAdminId || isAssigning}
+                  className="bg-accent text-bg hover:bg-accent-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAssigning ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    "Assign"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     
   );

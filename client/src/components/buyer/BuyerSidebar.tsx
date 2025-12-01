@@ -10,7 +10,8 @@ import {
   User,
   Store,
   ArrowRight,
-  AlertTriangle
+  AlertTriangle,
+  Wallet
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,12 @@ const BUYER_NAV_ITEMS = [
     title: "Wishlist",
     icon: Heart,
     href: "/buyer/wishlist",
+    countKey: null as keyof { messages: number; orders: number; support: number } | null
+  },
+  {
+    title: "Billing",
+    icon: Wallet,
+    href: "/buyer/billing",
     countKey: null as keyof { messages: number; orders: number; support: number } | null
   },
   {

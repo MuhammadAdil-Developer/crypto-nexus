@@ -21,6 +21,9 @@ urlpatterns = [
     
     # Categories
     path('categories/', views.get_categories, name='get_categories'),
+    path('categories/create/', views.create_category, name='create_category'),
+    path('categories/<uuid:category_id>/update/', views.update_category, name='update_category'),
+    path('categories/<uuid:category_id>/delete/', views.delete_category, name='delete_category'),
     path('categories/<int:category_id>/subcategories/', views.get_category_subcategories, name='get_category_subcategories'),
     
     # Bulk operations

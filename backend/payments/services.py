@@ -206,12 +206,16 @@ class BTCPayServerService:
                 logger.info(f"Required Amount: {required_amount} BTC")
                 
                 if available_balance < required_amount:
-                    logger.error(f"INSUFFICIENT FUNDS: Need {required_amount} BTC but only have {available_balance} BTC")
-                    logger.error(f"Please add {required_amount - available_balance} BTC to the wallet")
-                    # For testing, use available amount
-                    test_amount = str(available_balance - 0.0001)  # Leave some for fees
-                    logger.warning(f"Using test amount: {test_amount} BTC instead")
-                    payout_data['amount'] = test_amount
+                    # Not enough funds in BTCPay wallet to send this payout
+                    logger.error(
+                        f"INSUFFICIENT FUNDS: Need {required_amount} BTC but only have {available_balance} BTC"
+                    )
+                    logger.error(
+                        f"Please add {required_amount - available_balance} BTC to the BTCPay wallet "
+                        f"or lower the withdrawal amount."
+                    )
+                    # Do NOT try to send a smaller or negative amount – just fail cleanly
+                    return None
                 
                 # Send transaction using wallet API
                 send_url = f"{self.base_url}/api/v1/stores/{self.store_id}/payment-methods/onchain/BTC/wallet/transactions"

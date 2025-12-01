@@ -10,9 +10,18 @@ export const API_BASE_URL_WITHOUT_API = BASE_URL_WITHOUT_API;
 
 // WebSocket URL helper
 export const getWebSocketUrl = (path: string): string => {
-  const wsProtocol = BASE_URL_WITHOUT_API.startsWith('https') ? 'wss' : 'ws';
+  // Check if we're on production (IP address or domain without localhost)
+  const isProduction = !BASE_URL_WITHOUT_API.includes('localhost') && !BASE_URL_WITHOUT_API.includes('127.0.0.1');
+  
+  // For production, use wss if https, ws if http
+  // For localhost, always use ws
+  const wsProtocol = (isProduction && BASE_URL_WITHOUT_API.startsWith('https')) ? 'wss' : 'ws';
   const wsBase = BASE_URL_WITHOUT_API.replace(/^https?:\/\//, '');
-  return `${wsProtocol}://${wsBase}${path}`;
+  
+  // Ensure we don't have double slashes
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  
+  return `${wsProtocol}://${wsBase}${cleanPath}`;
 };
 
 // Helper function to get full image URL

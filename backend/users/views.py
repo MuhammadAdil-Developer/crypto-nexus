@@ -9,8 +9,12 @@ import logging
 
 from .models import User
 from .serializers import (
-    UserRegistrationSerializer, UserLoginSerializer, 
-    UserSerializer, UserUpdateSerializer, AdminUserUpdateSerializer
+    UserRegistrationSerializer,
+    UserLoginSerializer,
+    UserSerializer,
+    UserUpdateSerializer,
+    AdminUserUpdateSerializer,
+    PayoutAddressSerializer,
 )
 from .captcha_validator import CaptchaValidator
 
@@ -353,6 +357,19 @@ def user_login(request):
             # Update last login
             user.save()
             
+            # Log login activity
+            try:
+                from shared.utils import log_user_activity
+                log_user_activity(
+                    user=user,
+                    activity_type='login',
+                    description=f'User logged in: {user.username}',
+                    request=request,
+                    metadata={'ip_address': client_ip}
+                )
+            except Exception:
+                pass  # Don't fail login if logging fails
+            
             # Serialize user data
             user_data = UserSerializer(user).data
             
@@ -396,6 +413,18 @@ def user_login(request):
 def logout(request):
     """Logout endpoint"""
     try:
+        # Log logout activity
+        try:
+            from shared.utils import log_user_activity
+            log_user_activity(
+                user=request.user,
+                activity_type='logout',
+                description=f'User logged out: {request.user.username}',
+                request=request
+            )
+        except Exception:
+            pass  # Don't fail logout if logging fails
+        
         # In a real implementation, you might want to blacklist the token
         return Response({
             'success': True,
@@ -454,6 +483,41 @@ def update_profile(request):
         return Response({
             'success': False,
             'message': 'Update failed',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def payout_addresses(request):
+    """Get or update payout (withdrawal) addresses for the current user"""
+    try:
+        if request.method == 'GET':
+            serializer = PayoutAddressSerializer(request.user)
+            return Response({
+                'success': True,
+                'data': serializer.data
+            })
+        
+        serializer = PayoutAddressSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Payout addresses updated successfully',
+                'data': serializer.data
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': 'Invalid payout address data',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Failed to update payout addresses',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -657,87 +721,152 @@ def admin_reset_password(request, user_id):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def user_activity(request, user_id):
-    """Get user activity (orders, purchases, login history, etc.)"""
+    """Get comprehensive user activity (login, logout, orders, listings, search, wishlist, etc.)"""
     try:
         from django.shortcuts import get_object_or_404
-        from shared.models import Order
-        from products.models import Product
-        from datetime import datetime, timedelta
+        from shared.models import Order, UserActivity, Message, Notification
+        from products.models import Product, ProductView, ProductReview
+        from wishlist.models import Wishlist
+        from datetime import datetime
         
         user = get_object_or_404(User, id=user_id, is_deleted=False)
         
-        # Get user orders - use vendor field for both buyer and vendor
-        if user.user_type == 'buyer':
-            orders = Order.objects.filter(buyer=user).order_by('-created_at')[:50]
-            products = Product.objects.filter(vendor=user).order_by('-created_at')[:20] if hasattr(user, 'vendor_products') else []
-        elif user.user_type == 'vendor':
-            orders = Order.objects.filter(vendor=user).order_by('-created_at')[:50]
-            products = Product.objects.filter(vendor=user).order_by('-created_at')[:20]
-        else:
-            orders = []
-            products = []
+        activities = []
         
-        # Serialize orders
-        orders_data = []
-        for order in orders:
-            orders_data.append({
-                'id': str(order.id),
-                'order_id': order.order_id or str(order.id),
-                'type': 'order',
-                'status': order.order_status or 'pending',
-                'amount': str(order.total_amount or 0),
-                'currency': order.crypto_currency or 'BTC',
-                'created_at': order.created_at.isoformat() if order.created_at else datetime.now().isoformat(),
-                'description': f"Order #{order.order_id or order.id}"
+        # Get all UserActivity records
+        user_activities = UserActivity.objects.filter(user=user).order_by('-created_at')[:200]
+        for activity in user_activities:
+            activities.append({
+                'id': str(activity.id),
+                'type': activity.activity_type,
+                'description': activity.description,
+                'created_at': activity.created_at.isoformat(),
+                'metadata': activity.metadata
             })
         
-        # Serialize products (for vendors)
-        products_data = []
+        # Get orders
+        if user.user_type == 'buyer':
+            orders = Order.objects.filter(buyer=user).order_by('-created_at')[:50]
+        elif user.user_type == 'vendor':
+            orders = Order.objects.filter(vendor=user).order_by('-created_at')[:50]
+        else:
+            orders = []
+        
+        for order in orders:
+            activities.append({
+                'id': str(order.id),
+                'type': 'order_created',
+                'description': f"Order #{getattr(order, 'order_id', order.id)} created - Status: {getattr(order, 'order_status', 'pending')}",
+                'created_at': order.created_at.isoformat() if hasattr(order, 'created_at') and order.created_at else datetime.now().isoformat(),
+                'metadata': {
+                    'order_id': str(getattr(order, 'order_id', order.id)),
+                    'status': getattr(order, 'order_status', 'pending'),
+                    'amount': str(getattr(order, 'total_amount', 0))
+                }
+            })
+        
+        # Get listings (products)
         if user.user_type == 'vendor':
+            products = Product.objects.filter(vendor=user).order_by('-created_at')[:50]
             for product in products:
-                products_data.append({
-                    'id': product.id,
-                    'type': 'product',
-                    'status': product.status or 'pending',
-                    'headline': product.headline or 'Untitled',
-                    'price': str(product.price or 0),
+                activities.append({
+                    'id': str(product.id),
+                    'type': 'listing_created',
+                    'description': f"Listing created: {product.headline or 'Untitled'}",
                     'created_at': product.created_at.isoformat() if hasattr(product, 'created_at') and product.created_at else datetime.now().isoformat(),
-                    'description': f"Product: {product.headline or 'Untitled'}"
+                    'metadata': {'product_id': product.id, 'headline': product.headline}
                 })
         
-        # Add login history
-        login_data = []
-        if user.last_login:
-            login_data.append({
-                'id': 'last_login',
-                'type': 'login',
-                'created_at': user.last_login.isoformat(),
-                'description': f"Last login: {user.last_login.strftime('%Y-%m-%d %H:%M:%S')}"
+        # Get listing views
+        product_views = ProductView.objects.filter(user=user).order_by('-viewed_at')[:50]
+        for view in product_views:
+            activities.append({
+                'id': str(view.id),
+                'type': 'listing_viewed',
+                'description': f"Viewed listing: {view.product.headline if hasattr(view.product, 'headline') else 'Unknown'}",
+                'created_at': view.viewed_at.isoformat() if hasattr(view, 'viewed_at') and view.viewed_at else datetime.now().isoformat(),
+                'metadata': {'product_id': view.product.id}
+            })
+        
+        # Get wishlist activities
+        wishlist_items = Wishlist.objects.filter(user=user).order_by('-created_at')[:50]
+        for item in wishlist_items:
+            activities.append({
+                'id': str(item.id),
+                'type': 'wishlist_added',
+                'description': f"Added to wishlist: {item.product.headline if hasattr(item.product, 'headline') else 'Unknown'}",
+                'created_at': item.created_at.isoformat() if hasattr(item, 'created_at') and item.created_at else datetime.now().isoformat(),
+                'metadata': {'product_id': item.product.id}
+            })
+        
+        # Get messages
+        sent_messages = Message.objects.filter(sender=user).order_by('-created_at')[:50]
+        for msg in sent_messages:
+            activities.append({
+                'id': str(msg.id),
+                'type': 'message_sent',
+                'description': f"Sent message to {msg.recipient.username if hasattr(msg.recipient, 'username') else 'user'}",
+                'created_at': msg.created_at.isoformat() if hasattr(msg, 'created_at') and msg.created_at else datetime.now().isoformat(),
+                'metadata': {'recipient_id': str(msg.recipient.id)}
+            })
+        
+        received_messages = Message.objects.filter(recipient=user).order_by('-created_at')[:50]
+        for msg in received_messages:
+            activities.append({
+                'id': str(msg.id),
+                'type': 'message_received',
+                'description': f"Received message from {msg.sender.username if hasattr(msg.sender, 'username') else 'user'}",
+                'created_at': msg.created_at.isoformat() if hasattr(msg, 'created_at') and msg.created_at else datetime.now().isoformat(),
+                'metadata': {'sender_id': str(msg.sender.id)}
+            })
+        
+        # Get reviews
+        reviews = ProductReview.objects.filter(user=user).order_by('-created_at')[:50]
+        for review in reviews:
+            activities.append({
+                'id': str(review.id),
+                'type': 'review_created',
+                'description': f"Created review for product: {review.product.headline if hasattr(review.product, 'headline') else 'Unknown'}",
+                'created_at': review.created_at.isoformat() if hasattr(review, 'created_at') and review.created_at else datetime.now().isoformat(),
+                'metadata': {'product_id': review.product.id, 'rating': review.rating}
+            })
+        
+        # Get notification views
+        notifications = Notification.objects.filter(user=user).order_by('-created_at')[:50]
+        for notif in notifications:
+            activities.append({
+                'id': str(notif.id),
+                'type': 'notification_viewed' if notif.is_read else 'notification_received',
+                'description': f"Notification: {notif.title}",
+                'created_at': notif.created_at.isoformat() if hasattr(notif, 'created_at') and notif.created_at else datetime.now().isoformat(),
+                'metadata': {'notification_type': notif.type}
             })
         
         # Add account creation
-        account_created = {
+        activities.append({
             'id': 'account_created',
             'type': 'account_created',
+            'description': f"Account created: {user.date_joined.strftime('%Y-%m-%d %H:%M:%S')}",
             'created_at': user.date_joined.isoformat(),
-            'description': f"Account created: {user.date_joined.strftime('%Y-%m-%d %H:%M:%S')}"
-        }
+            'metadata': {}
+        })
         
-        # Combine and sort by date
-        all_activities = orders_data + products_data + login_data + [account_created]
-        all_activities.sort(key=lambda x: x['created_at'], reverse=True)
+        # Sort all activities by date
+        activities.sort(key=lambda x: x['created_at'], reverse=True)
         
         return Response({
             'success': True,
             'message': 'User activity retrieved successfully',
             'data': {
-                'activities': all_activities[:100],
-                'total_orders': len(orders_data),
-                'total_products': len(products_data) if user.user_type == 'vendor' else 0
+                'activities': activities[:200],  # Limit to 200 most recent
+                'total_count': len(activities)
             }
         })
         
     except Exception as e:
+        import traceback
+        print(f"Error in user_activity: {e}")
+        print(traceback.format_exc())
         return Response({
             'success': False,
             'message': 'Failed to retrieve user activity',
@@ -891,5 +1020,56 @@ def disable_2fa(request):
         return Response({
             'success': False,
             'message': 'Failed to disable two-factor authentication',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def login_as_user(request, user_id):
+    """Login as another user (admin only) - generates tokens for the target user"""
+    try:
+        from django.shortcuts import get_object_or_404
+        from rest_framework_simplejwt.tokens import RefreshToken
+        
+        # Get target user
+        target_user = get_object_or_404(User, id=user_id, is_deleted=False)
+        
+        # Generate tokens for target user
+        refresh = RefreshToken.for_user(target_user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+        
+        # Serialize user data
+        user_data = UserSerializer(target_user).data
+        
+        # Log activity
+        try:
+            from shared.utils import log_user_activity
+            log_user_activity(
+                user=request.user,
+                activity_type='login',
+                description=f'Admin {request.user.username} logged in as user {target_user.username}',
+                request=request,
+                metadata={'target_user_id': str(target_user.id), 'target_username': target_user.username}
+            )
+        except Exception:
+            pass
+        
+        return Response({
+            'success': True,
+            'message': f'Logged in as {target_user.username}',
+            'data': {
+                'user': user_data,
+                'tokens': {
+                    'access': access_token,
+                    'refresh': refresh_token
+                }
+            }
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Failed to login as user',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 

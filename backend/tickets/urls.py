@@ -6,7 +6,9 @@ from .views import (
     update_ticket_status,
     assign_ticket,
     close_ticket,
+    reopen_ticket,
     get_ticket_statistics,
+    get_admin_users,
     TicketTemplateListCreateView,
     TicketTemplateDetailView
 )
@@ -19,9 +21,11 @@ urlpatterns = [
     path('<uuid:pk>/status/', update_ticket_status, name='ticket-status'),
     path('<uuid:pk>/assign/', assign_ticket, name='ticket-assign'),
     path('<uuid:pk>/close/', close_ticket, name='ticket-close'),
+    path('<uuid:pk>/reopen/', reopen_ticket, name='ticket-reopen'),
     
     # Statistics
     path('statistics/', get_ticket_statistics, name='ticket-statistics'),
+    path('admin-users/', get_admin_users, name='ticket-admin-users'),
     
     # Templates
     path('templates/', TicketTemplateListCreateView.as_view(), name='ticket-templates'),

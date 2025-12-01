@@ -298,6 +298,53 @@ class TicketService {
     }
   }
 
+  // Reopen ticket
+  async reopenTicket(ticketId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/tickets/${ticketId}/reopen/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        return { success: true, message: 'Ticket reopened successfully' };
+      } else {
+        return { success: false, message: result.message || result.error || 'Failed to reopen ticket' };
+      }
+    } catch (error) {
+      console.error('Error reopening ticket:', error);
+      return { success: false, message: 'Network error while reopening ticket' };
+    }
+  }
+
+  // Get admin users for assignment
+  async getAdminUsers(): Promise<{ success: boolean; data?: any[]; message?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/tickets/admin-users/`, {
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        return { success: true, data: result.data || result };
+      } else {
+        return { success: false, message: result.message || result.error || 'Failed to fetch admin users' };
+      }
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+      return { success: false, message: 'Network error while fetching admin users' };
+    }
+  }
+
   // Get quick reply templates (admin only)
   async getQuickReplyTemplates(): Promise<{ success: boolean; data?: any[]; message?: string }> {
     try {

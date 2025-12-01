@@ -681,6 +681,147 @@ def get_categories(request):
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def create_category(request):
+    """Create a new category (admin only)"""
+    try:
+        from django.utils.text import slugify
+        name = request.data.get('name', '').strip()
+        description = request.data.get('description', '').strip()
+        slug = request.data.get('slug', '').strip() or slugify(name)
+        sort_order = int(request.data.get('sort_order', 0))
+        is_active = request.data.get('is_active', True)
+        
+        if not name:
+            return Response({
+                'success': False,
+                'message': 'Category name is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if slug already exists
+        if ProductCategory.objects.filter(slug=slug).exists():
+            return Response({
+                'success': False,
+                'message': 'A category with this slug already exists'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        category = ProductCategory.objects.create(
+            name=name,
+            description=description,
+            slug=slug,
+            sort_order=sort_order,
+            is_active=is_active
+        )
+        
+        serializer = ProductCategorySerializer(category)
+        return Response({
+            'success': True,
+            'message': 'Category created successfully',
+            'data': serializer.data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Error creating category: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to create category',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def update_category(request, category_id):
+    """Update a category (admin only)"""
+    try:
+        from django.utils.text import slugify
+        import uuid
+        # Handle both UUID string and UUID object
+        try:
+            if isinstance(category_id, str):
+                category_id = uuid.UUID(category_id)
+            category = get_object_or_404(ProductCategory, id=category_id)
+        except (ValueError, TypeError):
+            return Response({
+                'success': False,
+                'message': 'Invalid category ID'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        name = request.data.get('name', '').strip()
+        description = request.data.get('description', '').strip()
+        slug = request.data.get('slug', '').strip()
+        sort_order = request.data.get('sort_order')
+        is_active = request.data.get('is_active')
+        
+        if name:
+            category.name = name
+        if description is not None:
+            category.description = description
+        if slug:
+            # Check if slug already exists for another category
+            if ProductCategory.objects.filter(slug=slug).exclude(id=category_id).exists():
+                return Response({
+                    'success': False,
+                    'message': 'A category with this slug already exists'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            category.slug = slug
+        elif name and not slug:
+            category.slug = slugify(name)
+        if sort_order is not None:
+            category.sort_order = int(sort_order)
+        if is_active is not None:
+            category.is_active = bool(is_active)
+        
+        category.save()
+        
+        serializer = ProductCategorySerializer(category)
+        return Response({
+            'success': True,
+            'message': 'Category updated successfully',
+            'data': serializer.data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating category: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to update category',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_category(request, category_id):
+    """Delete a category (soft delete, admin only)"""
+    try:
+        import uuid
+        # Handle both UUID string and UUID object
+        try:
+            if isinstance(category_id, str):
+                category_id = uuid.UUID(category_id)
+            category = get_object_or_404(ProductCategory, id=category_id)
+        except (ValueError, TypeError):
+            return Response({
+                'success': False,
+                'message': 'Invalid category ID'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        category.is_deleted = True
+        category.is_active = False
+        category.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Category deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting category: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to delete category',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_subcategories(request, category_id):

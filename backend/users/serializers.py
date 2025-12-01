@@ -30,8 +30,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             # Set default user_type to 'buyer'
             validated_data['user_type'] = 'buyer'
             
+            # Auto-approve users on registration
+            validated_data['is_verified'] = True
+            
             # Create user
             user = User.objects.create_user(**validated_data)
+            
+            # Log registration activity
+            try:
+                from shared.utils import log_user_activity
+                log_user_activity(
+                    user=user,
+                    activity_type='account_created',
+                    description=f'User account created: {user.username}',
+                    request=self.context.get('request'),
+                    metadata={'user_type': user.user_type}
+                )
+            except Exception:
+                pass  # Don't fail registration if logging fails
+            
             return user
         except Exception as e:
             raise serializers.ValidationError(f"Error creating user: {str(e)}")
@@ -50,7 +67,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'user_type', 'is_verified', 
-            'two_factor_enabled', 'is_active', 'date_joined'
+            'two_factor_enabled', 'is_active', 'date_joined',
+            'btc_payout_address', 'xmr_payout_address'
         ]
         read_only_fields = ['id', 'date_joined']
         extra_kwargs = {
@@ -63,8 +81,16 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['user_type', 'is_verified', 'two_factor_enabled']
-        read_only_fields = ['id', 'username', 'date_joined']
+        fields = ['two_factor_enabled']
+        read_only_fields = ['id', 'username', 'date_joined', 'user_type', 'is_verified']
+
+
+class PayoutAddressSerializer(serializers.ModelSerializer):
+    """Serializer for updating buyer payout addresses"""
+    
+    class Meta:
+        model = User
+        fields = ['btc_payout_address', 'xmr_payout_address']
 
 
 class AdminUserUpdateSerializer(serializers.ModelSerializer):

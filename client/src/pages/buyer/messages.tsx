@@ -3,6 +3,7 @@ import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { MessagesPanel } from "@/components/buyer/MessagesPanel";
 import { MessageSquare, Users, Clock } from "lucide-react";
 import { messagingService } from "@/services/messagingService";
+import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
 
 const messageStats = [
@@ -35,8 +36,43 @@ export default function BuyerMessages() {
     
     window.addEventListener('messages_marked_read', handleMessagesMarkedRead);
 
+    // Listen for real-time conversation updates
+    const handleConversationUpdate = (data: any) => {
+      if (data?.conversation) {
+        setConversations(prev => {
+          // Remove old conversation if exists
+          const filtered = prev.filter(conv => conv.id !== data.conversation.id);
+          // Add updated conversation at the top
+          return [data.conversation, ...filtered];
+        });
+      }
+    };
+    
+    // Listen for new messages to update conversation list
+    const handleNewMessage = (data: any) => {
+      if (data?.conversation_id) {
+        // Update conversation in list without full refresh
+        setConversations(prev => {
+          const updated = prev.map(conv => 
+            conv.id === data.conversation_id
+              ? { ...conv, updated_at: new Date().toISOString(), last_message: data }
+              : conv
+          );
+          // Sort by updated_at descending
+          return updated.sort((a, b) => 
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
+        });
+      }
+    };
+    
+    realtimeService.subscribe('new_message', handleNewMessage);
+
+    realtimeService.subscribe('conversation_updated', handleConversationUpdate);
+
     return () => {
       window.removeEventListener('messages_marked_read', handleMessagesMarkedRead);
+      realtimeService.unsubscribe('conversation_updated', handleConversationUpdate);
     };
   }, []);
 

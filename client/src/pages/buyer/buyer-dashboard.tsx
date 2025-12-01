@@ -12,6 +12,7 @@ import CreateDispute from "./create-dispute";
 import ProductDetailPage from "./product-detail";
 import BuyerTransactionHistory from "./transaction-history";
 import BuyerNotifications from "./notifications";
+import BuyerBilling from "./billing";
 
 export default function BuyerDashboard() {
   return (
@@ -31,6 +32,7 @@ export default function BuyerDashboard() {
       <Route path="create-dispute" element={<CreateDispute />} />
       <Route path="product/:id" element={<ProductDetailPage />} />
       <Route path="transaction-history" element={<BuyerTransactionHistory />} />
+      <Route path="billing" element={<BuyerBilling />} />
     </Routes>
   );
 }

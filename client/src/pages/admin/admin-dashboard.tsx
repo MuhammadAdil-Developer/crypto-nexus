@@ -8,6 +8,7 @@ import Vendors from "./vendors";
 import Listings from "./listings";
 import Orders from "./orders";
 import Disputes from "./disputes";
+import RefundDisputes from "./refund-disputes";
 import Messages from "./messages";
 import Tickets from "./tickets";
 import Crypto from "./crypto";
@@ -31,6 +32,7 @@ const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
   "listings": Listings,
   "orders": Orders,
   "disputes": Disputes,
+  "refund-disputes": RefundDisputes,
   "messages": Messages,
   "tickets": Tickets,
   "crypto": Crypto,
@@ -55,6 +57,7 @@ const SECTION_NAMES: Record<string, string> = {
   "listings": "Listings",
   "orders": "Orders",
   "disputes": "Disputes",
+  "refund-disputes": "Refund & Dispute Management",
   "messages": "Messages",
   "tickets": "Tickets",
   "crypto": "Crypto",

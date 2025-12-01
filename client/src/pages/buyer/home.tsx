@@ -144,6 +144,7 @@ function BuyerHomeContent() {
   const [isHovered, setIsHovered] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   // Messaging state is now handled by MessagingProvider
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -174,6 +175,15 @@ function BuyerHomeContent() {
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 
+  // Track window width for responsive carousel
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Auto-slide effect with 5 second interval
   useEffect(() => {
     
@@ -196,9 +206,10 @@ function BuyerHomeContent() {
     }
     if (!trendingProducts.length || !isAutoPlaying) return;
     
+    const cardsPerView = windowWidth < 640 ? 1 : 4;
     scrollIntervalRef.current = setInterval(() => {
       setCurrentSlide((prev) => {
-        const maxSlide = Math.ceil(trendingProducts.length / 4) - 1;
+        const maxSlide = Math.ceil(trendingProducts.length / cardsPerView) - 1;
         return prev >= maxSlide ? 0 : prev + 1;
       });
     }, 5000); // Auto scroll every 5 seconds
@@ -208,12 +219,13 @@ function BuyerHomeContent() {
         clearInterval(scrollIntervalRef.current);
       }
     };
-  }, [trendingProducts.length, isAutoPlaying]);
+  }, [trendingProducts.length, isAutoPlaying, windowWidth]);
 
   const handlePrevSlide = () => {
     setIsAutoPlaying(false);
+    const cardsPerView = windowWidth < 640 ? 1 : 4;
     setCurrentSlide((prev) => {
-      const maxSlide = Math.ceil(trendingProducts.length / 4) - 1;
+      const maxSlide = Math.ceil(trendingProducts.length / cardsPerView) - 1;
       return prev <= 0 ? maxSlide : prev - 1;
     });
     // Resume auto-play after 10 seconds
@@ -222,8 +234,9 @@ function BuyerHomeContent() {
 
   const handleNextSlide = () => {
     setIsAutoPlaying(false);
+    const cardsPerView = windowWidth < 640 ? 1 : 4;
     setCurrentSlide((prev) => {
-      const maxSlide = Math.ceil(trendingProducts.length / 4) - 1;
+      const maxSlide = Math.ceil(trendingProducts.length / cardsPerView) - 1;
       return prev >= maxSlide ? 0 : prev + 1;
     });
     // Resume auto-play after 10 seconds
@@ -1161,7 +1174,7 @@ function BuyerHomeContent() {
 
                 )}
 
-                {/* Cards Container - Clean 4 cards per view */}
+                {/* Cards Container - Responsive: 1 card on mobile, 4 on desktop */}
                 <div className="overflow-hidden">
                   <div 
                     className="flex transition-transform duration-700 ease-in-out"
@@ -1169,28 +1182,36 @@ function BuyerHomeContent() {
                       transform: `translateX(-${currentSlide * 100}%)`
                     }}
                   >
-                    {Array.from({ length: Math.ceil(trendingProducts.length / 4) }).map((_, groupIndex) => (
-                      <div key={groupIndex} className="min-w-full flex gap-4 px-2">
-                        {trendingProducts.slice(groupIndex * 4, (groupIndex * 4) + 4).map((product) => (
-                          <div key={product.id} className="w-[calc(25%-8px)] flex-shrink-0">
-                            <ProductCard product={product as any} />
+                    {(() => {
+                      const cardsPerView = windowWidth < 640 ? 1 : 4;
+                      const totalSlides = Math.ceil(trendingProducts.length / cardsPerView);
+                      return Array.from({ length: totalSlides }).map((_, groupIndex) => {
+                        const startIndex = groupIndex * cardsPerView;
+                        const endIndex = startIndex + cardsPerView;
+                        return (
+                          <div key={groupIndex} className="min-w-full flex gap-2 sm:gap-4 px-2">
+                            {trendingProducts.slice(startIndex, endIndex).map((product) => (
+                              <div key={product.id} className="w-full sm:w-[calc(25%-12px)] flex-shrink-0 min-w-0">
+                                <ProductCard product={product as any} />
+                              </div>
+                            ))}
+                            {/* Fill empty spaces if less than cardsPerView */}
+                            {trendingProducts.slice(startIndex, endIndex).length < cardsPerView &&
+                              Array.from({ length: cardsPerView - trendingProducts.slice(startIndex, endIndex).length }).map((_, idx) => (
+                                <div key={`empty-${idx}`} className="w-full sm:w-[calc(25%-12px)] flex-shrink-0" />
+                              ))
+                            }
                           </div>
-                        ))}
-                        {/* Fill empty spaces if less than 4 cards */}
-                        {trendingProducts.slice(groupIndex * 4, (groupIndex * 4) + 4).length < 4 &&
-                          Array.from({ length: 4 - trendingProducts.slice(groupIndex * 4, (groupIndex * 4) + 4).length }).map((_, idx) => (
-                            <div key={`empty-${idx}`} className="w-[calc(25%-8px)] flex-shrink-0" />
-                          ))
-                        }
-                      </div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 
                 {/* Slide Indicators */}
-                {trendingProducts.length > 4 && (
+                {trendingProducts.length > (windowWidth < 640 ? 1 : 4) && (
                   <div className="flex justify-center mt-6 space-x-2">
-                    {Array.from({ length: Math.ceil(trendingProducts.length / 4) }).map((_, idx) => (
+                    {Array.from({ length: Math.ceil(trendingProducts.length / (windowWidth < 640 ? 1 : 4)) }).map((_, idx) => (
                       <button
                         key={idx}
                         onClick={() => {

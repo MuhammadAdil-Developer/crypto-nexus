@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, User, Lock, Bell, Save, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, User, Lock, Bell, Save, Loader2, Wallet, RefreshCcw } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +57,14 @@ export default function BuyerSettings() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [payoutSaving, setPayoutSaving] = useState(false);
   const { toast } = useToast();
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFAData, setTwoFAData] = useState<{qr_code?: string; secret?: string; uri?: string} | null>(null);
+  const [payoutAddresses, setPayoutAddresses] = useState({
+    btc_payout_address: "",
+    xmr_payout_address: ""
+  });
 
   useEffect(() => {
     fetchUserData();
@@ -74,6 +79,10 @@ export default function BuyerSettings() {
         setProfile({
           username: response.data.data.username || "",
           phone: response.data.data.phone || ""
+        });
+        setPayoutAddresses({
+          btc_payout_address: response.data.data.btc_payout_address || "",
+          xmr_payout_address: response.data.data.xmr_payout_address || ""
         });
         
         // Set 2FA state from profile
@@ -148,6 +157,39 @@ export default function BuyerSettings() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePayoutAddresses = async () => {
+    if (!payoutAddresses.btc_payout_address && !payoutAddresses.xmr_payout_address) {
+      toast({
+        title: "Error",
+        description: "Please enter at least one payout address (BTC or XMR)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setPayoutSaving(true);
+      await api.put('/profile/payout/', {
+        btc_payout_address: payoutAddresses.btc_payout_address || null,
+        xmr_payout_address: payoutAddresses.xmr_payout_address || null
+      });
+
+      toast({
+        title: "Success",
+        description: "Payout addresses updated"
+      });
+    } catch (error: any) {
+      console.error('Error saving payout addresses:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save payout addresses",
+        variant: "destructive"
+      });
+    } finally {
+      setPayoutSaving(false);
     }
   };
 
@@ -259,6 +301,59 @@ export default function BuyerSettings() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Wallet / Payout Addresses */}
+          <Card className="bg-gray-900 border-gray-700 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-blue-400" />
+                Withdrawal Wallets
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-400">
+                Set the default BTC and XMR wallet addresses where you want to receive withdrawals and refunds.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="btcAddress" className="text-gray-300">BTC Payout Address</Label>
+                  <Input
+                    id="btcAddress"
+                    value={payoutAddresses.btc_payout_address}
+                    onChange={(e) => setPayoutAddresses(prev => ({ ...prev, btc_payout_address: e.target.value }))}
+                    placeholder="bc1q..."
+                    className="bg-gray-800 border-gray-600 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="xmrAddress" className="text-gray-300">XMR Payout Address</Label>
+                  <Input
+                    id="xmrAddress"
+                    value={payoutAddresses.xmr_payout_address}
+                    onChange={(e) => setPayoutAddresses(prev => ({ ...prev, xmr_payout_address: e.target.value }))}
+                    placeholder="4xxxxxxxx..."
+                    className="bg-gray-800 border-gray-600 text-white font-mono"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleSavePayoutAddresses}
+                disabled={payoutSaving}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {payoutSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCcw className="w-4 h-4 mr-2" />
+                    Save Payout Addresses
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
           {/* Profile Settings */}
           <Card className="bg-gray-900 border-gray-700">
             <CardHeader>

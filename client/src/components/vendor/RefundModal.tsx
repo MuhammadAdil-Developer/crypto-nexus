@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import refundService from '@/services/refundService';
+import { refundService } from '@/services/refundService';
 
 interface RefundModalProps {
   isOpen: boolean;

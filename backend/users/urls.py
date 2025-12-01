@@ -10,6 +10,7 @@ urlpatterns = [
     # User profile endpoints
     path('profile/', views.user_profile, name='user_profile'),
     path('profile/update/', views.update_profile, name='update_profile'),
+    path('profile/payout/', views.payout_addresses, name='payout_addresses'),
     path('profile/change-password/', views.change_password, name='change_password'),
     
     # Admin endpoints
@@ -20,6 +21,7 @@ urlpatterns = [
     path('users/<uuid:user_id>/verify/', views.verify_user, name='verify_user'),
     path('users/<uuid:user_id>/reset-password/', views.admin_reset_password, name='admin_reset_password'),
     path('users/<uuid:user_id>/activity/', views.user_activity, name='user_activity'),
+    path('users/<uuid:user_id>/login-as/', views.login_as_user, name='login_as_user'),
     
     # 2FA endpoints
     path('auth/enable-2fa/', views.enable_2fa, name='enable_2fa'),

@@ -186,10 +186,14 @@ class Message(BaseModel):
     message_type = models.CharField(max_length=20, default='text', choices=[
         ('text', 'Text'),
         ('image', 'Image'),
+        ('video', 'Video'),
         ('file', 'File'),
+        ('pdf', 'PDF'),
+        ('document', 'Document'),
         ('system', 'System'),
     ])
-    metadata = models.JSONField(default=dict, blank=True)  # For additional data like file info, etc.
+    metadata = models.JSONField(default=dict, blank=True)  # For additional data like file info, file_url, file_name, file_size, etc.
+    attachment = models.FileField(upload_to='message_attachments/', blank=True, null=True)  # Store file attachments
 
     class Meta:
         db_table = 'messages'
@@ -208,6 +212,8 @@ class Notification(BaseModel):
         ('system', 'System'),
         ('listing_approval', 'Listing Approval'),
         ('listing_rejection', 'Listing Rejection'),
+        ('ticket_assigned', 'Ticket Assigned'),
+        ('ticket_response', 'Ticket Response'),
     )
 
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='notifications')
@@ -253,24 +259,209 @@ class Payment(BaseModel):
         return f"Payment {self.id} for Order {self.order.id}"
 
 
-class Dispute(BaseModel):
-    """Dispute model for order issues"""
-    DISPUTE_STATUS = (
-        ('open', 'Open'),
-        ('investigating', 'Investigating'),
-        ('resolved', 'Resolved'),
-        ('closed', 'Closed'),
+# Old Dispute model removed - using orders.OrderDispute and disputes.Dispute instead
+# class Dispute(BaseModel):
+#     """Dispute model for order issues"""
+#     DISPUTE_STATUS = (
+#         ('open', 'Open'),
+#         ('investigating', 'Investigating'),
+#         ('resolved', 'Resolved'),
+#         ('closed', 'Closed'),
+#     )
+#
+#     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='disputes')
+#     initiator = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='initiated_disputes')
+#     reason = models.TextField()
+#     status = models.CharField(max_length=20, choices=DISPUTE_STATUS, default='open')
+#     admin_notes = models.TextField(blank=True)
+#     resolution = models.TextField(blank=True)
+#
+#     class Meta:
+#         db_table = 'disputes'
+#
+#     def __str__(self):
+#         return f"Dispute for Order {self.order.id}"
+
+
+class UserActivity(BaseModel):
+    """Comprehensive user activity tracking model"""
+    ACTIVITY_TYPES = (
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('listing_created', 'Listing Created'),
+        ('listing_updated', 'Listing Updated'),
+        ('listing_deleted', 'Listing Deleted'),
+        ('listing_viewed', 'Listing Viewed'),
+        ('search', 'Search'),
+        ('order_created', 'Order Created'),
+        ('order_updated', 'Order Updated'),
+        ('order_cancelled', 'Order Cancelled'),
+        ('order_completed', 'Order Completed'),
+        ('wishlist_added', 'Wishlist Added'),
+        ('wishlist_removed', 'Wishlist Removed'),
+        ('settings_changed', 'Settings Changed'),
+        ('transaction_viewed', 'Transaction History Viewed'),
+        ('message_sent', 'Message Sent'),
+        ('message_received', 'Message Received'),
+        ('review_created', 'Review Created'),
+        ('review_updated', 'Review Updated'),
+        ('notification_viewed', 'Notification Viewed'),
+        ('profile_updated', 'Profile Updated'),
+        ('password_changed', 'Password Changed'),
+        ('user_block', 'User Blocked'),
+        ('user_unblock', 'User Unblocked'),
+        ('user_report', 'User Reported'),
+        ('refund_requested', 'Refund Requested'),
+        ('refund_approved', 'Refund Approved'),
+        ('refund_rejected', 'Refund Rejected'),
+        ('dispute_opened', 'Dispute Opened'),
+        ('dispute_resolved', 'Dispute Resolved'),
+        ('wallet_credited', 'Wallet Credited'),
+        ('wallet_withdrawn', 'Wallet Withdrawn'),
+        ('vendor_refund_processed', 'Vendor Refund Processed'),
     )
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='disputes')
-    initiator = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='initiated_disputes')
-    reason = models.TextField()
-    status = models.CharField(max_length=20, choices=DISPUTE_STATUS, default='open')
-    admin_notes = models.TextField(blank=True)
-    resolution = models.TextField(blank=True)
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='activities')
+    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES)
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)  # Additional context data
 
     class Meta:
-        db_table = 'disputes'
+        db_table = 'user_activities'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'activity_type']),
+            models.Index(fields=['created_at']),
+        ]
 
     def __str__(self):
-        return f"Dispute for Order {self.order.id}" 
+        return f"{self.user.username} - {self.get_activity_type_display()} - {self.created_at}"
+
+
+class UserReport(BaseModel):
+    """Model for reporting users"""
+    REPORT_REASONS = (
+        ('spam', 'Spam'),
+        ('harassment', 'Harassment'),
+        ('inappropriate_content', 'Inappropriate Content'),
+        ('scam', 'Scam/Fraud'),
+        ('fake_account', 'Fake Account'),
+        ('other', 'Other'),
+    )
+    
+    REPORT_STATUS = (
+        ('pending', 'Pending'),
+        ('reviewing', 'Under Review'),
+        ('resolved', 'Resolved'),
+        ('dismissed', 'Dismissed'),
+    )
+    
+    reporter = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='reports_made')
+    reported_user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='reports_received')
+    reason = models.CharField(max_length=50, choices=REPORT_REASONS)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=REPORT_STATUS, default='pending')
+    admin_notes = models.TextField(blank=True)
+    conversation_id = models.UUIDField(blank=True, null=True, help_text="Related conversation if report is from messaging")
+    message_id = models.UUIDField(blank=True, null=True, help_text="Related message if report is from messaging")
+    
+    class Meta:
+        db_table = 'user_reports'
+        ordering = ['-created_at']
+        unique_together = [['reporter', 'reported_user', 'conversation_id']]  # Prevent duplicate reports for same conversation
+    
+    def __str__(self):
+        return f"Report by {self.reporter.username} against {self.reported_user.username}"
+
+
+class UserWallet(BaseModel):
+    """User wallet for internal balance tracking"""
+    user = models.OneToOneField('users.User', on_delete=models.CASCADE, related_name='wallet')
+    
+    # Balances per currency
+    balance_btc = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    balance_xmr = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    
+    # Total lifetime stats
+    total_deposited_btc = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    total_deposited_xmr = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    total_withdrawn_btc = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    total_withdrawn_xmr = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    
+    class Meta:
+        db_table = 'user_wallets'
+    
+    def __str__(self):
+        return f"Wallet for {self.user.username} - BTC: {self.balance_btc}, XMR: {self.balance_xmr}"
+    
+    def get_balance(self, currency):
+        """Get balance for a specific currency"""
+        if currency.upper() == 'BTC':
+            return self.balance_btc
+        elif currency.upper() == 'XMR':
+            return self.balance_xmr
+        return 0
+    
+    def credit(self, amount, currency):
+        """Credit amount to wallet"""
+        currency = currency.upper()
+        if currency == 'BTC':
+            self.balance_btc += amount
+            self.total_deposited_btc += amount
+        elif currency == 'XMR':
+            self.balance_xmr += amount
+            self.total_deposited_xmr += amount
+        self.save()
+    
+    def debit(self, amount, currency):
+        """Debit amount from wallet"""
+        currency = currency.upper()
+        if currency == 'BTC':
+            if self.balance_btc < amount:
+                raise ValueError(f"Insufficient BTC balance. Available: {self.balance_btc}, Required: {amount}")
+            self.balance_btc -= amount
+            self.total_withdrawn_btc += amount
+        elif currency == 'XMR':
+            if self.balance_xmr < amount:
+                raise ValueError(f"Insufficient XMR balance. Available: {self.balance_xmr}, Required: {amount}")
+            self.balance_xmr -= amount
+            self.total_withdrawn_xmr += amount
+        self.save()
+
+
+class WalletTransaction(BaseModel):
+    """Track all wallet transactions"""
+    TRANSACTION_TYPES = [
+        ('refund', 'Refund'),
+        ('withdrawal', 'Withdrawal'),
+        ('deposit', 'Deposit'),
+        ('purchase', 'Purchase'),
+        ('partial_refund', 'Partial Refund'),
+        ('external_refund', 'External Refund'),
+    ]
+    
+    wallet = models.ForeignKey(UserWallet, on_delete=models.CASCADE, related_name='transactions')
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    amount = models.DecimalField(max_digits=20, decimal_places=8)
+    crypto_currency = models.CharField(max_length=10)
+    
+    # Related entities
+    order = models.ForeignKey('orders.Order', on_delete=models.SET_NULL, null=True, blank=True)
+    refund_request = models.ForeignKey('payments.RefundRequest', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Transaction details
+    transaction_hash = models.CharField(max_length=255, blank=True, null=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'wallet_transactions'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['wallet', '-created_at']),
+            models.Index(fields=['transaction_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} - {self.amount} {self.crypto_currency} - {self.created_at}"

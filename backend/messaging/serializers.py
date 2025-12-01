@@ -28,11 +28,21 @@ class MessageSerializer(serializers.ModelSerializer):
     conversation = serializers.CharField(read_only=True)
     is_sender = serializers.SerializerMethodField()
     other_participant = serializers.SerializerMethodField()
+    attachment_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant']
+        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url']
         read_only_fields = ['id', 'created_at']
+    
+    def get_attachment_url(self, obj):
+        """Get the full URL for the attachment if it exists"""
+        if obj.attachment:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.attachment.url)
+            return obj.attachment.url
+        return None
     
     def get_is_sender(self, obj):
         """Check if the current user is the sender of this message"""
@@ -112,13 +122,17 @@ class CreateConversationSerializer(serializers.ModelSerializer):
 
 
 class SendMessageSerializer(serializers.ModelSerializer):
+    attachment = serializers.FileField(required=False, allow_null=True)
+    content = serializers.CharField(required=False, allow_blank=True)
+    
     class Meta:
         model = Message
-        fields = ['conversation', 'content', 'message_type']
+        fields = ['conversation', 'content', 'message_type', 'attachment']
     
     def create(self, validated_data):
         request = self.context['request']
         conversation = validated_data['conversation']
+        attachment = validated_data.pop('attachment', None)
         
         # Determine recipient (the other participant in the conversation)
         participants = conversation.participants.all()
@@ -127,13 +141,55 @@ class SendMessageSerializer(serializers.ModelSerializer):
         if not recipient:
             raise serializers.ValidationError("No recipient found for this conversation")
         
+        # Determine message type based on attachment
+        message_type = validated_data.get('message_type', 'text')
+        metadata = {}
+        
+        if attachment:
+            # Determine file type
+            file_name = attachment.name
+            file_size = attachment.size
+            file_ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
+            
+            # Set message type based on file extension
+            if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                message_type = 'image'
+            elif file_ext in ['mp4', 'avi', 'mov', 'webm']:
+                message_type = 'video'
+            elif file_ext == 'pdf':
+                message_type = 'pdf'
+            elif file_ext in ['doc', 'docx', 'txt', 'rtf']:
+                message_type = 'document'
+            else:
+                message_type = 'file'
+            
+            # Store file metadata
+            metadata = {
+                'file_name': file_name,
+                'file_size': file_size,
+                'file_type': file_ext,
+                'file_url': None  # Will be set after saving
+            }
+        
+        # Content is optional when sending attachments
+        content = validated_data.get('content', '') or ''
+        
         message = Message.objects.create(
             conversation=conversation,
             sender=request.user,
             recipient=recipient,
-            content=validated_data['content'],
-            message_type=validated_data.get('message_type', 'text')
+            content=content,
+            message_type=message_type,
+            attachment=attachment,
+            metadata=metadata
         )
+        
+        # Update metadata with file URL if attachment exists
+        if attachment:
+            # Get the full URL for the attachment
+            file_url = request.build_absolute_uri(message.attachment.url)
+            message.metadata['file_url'] = file_url
+            message.save()
         
         # Update conversation's last message
         conversation.last_message = message

@@ -15,6 +15,7 @@ interface TicketDetailModalProps {
   ticketId: string | null;
   isAdmin?: boolean;
   onTicketUpdated?: () => void;
+  templateText?: string;
 }
 
 interface Ticket {
@@ -41,7 +42,8 @@ export function TicketDetailModal({
   onClose, 
   ticketId, 
   isAdmin = false, 
-  onTicketUpdated 
+  onTicketUpdated,
+  templateText
 }: TicketDetailModalProps) {
   const { toast } = useToast();
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -191,6 +193,41 @@ export function TicketDetailModal({
     }
   };
 
+  const handleReopenTicket = async () => {
+    if (!ticketId) return;
+    
+    try {
+      const response = await ticketService.reopenTicket(ticketId);
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket reopened successfully"
+        });
+        
+        // Update local ticket data
+        setTicket(prev => prev ? { ...prev, status: 'open', closed_at: null } : null);
+        
+        // Notify parent component
+        if (onTicketUpdated) {
+          onTicketUpdated();
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to reopen ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error reopening ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reopen ticket",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusDisplay = (status: string) => {
     switch (status) {
       case 'open': return 'Open';
@@ -294,6 +331,7 @@ export function TicketDetailModal({
                   ticketId={ticketId}
                   isAdmin={isAdmin}
                   onMessageSent={handleMessageSent}
+                  templateText={templateText}
                 />
               </div>
 
@@ -390,6 +428,16 @@ export function TicketDetailModal({
                             className="w-full"
                           >
                             Close Ticket
+                          </Button>
+                        )}
+
+                        {ticket.status === "closed" && (
+                          <Button
+                            onClick={handleReopenTicket}
+                            variant="default"
+                            className="w-full bg-accent text-bg hover:bg-accent-2"
+                          >
+                            Reopen Ticket
                           </Button>
                         )}
 

@@ -80,6 +80,7 @@ export default function AdminListings() {
       website: "",
       description: "",
       vendor: "",
+      category: "",
       account_type: "social",
       access_type: "full_ownership",
       access_method: "email_password",
@@ -107,8 +108,8 @@ export default function AdminListings() {
       }
 
       // Validate required fields
-      if (!data.title || !data.website || !data.description || !data.vendor || !data.account_type || !data.access_type || !data.delivery_time) {
-        toast({ title: 'Validation Error', description: 'Please fill all required fields', variant: 'destructive' });
+      if (!data.title || !data.website || !data.description || !data.vendor || !data.category || !data.account_type || !data.access_type || !data.delivery_time) {
+        toast({ title: 'Validation Error', description: 'Please fill all required fields including category', variant: 'destructive' });
         return;
       }
 
@@ -117,6 +118,7 @@ export default function AdminListings() {
       formDataPayload.append('headline', data.title || '');
       formDataPayload.append('website', data.website || '');
       formDataPayload.append('description', data.description || '');
+      formDataPayload.append('category_id', data.category || '');
       formDataPayload.append('account_type', data.account_type || 'social');
       formDataPayload.append('access_type', data.access_type || 'full_ownership');
       formDataPayload.append('access_method', data.access_method || 'email_password');
@@ -170,6 +172,14 @@ export default function AdminListings() {
   const [vendorLoading, setVendorLoading] = useState(false);
   const vendorSearchTimeout = useRef<number | null>(null as any);
 
+  // Category management state
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryDescription, setCategoryDescription] = useState('');
+  const [categorySortOrder, setCategorySortOrder] = useState(0);
+
   const fetchVendors = async (search: string = '') => {
     try {
       setVendorLoading(true);
@@ -220,6 +230,7 @@ export default function AdminListings() {
   const [isLoading, setIsLoading] = useState(true);
   const [rejectionReason, setRejectionReason] = useState("");
   const [currentFilter, setCurrentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
   const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
@@ -252,15 +263,152 @@ export default function AdminListings() {
     }
   });
 
-  // Fetch pending products
+  // Fetch pending products and categories
   useEffect(() => {
     fetchAllProducts();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const token = authService.getToken() || localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/products/categories/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.data || data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!categoryName.trim()) {
+      toast({ title: 'Error', description: 'Category name is required', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const token = authService.getToken() || localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/products/categories/create/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: categoryName,
+          description: categoryDescription,
+          sort_order: categorySortOrder,
+        }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        toast({ title: 'Success', description: 'Category created successfully' });
+        setCategoryModalOpen(false);
+        setCategoryName('');
+        setCategoryDescription('');
+        setCategorySortOrder(0);
+        fetchCategories();
+      } else {
+        toast({ title: 'Error', description: result.message || 'Failed to create category', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+      toast({ title: 'Error', description: 'Failed to create category', variant: 'destructive' });
+    }
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !categoryName.trim()) {
+      toast({ title: 'Error', description: 'Category name is required', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const token = authService.getToken() || localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/products/categories/${editingCategory.id}/update/`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: categoryName,
+          description: categoryDescription,
+          sort_order: categorySortOrder,
+        }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        toast({ title: 'Success', description: 'Category updated successfully' });
+        setCategoryModalOpen(false);
+        setEditingCategory(null);
+        setCategoryName('');
+        setCategoryDescription('');
+        setCategorySortOrder(0);
+        fetchCategories();
+      } else {
+        toast({ title: 'Error', description: result.message || 'Failed to update category', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      toast({ title: 'Error', description: 'Failed to update category', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    try {
+      const token = authService.getToken() || localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/products/categories/${categoryId}/delete/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        toast({ title: 'Success', description: 'Category deleted successfully' });
+        fetchCategories();
+      } else {
+        const result = await response.json();
+        toast({ title: 'Error', description: result.message || 'Failed to delete category', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast({ title: 'Error', description: 'Failed to delete category', variant: 'destructive' });
+    }
+  };
+
+  const openEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setCategoryName(category.name || '');
+    setCategoryDescription(category.description || '');
+    setCategorySortOrder(category.sort_order || 0);
+    setCategoryModalOpen(true);
+  };
 
   // Reset to first page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [currentFilter]);
+  }, [currentFilter, selectedCategoryFilter]);
 
   const fetchAllProducts = async () => {
     try {
@@ -635,7 +783,7 @@ export default function AdminListings() {
     }
   };
 
-  // Filter products based on current filter and search
+  // Filter products based on current filter, category, and search
   const getFilteredProducts = () => {
     let filtered = allProducts;
     
@@ -646,6 +794,14 @@ export default function AdminListings() {
       filtered = filtered.filter(product => product.status === 'approved');
     } else if (currentFilter === 'rejected') {
       filtered = filtered.filter(product => product.status === 'rejected');
+    }
+    
+    // Apply category filter
+    if (selectedCategoryFilter && selectedCategoryFilter !== 'all') {
+      filtered = filtered.filter(product => {
+        const productCategoryId = product.category?.id || product.category;
+        return productCategoryId === selectedCategoryFilter || productCategoryId?.toString() === selectedCategoryFilter;
+      });
     }
     
     // Apply search filter
@@ -724,6 +880,15 @@ export default function AdminListings() {
             <p className="text-gray-300 mt-1">Manage all marketplace product listings</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              setEditingCategory(null);
+              setCategoryName('');
+              setCategoryDescription('');
+              setCategorySortOrder(0);
+              setCategoryModalOpen(true);
+            }}>
+              <Tag className="mr-2 h-4 w-4" /> Manage Categories
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setCreateListingModalOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Add Product
             </Button>
@@ -795,6 +960,25 @@ export default function AdminListings() {
                     <div>
                       <Label className="text-sm">Description *</Label>
                       <Textarea {...createForm.register('description', { required: true })} placeholder="Detailed description of the account" rows={3} className="text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Category *</Label>
+                      <Select 
+                        value={createForm.watch('category')} 
+                        onValueChange={(v) => createForm.setValue('category', v)}
+                      >
+                        <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-surface-2 border-border">
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1030,13 +1214,26 @@ export default function AdminListings() {
               <div className="flex gap-2">
                 <Select value={currentFilter} onValueChange={(value: any) => setCurrentFilter(value)}>
                   <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
-                    <SelectValue placeholder="Filter" />
+                    <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="bg-surface-2 border-border">
-                    <SelectItem value="all" className="text-white">All Products</SelectItem>
+                    <SelectItem value="all" className="text-white">All Status</SelectItem>
                     <SelectItem value="pending" className="text-white">Pending Review</SelectItem>
                     <SelectItem value="approved" className="text-white">Approved</SelectItem>
                     <SelectItem value="rejected" className="text-white">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedCategoryFilter} onValueChange={(value: any) => setSelectedCategoryFilter(value)}>
+                  <SelectTrigger className="w-48 bg-surface-2 border-border text-white">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-surface-2 border-border">
+                    <SelectItem value="all" className="text-white">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id} className="text-white">
+                        {cat.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1090,6 +1287,7 @@ export default function AdminListings() {
                 <thead className="bg-surface-2">
                   <tr>
                     <th className="text-left p-3 text-xs font-medium text-gray-300">Product</th>
+                    <th className="text-left p-3 text-xs font-medium text-gray-300">Category</th>
                     <th className="text-left p-3 text-xs font-medium text-gray-300">Vendor</th>
                     <th className="text-left p-3 text-xs font-medium text-gray-300">Status</th>
                     <th className="text-left p-3 text-xs font-medium text-gray-300">Price</th>
@@ -1126,6 +1324,11 @@ export default function AdminListings() {
                             <p className="text-gray-400 text-sm truncate">{product.website || 'No website'}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="outline" className="text-purple-400 border-purple-400">
+                          {product.category?.name || 'No Category'}
+                        </Badge>
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.vendor_username}</span>
@@ -1794,6 +1997,112 @@ export default function AdminListings() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Category Management Modal */}
+        <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
+          <DialogContent className="max-w-2xl bg-card text-white border border-gray-600/30">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-white">
+                {editingCategory ? 'Edit Category' : 'Create Category'}
+              </DialogTitle>
+              <DialogDescription className="text-gray-400">
+                {editingCategory ? 'Update category details' : 'Add a new product category'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-300">Category Name *</Label>
+                <Input
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  placeholder="e.g., Social Media Accounts"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-300">Description</Label>
+                <Textarea
+                  value={categoryDescription}
+                  onChange={(e) => setCategoryDescription(e.target.value)}
+                  placeholder="Category description (optional)"
+                  rows={3}
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-300">Sort Order</Label>
+                <Input
+                  type="number"
+                  value={categorySortOrder}
+                  onChange={(e) => setCategorySortOrder(parseInt(e.target.value) || 0)}
+                  placeholder="0"
+                  className="bg-gray-800 border-gray-600 text-white mt-1"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCategoryModalOpen(false);
+                    setEditingCategory(null);
+                    setCategoryName('');
+                    setCategoryDescription('');
+                    setCategorySortOrder(0);
+                  }}
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={editingCategory ? handleUpdateCategory : handleCreateCategory}
+                  className="bg-accent text-bg hover:bg-accent-2"
+                >
+                  {editingCategory ? 'Update Category' : 'Create Category'}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-6 border-t border-gray-600/30 pt-4">
+              <h3 className="text-lg font-semibold text-white mb-4">Existing Categories</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {categories.length === 0 ? (
+                  <p className="text-gray-400 text-center py-4">No categories yet</p>
+                ) : (
+                  categories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg border border-gray-600/20"
+                    >
+                      <div>
+                        <p className="text-white font-medium">{cat.name}</p>
+                        {cat.description && (
+                          <p className="text-gray-400 text-sm">{cat.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditCategory(cat)}
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
   );

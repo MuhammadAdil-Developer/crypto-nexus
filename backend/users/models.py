@@ -29,6 +29,13 @@ class User(AbstractUser, BaseModel):
     
     # Vendor-specific fields
     escrow_enabled = models.BooleanField(default=False)  # Enable escrow for all vendor products
+    
+    # Buyer payout addresses
+    btc_payout_address = models.CharField(max_length=120, blank=True, null=True)
+    xmr_payout_address = models.CharField(max_length=120, blank=True, null=True)
+    
+    # Blocked users - users that this user has blocked
+    blocked_users = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='blocked_by')
 
     # Make username the primary field for authentication
     USERNAME_FIELD = 'username'

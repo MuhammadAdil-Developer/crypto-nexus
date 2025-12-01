@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { 
   Search, 
   Loader2, 
@@ -13,7 +15,8 @@ import {
   CheckCircle, 
   Clock, 
   AlertCircle,
-  Download,
+  RefreshCw,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -25,20 +28,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import refundService, { Refund } from "@/services/refundService";
-import { useToast } from "@/components/ui/ToastContainer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { refundService, RefundRequest } from "@/services/refundService";
+import { useToast } from "@/hooks/use-toast";
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
-    case "pending":
+    case "pending_vendor":
       return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-    case "approved":
+    case "vendor_approved":
+      return "bg-green-500/20 text-green-400 border-green-500/30";
+    case "vendor_rejected":
+      return "bg-red-500/20 text-red-400 border-red-500/30";
+    case "disputed":
+      return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+    case "admin_approved":
       return "bg-blue-500/20 text-blue-400 border-blue-500/30";
     case "completed":
       return "bg-green-500/20 text-green-400 border-green-500/30";
-    case "rejected":
-      return "bg-red-500/20 text-red-400 border-red-500/30";
     default:
       return "bg-gray-500/20 text-gray-400 border-gray-500/30";
   }
@@ -46,136 +53,259 @@ const getStatusColor = (status: string) => {
 
 const getStatusIcon = (status: string) => {
   switch (status.toLowerCase()) {
-    case "pending":
+    case "pending_vendor":
       return <Clock className="w-3 h-3 sm:w-4 sm:h-4" />;
-    case "approved":
+    case "vendor_approved":
       return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
+    case "vendor_rejected":
+      return <X className="w-3 h-3 sm:w-4 sm:h-4" />;
+    case "disputed":
+      return <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4" />;
+    case "admin_approved":
+      return <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
     case "completed":
       return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
-    case "rejected":
-      return <X className="w-3 h-3 sm:w-4 sm:h-4" />;
     default:
       return <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
   }
 };
 
-const getRefundTypeColor = (type: string) => {
-  return type === "full" 
-    ? "bg-red-500/20 text-red-400 border-red-500/30"
-    : "bg-orange-500/20 text-orange-400 border-orange-500/30";
-};
-
 export default function VendorRefunds() {
-  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [refunds, setRefunds] = useState<RefundRequest[]>([]);
+  const [pendingRefunds, setPendingRefunds] = useState<any>({ pending_decision: [], pending_refund: [] });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedRefund, setSelectedRefund] = useState<Refund | null>(null);
+  const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [refundStats, setRefundStats] = useState({
-    total_refunds: 0,
-    pending_refunds: 0,
-    completed_refunds: 0,
-    total_refunded_amount: "0"
-  });
+  const [isApproveOpen, setIsApproveOpen] = useState(false);
+  const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [isProcessOpen, setIsProcessOpen] = useState(false);
+  const [approveNotes, setApproveNotes] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [processNotes, setProcessNotes] = useState("");
+  const [paymentSource, setPaymentSource] = useState<'platform' | 'external'>('platform');
+  const [externalWalletAddress, setExternalWalletAddress] = useState("");
+  const [transactionHashValue, setTransactionHashValue] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  const { showToast } = useToast();
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchRefunds();
-    fetchStats();
+    fetchPendingRefunds();
   }, []);
 
   const fetchRefunds = async () => {
     try {
       setIsLoading(true);
-      const result = await refundService.getVendorRefunds(currentPage, itemsPerPage);
+      const result = await refundService.getVendorRefundRequests(1, 100, statusFilter === "all" ? undefined : statusFilter);
       if (result.success) {
         setRefunds(result.data || []);
       } else {
-        showToast({
+        toast({
           title: "Error",
-          message: "Failed to fetch refunds",
-          type: "error"
+          description: "Failed to fetch refunds",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error('Error fetching refunds:', error);
-      showToast({
+      toast({
         title: "Error",
-        message: "Failed to fetch refunds",
-        type: "error"
+        description: "Failed to fetch refunds",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchStats = async () => {
+  const fetchPendingRefunds = async () => {
     try {
-      const result = await refundService.getRefundStats();
+      const result = await refundService.getVendorPendingRefunds();
       if (result.success) {
-        setRefundStats(result as any);
+        setPendingRefunds(result.data || { pending_decision: [], pending_refund: [] });
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching pending refunds:', error);
     }
   };
 
-  const handleViewDetails = (refund: Refund) => {
-    setSelectedRefund(refund);
-    setIsDetailsOpen(true);
-  };
+  const handleApprove = async () => {
+    if (!selectedRefund) return;
 
-  const handleCancelRefund = async (refundId: string) => {
-    if (!confirm('Are you sure you want to cancel this refund request?')) return;
-
-    setIsCancelling(true);
-    try {
-      const result = await refundService.cancelRefundRequest(refundId);
-      if (result.success) {
-        showToast({
-          title: "Cancelled",
-          message: "Refund request cancelled successfully",
-          type: "success"
-        });
-        fetchRefunds();
-      } else {
-        showToast({
+    if (paymentSource === 'external') {
+      if (!transactionHashValue.trim()) {
+        toast({
           title: "Error",
-          message: result.message || "Failed to cancel refund",
-          type: "error"
+          description: "Please enter the external transaction hash",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!externalWalletAddress.trim()) {
+        toast({
+          title: "Error",
+          description: "Please provide the wallet address you used for the external refund",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    try {
+      setIsProcessing(true);
+      const result = await refundService.approveRefund(selectedRefund.id, {
+        notes: approveNotes,
+        payment_source: paymentSource,
+        transaction_hash: paymentSource === 'external' ? transactionHashValue.trim() : undefined,
+        external_wallet_address: paymentSource === 'external' ? externalWalletAddress.trim() : undefined,
+      });
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Refund approved successfully",
+        });
+        setIsApproveOpen(false);
+        setApproveNotes("");
+        setTransactionHashValue("");
+        setExternalWalletAddress("");
+        setPaymentSource('platform');
+        setSelectedRefund(null);
+        fetchRefunds();
+        fetchPendingRefunds();
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to approve refund",
+          variant: "destructive",
         });
       }
     } catch (error: any) {
-      showToast({
+      toast({
         title: "Error",
-        message: "Failed to cancel refund request",
-        type: "error"
+        description: error.response?.data?.message || "Failed to approve refund",
+        variant: "destructive",
       });
     } finally {
-      setIsCancelling(false);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedRefund || !rejectReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a rejection reason",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const result = await refundService.rejectRefund(selectedRefund.id, rejectReason);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Refund rejected. Buyer can open a dispute if needed.",
+        });
+        setIsRejectOpen(false);
+        setRejectReason("");
+        setSelectedRefund(null);
+        fetchRefunds();
+        fetchPendingRefunds();
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to reject refund",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to reject refund",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleProcessRefund = async () => {
+    if (!selectedRefund) return;
+
+    if (paymentSource === 'external') {
+      if (!transactionHashValue.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter the external transaction hash",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!externalWalletAddress.trim()) {
+        toast({
+          title: "Error",
+          description: "Please provide the wallet address you used for the external refund",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    try {
+      setIsProcessing(true);
+      const result = await refundService.processRefund(selectedRefund.id, {
+        transaction_hash: paymentSource === 'external' ? transactionHashValue.trim() : undefined,
+        notes: processNotes,
+        payment_source: paymentSource,
+        external_wallet_address: paymentSource === 'external' ? externalWalletAddress.trim() : undefined,
+      });
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Refund processed successfully. Amount credited to buyer's wallet.",
+        });
+        setIsProcessOpen(false);
+        setProcessNotes("");
+        setTransactionHashValue("");
+        setExternalWalletAddress("");
+        setPaymentSource('platform');
+        setSelectedRefund(null);
+        fetchRefunds();
+        fetchPendingRefunds();
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to process refund",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to process refund",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const filteredRefunds = refunds.filter(refund => {
     const matchesSearch = 
       refund.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      refund.buyer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (refund.buyer || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       refund.reason.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || refund.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const totalPages = Math.ceil(filteredRefunds.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const displayedRefunds = filteredRefunds.slice(startIndex, endIndex);
+  const totalPendingDecision = pendingRefunds.pending_decision?.length || 0;
+  const totalPendingRefund = pendingRefunds.pending_refund?.length || 0;
 
   return (
     <>
@@ -183,48 +313,88 @@ export default function VendorRefunds() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Refund Requests</h1>
-            <p className="text-gray-400 text-sm sm:text-base">Track and manage your refund requests</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Refund Management</h1>
+            <p className="text-gray-400 text-sm sm:text-base">Manage buyer refund requests and process refunds</p>
           </div>
           <Button 
             variant="outline" 
             size="sm" 
             className="w-full sm:w-auto text-xs sm:text-sm border-gray-600 text-gray-300 hover:bg-gray-700"
-            onClick={fetchRefunds}
+            onClick={() => {
+              fetchRefunds();
+              fetchPendingRefunds();
+            }}
             disabled={isLoading}
           >
-            <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Export</span>
+            <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 sm:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-white">{refundStats.total_refunds}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Refunds</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-yellow-700 bg-yellow-900/20 backdrop-blur-sm">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-yellow-400">{refundStats.pending_refunds}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Pending</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-green-700 bg-green-900/20 backdrop-blur-sm">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-green-400">{refundStats.completed_refunds}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Completed</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-blue-700 bg-blue-900/20 backdrop-blur-sm col-span-2 lg:col-span-1">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-lg sm:text-xl font-bold text-blue-400 break-words">{refundStats.total_refunded_amount}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Refunded</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Urgent Alerts */}
+        {(totalPendingDecision > 0 || totalPendingRefund > 0) && (
+          <div className="space-y-3">
+            {totalPendingDecision > 0 && (
+              <Card className="border-yellow-500/50 bg-yellow-900/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                      <div>
+                        <p className="text-yellow-400 font-semibold">
+                          {totalPendingDecision} Refund Request{totalPendingDecision > 1 ? 's' : ''} Pending Your Decision
+                        </p>
+                        <p className="text-yellow-300/70 text-sm">
+                          You have 48 hours to approve or reject these requests
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setStatusFilter('pending_vendor')}
+                      className="border-yellow-400 text-yellow-400 hover:bg-yellow-400/20"
+                    >
+                      View All
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {totalPendingRefund > 0 && (
+              <Card className="border-red-500/50 bg-red-900/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-400" />
+                      <div>
+                        <p className="text-red-400 font-semibold">
+                          {totalPendingRefund} Refund{totalPendingRefund > 1 ? 's' : ''} Requiring Processing
+                        </p>
+                        <p className="text-red-300/70 text-sm">
+                          Admin resolved dispute in buyer's favor. Please process refund immediately.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Filter to show only pending refunds
+                        const pending = refunds.filter(r => r.vendor_refund_required && !r.vendor_refund_completed);
+                        setRefunds(pending);
+                      }}
+                      className="border-red-400 text-red-400 hover:bg-red-400/20"
+                    >
+                      View All
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Filters */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm">
@@ -247,10 +417,12 @@ export default function VendorRefunds() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="pending_vendor">Pending Decision</SelectItem>
+                  <SelectItem value="vendor_approved">Approved</SelectItem>
+                  <SelectItem value="vendor_rejected">Rejected</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
+                  <SelectItem value="admin_approved">Admin Approved</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -275,10 +447,10 @@ export default function VendorRefunds() {
                 <div className="text-center py-8 sm:py-12">
                   <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-500 mx-auto mb-3 sm:mb-4" />
                   <h3 className="text-base sm:text-lg font-medium text-white mb-2">No refunds found</h3>
-                  <p className="text-gray-400 text-sm sm:text-base">You haven't requested any refunds yet.</p>
+                  <p className="text-gray-400 text-sm sm:text-base">No refund requests at this time.</p>
                 </div>
               ) : (
-                displayedRefunds.map((refund) => (
+                filteredRefunds.map((refund) => (
                   <div 
                     key={refund.id} 
                     className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
@@ -291,12 +463,26 @@ export default function VendorRefunds() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
                           <h3 className="font-semibold text-white text-sm sm:text-base truncate">Order: {refund.order_id}</h3>
-                          <Badge className={`text-[10px] sm:text-xs border ${getRefundTypeColor(refund.refund_type)}`}>
-                            {refund.refund_type === 'full' ? 'Full' : 'Partial'} Refund
+                          <Badge className={`text-[10px] sm:text-xs border ${getStatusColor(refund.status)}`}>
+                            <span className="mr-1">
+                              {getStatusIcon(refund.status)}
+                            </span>
+                            {refund.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </Badge>
+                          {refund.vendor_refund_required && !refund.vendor_refund_completed && (
+                            <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px] sm:text-xs">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Action Required
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">Reason: {refund.reason}</p>
-                        <p className="text-xs sm:text-sm text-gray-400">Buyer: {refund.buyer}</p>
+                        <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">Buyer: {refund.buyer}</p>
+                        <p className="text-xs sm:text-sm text-gray-400 break-words">Reason: {refund.reason}</p>
+                        {refund.vendor_decision_deadline && (
+                          <p className="text-xs text-yellow-400 mt-1">
+                            Decision deadline: {new Date(refund.vendor_decision_deadline).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -306,16 +492,55 @@ export default function VendorRefunds() {
                         <div className="text-xs sm:text-sm text-gray-400">{refund.crypto_currency}</div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(refund.status)}`}>
-                          <span className="mr-1">
-                            {getStatusIcon(refund.status)}
-                          </span>
-                          {refund.status.charAt(0).toUpperCase() + refund.status.slice(1)}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center space-x-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {refund.status === 'pending_vendor' && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRefund(refund);
+                                setPaymentSource('platform');
+                                setTransactionHashValue("");
+                                setExternalWalletAddress("");
+                                setIsApproveOpen(true);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                setSelectedRefund(refund);
+                                setIsRejectOpen(true);
+                              }}
+                              className="text-xs"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {refund.vendor_refund_required && !refund.vendor_refund_completed && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setSelectedRefund(refund);
+                              setPaymentSource('platform');
+                              setTransactionHashValue("");
+                              setExternalWalletAddress("");
+                              setProcessNotes("");
+                              setIsProcessOpen(true);
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Process Refund
+                          </Button>
+                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -323,20 +548,13 @@ export default function VendorRefunds() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
-                            <DropdownMenuItem onClick={() => handleViewDetails(refund)}>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedRefund(refund);
+                              setIsDetailsOpen(true);
+                            }}>
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            {refund.status === 'pending' && (
-                              <DropdownMenuItem 
-                                onClick={() => handleCancelRefund(refund.id)}
-                                className="text-red-600"
-                                disabled={isCancelling}
-                              >
-                                <X className="w-4 h-4 mr-2" />
-                                {isCancelling ? 'Cancelling...' : 'Cancel Request'}
-                              </DropdownMenuItem>
-                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -345,66 +563,13 @@ export default function VendorRefunds() {
                 ))
               )}
             </div>
-
-            {/* Pagination */}
-            {filteredRefunds.length > 0 && (
-              <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-700">
-                <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredRefunds.length)} of {filteredRefunds.length}
-                </div>
-
-                <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap justify-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
-                  >
-                    <ChevronsLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                  </Button>
-
-                  <span className="text-xs sm:text-sm text-gray-400 px-2">
-                    Page {currentPage} of {totalPages}
-                  </span>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
-                  >
-                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50 h-8 w-8 p-0"
-                  >
-                    <ChevronsRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Refund Details Modal */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="bg-gray-900 border border-gray-700 max-w-2xl">
+        <DialogContent className="bg-gray-900 border border-gray-700 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">Refund Request Details</DialogTitle>
           </DialogHeader>
@@ -427,14 +592,14 @@ export default function VendorRefunds() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Type:</span>
-                      <Badge className={`text-[10px] sm:text-xs border ${getRefundTypeColor(selectedRefund.refund_type)}`}>
+                      <Badge className={`text-[10px] sm:text-xs border ${selectedRefund.refund_type === 'full' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
                         {selectedRefund.refund_type === 'full' ? 'Full' : 'Partial'}
                       </Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Status:</span>
                       <Badge className={`text-[10px] sm:text-xs border ${getStatusColor(selectedRefund.status)}`}>
-                        {selectedRefund.status.charAt(0).toUpperCase() + selectedRefund.status.slice(1)}
+                        {selectedRefund.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </Badge>
                     </div>
                   </CardContent>
@@ -457,6 +622,12 @@ export default function VendorRefunds() {
                       <span className="text-gray-400 text-xs sm:text-sm">Created:</span>
                       <span className="text-white text-xs sm:text-sm">{new Date(selectedRefund.created_at).toLocaleString()}</span>
                     </div>
+                    {selectedRefund.vendor_decision_deadline && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400 text-xs sm:text-sm">Decision Deadline:</span>
+                        <span className="text-yellow-400 text-xs sm:text-sm">{new Date(selectedRefund.vendor_decision_deadline).toLocaleString()}</span>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -470,29 +641,352 @@ export default function VendorRefunds() {
                 </CardContent>
               </Card>
 
-              {selectedRefund.notes && (
+              {(selectedRefund.buyer_btc_payout_address || selectedRefund.buyer_xmr_payout_address) && (
                 <Card className="bg-gray-800 border-gray-700">
                   <CardHeader className="p-3 sm:p-4">
-                    <CardTitle className="text-sm sm:text-base text-white">Additional Notes</CardTitle>
+                    <CardTitle className="text-sm sm:text-base text-white">Buyer Payout Addresses</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 sm:p-4">
-                    <p className="text-gray-300 text-xs sm:text-sm">{selectedRefund.notes}</p>
+                  <CardContent className="p-3 sm:p-4 space-y-2">
+                    {selectedRefund.buyer_btc_payout_address && (
+                      <div>
+                        <span className="text-xs text-gray-400 block mb-1">BTC Address:</span>
+                        <p className="text-white text-xs sm:text-sm font-mono break-all">
+                          {selectedRefund.buyer_btc_payout_address}
+                        </p>
+                      </div>
+                    )}
+                    {selectedRefund.buyer_xmr_payout_address && (
+                      <div>
+                        <span className="text-xs text-gray-400 block mb-1">XMR Address:</span>
+                        <p className="text-white text-xs sm:text-sm font-mono break-all">
+                          {selectedRefund.buyer_xmr_payout_address}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
 
-              {selectedRefund.status === 'rejected' && selectedRefund.rejection_reason && (
-                <Card className="bg-red-900/20 border border-red-500/30">
+              {selectedRefund.vendor_decision_notes && (
+                <Card className="bg-gray-800 border-gray-700">
                   <CardHeader className="p-3 sm:p-4">
-                    <CardTitle className="text-sm sm:text-base text-red-400">Rejection Reason</CardTitle>
+                    <CardTitle className="text-sm sm:text-base text-white">Your Decision Notes</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 sm:p-4">
-                    <p className="text-red-300 text-xs sm:text-sm">{selectedRefund.rejection_reason}</p>
+                    <p className="text-gray-300 text-xs sm:text-sm">{selectedRefund.vendor_decision_notes}</p>
                   </CardContent>
                 </Card>
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Modal */}
+      <Dialog
+        open={isApproveOpen}
+        onOpenChange={(open) => {
+          setIsApproveOpen(open);
+          if (!open) {
+            setApproveNotes("");
+            setTransactionHashValue("");
+            setExternalWalletAddress("");
+            setPaymentSource('platform');
+          }
+        }}
+      >
+        <DialogContent className="bg-gray-900 border border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Approve Refund</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Approving this refund will credit the amount to the buyer's wallet immediately. Choose how you plan to send the funds.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedRefund && (
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-sm">Refund Source</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSource('platform')}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      paymentSource === 'platform'
+                        ? 'border-green-500 bg-green-500/10 text-green-400'
+                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">Platform Wallet</div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Use platform hot wallet to credit buyer (recommended).
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSource('external')}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      paymentSource === 'external'
+                        ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">External Wallet</div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      I will send funds manually and provide transaction hash.
+                    </p>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Buyer payout address ({selectedRefund.crypto_currency}):{" "}
+                  <span className="font-mono text-gray-300">
+                    {selectedRefund.crypto_currency === 'BTC'
+                      ? (selectedRefund.buyer_btc_payout_address || 'Not provided')
+                      : (selectedRefund.buyer_xmr_payout_address || 'Not provided')}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {paymentSource === 'external' && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-gray-300">External Wallet Address *</Label>
+                  <Input
+                    value={externalWalletAddress}
+                    onChange={(e) => setExternalWalletAddress(e.target.value)}
+                    placeholder="Enter the wallet address used for refund"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Transaction Hash *</Label>
+                  <Input
+                    value={transactionHashValue}
+                    onChange={(e) => setTransactionHashValue(e.target.value)}
+                    placeholder="Paste the blockchain transaction hash"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="approveNotes">Notes (Optional)</Label>
+              <Textarea
+                id="approveNotes"
+                value={approveNotes}
+                onChange={(e) => setApproveNotes(e.target.value)}
+                placeholder="Add any notes about this approval..."
+                rows={3}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setIsApproveOpen(false);
+                setApproveNotes("");
+                setTransactionHashValue("");
+                setExternalWalletAddress("");
+                setPaymentSource('platform');
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleApprove} disabled={isProcessing} className="bg-green-600 hover:bg-green-700">
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Approve Refund
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Modal */}
+      <Dialog open={isRejectOpen} onOpenChange={setIsRejectOpen}>
+        <DialogContent className="bg-gray-900 border border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Reject Refund</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Rejecting this refund will allow the buyer to open a dispute if they disagree.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="rejectReason">Rejection Reason *</Label>
+              <Textarea
+                id="rejectReason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Explain why you are rejecting this refund request..."
+                rows={4}
+                required
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setIsRejectOpen(false);
+                setRejectReason("");
+              }}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleReject} disabled={isProcessing || !rejectReason.trim()}>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Reject Refund
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Process Refund Modal */}
+      <Dialog
+        open={isProcessOpen}
+        onOpenChange={(open) => {
+          setIsProcessOpen(open);
+          if (!open) {
+            setProcessNotes("");
+            setTransactionHashValue("");
+            setExternalWalletAddress("");
+            setPaymentSource('platform');
+          }
+        }}
+      >
+        <DialogContent className="bg-gray-900 border border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Process Refund</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Process the refund after admin decision. Choose how you will send the refund amount.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedRefund && (
+              <div className="space-y-2">
+                <Label className="text-gray-300 text-sm">Refund Source</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSource('platform')}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      paymentSource === 'platform'
+                        ? 'border-green-500 bg-green-500/10 text-green-400'
+                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">Platform Wallet</div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Automatically credit buyer via platform wallet.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSource('external')}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      paymentSource === 'external'
+                        ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">External Wallet</div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      I will send funds manually and provide transaction hash.
+                    </p>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Buyer payout address ({selectedRefund.crypto_currency}):{" "}
+                  <span className="font-mono text-gray-300">
+                    {selectedRefund.crypto_currency === 'BTC'
+                      ? (selectedRefund.buyer_btc_payout_address || 'Not provided')
+                      : (selectedRefund.buyer_xmr_payout_address || 'Not provided')}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {paymentSource === 'external' && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-gray-300">External Wallet Address *</Label>
+                  <Input
+                    value={externalWalletAddress}
+                    onChange={(e) => setExternalWalletAddress(e.target.value)}
+                    placeholder="Enter the wallet address used for refund"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Transaction Hash *</Label>
+                  <Input
+                    value={transactionHashValue}
+                    onChange={(e) => setTransactionHashValue(e.target.value)}
+                    placeholder="Paste the blockchain transaction hash"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="processNotes">Notes (Optional)</Label>
+              <Textarea
+                id="processNotes"
+                value={processNotes}
+                onChange={(e) => setProcessNotes(e.target.value)}
+                placeholder="Add any notes about this refund..."
+                rows={3}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+            {selectedRefund && (
+              <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3">
+                <p className="text-yellow-400 text-sm">
+                  <strong>Amount to refund:</strong> {selectedRefund.amount} {selectedRefund.crypto_currency}
+                </p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setIsProcessOpen(false);
+                setProcessNotes("");
+                setTransactionHashValue("");
+                setExternalWalletAddress("");
+                setPaymentSource('platform');
+              }}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleProcessRefund} disabled={isProcessing} className="bg-red-600 hover:bg-red-700">
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Process Refund
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>

@@ -283,6 +283,22 @@ class MessagingService {
               this.onConversationLockedCallback(data.data);
             }
             break;
+          case 'message_edited':
+            // Handle message edit from WebSocket - send to realtimeService
+            if (data.data) {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('message_edited', { detail: data.data }));
+              }
+            }
+            break;
+          case 'message_deleted':
+            // Handle message delete from WebSocket - send to realtimeService
+            if (data.data) {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('message_deleted', { detail: data.data }));
+              }
+            }
+            break;
           case 'error':
             console.error('WebSocket error received:', data);
             break;
@@ -309,96 +325,219 @@ class MessagingService {
     this.conversationId = null;
   }
 
-  async sendMessage(message: string, conversationId?: string): Promise<any> {
+  async sendMessage(message: string, conversationId?: string, attachment?: File): Promise<any> {
     const convId = conversationId || this.conversationId;
     
     if (!convId) {
       throw new Error('No conversation ID available');
     }
 
-    // Always prefer WebSocket for real-time messaging
-    // Ensure WebSocket is connected
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      // Connect or reconnect WebSocket
-      this.connectToConversation(convId);
-      // Wait for connection to establish (up to 2 seconds)
-      let attempts = 0;
-      while ((!this.ws || this.ws.readyState !== WebSocket.OPEN) && attempts < 20) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-    }
-
-    // Try WebSocket first if connected
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      // Create a temporary message object for immediate display
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const tempMessage = {
-        id: `temp_${Date.now()}`,
-        content: message,
-        sender: {
-          id: user.id,
-          username: user.username,
-        },
-        created_at: new Date().toISOString(),
-        message_type: 'text',
-        isTemporary: true
-      };
-      
-      // Immediately show the message to the sender
-      if (this.onMessageCallback) {
-        this.onMessageCallback(tempMessage);
-      }
-      
-      // Send the actual message via WebSocket
-      try {
-        this.ws.send(JSON.stringify({
-          type: 'chat_message',
-          message: message,
-        }));
-        return tempMessage;
-      } catch (error) {
-        // If WebSocket send fails, fallback to REST API
-        return await this.sendMessageViaAPI(convId, message);
-      }
-    } else {
-      // Fallback to REST API if WebSocket connection failed
-      return await this.sendMessageViaAPI(convId, message);
-    }
+    // Always use REST API - WebSocket will deliver the message in real-time
+    // This ensures no duplicate messages and simpler logic
+    return await this.sendMessageViaAPI(convId, message, attachment);
   }
 
-  async sendMessageViaAPI(conversationId: string, content: string): Promise<any> {
+  async sendMessageViaAPI(conversationId: string, content: string, attachment?: File, onProgress?: (progress: number) => void): Promise<any> {
     const token = localStorage.getItem('accessToken');
     const conversationIdStr = String(conversationId);
     
-    const payload = {
-      conversation: conversationIdStr,
-      content: content,
-      message_type: 'text',
-    };
-    
-    const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationIdStr}/messages/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error || errorData.message || 'Failed to send message';
-      throw new Error(errorMessage);
+    if (attachment) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      formData.append('conversation', conversationIdStr);
+      formData.append('content', content || '');
+      formData.append('attachment', attachment);
+      
+      // Use XMLHttpRequest for progress tracking
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable && onProgress) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            onProgress(percentComplete);
+          }
+        });
+        
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              // Don't create temp message here - component already handles it
+              // The real message will come via WebSocket from the server
+              resolve(response);
+            } catch (error) {
+              reject(new Error('Failed to parse response'));
+            }
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(new Error(errorData.error || errorData.message || 'Failed to send message'));
+            } catch {
+              reject(new Error('Failed to send message'));
+            }
+          }
+        });
+        
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error while sending file'));
+        });
+        
+        xhr.open('POST', `${API_BASE_URL}/messaging/conversations/${conversationIdStr}/messages/`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
+      });
+    } else {
+      // Regular JSON payload for text messages
+      const payload = {
+        conversation: conversationIdStr,
+        content: content,
+        message_type: 'text',
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationIdStr}/messages/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || 'Failed to send message';
+        throw new Error(errorMessage);
+      }
+      
+      return await response.json();
     }
-    
-    const messageData = await response.json();
-    
-    // Note: When using REST API, the message will still come through WebSocket
-    // if WebSocket is connected, so we don't need to manually trigger callback here
-    // The WebSocket will broadcast it to all participants including the sender
-    
-    return messageData;
+  }
+  
+  async sendMessageWithAttachment(conversationId: string, content: string, attachment: File, onProgress?: (progress: number) => void): Promise<any> {
+    return await this.sendMessageViaAPI(conversationId, content, attachment, onProgress);
+  }
+  
+  async blockUser(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messaging/users/${userId}/block/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        return { success: true, message: data.message || 'User blocked successfully' };
+      } else {
+        return { success: false, error: data.error || data.message || 'Failed to block user' };
+      }
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      return { success: false, error: 'Network error while blocking user' };
+    }
+  }
+  
+  async unblockUser(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messaging/users/${userId}/unblock/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        return { success: true, message: data.message || 'User unblocked successfully' };
+      } else {
+        return { success: false, error: data.error || data.message || 'Failed to unblock user' };
+      }
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      return { success: false, error: 'Network error while unblocking user' };
+    }
+  }
+  
+  async getBlockedUsers(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messaging/users/blocked/`, {
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        return { success: true, data: data.data || [] };
+      } else {
+        return { success: false, error: data.error || 'Failed to get blocked users' };
+      }
+    } catch (error) {
+      console.error('Error getting blocked users:', error);
+      return { success: false, error: 'Network error while getting blocked users' };
+    }
+  }
+  
+  async reportUser(
+    reportedUserId: string,
+    reason: string,
+    description: string,
+    conversationId?: string,
+    messageId?: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messaging/users/report/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reported_user_id: reportedUserId,
+          reason,
+          description,
+          conversation_id: conversationId,
+          message_id: messageId,
+        }),
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        return { success: true, message: data.message || 'User reported successfully' };
+      } else {
+        return { success: false, error: data.error || data.message || 'Failed to report user' };
+      }
+    } catch (error) {
+      console.error('Error reporting user:', error);
+      return { success: false, error: 'Network error while reporting user' };
+    }
+  }
+  
+  async getUserAttachments(userId: string): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messaging/users/${userId}/attachments/`, {
+        headers: {
+          'Authorization': `Bearer ${this.getToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        return { success: true, data: data.data || [] };
+      } else {
+        return { success: false, error: data.error || 'Failed to get attachments' };
+      }
+    } catch (error) {
+      console.error('Error getting user attachments:', error);
+      return { success: false, error: 'Network error while getting attachments' };
+    }
   }
 
   sendTyping(isTyping: boolean): void {

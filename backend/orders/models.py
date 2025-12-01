@@ -112,26 +112,48 @@ class Order(BaseModel):
 
 
 class OrderDispute(BaseModel):
-    """Model for handling order disputes"""
+    """Model for handling order disputes with admin resolution"""
     
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='dispute')
+    DISPUTE_STATUS = [
+        ('open', 'Open'),
+        ('investigating', 'Investigating'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+    
+    RESOLUTION_TYPES = [
+        ('buyer_wins', 'Buyer Wins - Full Refund'),
+        ('vendor_wins', 'Vendor Wins - No Refund'),
+        ('partial_refund', 'Partial Refund'),
+    ]
+    
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='refund_disputes')
+    refund_request = models.OneToOneField('payments.RefundRequest', on_delete=models.CASCADE, related_name='dispute', null=True, blank=True)
+    initiator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='initiated_refund_disputes')
     
     # Dispute details
     reason = models.TextField()
     evidence = models.JSONField(default=dict)  # Store evidence from both parties
     
-    # Resolution
-    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_disputes')
-    resolution = models.CharField(max_length=20, choices=[
-        ('buyer_wins', 'Buyer Wins'),
-        ('vendor_wins', 'Vendor Wins'),
-        ('partial_refund', 'Partial Refund'),
-    ], blank=True)
+    status = models.CharField(max_length=20, choices=DISPUTE_STATUS, default='open')
+    
+    # Admin resolution
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_refund_disputes')
+    resolution = models.CharField(max_length=20, choices=RESOLUTION_TYPES, blank=True)
+    resolution_amount = models.DecimalField(max_digits=20, decimal_places=8, blank=True, null=True)
     resolution_notes = models.TextField(blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     
+    admin_notes = models.TextField(blank=True)
+    
     class Meta:
         db_table = 'marketplace_order_disputes'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['order']),
+            models.Index(fields=['initiator']),
+        ]
     
     def __str__(self):
-        return f"Dispute for Order {self.order.order_id}" 
+        return f"Dispute for Order {self.order.order_id} - {self.status}" 

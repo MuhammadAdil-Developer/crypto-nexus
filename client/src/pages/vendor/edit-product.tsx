@@ -448,13 +448,10 @@ export default function VendorEditProduct() {
               {(mainImagePreview || (product?.main_image && !mainImage) || (product?.main_images && product.main_images.length > 0 && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview || 
-                      (product?.main_image 
-                        ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
-                        : (product?.main_images && product.main_images.length > 0
-                            ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                            : ''))}
-                    src={mainImagePreview || getImageUrl(product?.main_image)}
+                    src={mainImagePreview || getImageUrl(product?.main_image) || 
+                      (product?.main_images && product.main_images.length > 0
+                        ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                        : '')}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
                     onError={(e) => {

@@ -241,29 +241,92 @@ export default function VendorMessages() {
   const handleProductConversation = async (context: any) => {
     try {
       let convo: any = null;
-      try {
-        convo = await messagingService.getConversationByProduct(context.id);
-      } catch (e) {
-        // If not found and we have a recipient, create it
+      
+      // For refunds/disputes, always create a new conversation (don't reuse existing ones)
+      if (context.isRefund || context.isDispute) {
         if (context.recipientId) {
-          convo = await messagingService.createProductConversation(context.id, context.recipientId);
+          convo = await messagingService.createProductConversation(
+            context.id, 
+            context.recipientId,
+            context.refundId,
+            context.disputeId
+          );
         } else {
-          throw e;
+          throw new Error('Recipient ID required for refund/dispute conversations');
+        }
+      } else {
+        // For regular product conversations, try to find existing first
+        try {
+          convo = await messagingService.getConversationByProduct(context.id);
+        } catch (e) {
+          // If not found and we have a recipient, create it
+          if (context.recipientId) {
+            convo = await messagingService.createProductConversation(context.id, context.recipientId);
+          } else {
+            throw e;
+          }
         }
       }
+      
+      // Load conversations and wait for it to complete
       await loadConversations();
-      // Prefer exact match: same product AND same buyer (recipient)
-      const exact = conversations.find((c: any) =>
-        (c.product?.id === context.id || c.product === context.id) &&
-        (Array.isArray(c.participants) && c.participants.some((p: any) => p.id === context.recipientId))
-      );
-      if (exact) {
-        setAutoSelectConversation(exact.id);
-      } else if (convo) {
-        setAutoSelectConversation(convo.id);
+      
+      // For refunds/disputes, directly select the newly created conversation
+      if (context.isRefund || context.isDispute) {
+        if (convo && convo.id) {
+          // Directly select the conversation instead of waiting for it to appear in list
+          try {
+            // Get full conversation details
+            const fullConvo = await messagingService.getConversation(convo.id);
+            if (fullConvo) {
+              // Update context with conversation ID for badge display
+              if (context.isRefund) {
+                const refundContext = { refundId: context.refundId, conversationId: fullConvo.id };
+                localStorage.setItem('refundContext', JSON.stringify(refundContext));
+              }
+              if (context.isDispute) {
+                const disputeContext = { disputeId: context.disputeId, conversationId: fullConvo.id };
+                localStorage.setItem('disputeContext', JSON.stringify(disputeContext));
+              }
+              
+              // Add it to conversations list if not already there
+              setConversations(prev => {
+                const exists = prev.find(c => c.id === fullConvo.id);
+                if (!exists) {
+                  return [fullConvo, ...prev];
+                }
+                return prev;
+              });
+              // Directly select it
+              handleConversationSelect(fullConvo);
+            } else {
+              // Fallback to auto-select
+              setAutoSelectConversation(convo.id);
+            }
+          } catch (e) {
+            console.error('Error loading conversation details:', e);
+            // Fallback to auto-select
+            setAutoSelectConversation(convo.id);
+          }
+        }
+      } else {
+        // For regular conversations, prefer exact match: same product AND same buyer (recipient)
+        const exact = conversations.find((c: any) =>
+          (c.product?.id === context.id || c.product === context.id) &&
+          (Array.isArray(c.participants) && c.participants.some((p: any) => p.id === context.recipientId))
+        );
+        if (exact) {
+          setAutoSelectConversation(exact.id);
+        } else if (convo) {
+          setAutoSelectConversation(convo.id);
+        }
       }
+      
       if (context.isDispute) {
         toast({ title: 'Dispute Chat', description: `Opened chat for dispute ${context.disputeId}` });
+      }
+      if (context.isRefund) {
+        toast({ title: 'Refund Chat', description: `Opened chat for refund request ${context.refundId}` });
       }
     } catch (error) {
       console.error('Error handling product conversation:', error);
@@ -275,8 +338,11 @@ export default function VendorMessages() {
     if (autoSelectConversation && conversations.length > 0) {
       const convo = conversations.find(c => c.id === autoSelectConversation);
       if (convo) {
-        handleConversationSelect(convo);
-        setAutoSelectConversation(null);
+        // Small delay to ensure everything is ready
+        setTimeout(() => {
+          handleConversationSelect(convo);
+          setAutoSelectConversation(null);
+        }, 100);
       }
     }
   }, [autoSelectConversation, conversations]);
@@ -691,7 +757,7 @@ export default function VendorMessages() {
     }
   };
 
-  // Dispute badge in chat header
+  // Dispute/Refund badge in chat header
   const renderChatHeader = () => {
     return (
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
@@ -699,9 +765,75 @@ export default function VendorMessages() {
           <MessageSquare className="w-5 h-5 text-blue-400" />
           <span className="text-white font-semibold">Conversation</span>
         </div>
-        {selectedConversation?.product && (
-          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
-        )}
+        {(() => {
+          // Check if this conversation was opened with dispute or refund context
+          const disputeContext = localStorage.getItem('disputeContext');
+          const refundContext = localStorage.getItem('refundContext');
+          const productContext = localStorage.getItem('productContext');
+          
+          // Check dispute context
+          if (disputeContext && selectedConversation?.product) {
+            try {
+              const context = JSON.parse(disputeContext);
+              if (context.conversationId === selectedConversation.id && context.disputeId) {
+                return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>;
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
+          // Check refund context
+          if (refundContext && selectedConversation?.product) {
+            try {
+              const context = JSON.parse(refundContext);
+              if (context.conversationId === selectedConversation.id && context.refundId) {
+                return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>;
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
+          // Check product context
+          if (productContext && selectedConversation?.product) {
+            try {
+              const context = JSON.parse(productContext);
+              const matchesProduct = (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id);
+              const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) || 
+                                       (context.recipientId && Array.isArray(selectedConversation.participants) && 
+                                        selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
+              
+              if (matchesProduct && (matchesRecipient || !context.recipientId)) {
+                if (context.isDispute) {
+                  return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>;
+                }
+                if (context.isRefund) {
+                  return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>;
+                }
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
+          // Check messages for refund/dispute metadata (fallback)
+          if (messages && Array.isArray(messages)) {
+            const productRefMessage = messages.find((m: any) => 
+              m.message_type === 'product_reference' && (m.metadata?.refund_id || m.metadata?.dispute_id)
+            );
+            if (productRefMessage) {
+              if (productRefMessage.metadata?.refund_id) {
+                return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>;
+              }
+              if (productRefMessage.metadata?.dispute_id) {
+                return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>;
+              }
+            }
+          }
+          
+          return null;
+        })()}
       </div>
     );
   };
@@ -997,8 +1129,9 @@ export default function VendorMessages() {
                           <span className="truncate">{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
                           {/* Dispute badge - only show if conversation was opened from dispute AND matches current conversation */}
                           {(() => {
-                            // Check if this conversation was opened with dispute context
+                            // Check if this conversation was opened with dispute or refund context
                             const disputeContext = localStorage.getItem('disputeContext');
+                            const refundContext = localStorage.getItem('refundContext');
                             const productContext = localStorage.getItem('productContext');
                             
                             // Only show if we have context AND it matches the current conversation
@@ -1016,18 +1149,64 @@ export default function VendorMessages() {
                               }
                             }
                             
-                            // Also check productContext for dispute flag - only if conversation matches
-                            if (productContext && selectedConversation?.product) {
+                            // Check refund context
+                            if (refundContext && selectedConversation?.product) {
                               try {
-                                const context = JSON.parse(productContext);
-                                // Only show if this conversation was opened from that product context
-                                if (context.isDispute && (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id)) {
+                                const context = JSON.parse(refundContext);
+                                // Only show if conversation ID matches
+                                if (context.conversationId === selectedConversation.id && context.refundId) {
                                   return (
-                                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                    <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
                                   );
                                 }
                               } catch (e) {
                                 // Ignore parse errors
+                              }
+                            }
+                            
+                            // Also check productContext for dispute/refund flag - check by conversation ID or product match
+                            if (productContext && selectedConversation?.product) {
+                              try {
+                                const context = JSON.parse(productContext);
+                                // Check if this conversation matches the context (by product ID and recipient)
+                                const matchesProduct = (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id);
+                                const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) || 
+                                                         (context.recipientId && Array.isArray(selectedConversation.participants) && 
+                                                          selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
+                                
+                                if (matchesProduct && (matchesRecipient || !context.recipientId)) {
+                                  if (context.isDispute) {
+                                    return (
+                                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                    );
+                                  }
+                                  if (context.isRefund) {
+                                    return (
+                                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                // Ignore parse errors
+                              }
+                            }
+                            
+                            // Also check messages for refund/dispute metadata (fallback)
+                            if (selectedConversation?.messages && Array.isArray(selectedConversation.messages)) {
+                              const productRefMessage = selectedConversation.messages.find((m: any) => 
+                                m.message_type === 'product_reference' && (m.metadata?.refund_id || m.metadata?.dispute_id)
+                              );
+                              if (productRefMessage) {
+                                if (productRefMessage.metadata?.refund_id) {
+                                  return (
+                                    <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
+                                  );
+                                }
+                                if (productRefMessage.metadata?.dispute_id) {
+                                  return (
+                                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                  );
+                                }
                               }
                             }
                             
@@ -1136,16 +1315,33 @@ export default function VendorMessages() {
                       const firstMessage = messages.find(m => m.message_type === 'text');
                       const isFirstMessageFromCurrentUser = firstMessage && currentUserId && firstMessage.sender?.id === currentUserId;
                       
+                      // Determine background color based on chat type
+                      const isRefund = message.metadata?.refund_id;
+                      const isDispute = message.metadata?.dispute_id;
+                      let bgColor = 'bg-blue-300/80 border-blue-400/50'; // Normal chat
+                      let textColor = 'text-blue-900';
+                      let borderColor = 'border-blue-400/50';
+                      
+                      if (isRefund) {
+                        bgColor = 'bg-orange-300/80 border-orange-400/50';
+                        textColor = 'text-orange-900';
+                        borderColor = 'border-orange-400/50';
+                      } else if (isDispute) {
+                        bgColor = 'bg-red-300/80 border-red-400/50';
+                        textColor = 'text-red-900';
+                        borderColor = 'border-red-400/50';
+                      }
+                      
                       return (
                         <div key={message.id} className={`flex ${isFirstMessageFromCurrentUser ? 'justify-end' : 'justify-start'} my-4`}>
                           <div className="relative max-w-md">
-                            {/* Clear arrow pointing up */}
-                            <div className={`absolute -top-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
-                              <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-gray-300"></div>
+                            {/* Arrow pointing down */}
+                            <div className={`absolute -bottom-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
+                              <div className={`w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent ${isRefund ? 'border-t-orange-300/80' : isDispute ? 'border-t-red-300/80' : 'border-t-blue-300/80'}`}></div>
                             </div>
                             
-                            {/* Product reference box with grey transparent glass shade */}
-                            <div className="bg-gray-300/80 backdrop-blur-sm text-gray-800 px-4 py-3 rounded-lg border border-gray-400/50 shadow-lg">
+                            {/* Product reference box with color based on chat type */}
+                            <div className={`${bgColor} backdrop-blur-sm ${textColor} px-4 py-3 rounded-lg border ${borderColor} shadow-lg`}>
                               <div className="flex items-center space-x-3">
                                 {message.metadata?.product_image ? (
                                   <img 
@@ -1154,14 +1350,14 @@ export default function VendorMessages() {
                                     className="w-10 h-10 rounded object-cover"
                                   />
                                 ) : (
-                                  <div className="w-10 h-10 rounded bg-gray-400 flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-gray-600" />
+                                  <div className={`w-10 h-10 rounded ${isRefund ? 'bg-orange-400' : isDispute ? 'bg-red-400' : 'bg-blue-400'} flex items-center justify-center`}>
+                                    <Package className={`w-5 h-5 ${isRefund ? 'text-orange-900' : isDispute ? 'text-red-900' : 'text-blue-900'}`} />
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-gray-600 mb-1">This message is related to:</p>
-                                  <h4 className="font-medium text-sm text-gray-800 truncate">{message.metadata?.product_title}</h4>
-                                  <p className="text-xs text-gray-700">${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
+                                  <p className={`text-xs ${isRefund ? 'text-orange-700' : isDispute ? 'text-red-700' : 'text-blue-700'} mb-1`}>This message is related to:</p>
+                                  <h4 className={`font-medium text-sm ${textColor} truncate`}>{message.metadata?.product_title}</h4>
+                                  <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
                                 </div>
                               </div>
                             </div>

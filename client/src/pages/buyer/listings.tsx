@@ -287,19 +287,6 @@ function BuyerListingsContent() {
     return pages;
   };
 
-  if (isLoading) {
-    return (
-      <BuyerLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading listings...</p>
-          </div>
-        </div>
-      </BuyerLayout>
-    );
-  }
-
   return (
     <BuyerLayout>
       <div className="space-y-6">
@@ -414,9 +401,17 @@ function BuyerListingsContent() {
           </div>
         </div>
 
-        {/* Results Count */}
-        <div className="text-sm text-gray-400">
-          Showing {filteredProducts.length} of {products.length} products
+        {/* Results Count + Loading indicator */}
+        <div className="flex items-center justify-between text-sm text-gray-400">
+          <span>
+            Showing {filteredProducts.length} of {products.length} products
+          </span>
+          {isLoading && (
+            <span className="flex items-center gap-2 text-xs text-blue-400">
+              <span className="inline-block h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              Loading page...
+            </span>
+          )}
         </div>
 
         {/* Main Content - Products Grid/List/Table */}
@@ -523,46 +518,53 @@ function BuyerListingsContent() {
             </div>
           )}
         
-          {/* Pagination Controls */}
-          {pagination.total_pages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8 mb-4">
+        {/* Pagination Controls */}
+        {pagination.total_pages > 1 && (
+          <div className="flex flex-col items-center gap-3 mt-8 mb-4">
+            <div className="inline-flex items-center gap-1 bg-gray-900 border border-gray-700 rounded-full px-3 py-1 shadow-lg">
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
+                className="rounded-full text-gray-300 hover:text-white"
               >
-                Previous
+                ‹
               </Button>
-
-              <div className="flex items-center gap-1">
-                {getPageNumbers().map((page, idx) => (
-                  page === "..." ? (
-                    <span key={`dots-${idx}`} className="px-2 text-gray-400">...</span>
-                  ) : (
-                    <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(page as number)}
-                      className={currentPage === page ? "bg-purple-600" : ""}
-                    >
-                      {page}
-                    </Button>
-                  )
-                ))}
-              </div>
-
+              {getPageNumbers().map((page, idx) => (
+                page === "..." ? (
+                  <span key={`dots-${idx}`} className="px-2 text-gray-500">...</span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "ghost"}
+                    size="icon"
+                    onClick={() => handlePageChange(page as number)}
+                    className={`rounded-full w-8 h-8 text-sm ${
+                      currentPage === page
+                        ? "bg-purple-600 text-white"
+                        : "text-gray-300 hover:text-white"
+                    }`}
+                  >
+                    {page}
+                  </Button>
+                )
+              ))}
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === pagination.total_pages}
+                className="rounded-full text-gray-300 hover:text-white"
               >
-                Next
+                ›
               </Button>
             </div>
-          )}
+            <div className="text-xs text-gray-500">
+              Page {currentPage} of {pagination.total_pages}
+            </div>
+          </div>
+        )}
         </div>
         
         {/* Cart Sidebar */}

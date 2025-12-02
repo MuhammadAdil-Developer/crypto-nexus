@@ -17,12 +17,16 @@ export function BuyerCountsProvider({ children }: { children: React.ReactNode })
     messages: 0,
     orders: 0,
     support: 0,
+    billing: 0,
+    refunds: 0,
   });
   
   const [localCounts, setLocalCounts] = useState<BuyerCounts>({
     messages: 0,
     orders: 0,
     support: 0,
+    billing: 0,
+    refunds: 0,
   });
   
   // Track baseline counts when pages are visited (to calculate new items since visit)
@@ -99,6 +103,10 @@ export function BuyerCountsProvider({ children }: { children: React.ReactNode })
       resetCountForKey('orders');
     } else if (path === '/buyer/support') {
       resetCountForKey('support');
+    } else if (path === '/buyer/billing') {
+      resetCountForKey('billing');
+    } else if (path === '/buyer/refund-requests') {
+      resetCountForKey('refunds');
     }
   }, [location.pathname, resetCount]);
 

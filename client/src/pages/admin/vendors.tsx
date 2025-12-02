@@ -39,6 +39,7 @@ interface VendorApplication {
   created_at: string;
   created_at_formatted: string;
   updated_at: string;
+  non_escrow_blocked?: boolean; // Admin can block vendor from creating non-escrow listings
   
   // Enhanced fields
   sub_category?: string;
@@ -315,6 +316,89 @@ export default function AdminVendors() {
   const closeImageViewer = () => {
     setIsImageViewerOpen(false);
     setSelectedImage(null);
+  };
+
+  // Toggle non-escrow block for vendor
+  const handleToggleNonEscrowBlock = async (vendor: VendorApplication) => {
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please login again to continue",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get vendor user by username
+      const userResponse = await fetch(`${API_BASE_URL}/users/?username=${vendor.vendor_username}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch vendor user');
+      }
+
+      const userData = await userResponse.json();
+      let vendorUser = null;
+
+      if (userData.success && userData.data?.users) {
+        vendorUser = userData.data.users.find((u: any) => u.username === vendor.vendor_username);
+      } else if (userData.results) {
+        vendorUser = userData.results.find((u: any) => u.username === vendor.vendor_username);
+      }
+
+      if (!vendorUser) {
+        toast({
+          title: "Error",
+          description: "Vendor user not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Toggle non_escrow_blocked
+      const newValue = !vendorUser.non_escrow_blocked;
+      const updateResponse = await fetch(`${API_BASE_URL}/users/${vendorUser.id}/admin-update/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          non_escrow_blocked: newValue
+        })
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        throw new Error(errorData.message || 'Failed to update vendor settings');
+      }
+
+      // Update local state
+      setApplications(prev => prev.map(app => 
+        app.id === vendor.id 
+          ? { ...app, non_escrow_blocked: newValue }
+          : app
+      ));
+
+      toast({
+        title: "Success",
+        description: newValue 
+          ? "Vendor is now blocked from creating non-escrow listings" 
+          : "Vendor can now create non-escrow listings",
+      });
+    } catch (error: any) {
+      console.error('Error toggling non-escrow block:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update vendor settings",
+        variant: "destructive",
+      });
+    }
   };
 
   // Invite Vendor Handler
@@ -797,14 +881,16 @@ export default function AdminVendors() {
                                 <Eye className="w-4 h-4 mr-1" />
                                 View Details
                               </Button>
-                              {/* <Button 
+                              <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="border-border hover:bg-surface-2 text-gray-300" 
-                                data-testid={`edit-approved-vendor-${vendor.id}`}
+                                className={`border-border hover:bg-surface-2 ${vendor.non_escrow_blocked ? 'text-red-400 border-red-500' : 'text-gray-300'}`}
+                                onClick={() => handleToggleNonEscrowBlock(vendor)}
+                                title={vendor.non_escrow_blocked ? 'Unblock non-escrow listings' : 'Block non-escrow listings'}
                               >
-                                Settings
-                              </Button> */}
+                                <Shield className="w-4 h-4 mr-1" />
+                                {vendor.non_escrow_blocked ? 'Unblock' : 'Block'} Non-Escrow
+                              </Button>
                             </div>
                           </td>
                         </tr>

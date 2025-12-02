@@ -393,6 +393,7 @@ def get_buyer_products(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_product(request):
+    """Create a new product - with non-escrow block check"""
     """Create a new product"""
     try:
         # Prepare incoming data and allow admins to create listings for a specified vendor
@@ -419,6 +420,23 @@ def create_product(request):
         except Exception:
             # Best-effort: ensure vendor fallback
             data['vendor'] = request.user.id
+        
+        # Check if vendor is blocked from creating non-escrow listings
+        vendor_id = data.get('vendor') or request.user.id
+        try:
+            from users.models import User
+            vendor_user = User.objects.get(id=vendor_id)
+            
+            # If vendor is blocked from non-escrow and product doesn't have escrow enabled
+            escrow_enabled = data.get('escrow_enabled', False)
+            if vendor_user.non_escrow_blocked and not escrow_enabled:
+                return Response({
+                    'success': False,
+                    'message': 'This vendor is blocked from creating non-escrow listings. Please enable escrow for this product.',
+                    'error_code': 'NON_ESCROW_BLOCKED'
+                }, status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            pass  # Will be caught by serializer validation
         
         # Debug logging
         logger.info(f"Request data keys: {list(data.keys())}")

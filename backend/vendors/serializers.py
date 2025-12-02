@@ -21,6 +21,9 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
     documents = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     
+    # Vendor user settings
+    non_escrow_blocked = serializers.SerializerMethodField()
+    
     class Meta:
         model = VendorApplication
         fields = [
@@ -33,7 +36,8 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
             'documents', 'logo', 'images', 'logo_url', 'documents_url', 'images_url',
             'status', 'status_display', 'admin_notes',
             'reviewed_by', 'reviewed_at', 'reviewed_at_formatted',
-            'created_at', 'created_at_formatted', 'updated_at'
+            'created_at', 'created_at_formatted', 'updated_at',
+            'non_escrow_blocked'
         ]
         read_only_fields = ['id', 'status', 'admin_notes', 'reviewed_by', 'reviewed_at', 'created_at', 'updated_at']
     
@@ -95,6 +99,17 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
                 return [request.build_absolute_uri(obj.images.url)]  # Return as array
             return [obj.images.url]  # Return as array
         return []  # Return empty array
+    
+    def get_non_escrow_blocked(self, obj):
+        """Get non_escrow_blocked status from vendor user"""
+        try:
+            from users.models import User
+            vendor_user = User.objects.get(username=obj.vendor_username)
+            return vendor_user.non_escrow_blocked
+        except User.DoesNotExist:
+            return False
+        except Exception:
+            return False
 
 class VendorApplicationCreateSerializer(serializers.ModelSerializer):
     class Meta:

@@ -155,6 +155,16 @@ def vendor_counts(request):
             vendor=vendor_user,
             status='open'
         ).count()
+
+        # Refunds: Requests needing vendor attention (new refund requests or refunds
+        # where admin required the vendor to refund and it's not completed yet)
+        from payments.models import RefundRequest
+        refunds_count = RefundRequest.objects.filter(
+            vendor=vendor_user
+        ).filter(
+            Q(status='pending_vendor') |
+            Q(vendor_refund_required=True, vendor_refund_completed=False)
+        ).count()
         
         # Tickets: Tickets with new messages (tickets with messages in last 24 hours)
         from tickets.models import TicketMessage
@@ -182,6 +192,7 @@ def vendor_counts(request):
             'disputes': disputes_count,
             'tickets': tickets_count,
             'payouts': payouts_count,
+            'refunds': refunds_count,
         }
         
         return Response({
@@ -239,11 +250,27 @@ def buyer_counts(request):
             messages__sender__user_type='admin',
             messages__created_at__gte=timezone.now() - timedelta(days=1)
         ).distinct().count()
+
+        # Billing: recent wallet-related activity (e.g. refunds processed for this buyer)
+        from payments.models import RefundRequest
+        billing_count = RefundRequest.objects.filter(
+            buyer=buyer_user,
+            status='completed',
+            updated_at__gte=timezone.now() - timedelta(days=1)
+        ).count()
+
+        # Refunds: refund requests created or updated recently for this buyer
+        refunds_count = RefundRequest.objects.filter(
+            buyer=buyer_user,
+            updated_at__gte=timezone.now() - timedelta(days=1)
+        ).count()
         
         counts = {
             'messages': messages_count,
             'orders': orders_count,
             'support': tickets_count,
+            'billing': billing_count,
+            'refunds': refunds_count,
         }
         
         return Response({

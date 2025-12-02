@@ -56,11 +56,16 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         console.log('🔐 Token refresh failed');
-        // Relaxed behavior: clear tokens, do NOT force redirect; let caller handle UX
+        // Clear tokens
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('userId');
+        
+        // Trigger token expiration modal
+        window.dispatchEvent(new CustomEvent('token_expired', { detail: { userType: user.user_type } }));
+        
         return Promise.reject(refreshError);
       }
     }
@@ -72,6 +77,16 @@ api.interceptors.response.use(
         hasToken: !!localStorage.getItem('accessToken'),
         tokenPreview: localStorage.getItem('accessToken')?.substring(0, 20) + '...'
       });
+      
+      // If no retry attempted and token exists, try refresh first
+      // Otherwise, show expiration modal
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!originalRequest._retry) {
+        // Will be handled by retry logic above
+      } else {
+        // Refresh failed, show modal
+        window.dispatchEvent(new CustomEvent('token_expired', { detail: { userType: user.user_type } }));
+      }
     }
     
     return Promise.reject(error);

@@ -11,7 +11,8 @@ import {
   Store,
   ArrowRight,
   AlertTriangle,
-  Wallet
+  Wallet,
+  RefreshCw
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -30,67 +31,81 @@ const BUYER_NAV_ITEMS = [
     title: "Home",
     icon: Home,
     href: "/buyer",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: null as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "Listings",
     icon: List,
     href: "/buyer/listings",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: null as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "Orders",
     icon: ShoppingCart,
     href: "/buyer/orders",
-    countKey: "orders" as keyof { messages: number; orders: number; support: number }
+    countKey: "orders" as keyof { messages: number; orders: number; support: number; billing: number; refunds: number }
   },
   {
     title: "Messages",
     icon: MessageSquare,
     href: "/buyer/messages",
-    countKey: "messages" as keyof { messages: number; orders: number; support: number }
+    countKey: "messages" as keyof { messages: number; orders: number; support: number; billing: number; refunds: number }
   },
   {
     title: "My Disputes",
     icon: AlertTriangle,
     href: "/buyer/my-disputes",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: null as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "My Reviews",
     icon: User,
     href: "/buyer/my-reviews",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: null as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "Wishlist",
     icon: Heart,
     href: "/buyer/wishlist",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: null as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "Billing",
     icon: Wallet,
     href: "/buyer/billing",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: "billing" as keyof { messages: number; orders: number; support: number; billing: number; refunds: number }
+  },
+  {
+    title: "Refund Requests",
+    icon: RefreshCw,
+    href: "/buyer/refund-requests",
+    countKey: "refunds" as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "Settings",
     icon: Settings,
     href: "/buyer/settings",
-    countKey: null as keyof { messages: number; orders: number; support: number } | null
+    countKey: null as keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null
   },
   {
     title: "Support",
     icon: HelpCircle,
     href: "/buyer/support",
-    countKey: "support" as keyof { messages: number; orders: number; support: number }
+    countKey: "support" as keyof { messages: number; orders: number; support: number; billing: number; refunds: number }
   }
 ];
 
 export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: BuyerSidebarProps) {
   const location = useLocation();
-  const { localCounts } = useBuyerCounts();
+  // Safely get counts with fallback - check if provider is available
+  let localCounts: any = {};
+  try {
+    const counts = useBuyerCounts();
+    localCounts = counts?.localCounts || {};
+  } catch (error) {
+    // Provider not available, use empty counts - this should not happen in normal flow
+    console.warn('BuyerCountsProvider not available, using empty counts');
+  }
   const [username, setUsername] = useState<string>("Buyer");
 
   // Get current user's username
@@ -114,7 +129,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
     }
   }, []);
 
-  const getCount = (countKey: keyof { messages: number; orders: number; support: number } | null): number | null => {
+  const getCount = (countKey: keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null): number | null => {
     if (!countKey) return null;
     const count = localCounts[countKey];
     return count > 0 ? count : null;

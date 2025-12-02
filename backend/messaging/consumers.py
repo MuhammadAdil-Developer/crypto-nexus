@@ -293,26 +293,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             
             # If this is the first message and conversation has a product, create product reference
+            # But only if one doesn't already exist (for refunds/disputes, it's created when conversation is created)
             if is_first_message and conversation.product:
-                product = conversation.product
-                product_info = {
-                    'product_id': product.id,
-                    'product_title': product.headline,
-                    'product_price': str(product.price),
-                    'product_image': str(product.main_image) if product.main_image else None,
-                    'vendor_username': product.vendor.username,
-                    'vendor_id': str(product.vendor.id)
-                }
-                
-                # Create product reference message
-                product_message = Message.objects.create(
-                    conversation=conversation,
-                    sender=self.scope['user'],
-                    recipient=recipient,
-                    content=f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}",
-                    message_type='product_reference',
-                    metadata=product_info
-                )
+                # Check if product reference message already exists
+                existing_ref = conversation.messages.filter(message_type='product_reference').first()
+                if not existing_ref:
+                    product = conversation.product
+                    product_info = {
+                        'product_id': product.id,
+                        'product_title': product.headline,
+                        'product_price': str(product.price),
+                        'product_image': str(product.main_image) if product.main_image else None,
+                        'vendor_username': product.vendor.username,
+                        'vendor_id': str(product.vendor.id)
+                    }
+                    
+                    # Create product reference message
+                    product_message = Message.objects.create(
+                        conversation=conversation,
+                        sender=self.scope['user'],
+                        recipient=recipient,
+                        content=f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}",
+                        message_type='product_reference',
+                        metadata=product_info
+                    )
                 
                 # Serialize both messages with context for is_sender field
                 # Create a mock request object for the serializer

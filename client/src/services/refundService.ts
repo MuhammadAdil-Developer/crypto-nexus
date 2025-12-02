@@ -32,12 +32,15 @@ export interface RefundRequest {
   reason: string;
   refund_type: 'full' | 'partial';
   status: string;
+  buyer_id?: string;
+  product_id?: string;
   buyer_btc_payout_address?: string;
   buyer_xmr_payout_address?: string;
   vendor_payment_source?: 'platform' | 'external' | null;
   vendor_external_wallet_address?: string;
   vendor_refund_transaction_hash?: string;
   vendor_decision?: 'approved' | 'rejected';
+  vendor_decision_notes?: string;
   vendor_decision_deadline?: string;
   vendor_refund_required?: boolean;
   vendor_refund_deadline?: string;

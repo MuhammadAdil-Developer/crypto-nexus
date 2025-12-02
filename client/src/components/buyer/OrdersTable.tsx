@@ -16,6 +16,7 @@ import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
 import { RequestRefundModal } from "./RequestRefundModal";
 import { useNavigate } from "react-router-dom";
+import { refundService } from "@/services/refundService";
 
 const getStatusIcon = (status: string) => {
   switch (status.toLowerCase()) {
@@ -90,6 +91,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const [orderForRefund, setOrderForRefund] = useState<Order | null>(null);
   const [timers, setTimers] = useState<Record<string, number>>({});
   const [expiredOrders, setExpiredOrders] = useState<Set<string>>(new Set());
+  const [refundRequests, setRefundRequests] = useState<Record<string, any>>({});
   const { toast } = useToast();
   const navigate = useNavigate();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
@@ -303,12 +305,73 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     navigate(`/buyer/create-dispute?orderId=${order.id}`);
   };
 
+  useEffect(() => {
+    // Fetch refund requests for all orders
+    const fetchRefundRequests = async () => {
+      try {
+        const result = await refundService.getBuyerRefundRequests(1, 100);
+        if (result.success && result.data) {
+          const refundMap: Record<string, any> = {};
+          result.data.forEach((refund: any) => {
+            refundMap[refund.order_id] = refund;
+          });
+          setRefundRequests(refundMap);
+        }
+      } catch (error) {
+        console.error('Error fetching refund requests:', error);
+      }
+    };
+    fetchRefundRequests();
+  }, []);
+
   const handleRequestRefund = (order: Order) => {
+    // Check if order is already refunded
+    if (order.order_status === 'refunded') {
+      toast({
+        title: "Already Refunded",
+        description: "This order has already been refunded.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if there's already a pending refund request
+    const existingRefund = refundRequests[order.order_id];
+    if (existingRefund) {
+      if (existingRefund.status === 'pending_vendor' || existingRefund.status === 'pending_admin' || existingRefund.status === 'disputed') {
+        toast({
+          title: "Pending Refund Request",
+          description: "You already have a pending refund request for this order. Please wait until the vendor approves it or open a dispute if the estimated time is up.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (existingRefund.status === 'completed' || existingRefund.status === 'vendor_approved') {
+        toast({
+          title: "Already Processed",
+          description: "A refund request for this order has already been processed.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setOrderForRefund(order);
     setRefundModalOpen(true);
   };
 
   const handleRefundSuccess = () => {
+    // Refresh refund requests
+    refundService.getBuyerRefundRequests(1, 100).then(result => {
+      if (result.success && result.data) {
+        const refundMap: Record<string, any> = {};
+        result.data.forEach((refund: any) => {
+          refundMap[refund.order_id] = refund;
+        });
+        setRefundRequests(refundMap);
+      }
+    });
+    
     if (onOrderUpdate) {
       onOrderUpdate();
     } else {
@@ -772,12 +835,49 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                               Leave Review
                             </DropdownMenuItem>
                           )}
-                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed" || order.order_status === "processing") && (
-                            <DropdownMenuItem onClick={() => handleRequestRefund(order)} className="text-blue-400">
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Request Refund
-                            </DropdownMenuItem>
-                          )}
+                          {(() => {
+                            const existingRefund = refundRequests[order.order_id];
+                            const isRefunded = order.order_status === 'refunded';
+                            const hasPendingRefund = existingRefund && 
+                              (existingRefund.status === 'pending_vendor' || 
+                               existingRefund.status === 'pending_admin' || 
+                               existingRefund.status === 'disputed');
+                            const canRequestRefund = (order.order_status === "paid" || 
+                              order.order_status === "delivered" || 
+                              order.order_status === "confirmed" || 
+                              order.order_status === "processing") && 
+                              !isRefunded && 
+                              !hasPendingRefund;
+
+                            if (isRefunded) {
+                              return (
+                                <DropdownMenuItem disabled className="text-gray-500 cursor-not-allowed">
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Already Refunded
+                                </DropdownMenuItem>
+                              );
+                            }
+                            
+                            if (hasPendingRefund) {
+                              return (
+                                <DropdownMenuItem disabled className="text-yellow-400 cursor-not-allowed">
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Refund Pending
+                                </DropdownMenuItem>
+                              );
+                            }
+
+                            if (canRequestRefund) {
+                              return (
+                                <DropdownMenuItem onClick={() => handleRequestRefund(order)} className="text-blue-400">
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Request Refund
+                                </DropdownMenuItem>
+                              );
+                            }
+
+                            return null;
+                          })()}
                           {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
                             <DropdownMenuItem onClick={() => handleCreateDispute(order)} className="text-orange-600">
                               <AlertTriangle className="w-4 h-4 mr-2" />

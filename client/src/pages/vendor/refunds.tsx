@@ -20,7 +20,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  MessageSquare
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,6 +32,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { refundService, RefundRequest } from "@/services/refundService";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import { messagingService } from "@/services/messagingService";
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -88,8 +91,10 @@ export default function VendorRefunds() {
   const [externalWalletAddress, setExternalWalletAddress] = useState("");
   const [transactionHashValue, setTransactionHashValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [openingChat, setOpeningChat] = useState<string | null>(null);
 
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchRefunds();
@@ -135,19 +140,29 @@ export default function VendorRefunds() {
   const handleApprove = async () => {
     if (!selectedRefund) return;
 
-    if (paymentSource === 'external') {
+    if (paymentSource === 'platform') {
       if (!transactionHashValue.trim()) {
         toast({
           title: "Error",
-          description: "Please enter the external transaction hash",
+          description: "Please send the refund manually from your payout wallet and provide the transaction hash",
           variant: "destructive",
         });
         return;
       }
+    }
+    if (paymentSource === 'external') {
       if (!externalWalletAddress.trim()) {
         toast({
           title: "Error",
-          description: "Please provide the wallet address you used for the external refund",
+          description: "Please provide the external wallet address you will use for the refund",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!transactionHashValue.trim()) {
+        toast({
+          title: "Error",
+          description: "Please send the refund manually from your external wallet and provide the transaction hash",
           variant: "destructive",
         });
         return;
@@ -159,7 +174,7 @@ export default function VendorRefunds() {
       const result = await refundService.approveRefund(selectedRefund.id, {
         notes: approveNotes,
         payment_source: paymentSource,
-        transaction_hash: paymentSource === 'external' ? transactionHashValue.trim() : undefined,
+        transaction_hash: paymentSource === 'platform' ? transactionHashValue.trim() : undefined,
         external_wallet_address: paymentSource === 'external' ? externalWalletAddress.trim() : undefined,
       });
       if (result.success) {
@@ -237,19 +252,29 @@ export default function VendorRefunds() {
   const handleProcessRefund = async () => {
     if (!selectedRefund) return;
 
-    if (paymentSource === 'external') {
+    if (paymentSource === 'platform') {
       if (!transactionHashValue.trim()) {
         toast({
           title: "Error",
-          description: "Please enter the external transaction hash",
+          description: "Please send the refund manually from your payout wallet and provide the transaction hash",
           variant: "destructive",
         });
         return;
       }
+    }
+    if (paymentSource === 'external') {
       if (!externalWalletAddress.trim()) {
         toast({
           title: "Error",
-          description: "Please provide the wallet address you used for the external refund",
+          description: "Please provide the external wallet address you will use for the refund",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!transactionHashValue.trim()) {
+        toast({
+          title: "Error",
+          description: "Please send the refund manually from your external wallet and provide the transaction hash",
           variant: "destructive",
         });
         return;
@@ -456,7 +481,7 @@ export default function VendorRefunds() {
                     className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                         <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                       </div>
                       
@@ -478,7 +503,7 @@ export default function VendorRefunds() {
                         </div>
                         <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">Buyer: {refund.buyer}</p>
                         <p className="text-xs sm:text-sm text-gray-400 break-words">Reason: {refund.reason}</p>
-                        {refund.vendor_decision_deadline && (
+                        {refund.vendor_decision_deadline && refund.status === 'pending_vendor' && (
                           <p className="text-xs text-yellow-400 mt-1">
                             Decision deadline: {new Date(refund.vendor_decision_deadline).toLocaleString()}
                           </p>
@@ -488,7 +513,7 @@ export default function VendorRefunds() {
 
                     <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
                       <div className="text-left sm:text-right lg:text-right">
-                        <div className="font-semibold text-orange-400 text-sm sm:text-base">{refund.amount}</div>
+                        <div className="font-semibold text-blue-400 text-sm sm:text-base">{refund.amount}</div>
                         <div className="text-xs sm:text-sm text-gray-400">{refund.crypto_currency}</div>
                       </div>
 
@@ -543,8 +568,17 @@ export default function VendorRefunds() {
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="w-4 h-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              disabled={openingChat === refund.id}
+                            >
+                              {openingChat === refund.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <MoreVertical className="w-4 h-4" />
+                              )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
@@ -554,6 +588,47 @@ export default function VendorRefunds() {
                             }}>
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              setOpeningChat(refund.id);
+                              try {
+                                // Use product_id and buyer_id from refund data (already included in API response)
+                                const productId = refund.product_id;
+                                const buyerId = refund.buyer_id;
+                                
+                                if (!productId || !buyerId) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Order details not available. Please refresh the page and try again.",
+                                    variant: "destructive",
+                                  });
+                                  setOpeningChat(null);
+                                  return;
+                                }
+                                
+                                // Set context for messaging page - this will create conversation and auto-select it
+                                messagingService.setProductContextInStorage({
+                                  id: productId,
+                                  recipientId: buyerId,
+                                  title: `Refund Request - ${refund.order_id}`,
+                                  isRefund: true,
+                                  refundId: refund.id,
+                                  buyerUsername: refund.buyer
+                                });
+                                
+                                navigate('/vendor/messages');
+                              } catch (error) {
+                                console.error('Error opening chat:', error);
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to open chat. Please try again.",
+                                  variant: "destructive",
+                                });
+                                setOpeningChat(null);
+                              }
+                            }}>
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Chat with Buyer
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -612,7 +687,7 @@ export default function VendorRefunds() {
                   <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Amount:</span>
-                      <span className="font-semibold text-orange-400 text-xs sm:text-sm break-words">{selectedRefund.amount}</span>
+                      <span className="font-semibold text-blue-400 text-xs sm:text-sm break-words">{selectedRefund.amount}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Currency:</span>
@@ -622,7 +697,7 @@ export default function VendorRefunds() {
                       <span className="text-gray-400 text-xs sm:text-sm">Created:</span>
                       <span className="text-white text-xs sm:text-sm">{new Date(selectedRefund.created_at).toLocaleString()}</span>
                     </div>
-                    {selectedRefund.vendor_decision_deadline && (
+                    {selectedRefund.vendor_decision_deadline && selectedRefund.status === 'pending_vendor' && (
                       <div className="flex justify-between">
                         <span className="text-gray-400 text-xs sm:text-sm">Decision Deadline:</span>
                         <span className="text-yellow-400 text-xs sm:text-sm">{new Date(selectedRefund.vendor_decision_deadline).toLocaleString()}</span>
@@ -699,7 +774,7 @@ export default function VendorRefunds() {
           <DialogHeader>
             <DialogTitle className="text-white">Approve Refund</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Approving this refund will credit the amount to the buyer's wallet immediately. Choose how you plan to send the funds.
+              Follow these steps to complete the refund process. You must send the coins manually from your wallet.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -716,9 +791,9 @@ export default function VendorRefunds() {
                         : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
                     }`}
                   >
-                    <div className="font-medium text-sm">Platform Wallet</div>
+                    <div className="font-medium text-sm">Your Payout Wallet Address</div>
                     <p className="text-xs text-gray-400 mt-1">
-                      Use platform hot wallet to credit buyer (recommended).
+                      Send from your saved payout wallet address (from VendorApplication).
                     </p>
                   </button>
                   <button
@@ -732,7 +807,7 @@ export default function VendorRefunds() {
                   >
                     <div className="font-medium text-sm">External Wallet</div>
                     <p className="text-xs text-gray-400 mt-1">
-                      I will send funds manually and provide transaction hash.
+                      Send manually from your external wallet and provide transaction hash.
                     </p>
                   </button>
                 </div>
@@ -747,6 +822,24 @@ export default function VendorRefunds() {
               </div>
             )}
 
+            {paymentSource === 'platform' && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-gray-300">Transaction Hash *</Label>
+                  <Input
+                    value={transactionHashValue}
+                    onChange={(e) => setTransactionHashValue(e.target.value)}
+                    placeholder="Paste the blockchain transaction hash after sending from your payout wallet"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Send {selectedRefund?.amount} {selectedRefund?.crypto_currency} manually from your payout wallet address (saved in VendorApplication) to buyer's address, then paste the transaction hash here.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {paymentSource === 'external' && (
               <div className="space-y-3">
                 <div>
@@ -754,8 +847,9 @@ export default function VendorRefunds() {
                   <Input
                     value={externalWalletAddress}
                     onChange={(e) => setExternalWalletAddress(e.target.value)}
-                    placeholder="Enter the wallet address used for refund"
+                    placeholder="Enter the external wallet address you will use for refund"
                     className="bg-gray-800 border-gray-700 text-white font-mono"
+                    required
                   />
                 </div>
                 <div>
@@ -763,9 +857,13 @@ export default function VendorRefunds() {
                   <Input
                     value={transactionHashValue}
                     onChange={(e) => setTransactionHashValue(e.target.value)}
-                    placeholder="Paste the blockchain transaction hash"
+                    placeholder="Paste the blockchain transaction hash after sending from external wallet"
                     className="bg-gray-800 border-gray-700 text-white font-mono"
+                    required
                   />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Send {selectedRefund?.amount} {selectedRefund?.crypto_currency} manually from the external wallet address above to buyer's address, then paste the transaction hash here.
+                  </p>
                 </div>
               </div>
             )}
@@ -873,7 +971,7 @@ export default function VendorRefunds() {
           <DialogHeader>
             <DialogTitle className="text-white">Process Refund</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Process the refund after admin decision. Choose how you will send the refund amount.
+              Follow these steps to complete the refund process. You must send the coins manually from your wallet.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -890,9 +988,9 @@ export default function VendorRefunds() {
                         : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
                     }`}
                   >
-                    <div className="font-medium text-sm">Platform Wallet</div>
+                    <div className="font-medium text-sm">Your Payout Wallet Address</div>
                     <p className="text-xs text-gray-400 mt-1">
-                      Automatically credit buyer via platform wallet.
+                      Send from your saved payout wallet address (from VendorApplication).
                     </p>
                   </button>
                   <button
@@ -906,7 +1004,7 @@ export default function VendorRefunds() {
                   >
                     <div className="font-medium text-sm">External Wallet</div>
                     <p className="text-xs text-gray-400 mt-1">
-                      I will send funds manually and provide transaction hash.
+                      Send manually from your external wallet and provide transaction hash.
                     </p>
                   </button>
                 </div>
@@ -921,25 +1019,91 @@ export default function VendorRefunds() {
               </div>
             )}
 
-            {paymentSource === 'external' && (
+            {paymentSource === 'platform' && selectedRefund && (
               <div className="space-y-3">
-                <div>
-                  <Label className="text-gray-300">External Wallet Address *</Label>
-                  <Input
-                    value={externalWalletAddress}
-                    onChange={(e) => setExternalWalletAddress(e.target.value)}
-                    placeholder="Enter the wallet address used for refund"
-                    className="bg-gray-800 border-gray-700 text-white font-mono"
-                  />
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-3">
+                  <div>
+                    <Label className="text-blue-400 font-semibold text-sm mb-2 block">Step-by-Step Instructions:</Label>
+                    <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300">
+                      <li>Open your {selectedRefund.crypto_currency} wallet (the one saved in your VendorApplication settings)</li>
+                      <li>Send exactly <strong className="text-white">{selectedRefund.amount} {selectedRefund.crypto_currency}</strong> to the buyer's payout address shown below</li>
+                      <li>Wait for the transaction to be confirmed on the blockchain</li>
+                      <li>Copy the transaction hash from your wallet</li>
+                      <li>Paste the transaction hash in the field below and click "Process Refund"</li>
+                    </ol>
+                  </div>
+                  <div className="bg-gray-800 rounded p-3 border border-gray-700">
+                    <p className="text-xs text-gray-400 mb-1">Buyer's {selectedRefund.crypto_currency} Payout Address:</p>
+                    <p className="text-xs font-mono text-white break-all">
+                      {selectedRefund?.crypto_currency === 'BTC' 
+                        ? (selectedRefund?.buyer_btc_payout_address || 'Not provided')
+                        : (selectedRefund?.buyer_xmr_payout_address || 'Not provided')}
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <Label className="text-gray-300">Transaction Hash *</Label>
                   <Input
                     value={transactionHashValue}
                     onChange={(e) => setTransactionHashValue(e.target.value)}
-                    placeholder="Paste the blockchain transaction hash"
+                    placeholder="Paste the blockchain transaction hash here after sending coins"
                     className="bg-gray-800 border-gray-700 text-white font-mono"
+                    required
                   />
+                  <p className="text-xs text-gray-400 mt-1">
+                    After sending {selectedRefund?.amount} {selectedRefund?.crypto_currency} to the buyer's address above, paste the transaction hash here.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {paymentSource === 'external' && selectedRefund && (
+              <div className="space-y-3">
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-3">
+                  <div>
+                    <Label className="text-blue-400 font-semibold text-sm mb-2 block">Step-by-Step Instructions:</Label>
+                    <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300">
+                      <li>Open your external {selectedRefund.crypto_currency} wallet</li>
+                      <li>Send exactly <strong className="text-white">{selectedRefund.amount} {selectedRefund.crypto_currency}</strong> to the buyer's payout address shown below</li>
+                      <li>Wait for the transaction to be confirmed on the blockchain</li>
+                      <li>Copy the transaction hash from your wallet</li>
+                      <li>Enter the external wallet address you used and paste the transaction hash below, then click "Process Refund"</li>
+                    </ol>
+                  </div>
+                  <div className="bg-gray-800 rounded p-3 border border-gray-700">
+                    <p className="text-xs text-gray-400 mb-1">Buyer's {selectedRefund.crypto_currency} Payout Address:</p>
+                    <p className="text-xs font-mono text-white break-all">
+                      {selectedRefund?.crypto_currency === 'BTC' 
+                        ? (selectedRefund?.buyer_btc_payout_address || 'Not provided')
+                        : (selectedRefund?.buyer_xmr_payout_address || 'Not provided')}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-300">External Wallet Address *</Label>
+                  <Input
+                    value={externalWalletAddress}
+                    onChange={(e) => setExternalWalletAddress(e.target.value)}
+                    placeholder="Enter the external wallet address you used to send the refund"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Enter the external wallet address from which you sent the refund.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-300">Transaction Hash *</Label>
+                  <Input
+                    value={transactionHashValue}
+                    onChange={(e) => setTransactionHashValue(e.target.value)}
+                    placeholder="Paste the blockchain transaction hash here after sending coins"
+                    className="bg-gray-800 border-gray-700 text-white font-mono"
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    After sending {selectedRefund?.amount} {selectedRefund?.crypto_currency} to the buyer's address, paste the transaction hash here.
+                  </p>
                 </div>
               </div>
             )}

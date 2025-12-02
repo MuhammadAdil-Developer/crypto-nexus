@@ -8,6 +8,7 @@ import { AdminCountsProvider } from '@/contexts/AdminCountsContext';
 import { VendorCountsProvider } from '@/contexts/VendorCountsContext';
 import { BuyerCountsProvider } from '@/contexts/BuyerCountsContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { TokenExpirationModal } from './components/auth/TokenExpirationModal';
 import MarketplaceHome from './pages/marketplace/home';
 import BuyerDashboard from './pages/buyer/buyer-dashboard';
 import VendorDashboard from './pages/vendor/dashboard';
@@ -56,6 +57,8 @@ function App() {
           <div className="App">
             {/* Shadcn Toaster to ensure useToast toasts render */}
             <Toaster />
+            {/* Token Expiration Modal - shows when session expires */}
+            <TokenExpirationModal />
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<MarketplaceHome />} />

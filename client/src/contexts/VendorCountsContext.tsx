@@ -21,6 +21,7 @@ export function VendorCountsProvider({ children }: { children: React.ReactNode }
     disputes: 0,
     tickets: 0,
     payouts: 0,
+    refunds: 0,
   });
   
   const [localCounts, setLocalCounts] = useState<VendorCounts>({
@@ -31,6 +32,7 @@ export function VendorCountsProvider({ children }: { children: React.ReactNode }
     disputes: 0,
     tickets: 0,
     payouts: 0,
+    refunds: 0,
   });
   
   // Track baseline counts when pages are visited (to calculate new items since visit)
@@ -115,6 +117,8 @@ export function VendorCountsProvider({ children }: { children: React.ReactNode }
       resetCountForKey('tickets');
     } else if (path === '/vendor/payouts') {
       resetCountForKey('payouts');
+    } else if (path === '/vendor/refunds') {
+      resetCountForKey('refunds');
     }
   }, [location.pathname, resetCount]);
 

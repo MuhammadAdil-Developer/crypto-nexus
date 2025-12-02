@@ -98,17 +98,25 @@ class MessagingService {
     return data;
   }
 
-  async createProductConversation(productId: string | number, recipientId: string | number): Promise<any> {
+  async createProductConversation(productId: string | number, recipientId: string | number, refundId?: string, disputeId?: string): Promise<any> {
     const token = localStorage.getItem('accessToken');
     
     // Convert both IDs to strings (they are UUIDs)
     const productIdStr = String(productId);
     const recipientIdStr = String(recipientId);
     
-    const requestBody = {
+    const requestBody: any = {
       product_id: productIdStr,
       recipient_id: recipientIdStr,
     };
+    
+    // Add refund_id or dispute_id if provided (for creating separate conversations)
+    if (refundId) {
+      requestBody.refund_id = refundId;
+    }
+    if (disputeId) {
+      requestBody.dispute_id = disputeId;
+    }
     
     const response = await fetch(`${API_BASE_URL}/messaging/conversations/create-product/`, {
       method: 'POST',
@@ -572,7 +580,13 @@ class MessagingService {
     if (context.isDispute) {
       localStorage.setItem('disputeContext', JSON.stringify({ 
         disputeId: context.disputeId, 
-        conversationId: context.id 
+        conversationId: context.conversationId || context.id 
+      }));
+    }
+    if (context.isRefund) {
+      localStorage.setItem('refundContext', JSON.stringify({ 
+        refundId: context.refundId, 
+        conversationId: context.conversationId || context.id 
       }));
     }
   }

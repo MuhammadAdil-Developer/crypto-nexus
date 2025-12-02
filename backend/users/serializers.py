@@ -57,7 +57,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(serializers.Serializer):
     """Serializer for user login - username + password only"""
     username = serializers.CharField()
-    password = serializers.CharField() 
+    password = serializers.CharField()
+    remember_me = serializers.BooleanField(default=False, required=False) 
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -98,5 +99,6 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
+        fields = ['non_escrow_blocked', 'escrow_enabled', 'is_active']
         fields = ['username', 'user_type', 'is_verified', 'two_factor_enabled', 'is_active']
         read_only_fields = ['id', 'date_joined'] 

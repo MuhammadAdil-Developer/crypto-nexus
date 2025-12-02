@@ -346,8 +346,25 @@ def user_login(request):
                 # Clear the 2FA session
                 cache.delete(session_key)
             
-            # Generate tokens
+            # Generate tokens with expiration based on remember_me
+            remember_me = request_data.get('remember_me', False)
+            
+            # Set token expiration based on remember_me
+            from datetime import timedelta
+            from rest_framework_simplejwt.tokens import RefreshToken
+            
+            # Create custom token with expiration
             refresh = RefreshToken.for_user(user)
+            
+            if remember_me:
+                # 20 days for remember me
+                refresh.set_exp(lifetime=timedelta(days=20))
+                refresh.access_token.set_exp(lifetime=timedelta(days=20))
+            else:
+                # 6 days default
+                refresh.set_exp(lifetime=timedelta(days=6))
+                refresh.access_token.set_exp(lifetime=timedelta(days=6))
+            
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
             

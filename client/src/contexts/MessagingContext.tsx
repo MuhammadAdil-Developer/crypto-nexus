@@ -301,8 +301,17 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         window.dispatchEvent(new CustomEvent('refresh_counts'));
       }
       
-      // Trigger count refresh for all users when order notification arrives
-      if (notificationType === 'order' || newNotification.type === 'order' || notificationType === 'order_created' || notificationType === 'payment_confirmed' || notificationType === 'payment_received') {
+      // Trigger count refresh for all users when order or refund notification arrives
+      if (
+        notificationType === 'order' ||
+        newNotification.type === 'order' ||
+        notificationType === 'order_created' ||
+        notificationType === 'payment_confirmed' ||
+        notificationType === 'payment_received' ||
+        notificationType === 'refund' ||
+        newNotification.type === 'refund' ||
+        (newNotification.title?.toLowerCase().includes('refund') ?? false)
+      ) {
         window.dispatchEvent(new CustomEvent('refresh_counts'));
       }
       

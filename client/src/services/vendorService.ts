@@ -9,6 +9,7 @@ export interface VendorCounts {
   disputes: number;
   tickets: number;
   payouts: number;
+  refunds: number;
 }
 
 export interface VendorStats {
@@ -34,6 +35,7 @@ class VendorService {
         disputes: 0,
         tickets: 0,
         payouts: 0,
+        refunds: 0,
       };
     } catch (error) {
       console.error('Error fetching vendor counts:', error);
@@ -45,6 +47,7 @@ class VendorService {
         disputes: 0,
         tickets: 0,
         payouts: 0,
+        refunds: 0,
       };
     }
   }

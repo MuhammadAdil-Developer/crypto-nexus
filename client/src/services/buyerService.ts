@@ -4,6 +4,8 @@ export interface BuyerCounts {
   messages: number;
   orders: number;
   support: number;
+  billing: number;
+  refunds: number;
 }
 
 export async function getBuyerCounts(): Promise<BuyerCounts> {
@@ -20,6 +22,8 @@ export async function getBuyerCounts(): Promise<BuyerCounts> {
       messages: 0,
       orders: 0,
       support: 0,
+      billing: 0,
+      refunds: 0,
     };
   }
 }

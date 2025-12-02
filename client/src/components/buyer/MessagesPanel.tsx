@@ -955,10 +955,80 @@ export function MessagesPanel({
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <h3 
-                      className="font-semibold text-white text-sm sm:text-base truncate cursor-pointer hover:text-blue-400 transition-colors"
+                      className="font-semibold text-white text-sm sm:text-base truncate cursor-pointer hover:text-blue-400 transition-colors flex items-center space-x-2"
                       onClick={handleOpenUserProfile}
                     >
-                      {getVendorFromConversation(selectedConversation)?.username || 'Vendor'}
+                      <span className="truncate">{getVendorFromConversation(selectedConversation)?.username || 'Vendor'}</span>
+                      {/* Refund/Dispute badge */}
+                      {(() => {
+                        // Check if this conversation was opened with dispute or refund context
+                        const disputeContext = localStorage.getItem('disputeContext');
+                        const refundContext = localStorage.getItem('refundContext');
+                        const productContext = localStorage.getItem('productContext');
+                        
+                        // Check dispute context
+                        if (disputeContext && selectedConversation?.product) {
+                          try {
+                            const context = JSON.parse(disputeContext);
+                            if (context.conversationId === selectedConversation.id && context.disputeId) {
+                              return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">DISPUTE CHAT</Badge>;
+                            }
+                          } catch (e) {
+                            // Ignore parse errors
+                          }
+                        }
+                        
+                        // Check refund context
+                        if (refundContext && selectedConversation?.product) {
+                          try {
+                            const context = JSON.parse(refundContext);
+                            if (context.conversationId === selectedConversation.id && context.refundId) {
+                              return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px]">REFUND CHAT</Badge>;
+                            }
+                          } catch (e) {
+                            // Ignore parse errors
+                          }
+                        }
+                        
+                        // Check product context
+                        if (productContext && selectedConversation?.product) {
+                          try {
+                            const context = JSON.parse(productContext);
+                            const matchesProduct = (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id);
+                            const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) || 
+                                                     (context.recipientId && Array.isArray(selectedConversation.participants) && 
+                                                      selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
+                            
+                            if (matchesProduct && (matchesRecipient || !context.recipientId)) {
+                              if (context.isDispute) {
+                                return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">DISPUTE CHAT</Badge>;
+                              }
+                              if (context.isRefund) {
+                                return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px]">REFUND CHAT</Badge>;
+                              }
+                            }
+                          } catch (e) {
+                            // Ignore parse errors
+                          }
+                        }
+                        
+                        // Check messages for refund/dispute metadata (fallback)
+                        if (messages && Array.isArray(messages)) {
+                          const productRefMessage = messages.find((m: any) => 
+                            m.message_type === 'product_reference' && (m.metadata?.refund_id || m.metadata?.dispute_id)
+                          );
+                          if (productRefMessage) {
+                            if (productRefMessage.metadata?.refund_id) {
+                              return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px]">REFUND CHAT</Badge>;
+                            }
+                            if (productRefMessage.metadata?.dispute_id) {
+                              return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">DISPUTE CHAT</Badge>;
+                            }
+                          }
+                        }
+                        
+                        return null;
+                      })()}
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
                       <Package className="w-3 h-3 mr-1 flex-shrink-0" />
@@ -1064,16 +1134,33 @@ export function MessagesPanel({
                     const firstMessage = messages.find(m => m.message_type === 'text');
                     const isFirstMessageFromCurrentUser = firstMessage && currentUserId && firstMessage.sender?.id === currentUserId;
                     
+                    // Determine background color based on chat type
+                    const isRefund = message.metadata?.refund_id;
+                    const isDispute = message.metadata?.dispute_id;
+                    let bgColor = 'bg-blue-300/80 border-blue-400/50'; // Normal chat
+                    let textColor = 'text-blue-900';
+                    let borderColor = 'border-blue-400/50';
+                    
+                    if (isRefund) {
+                      bgColor = 'bg-orange-300/80 border-orange-400/50';
+                      textColor = 'text-orange-900';
+                      borderColor = 'border-orange-400/50';
+                    } else if (isDispute) {
+                      bgColor = 'bg-red-300/80 border-red-400/50';
+                      textColor = 'text-red-900';
+                      borderColor = 'border-red-400/50';
+                    }
+                    
                     return (
                       <div key={message.id} className={`flex ${isFirstMessageFromCurrentUser ? 'justify-end' : 'justify-start'} my-4`}>
                         <div className="relative max-w-md">
-                          {/* Clear arrow pointing up */}
-                          <div className={`absolute -top-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
-                            <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-gray-300"></div>
+                          {/* Arrow pointing down */}
+                          <div className={`absolute -bottom-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
+                            <div className={`w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent ${isRefund ? 'border-t-orange-300/80' : isDispute ? 'border-t-red-300/80' : 'border-t-blue-300/80'}`}></div>
                           </div>
                           
-                          {/* Product reference box with grey transparent glass shade */}
-                          <div className="bg-gray-300/80 backdrop-blur-sm text-gray-800 px-4 py-3 rounded-lg border border-gray-400/50 shadow-lg">
+                          {/* Product reference box with color based on chat type */}
+                          <div className={`${bgColor} backdrop-blur-sm ${textColor} px-4 py-3 rounded-lg border ${borderColor} shadow-lg`}>
                             <div className="flex items-center space-x-3">
                               {message.metadata?.product_image ? (
                                 <img 
@@ -1082,14 +1169,14 @@ export function MessagesPanel({
                                   className="w-10 h-10 rounded object-cover"
                                 />
                               ) : (
-                                <div className="w-10 h-10 rounded bg-gray-400 flex items-center justify-center">
-                                  <Package className="w-5 h-5 text-gray-600" />
+                                <div className={`w-10 h-10 rounded ${isRefund ? 'bg-orange-400' : isDispute ? 'bg-red-400' : 'bg-blue-400'} flex items-center justify-center`}>
+                                  <Package className={`w-5 h-5 ${isRefund ? 'text-orange-900' : isDispute ? 'text-red-900' : 'text-blue-900'}`} />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-gray-600 mb-1">This message is related to:</p>
-                                <h4 className="font-medium text-sm text-gray-800 truncate">{message.metadata?.product_title}</h4>
-                                <p className="text-xs text-gray-700">${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
+                                <p className={`text-xs ${isRefund ? 'text-orange-700' : isDispute ? 'text-red-700' : 'text-blue-700'} mb-1`}>This message is related to:</p>
+                                <h4 className={`font-medium text-sm ${textColor} truncate`}>{message.metadata?.product_title}</h4>
+                                <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
                               </div>
                             </div>
                           </div>

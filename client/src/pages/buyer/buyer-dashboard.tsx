@@ -13,6 +13,7 @@ import ProductDetailPage from "./product-detail";
 import BuyerTransactionHistory from "./transaction-history";
 import BuyerNotifications from "./notifications";
 import BuyerBilling from "./billing";
+import BuyerRefundRequests from "./refund-requests";
 
 export default function BuyerDashboard() {
   return (
@@ -33,6 +34,7 @@ export default function BuyerDashboard() {
       <Route path="product/:id" element={<ProductDetailPage />} />
       <Route path="transaction-history" element={<BuyerTransactionHistory />} />
       <Route path="billing" element={<BuyerBilling />} />
+      <Route path="refund-requests" element={<BuyerRefundRequests />} />
     </Routes>
   );
 }

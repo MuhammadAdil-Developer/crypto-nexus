@@ -272,6 +272,8 @@ def create_product_conversation(request):
     """Create a conversation for a specific product"""
     product_id = request.data.get('product_id')
     recipient_id = request.data.get('recipient_id')
+    refund_id = request.data.get('refund_id')  # Optional: for refund-specific conversations
+    dispute_id = request.data.get('dispute_id')  # Optional: for dispute-specific conversations
     
     if not product_id or not recipient_id:
         return Response(
@@ -291,21 +293,109 @@ def create_product_conversation(request):
     
     # Check if conversation already exists using Django ORM
     sender = request.user
-    existing_conversation = Conversation.objects.filter(
-        product_id=product.id
-    ).filter(participants=sender).filter(participants=recipient).first()
     
-    if existing_conversation:
-        serializer = ConversationSerializer(existing_conversation, context={'request': request})
-        return Response(serializer.data)
-    
-    # Create new conversation using Django ORM
-    conversation = Conversation.objects.create(product=product)
-    conversation.participants.add(sender, recipient)
-    conversation.save()
+    # If refund_id or dispute_id is provided, always create a new conversation
+    # Otherwise, check for existing conversation
+    if refund_id or dispute_id:
+        # For refunds/disputes, always create a new conversation to keep them separate
+        conversation = Conversation.objects.create(product=product)
+        conversation.participants.add(sender, recipient)
+        conversation.save()
+        
+        # Create product reference message immediately with refund/dispute context
+        from shared.models import Message
+        if refund_id:
+            # Get refund details for the message
+            try:
+                from payments.models import RefundRequest
+                refund = RefundRequest.objects.get(id=refund_id)
+                product_info = {
+                    'product_id': str(product.id),
+                    'product_title': product.headline,
+                    'product_price': str(product.price),
+                    'product_image': str(product.main_image) if product.main_image else None,
+                    'vendor_username': product.vendor.username,
+                    'vendor_id': str(product.vendor.id),
+                    'refund_id': refund_id,
+                    'order_id': refund.order.order_id if refund.order else None
+                }
+                content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n📋 **Order:** {refund.order.order_id if refund.order else 'N/A'}\n👤 **Vendor:** {product.vendor.username}"
+            except Exception:
+                # Fallback if refund not found
+                product_info = {
+                    'product_id': str(product.id),
+                    'product_title': product.headline,
+                    'refund_id': refund_id
+                }
+                content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n👤 **Vendor:** {product.vendor.username}"
+        elif dispute_id:
+            # Get dispute details for the message
+            try:
+                from orders.models import OrderDispute
+                dispute = OrderDispute.objects.get(id=dispute_id)
+                product_info = {
+                    'product_id': str(product.id),
+                    'product_title': product.headline,
+                    'product_price': str(product.price),
+                    'product_image': str(product.main_image) if product.main_image else None,
+                    'vendor_username': product.vendor.username,
+                    'vendor_id': str(product.vendor.id),
+                    'dispute_id': dispute_id,
+                    'order_id': dispute.order.order_id if dispute.order else None
+                }
+                content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n📋 **Order:** {dispute.order.order_id if dispute.order else 'N/A'}\n👤 **Vendor:** {product.vendor.username}"
+            except Exception:
+                # Fallback if dispute not found
+                product_info = {
+                    'product_id': str(product.id),
+                    'product_title': product.headline,
+                    'dispute_id': dispute_id
+                }
+                content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n👤 **Vendor:** {product.vendor.username}"
+        else:
+            # Regular product reference (shouldn't reach here, but just in case)
+            product_info = {
+                'product_id': str(product.id),
+                'product_title': product.headline,
+                'product_price': str(product.price),
+                'product_image': str(product.main_image) if product.main_image else None,
+                'vendor_username': product.vendor.username,
+                'vendor_id': str(product.vendor.id)
+            }
+            content = f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
+        
+        # Create the product reference message
+        Message.objects.create(
+            conversation=conversation,
+            sender=sender,
+            recipient=recipient,
+            content=content,
+            message_type='product_reference',
+            metadata=product_info
+        )
+    else:
+        # For regular product conversations, check if one already exists
+        existing_conversation = Conversation.objects.filter(
+            product_id=product.id
+        ).filter(participants=sender).filter(participants=recipient).first()
+        
+        if existing_conversation:
+            serializer = ConversationSerializer(existing_conversation, context={'request': request})
+            return Response(serializer.data)
+        
+        # Create new conversation using Django ORM
+        conversation = Conversation.objects.create(product=product)
+        conversation.participants.add(sender, recipient)
+        conversation.save()
     
     serializer = ConversationSerializer(conversation, context={'request': request})
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # Include refund_id/dispute_id in response so frontend can track it
+    response_data = serializer.data
+    if refund_id:
+        response_data['refund_id'] = refund_id
+    if dispute_id:
+        response_data['dispute_id'] = dispute_id
+    return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])

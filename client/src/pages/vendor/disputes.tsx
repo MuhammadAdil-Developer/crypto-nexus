@@ -388,13 +388,25 @@ export default function VendorDisputes() {
                         className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-initial text-xs sm:text-sm"
                         disabled={respondingToDisputeId === dispute.id}
                         onClick={async () => {
-                          setRespondingToDisputeId(dispute.id);
+                          const currentDisputeId = dispute.id;
+                          setRespondingToDisputeId(currentDisputeId);
                           try {
                             // Fetch full dispute detail to get buyer id and product id
                             const resp = await disputeService.getDisputeDetail(dispute.id);
                             const full = resp?.data?.dispute || null;
                             const productId = full?.product || dispute.product;
                             const buyerId = full?.buyer;
+                            
+                            if (!productId || !buyerId) {
+                              toast({
+                                title: "Error",
+                                description: "Could not load dispute details. Missing product or buyer information.",
+                                variant: "destructive",
+                              });
+                              setRespondingToDisputeId(null);
+                              return;
+                            }
+                            
                             // Store context so Messages page can auto-open or create conversation
                             messagingService.setProductContextInStorage({
                               id: productId,
@@ -404,18 +416,17 @@ export default function VendorDisputes() {
                               disputeId: dispute.id,
                               buyerUsername: dispute.buyer_username
                             });
-                          } catch (e) {
-                            // Fallback: still set minimal context
-                            messagingService.setProductContextInStorage({
-                              id: dispute.product,
-                              recipientId: undefined,
-                              title: dispute.title,
-                              isDispute: true,
-                              disputeId: dispute.id,
-                              buyerUsername: dispute.buyer_username
-                            });
-                          } finally {
+                            
+                            // Navigate to messages page
                             navigate('/vendor/messages');
+                            setRespondingToDisputeId(null);
+                          } catch (e) {
+                            console.error('Error fetching dispute detail:', e);
+                            toast({
+                              title: "Error",
+                              description: "Could not load dispute details. Please try again.",
+                              variant: "destructive",
+                            });
                             setRespondingToDisputeId(null);
                           }
                         }}

@@ -29,10 +29,14 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
-      window.location.href = '/sign-in';
+      localStorage.removeItem('userId');
+      
+      // Trigger token expiration modal instead of direct redirect
+      window.dispatchEvent(new CustomEvent('token_expired', { detail: { userType: user.user_type } }));
     }
     return Promise.reject(error);
   }

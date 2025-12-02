@@ -94,8 +94,6 @@ const transformOrderData = (apiOrder: Order) => {
     rawOrderStatus: apiOrder.order_status,
     
     // Complete order object for modal - separate from table display
-    id: apiOrder.order_id, // Use order_id for display
-    numericId: apiOrder.id, // Add numeric ID for API calls
     order_id: apiOrder.order_id,
     order_status: apiOrder.order_status,
     payment_status: apiOrder.payment_status,

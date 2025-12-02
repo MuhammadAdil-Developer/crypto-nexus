@@ -29,6 +29,7 @@ class User(AbstractUser, BaseModel):
     
     # Vendor-specific fields
     escrow_enabled = models.BooleanField(default=False)  # Enable escrow for all vendor products
+    non_escrow_blocked = models.BooleanField(default=False)  # Admin can block vendor from creating non-escrow listings
     
     # Buyer payout addresses
     btc_payout_address = models.CharField(max_length=120, blank=True, null=True)

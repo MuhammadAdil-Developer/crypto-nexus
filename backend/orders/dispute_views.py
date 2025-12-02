@@ -17,7 +17,7 @@ from channels.layers import get_channel_layer
 
 from orders.models import Order, OrderDispute
 from payments.models import RefundRequest
-from shared.models import Notification, UserWallet, WalletTransaction, UserActivity
+from shared.models import Notification, UserActivity
 from shared.utils import log_user_activity
 from shared.admin_notifications import send_admin_notification
 from .refund_views import process_refund_to_wallet, VENDOR_REFUND_DEADLINE_DAYS
@@ -550,118 +550,175 @@ def vendor_process_refund(request, refund_id):
         notes = request.data.get('notes', '')
         payment_source = request.data.get('payment_source', 'platform')
         external_wallet_address = request.data.get('external_wallet_address', '').strip()
-        
+
         if payment_source not in ['platform', 'external']:
             return Response({
                 'success': False,
-                'message': 'Invalid payment source. Choose "platform" or "external".'
+                'message': 'Invalid payment source. Choose \"platform\" or \"external\".'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
-        if payment_source == 'external':
-            if not transaction_hash:
+
+        order = refund.order
+
+        # Get buyer's payout address
+        if order.crypto_currency == 'BTC':
+            buyer_payout_address = getattr(refund.buyer, 'btc_payout_address', None)
+        elif order.crypto_currency == 'XMR':
+            buyer_payout_address = getattr(refund.buyer, 'xmr_payout_address', None)
+        else:
+            buyer_payout_address = None
+
+        if not buyer_payout_address:
+            return Response({
+                'success': False,
+                'message': f'Buyer has not set a {order.crypto_currency} payout address. Please ask buyer to set their payout address in settings.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get vendor's wallet address from VendorApplication
+        from vendors.models import VendorApplication
+        try:
+            vendor_app = VendorApplication.objects.get(vendor_username=refund.vendor.username)
+            if order.crypto_currency == 'BTC':
+                vendor_wallet_address = vendor_app.btc_address
+            elif order.crypto_currency == 'XMR':
+                vendor_wallet_address = vendor_app.xmr_address
+            else:
+                vendor_wallet_address = None
+
+            if not vendor_wallet_address:
                 return Response({
                     'success': False,
-                    'message': 'Transaction hash is required when using external wallet.'
+                    'message': f'Vendor has not set a {order.crypto_currency} wallet address in their application. Please contact admin.'
                 }, status=status.HTTP_400_BAD_REQUEST)
+        except VendorApplication.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Vendor application not found. Please contact admin.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # For external wallet: vendor must send manually FROM external address TO buyer
+        if payment_source == 'external':
             if not external_wallet_address:
                 return Response({
                     'success': False,
-                    'message': 'Please provide the wallet address used for the external refund.'
+                    'message': 'Please provide the external wallet address you will use for the refund.'
                 }, status=status.HTTP_400_BAD_REQUEST)
-        
-        order = refund.order
-        
-        with transaction.atomic():
-            # Process refund to buyer's wallet
-            refund_processed = process_refund_to_wallet(refund, order)
-            
-            if refund_processed:
-                # Mark refund as completed
-                refund.vendor_refund_completed = True
-                if transaction_hash:
-                    refund.vendor_refund_transaction_hash = transaction_hash
-                refund.vendor_payment_source = payment_source
-                refund.vendor_external_wallet_address = external_wallet_address or None
-                refund.status = 'completed'
-                refund.completed_at = timezone.now()
-                refund.save()
-                
-                # Log activity
-                log_user_activity(
-                    user=request.user,
-                    activity_type='vendor_refund_processed',
-                    description=f'Processed refund for order {order.order_id}',
-                    metadata={
-                        'order_id': order.order_id,
-                        'refund_id': str(refund.id),
-                        'amount': str(refund.amount),
-                        'transaction_hash': transaction_hash
-                    }
-                )
-                
-                # Notify buyer
-                Notification.objects.create(
-                    user=refund.buyer,
-                    type='refund',
-                    title='Refund Processed',
-                    message=f'Vendor processed refund for order {order.order_id}. Amount credited to your wallet.',
-                    data={
-                        'refund_id': str(refund.id),
-                        'order_id': order.order_id,
-                        'amount': str(refund.amount),
-                        'action_url': '/buyer/orders'
-                    }
-                )
-                
-                # Real-time notification to buyer
-                channel_layer = get_channel_layer()
-                if channel_layer:
-                    try:
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{refund.buyer.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'type': 'refund_processed',
-                                    'title': 'Refund Processed',
-                                    'message': f'Refund for order {order.order_id} has been processed. Amount credited to wallet.',
-                                    'refund_id': str(refund.id),
-                                    'order_id': order.order_id,
-                                    'priority': 'normal',
-                                    'action_url': '/buyer/orders'
-                                }
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(f"Error sending real-time notification to buyer: {e}")
-                
-                # Notify admin
-                send_admin_notification(
-                    notification_type='refund',
-                    title='Vendor Processed Refund',
-                    message=f'Vendor {request.user.username} processed refund for order {order.order_id}',
-                    data={
-                        'refund_id': str(refund.id),
-                        'order_id': order.order_id,
-                        'action_url': '/admin/refunds'
-                    },
-                    priority='normal'
-                )
-                
-                return Response({
-                    'success': True,
-                    'message': 'Refund processed successfully',
-                    'refund': {
-                        'id': str(refund.id),
-                        'status': refund.status,
-                        'amount': str(refund.amount)
-                    }
-                })
-            else:
+            if not transaction_hash:
                 return Response({
                     'success': False,
-                    'message': 'Failed to process refund to wallet'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    'message': f'Transaction hash is required. Please send {refund.amount} {order.crypto_currency} manually from your external wallet address ({external_wallet_address}) to buyer\'s address ({buyer_payout_address}) and provide the transaction hash here.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Vendor sent manually from external wallet - record the tx hash
+            with transaction.atomic():
+                refund.vendor_refund_completed = True
+                refund.vendor_refund_transaction_hash = transaction_hash
+                refund.vendor_payment_source = 'external'
+                refund.vendor_external_wallet_address = external_wallet_address
+                refund.status = 'completed'
+                refund.vendor_decision_notes = notes or refund.vendor_decision_notes
+                refund.completed_at = timezone.now()
+                refund.save()
+
+                # Update order status to refunded
+                order.order_status = 'refunded'
+                order.save()
+
+        # For platform wallet (vendor's payout wallet address): vendor must send manually FROM their wallet TO buyer
+        else:  # payment_source == 'platform'
+            # Vendor must send manually from their payout wallet address (from VendorApplication)
+            # We cannot send from vendor's wallet because we don't control it
+            if not transaction_hash:
+                return Response({
+                    'success': False,
+                    'message': f'Transaction hash is required. Please send {refund.amount} {order.crypto_currency} manually from your payout wallet address ({vendor_wallet_address}) to buyer\'s address ({buyer_payout_address}) and provide the transaction hash here.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Vendor sent manually from their payout wallet address - record the tx hash
+            with transaction.atomic():
+                refund.vendor_refund_completed = True
+                refund.vendor_refund_transaction_hash = transaction_hash
+                refund.vendor_payment_source = 'platform'
+                refund.vendor_external_wallet_address = vendor_wallet_address  # Store vendor's payout wallet address
+                refund.status = 'completed'
+                refund.vendor_decision_notes = notes or refund.vendor_decision_notes
+                refund.completed_at = timezone.now()
+                refund.save()
+
+                # Update order status to refunded
+                order.order_status = 'refunded'
+                order.save()
+            
+            # Log activity
+            log_user_activity(
+                user=request.user,
+                activity_type='vendor_refund_processed',
+                description=f'Processed refund for order {order.order_id}',
+                metadata={
+                    'order_id': order.order_id,
+                    'refund_id': str(refund.id),
+                    'amount': str(refund.amount),
+                    'transaction_hash': transaction_hash
+                }
+            )
+            
+            # Notify buyer
+            Notification.objects.create(
+                user=refund.buyer,
+                type='refund',
+                title='Refund Processed',
+                message=f'Vendor processed refund for order {order.order_id}. The refund has been sent to your payout wallet.',
+                data={
+                    'refund_id': str(refund.id),
+                    'order_id': order.order_id,
+                    'amount': str(refund.amount),
+                    'action_url': '/buyer/orders'
+                }
+            )
+            
+            # Real-time notification to buyer
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        f'realtime_{refund.buyer.id}',
+                        {
+                            'type': 'order_notification',
+                            'data': {
+                                'type': 'refund_processed',
+                                'title': 'Refund Processed',
+                                'message': f'Refund for order {order.order_id} has been processed. Amount credited to wallet.',
+                                'refund_id': str(refund.id),
+                                'order_id': order.order_id,
+                                'priority': 'normal',
+                                'action_url': '/buyer/orders'
+                            }
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending real-time notification to buyer: {e}")
+            
+            # Notify admin
+            send_admin_notification(
+                notification_type='refund',
+                title='Vendor Processed Refund',
+                message=f'Vendor {request.user.username} processed refund for order {order.order_id}',
+                data={
+                    'refund_id': str(refund.id),
+                    'order_id': order.order_id,
+                    'action_url': '/admin/refunds'
+                },
+                priority='normal'
+            )
+        
+        return Response({
+            'success': True,
+            'message': 'Refund processed successfully',
+            'refund': {
+                'id': str(refund.id),
+                'status': refund.status,
+                'amount': str(refund.amount)
+            }
+        })
     
     except Exception as e:
         logger.error(f"Vendor process refund error: {str(e)}")
@@ -669,4 +726,3 @@ def vendor_process_refund(request, refund_id):
             'success': False,
             'message': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-

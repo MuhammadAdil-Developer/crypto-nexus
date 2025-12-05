@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Search, Filter, Eye, MessageSquare, Clock, AlertTriangle, CheckCircle, Loader2, User, Package, DollarSign, History, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { messagingService } from "@/services/messagingService";
@@ -112,6 +113,7 @@ export default function AdminDisputes() {
   const [winningParty, setWinningParty] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
   const [resolving, setResolving] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   useEffect(() => {
     fetchDisputes();
@@ -202,56 +204,37 @@ export default function AdminDisputes() {
       setMessagePage(1);
       setHasMoreMessages(false);
       
-      // Get the product ID - could be string or number
-      let productId = dispute.product || dispute.product_data?.id;
+      // Get dispute detail which includes dispute-specific messages
+      const disputeDetail = await disputeService.getDisputeDetail(dispute.id);
       
-      // Multiple fallbacks: try to get product ID from order data
-      if (!productId && dispute.order_data?.product) {
-        productId = dispute.order_data.product;
-      }
-      
-      // Another fallback: try to get from order_data.product_data
-      if (!productId && dispute.order_data?.product_data?.id) {
-        productId = dispute.order_data.product_data.id;
-      }
-      
-      console.log('🔍 Debug dispute data:', {
-        dispute_id: dispute.id,
-        buyer: dispute.buyer,
-        vendor: dispute.vendor,
-        product: dispute.product,
-        product_data: dispute.product_data,
-        order_data: dispute.order_data,
-        productId: productId
-      });
-      
-      if (!productId) {
-        setMessageHistory([]);
-        setChatSummary('No product information available for this dispute. Please refresh the page and try again.');
-        return;
-      }
-      
-      // Get conversation by product ID
-      console.log('🔍 Attempting to get conversation for product ID:', productId);
-      const conversation = await messagingService.getConversationByProduct(productId);
-      console.log('🔍 Conversation result:', conversation);
-      
-      if (conversation) {
-        // Get messages for this conversation
-        console.log('🔍 Getting messages for conversation ID:', conversation.id);
-        const messages = await messagingService.getMessages(conversation.id);
-        console.log('🔍 Messages result:', messages);
-        console.log('🔍 Messages length:', messages?.length);
-        console.log('🔍 First message:', messages?.[0]);
+      if (disputeDetail.success && disputeDetail.data) {
+        // Use dispute messages, not product conversation
+        const disputeMessages = disputeDetail.data.messages || [];
         
-        setMessageHistory(messages || []);
-        setHasMoreMessages((messages?.length || 0) >= 20); // Assuming 20 messages per page
-        
-        // Generate AI summary
-        await generateChatSummary(messages || []);
+        if (disputeMessages.length > 0) {
+          // Convert dispute messages to message history format
+          const formattedMessages = disputeMessages.map((msg: any) => ({
+            id: msg.id,
+            sender: msg.sender_username,
+            sender_id: msg.sender,
+            message: msg.message,
+            created_at: msg.created_at,
+            is_internal: msg.is_internal,
+            attachments: msg.attachments || []
+          }));
+          
+          setMessageHistory(formattedMessages);
+          setHasMoreMessages(false); // Dispute messages don't have pagination
+          
+          // Generate AI summary
+          await generateChatSummary(formattedMessages);
+        } else {
+          setMessageHistory([]);
+          setChatSummary('This dispute has no open chat.');
+        }
       } else {
         setMessageHistory([]);
-        setChatSummary('No conversation found for this dispute. The buyer and vendor may not have exchanged messages yet.');
+        setChatSummary('This dispute has no open chat.');
       }
     } catch (error) {
       console.error('Error fetching message history:', error);
@@ -261,7 +244,7 @@ export default function AdminDisputes() {
         variant: "destructive"
       });
       setMessageHistory([]);
-      setChatSummary('Error loading conversation. Please try again.');
+      setChatSummary('This dispute has no open chat.');
     } finally {
       setLoadingMessages(false);
     }
@@ -462,7 +445,8 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
    return `**📊 Dispute Communication Analysis:**\n\n**📈 Statistics:**\n• Total Messages: ${lines.length}\n• Buyer Messages: ${buyerMessages.length}\n• Vendor Messages: ${vendorMessages.length}\n\n**⚠️ Key Issues Identified:**\n${uniqueIssues.length > 0 ? uniqueIssues.join('\n') : '• No specific issues clearly identified in conversation'}\n\n**💬 Communication Pattern:**\n• ${vendorMessages.length === 0 ? '🚨 Vendor has not responded to buyer messages' : '✅ Both parties are actively communicating'}\n• ${buyerMessages.length > vendorMessages.length * 2 ? '📢 Buyer appears more active in conversation' : '⚖️ Balanced communication between parties'}\n\n**🎯 Recommended Resolution:**\nBased on the conversation analysis, ${vendorMessages.length === 0 ? 'consider the vendor\'s lack of response as a key factor in your decision' : 'review the communication patterns and specific issues mentioned to determine fair resolution'}.\n\n---\n*Analysis completed using local processing (AI service unavailable)*`;
  };
   
-  const handleResolveDispute = async () => {
+  const handleResolveDispute = () => {
+    // Validate first
     if (!selectedDispute || !resolutionType) {
       toast({
         title: "Validation Error",
@@ -490,21 +474,38 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       return;
     }
     
+    // Check if buyer wins and refund is needed
+    const isBuyerWin = winningParty === 'buyer';
+    const needsRefund = isBuyerWin && refundAmount && parseFloat(refundAmount) > 0;
+    
+    // Show confirmation dialog
+    if (needsRefund) {
+      setShowConfirmDialog(true);
+    } else {
+      // Proceed without confirmation if no refund
+      proceedWithResolution();
+    }
+  };
+  
+  const proceedWithResolution = async () => {
+    setShowConfirmDialog(false);
     setResolving(true);
     
     try {
-      const response = await disputeService.resolveDispute(selectedDispute.id, {
+      const response = await disputeService.resolveDispute(selectedDispute!.id, {
         resolution: resolutionType,
         resolution_notes: resolutionNotes,
         resolution_reason: resolutionReason,
         winning_party: winningParty,
-        refund_amount: refundAmount ? parseFloat(refundAmount) : undefined
+        refund_amount: refundAmount && refundAmount.trim() && parseFloat(refundAmount) > 0 ? parseFloat(refundAmount) : undefined
       });
       
       if (response.success) {
         toast({
           title: "Dispute Resolved",
-          description: "The dispute has been resolved successfully",
+          description: winningParty === 'buyer' && refundAmount 
+            ? `The dispute has been resolved and ${refundAmount} has been refunded to the buyer's wallet.`
+            : "The dispute has been resolved successfully",
         });
         
         setIsResolutionModalOpen(false);
@@ -762,7 +763,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   <div className="flex flex-col space-y-2 md:ml-6">
                     <Button 
                       variant="outline" 
-                      className="border-border text-gray-300 hover:bg-surface-2 w-full md:w-auto"
+                      className="border-border text-gray-300 w-full md:w-auto"
                       onClick={() => handleViewDetails(dispute)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
@@ -770,7 +771,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     </Button>
                     <Button 
                       variant="outline" 
-                      className="border-border text-gray-300 hover:bg-surface-2 w-full md:w-auto"
+                      className="border-border text-gray-300  w-full md:w-auto"
                       onClick={() => handleViewMessageHistory(dispute)}
                     >
                       <History className="w-4 h-4 mr-2" />
@@ -1015,7 +1016,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   ) : (
                     'Resolve Dispute'
                   )}
-                        </Button>
+                </Button>
                 
                 <Button
                   variant="outline"
@@ -1023,12 +1024,47 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   className="border-gray-600 text-gray-300"
                 >
                   Cancel
-                        </Button>
-                      </div>
-                    </div>
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog for Refund */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent className="bg-gray-900 border-gray-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              Confirm Refund to Buyer
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you sure you want to refund {refundAmount} {selectedDispute?.order_data?.crypto_currency || 'BTC'} to the buyer's wallet?
+              <br /><br />
+              This action will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Resolve the dispute in favor of the buyer</li>
+                <li>Send {refundAmount} {selectedDispute?.order_data?.crypto_currency || 'BTC'} from the platform wallet to the buyer's wallet</li>
+                <li>Mark the dispute as resolved</li>
+              </ul>
+              <br />
+              <strong className="text-yellow-400">This action cannot be undone.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-800">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={proceedWithResolution}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Yes, Refund & Resolve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Message History Modal */}
       <Dialog open={isMessageHistoryModalOpen} onOpenChange={setIsMessageHistoryModalOpen}>

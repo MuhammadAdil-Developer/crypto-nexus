@@ -4,6 +4,7 @@ export interface Dispute {
   id: string; // UUID
   dispute_id: string;
   order: string;
+  order_id?: string; // Add order_id field
   product: string;
   buyer: string;
   vendor: string;

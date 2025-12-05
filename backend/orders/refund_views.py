@@ -312,6 +312,7 @@ def vendor_approve_refund(request, refund_id):
         payment_source = request.data.get('payment_source', 'platform')
         transaction_hash = request.data.get('transaction_hash', '').strip()
         external_wallet_address = request.data.get('external_wallet_address', '').strip()
+        refund_now = request.data.get('refund_now', False)  # Check if vendor wants automatic refund
 
         if payment_source not in ['platform', 'external']:
             return Response({
@@ -333,9 +334,22 @@ def vendor_approve_refund(request, refund_id):
                 logger.error(f"Error loading escrow payment for refund: {e}")
 
         # --- CASE 1: Escrow still held by platform (admin wallet sends refund) ---
-        if escrow_funded:
+        # Process automatic refund if refund_now is true OR if escrow is funded
+        if (order.use_escrow and refund_now) or escrow_funded:
             # In this case the vendor is NOT sending coins. Platform (admin) sends refund from escrow.
             # Force payment_source to platform and ignore vendor wallet fields.
+            
+            # If refund_now is true but escrow_payment is None or not funded, try to get it
+            if refund_now and (not escrow_payment or not escrow_funded):
+                try:
+                    from payments.models import PaymentAddress
+                    payment_address = PaymentAddress.objects.get(order_id=order.order_id)
+                    if hasattr(payment_address, 'escrow'):
+                        escrow_payment = payment_address.escrow
+                        escrow_funded = escrow_payment.status == 'funded'
+                except Exception as e:
+                    logger.error(f"Error loading escrow payment for refund_now: {e}")
+            
             if order.crypto_currency == 'BTC':
                 buyer_payout_address = getattr(refund.buyer, 'btc_payout_address', None)
             elif order.crypto_currency == 'XMR':
@@ -355,7 +369,12 @@ def vendor_approve_refund(request, refund_id):
                 try:
                     payment_service = PaymentService()
                     # Refund full escrow amount + escrow fee (buyer gets everything back)
-                    total_refund_amount = escrow_payment.escrow_amount + escrow_payment.escrow_fee
+                    # If escrow_payment exists, use it; otherwise calculate from order
+                    if escrow_payment and escrow_funded:
+                        total_refund_amount = escrow_payment.escrow_amount + escrow_payment.escrow_fee
+                    else:
+                        # Fallback: use refund amount from the refund request
+                        total_refund_amount = refund.amount
                     real_tx_hash = None
 
                     if order.crypto_currency == 'BTC':
@@ -384,11 +403,12 @@ def vendor_approve_refund(request, refund_id):
                             }, status=status.HTTP_400_BAD_REQUEST)
                         real_tx_hash = monero_result.get('tx_hash')
 
-                    # Mark escrow as refunded
-                    escrow_payment.status = 'refunded'
-                    escrow_payment.released_at = timezone.now()
-                    escrow_payment.release_transaction_hash = real_tx_hash
-                    escrow_payment.save()
+                    # Mark escrow as refunded (if escrow_payment exists)
+                    if escrow_payment:
+                        escrow_payment.status = 'refunded'
+                        escrow_payment.released_at = timezone.now()
+                        escrow_payment.release_transaction_hash = real_tx_hash
+                        escrow_payment.save()
 
                     # Mark refund/order as completed
                     refund.status = 'completed'
@@ -402,6 +422,44 @@ def vendor_approve_refund(request, refund_id):
 
                     order.order_status = 'refunded'
                     order.save()
+
+                    # Log activity
+                    log_user_activity(
+                        user=request.user,
+                        activity_type='refund_approved',
+                        description=f'Approved escrow refund for order {order.order_id}',
+                        metadata={
+                            'order_id': order.order_id,
+                            'refund_id': str(refund.id),
+                            'amount': str(refund.amount),
+                            'transaction_hash': real_tx_hash
+                        }
+                    )
+                    
+                    # Notify buyer
+                    Notification.objects.create(
+                        user=refund.buyer,
+                        type='refund_approved',
+                        title='Refund Approved',
+                        message=f'Your refund request for order {order.order_id} has been approved. {refund.amount} {order.crypto_currency} has been sent to your wallet.',
+                        data={
+                            'order_id': order.order_id,
+                            'refund_id': str(refund.id),
+                            'amount': str(refund.amount)
+                        }
+                    )
+                    
+                    # Return success response - escrow refund processed
+                    return Response({
+                        'success': True,
+                        'message': f'Escrow refund processed successfully. {refund.amount} {order.crypto_currency} sent to buyer\'s wallet.',
+                        'data': {
+                            'refund_id': str(refund.id),
+                            'order_id': order.order_id,
+                            'amount': str(refund.amount),
+                            'transaction_hash': real_tx_hash
+                        }
+                    })
 
                 except Exception as e:
                     logger.error(f"Error processing escrow refund payout: {e}")
@@ -741,6 +799,7 @@ def vendor_refund_requests(request):
                 'reason': refund.reason,
                 'refund_type': refund.refund_type,
                 'status': refund.status,
+                'use_escrow': order.use_escrow,  # Add escrow status
                 'vendor_decision': refund.vendor_decision,
                 'vendor_decision_notes': refund.vendor_decision_notes,
                 'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,

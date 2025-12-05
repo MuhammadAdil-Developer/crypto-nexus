@@ -27,9 +27,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config || {};
+    const status = error.response?.status;
+    const url: string = originalRequest.url || '';
+
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh');
+
+    const hasToken =
+      !!localStorage.getItem('accessToken') ||
+      !!localStorage.getItem('refreshToken');
     
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // If this is an auth request or there is no token at all,
+    // don't try refresh or show session modal (normal login errors)
+    if (status === 401 && (isAuthEndpoint || !hasToken)) {
+      return Promise.reject(error);
+    }
+    
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       console.log('🔐 401 Unauthorized - attempting token refresh');
@@ -50,6 +67,7 @@ api.interceptors.response.use(
             console.log('🔐 Token refreshed successfully');
             
             // Retry the original request with new token
+            originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${access}`;
             return api(originalRequest);
           }
@@ -64,18 +82,23 @@ api.interceptors.response.use(
         localStorage.removeItem('userId');
         
         // Trigger token expiration modal
-        window.dispatchEvent(new CustomEvent('token_expired', { detail: { userType: user.user_type } }));
+        window.dispatchEvent(
+          new CustomEvent('token_expired', {
+            detail: { userType: user.user_type },
+          })
+        );
         
         return Promise.reject(refreshError);
       }
     }
     
     // Log other errors for debugging
-    if (error.response?.status === 401) {
+    if (status === 401 && hasToken && !isAuthEndpoint) {
       console.log('🔐 401 Error - Token might be invalid:', {
         url: originalRequest.url,
         hasToken: !!localStorage.getItem('accessToken'),
-        tokenPreview: localStorage.getItem('accessToken')?.substring(0, 20) + '...'
+        tokenPreview:
+          localStorage.getItem('accessToken')?.substring(0, 20) + '...',
       });
       
       // If no retry attempted and token exists, try refresh first
@@ -85,7 +108,11 @@ api.interceptors.response.use(
         // Will be handled by retry logic above
       } else {
         // Refresh failed, show modal
-        window.dispatchEvent(new CustomEvent('token_expired', { detail: { userType: user.user_type } }));
+        window.dispatchEvent(
+          new CustomEvent('token_expired', {
+            detail: { userType: user.user_type },
+          })
+        );
       }
     }
     

@@ -27,7 +27,20 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const originalRequest = error.config || {};
+    const url: string = originalRequest.url || '';
+
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh');
+
+    const hasToken =
+      !!localStorage.getItem('accessToken') ||
+      !!localStorage.getItem('refreshToken');
+
+    if (status === 401 && hasToken && !isAuthEndpoint) {
       // Token expired or invalid
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       localStorage.removeItem('accessToken');
@@ -36,7 +49,11 @@ api.interceptors.response.use(
       localStorage.removeItem('userId');
       
       // Trigger token expiration modal instead of direct redirect
-      window.dispatchEvent(new CustomEvent('token_expired', { detail: { userType: user.user_type } }));
+      window.dispatchEvent(
+        new CustomEvent('token_expired', {
+          detail: { userType: user.user_type },
+        })
+      );
     }
     return Promise.reject(error);
   }
@@ -228,8 +245,13 @@ class OrderService {
 
   async getBuyerOrders(): Promise<Order[]> {
     try {
-      const response = await api.get('/orders/buyer/');
-      return response.data;
+      // Fetch all orders without pagination - OrderViewSet automatically filters by buyer
+      const response = await api.get('/orders/?page_size=10000');
+      // Handle both paginated and non-paginated responses
+      if (response.data.results) {
+        return response.data.results;
+      }
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to fetch buyer orders');
     }

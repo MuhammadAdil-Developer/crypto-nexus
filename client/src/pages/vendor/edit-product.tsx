@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText, Download } from "lucide-react";
 import vendorService, { VendorProduct } from "@/services/vendorService";
+import { productService } from "@/services/productService";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/ToastContainer";
 import { getImageUrl, getApiUrl } from "@/config/api";
@@ -250,20 +251,82 @@ export default function VendorEditProduct() {
       setSaving(true);
       setError(null);
       
-      const response = await vendorService.updateProductStatus(id, formData.status);
+      // Prepare form data for update
+      const updateData: any = {
+        headline: formData.headline,
+        website: formData.website,
+        account_type: formData.account_type,
+        access_type: formData.access_type,
+        account_balance: formData.account_balance ? parseFloat(formData.account_balance) : undefined,
+        description: formData.description,
+        price: formData.price ? parseFloat(formData.price) : undefined,
+        additional_info: formData.additional_info,
+        delivery_time: formData.delivery_time,
+        credentials: formData.credentials,
+        account_age: formData.account_age,
+        access_method: formData.access_method,
+        quantity_available: formData.quantity_available ? parseInt(formData.quantity_available) : undefined,
+        tags: formData.tags,
+        listing_title: formData.listing_title || formData.headline,
+        discount_percentage: formData.discount_percentage ? parseFloat(formData.discount_percentage) : undefined,
+        delivery_method: formData.delivery_method,
+        special_features: formData.special_features,
+        notes_for_buyer: formData.notes_for_buyer,
+        status: formData.status
+      };
+      
+      // Remove undefined fields
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined || updateData[key] === '') {
+          delete updateData[key];
+        }
+      });
+      
+      // Create FormData for file uploads
+      const formDataToSend = new FormData();
+      Object.keys(updateData).forEach(key => {
+        if (Array.isArray(updateData[key])) {
+          updateData[key].forEach((item: any, index: number) => {
+            formDataToSend.append(`${key}[${index}]`, item);
+          });
+        } else {
+          formDataToSend.append(key, updateData[key]);
+        }
+      });
+      
+      // Add images if they exist
+      if (mainImage) {
+        formDataToSend.append('main_image', mainImage);
+      }
+      galleryImages.forEach((img, index) => {
+        formDataToSend.append(`gallery_images`, img);
+      });
+      
+      const response = await productService.updateProduct(Number(id), formDataToSend as any);
+      
       if (response.success) {
         showToast({
           type: 'success',
-          title: 'Product status updated successfully!',
-          message: 'Your product status has been updated.',
+          title: 'Product updated successfully!',
+          message: 'Your product has been updated.',
         });
-        navigate(`/vendor/listings/${id}`);
+        navigate('/vendor/listings');
       } else {
         setError(response.message || 'Failed to update product');
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: response.message || 'Failed to update product',
+        });
       }
     } catch (err: any) {
       setError(err.message || 'Failed to update product');
       console.error('Error updating product:', err);
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err.message || 'Failed to update product',
+      });
     } finally {
       setSaving(false);
     }

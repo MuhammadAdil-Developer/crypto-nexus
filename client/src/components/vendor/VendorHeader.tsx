@@ -131,10 +131,26 @@ export function VendorHeader() {
     // The notification will be marked as read when bell icon is clicked
   };
 
+  // Auto-refresh notifications every 2 seconds (like admin header)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (refreshNotifications) {
+        refreshNotifications(true);
+      }
+    }, 2000);
+    
+    // Also refresh immediately when dropdown opens
+    if (notificationDropdownOpen && refreshNotifications) {
+      refreshNotifications(true);
+    }
+    
+    return () => clearInterval(interval);
+  }, [notificationDropdownOpen, refreshNotifications]);
+
   const handleNotificationDropdownOpen = async (open: boolean) => {
     setNotificationDropdownOpen(open);
     
-    // When dropdown opens, just mark as read - don't refresh (WebSocket handles real-time updates)
+    // When dropdown opens, mark as read and refresh
     if (open) {
       try {
         console.log('🔔 Vendor dropdown opened, marking notifications as read');
@@ -143,6 +159,11 @@ export function VendorHeader() {
         
         // Mark all as read in backend
         await notificationService.markAllAsRead();
+        
+        // Refresh notifications to get latest
+        if (refreshNotifications) {
+          refreshNotifications(true);
+        }
         
         // Immediately set unread count to 0
         if (setUnreadCount) {
@@ -162,11 +183,12 @@ export function VendorHeader() {
         if (setNotifications) {
           setNotifications([]);
         }
-        
-        // DON'T call refreshNotifications - it interferes with WebSocket real-time updates
-        // WebSocket will handle new notifications automatically
       } catch (error) {
         console.error('Error marking notifications as read:', error);
+        // Still refresh even if mark as read fails
+        if (refreshNotifications) {
+          refreshNotifications(true);
+        }
       }
     }
   };

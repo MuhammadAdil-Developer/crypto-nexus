@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ToastProvider from './components/ui/ToastContainer';
 import { Toaster } from '@/components/ui/toaster';
@@ -12,7 +12,6 @@ import { TokenExpirationModal } from './components/auth/TokenExpirationModal';
 import MarketplaceHome from './pages/marketplace/home';
 import BuyerDashboard from './pages/buyer/buyer-dashboard';
 import VendorDashboard from './pages/vendor/dashboard';
-import AdminDashboard from './pages/admin/admin-dashboard';
 import SignIn from './pages/auth/sign-in';
 import SignUp from './pages/auth/sign-up';
 import AdminSignIn from './pages/auth/admin-sign-in';
@@ -33,13 +32,21 @@ import BuyerMyReviews from "./pages/buyer/my-reviews";
 import BuyerNotifications from "./pages/buyer/notifications";
 import './index.css';
 
-// Debug component to track route changes
+// Lazy load admin dashboard to hide admin routes from initial bundle
+// This prevents admin paths from being visible in the main JavaScript bundle
+const AdminDashboard = lazy(() => import('./pages/admin/admin-dashboard'));
+
+// Debug component to track route changes - DISABLED IN PRODUCTION
+// Remove or comment out in production to prevent route information leakage
 function RouteDebugger() {
   const location = useLocation();
   
   useEffect(() => {
-    console.log('🔍 Route changed to:', location.pathname);
-    console.log('🔍 Full location:', location);
+    // Only log in development mode
+    if (import.meta.env.DEV) {
+      console.log('🔍 Route changed to:', location.pathname);
+      console.log('🔍 Full location:', location);
+    }
   }, [location]);
   
   return null;
@@ -115,11 +122,17 @@ function App() {
               </ProtectedRoute>
             } />
             
-            {/* Admin Routes */}
+            {/* Admin Routes - Lazy loaded to hide from initial bundle */}
             <Route path="/admin/*" element={
               <ProtectedRoute requiredUserType="admin">
                 <AdminCountsProvider>
-                  <AdminDashboard />
+                  <Suspense fallback={
+                    <div className="min-h-screen bg-black flex items-center justify-center">
+                      <div className="text-white">Loading...</div>
+                    </div>
+                  }>
+                    <AdminDashboard />
+                  </Suspense>
                 </AdminCountsProvider>
               </ProtectedRoute>
             } />

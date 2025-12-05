@@ -34,6 +34,7 @@ export interface RefundRequest {
   status: string;
   buyer_id?: string;
   product_id?: string;
+  use_escrow?: boolean;  // Add escrow status
   buyer_btc_payout_address?: string;
   buyer_xmr_payout_address?: string;
   vendor_payment_source?: 'platform' | 'external' | null;
@@ -150,6 +151,7 @@ class RefundService {
       payment_source?: 'platform' | 'external';
       transaction_hash?: string;
       external_wallet_address?: string;
+      refund_now?: boolean;
     } = {}
   ) {
     const payload: Record<string, any> = {
@@ -161,6 +163,9 @@ class RefundService {
     }
     if (data.external_wallet_address) {
       payload.external_wallet_address = data.external_wallet_address;
+    }
+    if (data.refund_now !== undefined) {
+      payload.refund_now = data.refund_now;
     }
     const response = await api.post(`/orders/vendor/refunds/${refundId}/approve/`, payload);
     return response.data;

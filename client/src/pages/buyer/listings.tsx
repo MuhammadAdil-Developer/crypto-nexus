@@ -68,13 +68,14 @@ function BuyerListingsContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isBulkPurchaseOpen, setIsBulkPurchaseOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(12); // Items per page
+  const [pageSize, setPageSize] = useState(12); // Items per page
   const [pagination, setPagination] = useState({
     page: 1,
     page_size: 12,
     total_count: 0,
     total_pages: 1
   });
+  const [allProducts, setAllProducts] = useState<Product[]>([]); // Store all products for search
 
   const { toast } = useToast();
   const { getTotalItems } = useCart();
@@ -90,11 +91,42 @@ function BuyerListingsContent() {
   // Fetch products from API
   useEffect(() => {
     fetchProducts();
-  }, [currentPage]);
-
-  // Filter and sort products
+  }, [currentPage, pageSize]);
+  
+  // Fetch all products when searching (for cross-page search)
   useEffect(() => {
-    let filtered = products;
+    if (searchQuery) {
+      fetchAllProducts();
+    }
+  }, [searchQuery]);
+  
+  const fetchAllProducts = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      
+      // Fetch all products for search (use a large page size or fetch all)
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=1&page_size=1000`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const productsArray = data.data || data.results || [];
+        setAllProducts(productsArray);
+      }
+    } catch (error) {
+      console.error('Error fetching all products for search:', error);
+    }
+  };
+
+  // Filter and sort products - use allProducts for search to search across all pages
+  useEffect(() => {
+    // Use allProducts if searching, otherwise use current page products
+    const sourceProducts = searchQuery ? allProducts : products;
+    let filtered = [...sourceProducts];
 
     // Apply category filter
     if (selectedCategory !== "all") {
@@ -104,7 +136,7 @@ function BuyerListingsContent() {
       });
     }
 
-    // Apply search filter
+    // Apply search filter - search across all products, not just current page
     if (searchQuery) {
       filtered = filtered.filter(product => 
         product.listing_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -113,6 +145,8 @@ function BuyerListingsContent() {
         product.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
+    
+    // DO NOT filter by quantity_available - show all products even if out of stock
 
     // Apply client-side sorting only if user explicitly selected a sort option.
     // Default 'server' preserves the order returned by the API (personalized ordering).
@@ -146,7 +180,7 @@ function BuyerListingsContent() {
     }
 
     setFilteredProducts(filtered);
-  }, [products, searchQuery, selectedCategory, sortBy]);
+  }, [products, allProducts, searchQuery, selectedCategory, sortBy]);
 
   const fetchProducts = async () => {
     try {
@@ -160,7 +194,7 @@ function BuyerListingsContent() {
         return;
       }
   
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${currentPage}&page_size=${pageSize}`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${currentPage}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -247,10 +281,8 @@ function BuyerListingsContent() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
-    setFilteredProducts(products.filter(product => 
-      product.listing_title.toLowerCase().includes(query.toLowerCase()) ||
-      product.vendor.username.toLowerCase().includes(query.toLowerCase())
-    ));
+    setCurrentPage(1); // Reset to page 1 when searching
+    // Filtering is handled by useEffect hook
   };
 
   const handlePageChange = (newPage: number) => {
@@ -306,8 +338,9 @@ function BuyerListingsContent() {
           <p className="text-gray-300">Discover {filteredProducts.length} products from trusted vendors</p>
         </div>
 
-        {/* Search, Sort, and View Toggle */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
+        {/* Search, Sort, and View Toggle - Sticky */}
+        <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm py-4 -mx-6 px-6 border-b border-gray-700">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
           {/* Search Bar with Dark Background */}
           <div className="flex-1">
             <div className="relative">
@@ -399,24 +432,52 @@ function BuyerListingsContent() {
               <Table className="w-4 h-4" />
             </Button>
           </div>
+          </div>
         </div>
 
-        {/* Results Count + Loading indicator */}
-        <div className="flex items-center justify-between text-sm text-gray-400">
+        {/* Results Count + Items per page + Loading indicator */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm text-gray-400">
           <span>
-            Showing {filteredProducts.length} of {products.length} products
+            Showing {searchQuery ? filteredProducts.length : filteredProducts.length} of {searchQuery ? allProducts.length : pagination.total_count} products
           </span>
-          {isLoading && (
-            <span className="flex items-center gap-2 text-xs text-blue-400">
-              <span className="inline-block h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              Loading page...
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Items per page selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm">Items per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value={12}>12</option>
+                <option value={24}>24</option>
+                <option value={36}>36</option>
+                <option value={48}>48</option>
+              </select>
+            </div>
+            {isLoading && (
+              <div className="flex items-center gap-2 text-xs text-blue-400">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                Loading...
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Main Content - Products Grid/List/Table */}
         <div>
-          {filteredProducts.length === 0 ? (
+          {isLoading && filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="relative w-16 h-16 mb-4">
+                <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <p className="text-gray-400 text-sm">Loading products...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 text-lg mb-2">No products found</div>
               <p className="text-gray-500">Try adjusting your search or filters</p>
@@ -459,7 +520,7 @@ function BuyerListingsContent() {
                             </div>
                           </td>
                           <td className="p-4">
-                            <Badge variant="outline" className="text-purple-400 border-purple-400">
+                            <Badge variant="outline" className="text-blue-400 border-blue-400">
                               {product.category?.name || "N/A"}
                             </Badge>
                           </td>
@@ -518,8 +579,8 @@ function BuyerListingsContent() {
             </div>
           )}
         
-        {/* Pagination Controls */}
-        {pagination.total_pages > 1 && (
+        {/* Pagination Controls - Hide when searching with no results */}
+        {!searchQuery && pagination.total_pages > 1 && (
           <div className="flex flex-col items-center gap-3 mt-8 mb-4">
             <div className="inline-flex items-center gap-1 bg-gray-900 border border-gray-700 rounded-full px-3 py-1 shadow-lg">
               <Button
@@ -527,7 +588,7 @@ function BuyerListingsContent() {
                 size="icon"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="rounded-full text-gray-300 hover:text-white"
+                className="rounded-full text-gray-300 hover:text-white hover:bg-gray-700"
               >
                 ‹
               </Button>
@@ -542,8 +603,8 @@ function BuyerListingsContent() {
                     onClick={() => handlePageChange(page as number)}
                     className={`rounded-full w-8 h-8 text-sm ${
                       currentPage === page
-                        ? "bg-purple-600 text-white"
-                        : "text-gray-300 hover:text-white"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "text-gray-300 hover:text-white hover:bg-gray-700"
                     }`}
                   >
                     {page}
@@ -555,7 +616,7 @@ function BuyerListingsContent() {
                 size="icon"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === pagination.total_pages}
-                className="rounded-full text-gray-300 hover:text-white"
+                className="rounded-full text-gray-300 hover:text-white hover:bg-gray-700"
               >
                 ›
               </Button>

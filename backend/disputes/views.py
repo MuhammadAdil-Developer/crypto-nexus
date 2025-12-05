@@ -1,3 +1,4 @@
+
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
 from django.utils import timezone
@@ -399,6 +400,18 @@ def resolve_dispute(request, dispute_id):
         winning_party = request.data.get('winning_party')
         refund_amount = request.data.get('refund_amount')
         
+        # Convert refund_amount to Decimal if provided, otherwise None
+        if refund_amount:
+            try:
+                from decimal import Decimal
+                refund_amount = Decimal(str(refund_amount))
+                if refund_amount <= 0:
+                    refund_amount = None
+            except (ValueError, TypeError):
+                refund_amount = None
+        else:
+            refund_amount = None
+        
         if not resolution:
             return Response({
                 'success': False,
@@ -417,6 +430,10 @@ def resolve_dispute(request, dispute_id):
                 'message': 'Winning party must be specified'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Get order details
+        order = dispute.order
+        is_escrow_order = order.use_escrow if hasattr(order, 'use_escrow') else False
+        
         # Update dispute
         dispute.resolution = resolution
         dispute.resolution_notes = resolution_notes
@@ -428,6 +445,188 @@ def resolve_dispute(request, dispute_id):
         dispute.assigned_admin = request.user
         dispute.save()
         
+        # Process refunds if buyer wins AND refund_amount is provided (escrow or non-escrow)
+        escrow_refund_processed = False
+        refund_sent = False
+        if winning_party == 'buyer' and refund_amount is not None and refund_amount > 0:
+            try:
+                from payments.models import PaymentAddress
+                from payments.services import PaymentService
+                from django.db import transaction
+                from decimal import Decimal
+                
+                # Get escrow payment
+                escrow_payment = None
+                escrow_funded = False
+                try:
+                    payment_address = PaymentAddress.objects.get(order_id=order.order_id)
+                    escrow_payment = payment_address.escrow if hasattr(payment_address, 'escrow') else None
+                    if escrow_payment:
+                        escrow_funded = escrow_payment.status == 'funded'
+                except Exception as e:
+                    logger.error(f"Error loading escrow payment for dispute {dispute.id}: {str(e)}")
+                
+                # Get buyer payout address
+                currency = order.crypto_currency if hasattr(order, 'crypto_currency') else 'BTC'
+                buyer_payout_address = None
+                if currency == 'BTC':
+                    buyer_payout_address = getattr(dispute.buyer, 'btc_payout_address', None)
+                elif currency == 'XMR':
+                    buyer_payout_address = getattr(dispute.buyer, 'xmr_payout_address', None)
+                
+                if not buyer_payout_address:
+                    error_msg = f"Buyer {dispute.buyer.username} has no {currency} payout address for dispute {dispute.id}. Please ask buyer to set their payout address in settings."
+                    logger.error(error_msg)
+                    return Response({
+                        'success': False,
+                        'message': error_msg
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    payment_service = PaymentService()
+                    refund_decimal = Decimal(str(refund_amount))
+                    
+                    # Check if full or partial refund
+                    order_total = Decimal(str(order.total_amount)) if hasattr(order, 'total_amount') else refund_decimal
+                    is_full_refund = refund_decimal >= order_total
+                    
+                    with transaction.atomic():
+                        # Process refund for ESCROW orders
+                        if is_escrow_order and (escrow_funded or escrow_payment):
+                            if is_full_refund:
+                                # Full refund: send everything to buyer
+                                # Use escrow amount if available, otherwise use refund amount
+                                if escrow_payment and escrow_funded:
+                                    total_refund = escrow_payment.escrow_amount + escrow_payment.escrow_fee
+                                else:
+                                    total_refund = refund_decimal
+                                
+                                if currency == 'BTC':
+                                    payout_result = payment_service.btcpay.create_payout({
+                                        'destination': buyer_payout_address,
+                                        'amount': str(total_refund),
+                                    })
+                                    tx_hash = payout_result.get('transactionHash') if payout_result else None
+                                elif currency == 'XMR':
+                                    destinations = [{'address': buyer_payout_address, 'amount': float(total_refund)}]
+                                    monero_result = payment_service.monero.send_transaction(destinations)
+                                    tx_hash = monero_result.get('tx_hash') if monero_result else None
+                                else:
+                                    tx_hash = None
+                                
+                                if tx_hash:
+                                    if escrow_payment:
+                                        escrow_payment.status = 'refunded'
+                                        escrow_payment.released_at = timezone.now()
+                                        escrow_payment.release_transaction_hash = tx_hash
+                                        escrow_payment.save()
+                                    escrow_refund_processed = True
+                                    refund_sent = True
+                                    logger.info(f"Escrow refund sent: {total_refund} {currency} to buyer {dispute.buyer.username}, tx_hash: {tx_hash}")
+                                else:
+                                    error_msg = f"Failed to send escrow refund for dispute {dispute.id}: No transaction hash returned from payment service"
+                                    logger.error(error_msg)
+                                    raise Exception(error_msg)
+                            else:
+                                # Partial refund: send half to buyer, half stays with vendor
+                                half_amount = refund_decimal / Decimal('2')
+                                
+                                if currency == 'BTC':
+                                    payout_result = payment_service.btcpay.create_payout({
+                                        'destination': buyer_payout_address,
+                                        'amount': str(half_amount),
+                                    })
+                                    tx_hash = payout_result.get('transactionHash') if payout_result else None
+                                elif currency == 'XMR':
+                                    destinations = [{'address': buyer_payout_address, 'amount': float(half_amount)}]
+                                    monero_result = payment_service.monero.send_transaction(destinations)
+                                    tx_hash = monero_result.get('tx_hash') if monero_result else None
+                                else:
+                                    tx_hash = None
+                                
+                                if tx_hash:
+                                    # Mark escrow as partially released
+                                    if escrow_payment:
+                                        escrow_payment.status = 'partially_released'
+                                        escrow_payment.released_at = timezone.now()
+                                        escrow_payment.release_transaction_hash = tx_hash
+                                        escrow_payment.save()
+                                    escrow_refund_processed = True
+                                    refund_sent = True
+                                    logger.info(f"Partial escrow refund sent: {half_amount} {currency} to buyer {dispute.buyer.username}, tx_hash: {tx_hash}")
+                                    
+                                    # Release remaining to vendor
+                                    vendor_payout_address = None
+                                    if currency == 'BTC':
+                                        from vendors.models import VendorApplication
+                                        try:
+                                            vendor_app = VendorApplication.objects.get(vendor_username=dispute.vendor.username)
+                                            vendor_payout_address = vendor_app.btc_address
+                                        except VendorApplication.DoesNotExist:
+                                            pass
+                                    elif currency == 'XMR':
+                                        from vendors.models import VendorApplication
+                                        try:
+                                            vendor_app = VendorApplication.objects.get(vendor_username=dispute.vendor.username)
+                                            vendor_payout_address = vendor_app.xmr_address
+                                        except VendorApplication.DoesNotExist:
+                                            pass
+                                    
+                                    if vendor_payout_address and escrow_payment:
+                                        remaining = escrow_payment.escrow_amount - half_amount
+                                        if currency == 'BTC':
+                                            payment_service.btcpay.create_payout({
+                                                'destination': vendor_payout_address,
+                                                'amount': str(remaining),
+                                            })
+                                        elif currency == 'XMR':
+                                            destinations = [{'address': vendor_payout_address, 'amount': float(remaining)}]
+                                            payment_service.monero.send_transaction(destinations)
+                                        
+                                        escrow_payment.status = 'released'
+                                        escrow_payment.save()
+                                else:
+                                    logger.error(f"Failed to send partial escrow refund for dispute {dispute.id}: No transaction hash returned")
+                                    raise Exception(f"Failed to send partial escrow refund: No transaction hash returned")
+                        
+                        # Process refund for NON-ESCROW orders - send from platform wallet
+                        if not is_escrow_order:
+                            # For non-escrow, always send the exact refund amount from platform wallet
+                            total_refund = refund_decimal
+                            
+                            logger.info(f"Processing non-escrow refund: {total_refund} {currency} to buyer {dispute.buyer.username}")
+                            
+                            if currency == 'BTC':
+                                payout_result = payment_service.btcpay.create_payout({
+                                    'destination': buyer_payout_address,
+                                    'amount': str(total_refund),
+                                })
+                                tx_hash = payout_result.get('transactionHash') if payout_result else None
+                            elif currency == 'XMR':
+                                destinations = [{'address': buyer_payout_address, 'amount': float(total_refund)}]
+                                monero_result = payment_service.monero.send_transaction(destinations)
+                                tx_hash = monero_result.get('tx_hash') if monero_result else None
+                            else:
+                                tx_hash = None
+                            
+                            if tx_hash:
+                                escrow_refund_processed = True
+                                refund_sent = True
+                                logger.info(f"Non-escrow refund sent from platform wallet: {total_refund} {currency} to buyer {dispute.buyer.username}, tx_hash: {tx_hash}")
+                            else:
+                                error_msg = f"Failed to send non-escrow refund for dispute {dispute.id}: No transaction hash returned from payment service"
+                                logger.error(error_msg)
+                                raise Exception(error_msg)
+            except Exception as e:
+                logger.error(f"Error processing refund for dispute {dispute.id}: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Return error response if refund fails - don't resolve dispute if refund fails
+                return Response({
+                    'success': False,
+                    'message': f'Failed to process refund: {str(e)}. Please check buyer payout address and platform wallet balance.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         # Create timeline entry
         winning_party_text = {
             'buyer': 'Buyer',
@@ -435,10 +634,17 @@ def resolve_dispute(request, dispute_id):
             'neutral': 'Neutral/Shared Responsibility'
         }.get(winning_party, 'Unknown')
         
+        timeline_desc = f"Dispute resolved by admin {request.user.username}. Decision: {resolution}. Winner: {winning_party_text}. Reason: {resolution_reason}"
+        if escrow_refund_processed or refund_sent:
+            if is_escrow_order:
+                timeline_desc += f" Escrow refund processed automatically."
+            else:
+                timeline_desc += f" Refund of {refund_amount} {order.crypto_currency if hasattr(order, 'crypto_currency') else 'BTC'} sent from platform wallet."
+        
         DisputeTimeline.objects.create(
             dispute=dispute,
             action='Dispute Resolved',
-            description=f"Dispute resolved by admin {request.user.username}. Decision: {resolution}. Winner: {winning_party_text}. Reason: {resolution_reason}",
+            description=timeline_desc,
             user=request.user
         )
         
@@ -448,10 +654,19 @@ def resolve_dispute(request, dispute_id):
         
         if winning_party == 'buyer':
             buyer_message += " - Decision in your favor!"
-            vendor_message += " - Decision in favor of the buyer."
+            if escrow_refund_processed:
+                buyer_message += f" Refund of {refund_amount} {order.crypto_currency if hasattr(order, 'crypto_currency') else 'BTC'} has been sent to your wallet."
+            vendor_message = f"⚠️ DISPUTE LOST: Dispute {dispute.dispute_id} has been resolved in favor of the buyer."
+            # For non-escrow disputes, send special notification to vendor
+            if not is_escrow_order:
+                vendor_message += f" You are required to manually refund {refund_amount} {order.crypto_currency if hasattr(order, 'crypto_currency') else 'BTC'} to the buyer's wallet. Order ID: {order.order_id}. Please process this refund immediately."
+            else:
+                vendor_message += f" Refund of {refund_amount} {order.crypto_currency if hasattr(order, 'crypto_currency') else 'BTC'} has been automatically processed from escrow."
         elif winning_party == 'vendor':
             buyer_message += " - Decision in favor of the vendor."
             vendor_message += " - Decision in your favor!"
+            if is_escrow_order and escrow_refund_processed:
+                vendor_message += " No refund was processed as the decision was in your favor."
         else:
             buyer_message += " - Shared responsibility decision."
             vendor_message += " - Shared responsibility decision."
@@ -470,16 +685,27 @@ def resolve_dispute(request, dispute_id):
             }
         )
         
+        # Create special notification for vendor if they lost
+        vendor_notification_type = 'dispute_resolved'
+        vendor_notification_title = 'Dispute Resolved'
+        if winning_party == 'buyer':
+            vendor_notification_type = 'dispute_lost'
+            vendor_notification_title = '⚠️ Dispute Lost - Action Required'
+        
         Notification.objects.create(
             user=dispute.vendor,
-            type='dispute_resolved',
-            title='Dispute Resolved',
+            type=vendor_notification_type,
+            title=vendor_notification_title,
             message=vendor_message,
             data={
                 'dispute_id': str(dispute.id), 
                 'resolution': resolution,
                 'winning_party': winning_party,
-                'resolution_reason': resolution_reason
+                'resolution_reason': resolution_reason,
+                'order_id': order.order_id if hasattr(order, 'order_id') else None,
+                'refund_amount': str(refund_amount) if refund_amount else None,
+                'crypto_currency': order.crypto_currency if hasattr(order, 'crypto_currency') else 'BTC',
+                'is_escrow': is_escrow_order
             }
         )
         

@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Copy, QrCode, Shield, Clock, CheckCircle, AlertTriangle, Wallet, Bitcoin, Eye, EyeOff, Loader2, Lock, Info } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { getApiUrl } from '@/config/api';
 import paymentService, { PaymentAddress, PaymentStatus } from '@/services/paymentService';
@@ -51,18 +52,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [paymentType, setPaymentType] = useState<string>('wallet'); // only wallet is supported
   const [useEscrow, setUseEscrow] = useState(false);
+  const [showDirectOrderConfirm, setShowDirectOrderConfirm] = useState(false);
+  const [pendingEscrowChange, setPendingEscrowChange] = useState<boolean | null>(null);
+  const [directOrderConfirmed, setDirectOrderConfirmed] = useState(false);
+  const [escrowTermsConfirmed, setEscrowTermsConfirmed] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [paymentAddress, setPaymentAddress] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [orderId, setOrderId] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(1800); // 30 minutes
   const [addressVisible, setAddressVisible] = useState(false);
+  const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   
   // Real API integration states
   const [realPaymentAddress, setRealPaymentAddress] = useState<PaymentAddress | null>(null);
   const [realPaymentAddresses, setRealPaymentAddresses] = useState<PaymentAddress[] | null>(null);
   const [realPaymentStatus, setRealPaymentStatus] = useState<PaymentStatus | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<number | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
 
@@ -169,6 +175,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       }
 
       // Single-item flow (existing behavior)
+      if (!product || !product.id) {
+        throw new Error("Product is required");
+      }
       const orderData = {
         product: product.id,
         quantity: quantity,
@@ -191,7 +200,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
       const order = await orderResponse.json();
       const orderIdGenerated = order.order_id || order.data?.order_id;
+      const createdAt = new Date().toISOString();
       setOrderId(orderIdGenerated);
+      setOrderCreatedAt(createdAt);
       window.dispatchEvent(new CustomEvent('order_created', { detail: { order_id: orderIdGenerated } }));
 
       // Then create payment address for single order
@@ -236,15 +247,98 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     ? items.reduce((sum, it) => sum + ((parseFloat(it.price) || 0) * (Number(it.quantity || 1))), 0)
     : (effectiveProduct ? (parseFloat(effectiveProduct.price) * quantity) : 0);
 
-  // Timer countdown
+  // Check for existing order when modal opens
   useEffect(() => {
-    if (step === 3 && timeRemaining > 0) {
+    if (isOpen && effectiveProduct) {
+      // Check localStorage for existing order for this product
+      const productId = effectiveProduct.id;
+      const storageKey = `payment_order_${productId}`;
+      const stored = localStorage.getItem(storageKey);
+      
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          const { orderId: storedOrderId, orderCreatedAt: storedCreatedAt, paymentAddress: storedAddress, paymentAmount: storedAmount, selectedCrypto: storedCrypto } = data;
+          
+          // Calculate remaining time
+          const createdAt = new Date(storedCreatedAt).getTime();
+          const expiresAt = createdAt + (30 * 60 * 1000); // 30 minutes
+          const now = Date.now();
+          const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
+          
+          if (remainingSeconds > 0) {
+            // Order still valid, restore state
+            setOrderId(storedOrderId);
+            setOrderCreatedAt(storedCreatedAt);
+            setPaymentAddress(storedAddress);
+            setPaymentAmount(storedAmount);
+            setSelectedCrypto(storedCrypto);
+            setTimeRemaining(remainingSeconds);
+            setStep(3); // Go directly to payment step
+            
+            // Restore payment address if available
+            if (storedAddress) {
+              setRealPaymentAddress({
+                payment_address: storedAddress,
+                expected_amount: storedAmount,
+                order_id: storedOrderId
+              } as PaymentAddress);
+            }
+          } else {
+            // Order expired, clear storage
+            localStorage.removeItem(storageKey);
+          }
+        } catch (error) {
+          console.error('Error restoring order state:', error);
+        }
+      }
+    }
+  }, [isOpen, effectiveProduct]);
+
+  // Save order state to localStorage when order is created
+  useEffect(() => {
+    if (orderId && step === 3 && effectiveProduct) {
+      const productId = effectiveProduct.id;
+      const storageKey = `payment_order_${productId}`;
+      const createdAt = orderCreatedAt || new Date().toISOString();
+      
+      localStorage.setItem(storageKey, JSON.stringify({
+        orderId,
+        orderCreatedAt: createdAt,
+        paymentAddress: realPaymentAddress?.payment_address || paymentAddress,
+        paymentAmount: realPaymentAddress?.expected_amount || paymentAmount,
+        selectedCrypto
+      }));
+      
+      if (!orderCreatedAt) {
+        setOrderCreatedAt(createdAt);
+      }
+    }
+  }, [orderId, step, realPaymentAddress, paymentAddress, paymentAmount, selectedCrypto, effectiveProduct, orderCreatedAt]);
+
+  // Timer countdown - recalculate from order creation time
+  useEffect(() => {
+    if (step === 3 && orderCreatedAt) {
       const timer = setInterval(() => {
-        setTimeRemaining(prev => prev - 1);
+        const createdAt = new Date(orderCreatedAt).getTime();
+        const expiresAt = createdAt + (30 * 60 * 1000);
+        const now = Date.now();
+        const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
+        
+        setTimeRemaining(remainingSeconds);
+        
+        // If expired, clear storage and reset
+        if (remainingSeconds === 0 && effectiveProduct) {
+          const productId = effectiveProduct.id;
+          localStorage.removeItem(`payment_order_${productId}`);
+          setStep(1);
+          setOrderId('');
+          setOrderCreatedAt(null);
+        }
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [step, timeRemaining]);
+  }, [step, orderCreatedAt, effectiveProduct]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -282,6 +376,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       });
       return;
     }
+    
+    // Reset confirmations when moving to step 2
+    if (!effectiveProduct?.escrow_enabled && !useEscrow) {
+      setDirectOrderConfirmed(false);
+    }
+    if (effectiveProduct?.escrow_enabled || useEscrow) {
+      setEscrowTermsConfirmed(false);
+    }
+    
+    setPaymentType('wallet');
+    setStep(2);
+  };
+
+  const handleConfirmDirectOrder = () => {
+    setShowDirectOrderConfirm(false);
     setPaymentType('wallet');
     setStep(2);
   };
@@ -511,57 +620,130 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </CardContent>
               </Card>
 
-              {/* Escrow Information */}
+              {/* Escrow Information & Warnings */}
               {effectiveProduct?.escrow_enabled && (
-                <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
-                          <Lock className="w-4 h-4 text-green-400" />
+                <div className="space-y-3">
+                  <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                            <Lock className="w-4 h-4 text-green-400" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="text-lg font-semibold text-green-300">Escrow Protection Active</h3>
+                            <button 
+                              className="text-green-400 hover:text-green-300 transition-colors"
+                              title="Payment held until you approve the order • Automatic refund if order is not approved • No additional fees for escrow protection"
+                            >
+                              <Info className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <p className="text-gray-300 text-sm leading-relaxed mb-3">
+                            This product is protected by escrow. Your payment will be held securely until you confirm the order is satisfactory.
+                          </p>
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-lg font-semibold text-green-300">Escrow Protection Active</h3>
-                          <button 
-                            className="text-green-400 hover:text-green-300 transition-colors"
-                            title="Payment held until you approve the order • Automatic refund if order is not approved • No additional fees for escrow protection"
-                          >
-                            <Info className="w-4 h-4" />
-                          </button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Escrow Order Warning */}
+                  {/* <Card className="bg-yellow-900/20 border-yellow-500/30">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start space-x-3">
+                        <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="text-yellow-300 font-semibold text-sm mb-2">⚠️ Important: Escrow Order Terms</h4>
+                          <ul className="text-yellow-200 text-xs space-y-2 list-disc list-inside">
+                            <li><span className="font-semibold">Payment Protection:</span> AccountzClub holds your payment until you confirm receipt and condition of the account.</li>
+                            <li><span className="font-semibold">Once Confirmed:</span> After you confirm the order, your <span className="font-bold text-yellow-300">right to initiate a dispute is forfeited</span>. The sale is considered complete.</li>
+                            <li><span className="font-semibold">No Marketplace Intervention:</span> After confirmation, AccountzClub will <span className="font-bold text-yellow-300">no longer intervene</span> in the transaction.</li>
+                            <li><span className="font-semibold">Further Arrangements:</span> Any further arrangements with the seller are between you and the seller only.</li>
+                          </ul>
+                          <div className="bg-yellow-900/30 border border-yellow-500/40 rounded-lg p-3 mt-3">
+                            <p className="text-yellow-200 text-xs font-semibold">
+                              ⚠️ By confirming this order, you acknowledge that you have received the product in satisfactory condition and forfeit all dispute rights.
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-gray-300 text-sm leading-relaxed">
-                          This product is protected by escrow. Your payment will be held securely until you confirm the order is satisfactory.
-                        </p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card> */}
+                </div>
               )}
 
               {/* Optional Escrow Option for non-escrow products */}
               {!effectiveProduct?.escrow_enabled && effectiveProduct?.escrow_available && (
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start space-x-3">
-                      <Checkbox 
-                        id="escrow" 
-                        checked={useEscrow}
-                        onCheckedChange={setUseEscrow}
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="escrow" className="text-white font-medium cursor-pointer flex items-center gap-2">
-                          <Shield className="w-4 h-4 text-blue-500" />
-                          Use Escrow Protection (2% fee)
-                        </Label>
-                        <p className="text-gray-400 text-sm mt-1">
-                          Your payment will be held securely until you confirm receipt of the product. Recommended for first-time purchases.
-                        </p>
+                <div className="space-y-3">
+                  <Card className="bg-gray-800 border-gray-700">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox 
+                          id="escrow" 
+                          checked={useEscrow}
+                          onCheckedChange={(checked) => {
+                            setUseEscrow(checked === true);
+                            // Show warning if disabling escrow
+                            if (!checked) {
+                              toast({
+                                title: "⚠️ Direct Order Warning",
+                                description: "Direct orders have no refund guarantee. Please review vendor policies before proceeding.",
+                                variant: "destructive",
+                                duration: 5000,
+                              });
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <Label htmlFor="escrow" className="text-white font-medium cursor-pointer flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-blue-500" />
+                            Use Escrow Protection (2% fee)
+                          </Label>
+                          <p className="text-gray-400 text-sm mt-1">
+                            Your payment will be held securely until you confirm receipt of the product. Recommended for first-time purchases.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                  
+                  {!useEscrow && (
+                    <Card className="bg-red-900/20 border-red-500/30">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start space-x-3">
+                          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="text-red-300 font-semibold text-sm mb-2">⚠️ Direct Order - No Dispute Rights</h4>
+                            <p className="text-red-200 text-xs mb-2">
+                              You are creating a <span className="font-bold text-red-300">direct order without escrow protection</span>. This means:
+                            </p>
+                            <ul className="text-red-200 text-xs space-y-2 list-disc list-inside mb-3">
+                              <li><span className="font-semibold">Payment goes directly to vendor:</span> Funds are sent immediately to the seller's wallet.</li>
+                              <li><span className="font-semibold">NO DISPUTE POSSIBILITY:</span> You <span className="font-bold text-red-300">cannot initiate a dispute</span> for direct orders at any time.</li>
+                              <li><span className="font-semibold">No Marketplace Intervention:</span> AccountzClub will <span className="font-bold text-red-300">not intervene</span> in direct sales transactions.</li>
+                              <li><span className="font-semibold">Seller Policies Apply:</span> Refunds depend entirely on the seller's individual policies stated in their profile.</li>
+                              <li><span className="font-semibold">Manual Refunds Only:</span> If the seller agrees to refund, they must do so manually. AccountzClub cannot force refunds.</li>
+                              <li><span className="font-semibold">You are a Passenger:</span> You have <span className="font-bold text-red-300">no decisional control</span> over the payment after it's sent.</li>
+                            </ul>
+                            <div className="bg-red-900/30 border border-red-500/40 rounded-lg p-3 mb-2">
+                              <p className="text-red-200 text-xs font-semibold mb-1">
+                                ⚠️ CRITICAL: Direct orders cannot be disputed. Review seller policies carefully before proceeding.
+                              </p>
+                              <p className="text-red-200 text-xs">
+                                You can report seller misconduct, but this does not affect the transaction or sales process.
+                              </p>
+                            </div>
+                            <p className="text-red-200 text-xs font-semibold">
+                              💡 Consider enabling escrow protection for your safety.
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
 
               <Button 
@@ -581,7 +763,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 <CardHeader>
                   <CardTitle className="text-white">Pay with Your Crypto Wallet</CardTitle>
                   <p className="text-gray-400 text-sm">
-                    We currently support only self-custody wallet payments. Follow the instructions below to submit your BTC safely.
+                    
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -625,10 +807,84 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </CardContent>
               </Card>
 
+              {/* Escrow Order Terms & Confirmation */}
+              {(effectiveProduct?.escrow_enabled || useEscrow) && (
+                <Card className="bg-yellow-900/20 border-yellow-500/30">
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="text-gray-300 text-sm space-y-2">
+                        <p className="font-semibold text-white mb-2">Important: Escrow Order Terms</p>
+                        <p>
+                          <span className="font-semibold">Payment Protection:</span> AccountzClub holds your payment until you confirm receipt and condition of the account.
+                        </p>
+                        <p>
+                          <span className="font-semibold">Once Confirmed:</span> After you confirm the order, your right to initiate a dispute is forfeited. The sale is considered complete.
+                        </p>
+                        <p>
+                          <span className="font-semibold">No Marketplace Intervention:</span> After confirmation, AccountzClub will no longer intervene in the transaction.
+                        </p>
+                        <p>
+                          <span className="font-semibold">Further Arrangements:</span> Any further arrangements with the seller are between you and the seller only.
+                        </p>
+                        <p className="mt-2 text-gray-200">
+                          By confirming this order, you acknowledge that you have received the product in satisfactory condition and forfeit all dispute rights.
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3 pt-2 border-t border-gray-700">
+                        <Checkbox 
+                          id="escrow-terms-confirm" 
+                          checked={escrowTermsConfirmed}
+                          onCheckedChange={(checked) => setEscrowTermsConfirmed(checked as boolean)}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="escrow-terms-confirm" className="text-gray-300 text-sm cursor-pointer flex-1">
+                          I understand and agree to the escrow order terms stated above.
+                        </Label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Direct Order Terms & Confirmation */}
+              {!effectiveProduct?.escrow_enabled && !useEscrow && (
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="text-gray-300 text-sm space-y-2">
+                        <p>
+                          <span className="font-semibold text-white">This is a direct order.</span> The platform does not guarantee refunds for direct orders. Refunds depend entirely on the seller's individual policies stated in their profile.
+                        </p>
+                        <p>
+                          Please carefully read the vendor's policies before proceeding with this order. Once payment is sent, you will not be able to initiate a dispute through the platform.
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3 pt-2 border-t border-gray-700">
+                        <Checkbox 
+                          id="direct-order-confirm" 
+                          checked={directOrderConfirmed}
+                          onCheckedChange={(checked) => setDirectOrderConfirmed(checked as boolean)}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="direct-order-confirm" className="text-gray-300 text-sm cursor-pointer flex-1">
+                          I understand that this is a direct order. I have read the vendor's policies and agree that the platform does not guarantee refunds for direct orders. I acknowledge that I cannot initiate a dispute for this order.
+                        </Label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Button 
-                onClick={handlePaymentTypeSubmit} disabled={isCreatingPayment}
-                disabled={isCreatingPayment}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
+                onClick={handlePaymentTypeSubmit} 
+                disabled={
+                  isCreatingPayment || 
+                  ((effectiveProduct?.escrow_enabled || useEscrow) && !escrowTermsConfirmed) ||
+                  (!effectiveProduct?.escrow_enabled && !useEscrow && !directOrderConfirmed)
+                }
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 size="lg"
               >
                 {isCreatingPayment ? (
@@ -1022,6 +1278,50 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           )}
         </div>
       </div>
+
+      {/* Direct Order Confirmation Dialog */}
+      <AlertDialog open={showDirectOrderConfirm} onOpenChange={setShowDirectOrderConfirm}>
+        <AlertDialogContent className="bg-gray-900 border-gray-700">
+          <AlertDialogHeader>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-500/20">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <AlertDialogTitle className="text-white">⚠️ Direct Order - No Refund Guarantee</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-gray-300 space-y-3">
+              <p>
+                You are about to create a <span className="font-bold text-red-400">direct order without escrow protection</span>. This means:
+              </p>
+              <ul className="text-red-200 text-sm space-y-2 list-disc list-inside">
+                <li>Payment goes <span className="font-semibold">directly to the vendor</span></li>
+                <li><span className="font-semibold">No automatic refund guarantee</span> from AccountzClub</li>
+                <li>You must <span className="font-semibold">contact the vendor directly</span> for any refunds</li>
+                <li>Please <span className="font-semibold">review the vendor's policies</span> before proceeding</li>
+              </ul>
+              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 mt-3">
+                <p className="text-red-200 text-sm font-semibold">
+                  ⚠️ AccountzClub's responsibility is limited for direct orders. Consider enabling escrow for protection.
+                </p>
+              </div>
+              <p className="text-gray-400 text-sm mt-3">
+                Do you want to proceed with this direct order?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDirectOrder}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Proceed with Direct Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

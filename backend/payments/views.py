@@ -691,10 +691,18 @@ class AdminPayoutView(APIView):
             elif action == 'cancel':
                 # Cancel payout logic
                 from .models import Payout
-                payout = Payout.objects.get(id=payout_id)
+                from django.shortcuts import get_object_or_404
+                try:
+                    payout = get_object_or_404(Payout, id=payout_id)
+                except Exception:
+                    # Try DirectPayment if not found in Payout
+                    from .models import DirectPayment
+                    payout = get_object_or_404(DirectPayment, id=payout_id)
+                
                 old_status = payout.status
                 payout.status = 'cancelled'
-                payout.admin_notes = notes
+                if hasattr(payout, 'admin_notes'):
+                    payout.admin_notes = notes
                 payout.save()
                 
                 # Notify about status change to cancelled

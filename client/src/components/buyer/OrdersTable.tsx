@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -489,6 +489,33 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                           {order.vendor.username} • {formattedDate}
                         </p>
                         
+                        {/* Payment Address - Show for orders with payment address */}
+                        {order.payment_address && (
+                          <div className="mt-2 flex items-center gap-2 group">
+                            <Wallet className="w-3 h-3 text-gray-500" />
+                            <span className="text-xs text-gray-500">Payment Address:</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-mono text-gray-400 truncate max-w-[120px] group-hover:max-w-none transition-all">
+                                {order.payment_address}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(order.payment_address);
+                                  toast({
+                                    title: "Copied!",
+                                    description: "Payment address copied to clipboard",
+                                  });
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-600 rounded"
+                                title="Copy payment address"
+                              >
+                                <Copy className="w-3 h-3 text-gray-400 hover:text-white" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Timer for pending orders */}
                         {(order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
                          (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
@@ -879,7 +906,21 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             return null;
                           })()}
                           {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
-                            <DropdownMenuItem onClick={() => handleCreateDispute(order)} className="text-orange-600">
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                if (order.order_status === 'confirmed' || order.order_status === 'completed') {
+                                  toast({
+                                    title: "Dispute Not Available",
+                                    description: "You cannot create a dispute for confirmed/completed orders. Please contact the vendor directly for any issues.",
+                                    variant: "destructive",
+                                  });
+                                } else {
+                                  handleCreateDispute(order);
+                                }
+                              }} 
+                              disabled={order.order_status === 'confirmed' || order.order_status === 'completed'}
+                              className="text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                               <AlertTriangle className="w-4 h-4 mr-2" />
                               Create Dispute
                             </DropdownMenuItem>
@@ -941,15 +982,27 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
               </div>
             </div>
 
-            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
-                <span className="text-yellow-300 font-semibold text-sm">⚠️ Important</span>
+            {orderToConfirm.use_escrow && (
+              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <span className="text-red-300 font-semibold text-sm">Final Confirmation Required</span>
+                </div>
+                <p className="text-red-200 text-sm mb-2">
+                  By confirming this order, you acknowledge that you have received the product in satisfactory condition.
+                </p>
+                <p className="text-red-200 text-sm font-semibold mb-2">
+                  After confirmation, you will not be able to:
+                </p>
+                <ul className="text-red-200 text-sm space-y-1 list-disc list-inside mb-2">
+                  <li>Request a refund through the platform</li>
+                  <li>Open a dispute</li>
+                </ul>
+                <p className="text-red-200 text-xs">
+                  The transaction will be considered complete. Any further arrangements must be made directly with the vendor.
+                </p>
               </div>
-              <p className="text-yellow-200 text-sm">
-                This action will send real cryptocurrency from the admin wallet to the vendor's wallet.
-              </p>
-            </div>
+            )}
 
             <div className="space-y-3 mb-6">
               <div className="flex justify-between items-center">

@@ -137,35 +137,40 @@ export default function VendorRefunds() {
     }
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (refundNow: boolean = false) => {
     if (!selectedRefund) return;
 
-    if (paymentSource === 'platform') {
-      if (!transactionHashValue.trim()) {
-        toast({
-          title: "Error",
-          description: "Please send the refund manually from your payout wallet and provide the transaction hash",
-          variant: "destructive",
-        });
-        return;
+    // For escrow orders with "Refund Now", skip transaction hash requirement
+    const isEscrowRefundNow = refundNow && selectedRefund.use_escrow;
+
+    if (!isEscrowRefundNow) {
+      if (paymentSource === 'platform') {
+        if (!transactionHashValue.trim()) {
+          toast({
+            title: "Error",
+            description: "Please send the refund manually from your payout wallet and provide the transaction hash",
+            variant: "destructive",
+          });
+          return;
+        }
       }
-    }
-    if (paymentSource === 'external') {
-      if (!externalWalletAddress.trim()) {
-        toast({
-          title: "Error",
-          description: "Please provide the external wallet address you will use for the refund",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!transactionHashValue.trim()) {
-        toast({
-          title: "Error",
-          description: "Please send the refund manually from your external wallet and provide the transaction hash",
-          variant: "destructive",
-        });
-        return;
+      if (paymentSource === 'external') {
+        if (!externalWalletAddress.trim()) {
+          toast({
+            title: "Error",
+            description: "Please provide the external wallet address you will use for the refund",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!transactionHashValue.trim()) {
+          toast({
+            title: "Error",
+            description: "Please send the refund manually from your external wallet and provide the transaction hash",
+            variant: "destructive",
+          });
+          return;
+        }
       }
     }
 
@@ -173,14 +178,17 @@ export default function VendorRefunds() {
       setIsProcessing(true);
       const result = await refundService.approveRefund(selectedRefund.id, {
         notes: approveNotes,
-        payment_source: paymentSource,
-        transaction_hash: paymentSource === 'platform' ? transactionHashValue.trim() : undefined,
-        external_wallet_address: paymentSource === 'external' ? externalWalletAddress.trim() : undefined,
+        payment_source: isEscrowRefundNow ? 'platform' : paymentSource,
+        transaction_hash: isEscrowRefundNow ? undefined : (paymentSource === 'platform' ? transactionHashValue.trim() : undefined),
+        external_wallet_address: isEscrowRefundNow ? undefined : (paymentSource === 'external' ? externalWalletAddress.trim() : undefined),
+        refund_now: isEscrowRefundNow,  // Flag to indicate automatic refund processing
       });
       if (result.success) {
         toast({
           title: "Success",
-          description: "Refund approved successfully",
+          description: isEscrowRefundNow 
+            ? "Refund approved and processed automatically. Amount sent to buyer's wallet from platform escrow."
+            : "Refund approved successfully",
         });
         setIsApproveOpen(false);
         setApproveNotes("");
@@ -770,102 +778,140 @@ export default function VendorRefunds() {
           }
         }}
       >
-        <DialogContent className="bg-gray-900 border border-gray-700">
+        <DialogContent className="bg-gray-900 border border-gray-700 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">Approve Refund</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Follow these steps to complete the refund process. You must send the coins manually from your wallet.
+              {selectedRefund?.use_escrow 
+                ? "For escrow orders, you can process the refund automatically from the platform wallet, or send manually from your wallet."
+                : "Follow these steps to complete the refund process. You must send the coins manually from your wallet."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {selectedRefund && (
-              <div className="space-y-2">
-                <Label className="text-gray-300 text-sm">Refund Source</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentSource('platform')}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      paymentSource === 'platform'
-                        ? 'border-green-500 bg-green-500/10 text-green-400'
-                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="font-medium text-sm">Your Payout Wallet Address</div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Send from your saved payout wallet address (from VendorApplication).
+            {selectedRefund && selectedRefund.use_escrow ? (
+              // Escrow orders: Only show "Refund Now" option
+              <div className="space-y-4">
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-blue-300 font-semibold text-sm mb-2">Escrow Order</h4>
+                      <p className="text-blue-200 text-xs">
+                        This is an escrow-enabled order. The refund will be processed automatically from the platform escrow wallet.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-green-300 text-sm mb-1">Refund Now</div>
+                      <p className="text-gray-300 text-xs">
+                        Click the button below to automatically process the refund. {selectedRefund.amount} {selectedRefund.crypto_currency} will be sent to the buyer's wallet.
+                      </p>
+                    </div>
+                    <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Non-escrow orders: Show manual refund options
+              <>
+                {selectedRefund && (
+                  <div className="space-y-2">
+                    <Label className="text-gray-300 text-sm">Refund Source</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentSource('platform');
+                        }}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          paymentSource === 'platform'
+                            ? 'border-green-500 bg-green-500/10 text-green-400'
+                            : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="font-medium text-sm">Your Payout Wallet Address</div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Send from your saved payout wallet address (from VendorApplication).
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentSource('external');
+                        }}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          paymentSource === 'external'
+                            ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                            : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="font-medium text-sm">External Wallet</div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Send manually from your external wallet and provide transaction hash.
+                        </p>
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Buyer payout address ({selectedRefund.crypto_currency}):{" "}
+                      <span className="font-mono text-gray-300">
+                        {selectedRefund.crypto_currency === 'BTC'
+                          ? (selectedRefund.buyer_btc_payout_address || 'Not provided')
+                          : (selectedRefund.buyer_xmr_payout_address || 'Not provided')}
+                      </span>
                     </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentSource('external')}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      paymentSource === 'external'
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                        : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="font-medium text-sm">External Wallet</div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Send manually from your external wallet and provide transaction hash.
-                    </p>
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Buyer payout address ({selectedRefund.crypto_currency}):{" "}
-                  <span className="font-mono text-gray-300">
-                    {selectedRefund.crypto_currency === 'BTC'
-                      ? (selectedRefund.buyer_btc_payout_address || 'Not provided')
-                      : (selectedRefund.buyer_xmr_payout_address || 'Not provided')}
-                  </span>
-                </p>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {paymentSource === 'platform' && (
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-gray-300">Transaction Hash *</Label>
-                  <Input
-                    value={transactionHashValue}
-                    onChange={(e) => setTransactionHashValue(e.target.value)}
-                    placeholder="Paste the blockchain transaction hash after sending from your payout wallet"
-                    className="bg-gray-800 border-gray-700 text-white font-mono"
-                    required
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    Send {selectedRefund?.amount} {selectedRefund?.crypto_currency} manually from your payout wallet address (saved in VendorApplication) to buyer's address, then paste the transaction hash here.
-                  </p>
-                </div>
-              </div>
-            )}
+                {paymentSource === 'platform' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-gray-300">Transaction Hash *</Label>
+                      <Input
+                        value={transactionHashValue}
+                        onChange={(e) => setTransactionHashValue(e.target.value)}
+                        placeholder="Paste the blockchain transaction hash after sending from your payout wallet"
+                        className="bg-gray-800 border-gray-700 text-white font-mono"
+                        required
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Send {selectedRefund?.amount} {selectedRefund?.crypto_currency} manually from your payout wallet address (saved in VendorApplication) to buyer's address, then paste the transaction hash here.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-            {paymentSource === 'external' && (
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-gray-300">External Wallet Address *</Label>
-                  <Input
-                    value={externalWalletAddress}
-                    onChange={(e) => setExternalWalletAddress(e.target.value)}
-                    placeholder="Enter the external wallet address you will use for refund"
-                    className="bg-gray-800 border-gray-700 text-white font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label className="text-gray-300">Transaction Hash *</Label>
-                  <Input
-                    value={transactionHashValue}
-                    onChange={(e) => setTransactionHashValue(e.target.value)}
-                    placeholder="Paste the blockchain transaction hash after sending from external wallet"
-                    className="bg-gray-800 border-gray-700 text-white font-mono"
-                    required
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    Send {selectedRefund?.amount} {selectedRefund?.crypto_currency} manually from the external wallet address above to buyer's address, then paste the transaction hash here.
-                  </p>
-                </div>
-              </div>
+                {paymentSource === 'external' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-gray-300">External Wallet Address *</Label>
+                      <Input
+                        value={externalWalletAddress}
+                        onChange={(e) => setExternalWalletAddress(e.target.value)}
+                        placeholder="Enter the external wallet address you will use for refund"
+                        className="bg-gray-800 border-gray-700 text-white font-mono"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-gray-300">Transaction Hash *</Label>
+                      <Input
+                        value={transactionHashValue}
+                        onChange={(e) => setTransactionHashValue(e.target.value)}
+                        placeholder="Paste the blockchain transaction hash after sending from external wallet"
+                        className="bg-gray-800 border-gray-700 text-white font-mono"
+                        required
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Send {selectedRefund?.amount} {selectedRefund?.crypto_currency} manually from the external wallet address above to buyer's address, then paste the transaction hash here.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div>
@@ -889,19 +935,35 @@ export default function VendorRefunds() {
               }}>
                 Cancel
               </Button>
-              <Button onClick={handleApprove} disabled={isProcessing} className="bg-green-600 hover:bg-green-700">
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Approve Refund
-                  </>
-                )}
-              </Button>
+              {selectedRefund?.use_escrow && paymentSource === 'platform' && !transactionHashValue ? (
+                <Button onClick={() => handleApprove(true)} disabled={isProcessing} className="bg-green-600 hover:bg-green-700">
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Refund Now
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button onClick={() => handleApprove(false)} disabled={isProcessing} className="bg-green-600 hover:bg-green-700">
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Approve Refund
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

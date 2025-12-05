@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+/* Google Fonts - EXTERNAL HOSTING: Commented out. Self-host fonts for production */
+/* To self-host: Download fonts and add @font-face declarations here */
+/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Poppins:wght@300;400;500;600;700;800;900&display=swap'); */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

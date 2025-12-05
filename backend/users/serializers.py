@@ -69,7 +69,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'user_type', 'is_verified', 
             'two_factor_enabled', 'is_active', 'date_joined',
-            'btc_payout_address', 'xmr_payout_address'
+            'btc_payout_address', 'xmr_payout_address', 'non_escrow_blocked', 'escrow_enabled'
         ]
         read_only_fields = ['id', 'date_joined']
         extra_kwargs = {
@@ -99,6 +99,5 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['non_escrow_blocked', 'escrow_enabled', 'is_active']
-        fields = ['username', 'user_type', 'is_verified', 'two_factor_enabled', 'is_active']
+        fields = ['username', 'user_type', 'is_verified', 'two_factor_enabled', 'is_active', 'non_escrow_blocked', 'escrow_enabled']
         read_only_fields = ['id', 'date_joined'] 

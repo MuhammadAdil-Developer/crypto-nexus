@@ -181,7 +181,7 @@ class ProductService {
 
   // Get vendor products
   async getVendorProducts(): Promise<ProductListResponse> {
-    return this.makeRequest<ProductListResponse>('/vendor/products/');
+    return this.makeRequest<ProductListResponse>('/vendor/products/?page_size=10000');
   }
 
   // Get public vendor products by username

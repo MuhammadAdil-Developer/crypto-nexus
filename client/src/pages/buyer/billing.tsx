@@ -4,348 +4,356 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
-  Wallet, 
-  ArrowDownCircle, 
-  ArrowUpCircle, 
-  Loader2, 
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight
+  Bitcoin, 
+  RefreshCw, 
+  Search, 
+  Copy,
+  ExternalLink,
 } from "lucide-react";
-import { refundService, WalletBalance, WalletTransaction } from "@/services/refundService";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/services/authService";
+
+interface TransactionData {
+  id: string;
+  type: string;
+  description: string;
+  amount: string;
+  usd_amount: string;
+  from_address: string;
+  to_address: string;
+  transaction_hash?: string;
+  status: string;
+  timestamp: string;
+  order_id: string;
+  vendor_name: string;
+  crypto_symbol: string;
+}
 
 export default function BuyerBilling() {
-  const [wallet, setWallet] = useState<WalletBalance | null>(null);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawCurrency, setWithdrawCurrency] = useState<"BTC" | "XMR">("BTC");
-  const [withdrawAddress, setWithdrawAddress] = useState("");
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [transactions, setTransactions] = useState<TransactionData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage] = useState(10);
   const { toast } = useToast();
 
+  // Fetch transaction history
+  const fetchTransactionHistory = async (page: number = 1) => {
+    try {
+      setLoading(true);
+      const response = await api.get('/payments/buyer/transaction-history/', {
+        params: {
+          page: page,
+          limit: itemsPerPage,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          type: typeFilter !== 'all' ? typeFilter : undefined,
+          search: searchTerm || undefined
+        }
+      });
+      
+      if (response.data.success) {
+        setTransactions(response.data.data);
+        setTotalPages(Math.ceil(response.data.total / itemsPerPage));
+        setCurrentPage(page);
+      } else {
+        setError('Failed to fetch transaction history');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to fetch transaction history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchWallet();
-    fetchTransactions();
-  }, [currentPage]);
+    fetchTransactionHistory(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, typeFilter, searchTerm]);
 
-  const fetchWallet = async () => {
-    try {
-      setIsLoading(true);
-      const result = await refundService.getWalletBalance();
-      if (result && result.success) {
-        setWallet(result.wallet);
-      } else {
-        // If wallet doesn't exist, create it by setting default values
-        setWallet({
-          balance_btc: '0',
-          balance_xmr: '0',
-          total_deposited_btc: '0',
-          total_deposited_xmr: '0',
-          total_withdrawn_btc: '0',
-          total_withdrawn_xmr: '0',
-        });
-      }
-    } catch (error: any) {
-      console.error('Error fetching wallet:', error);
-      // Set default wallet on error
-      setWallet({
-        balance_btc: '0',
-        balance_xmr: '0',
-        total_deposited_btc: '0',
-        total_deposited_xmr: '0',
-        total_withdrawn_btc: '0',
-        total_withdrawn_xmr: '0',
-      });
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to fetch wallet balance",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = searchTerm === '' || 
+      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.vendor_name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
+    const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
+    
+    return matchesSearch && matchesStatus && matchesType;
+  });
 
-  const fetchTransactions = async () => {
-    try {
-      const result = await refundService.getWalletTransactions(currentPage, itemsPerPage);
-      if (result && result.success) {
-        setTransactions(result.data || []);
-      } else {
-        setTransactions([]);
-      }
-    } catch (error: any) {
-      console.error('Error fetching transactions:', error);
-      setTransactions([]);
-    }
-  };
-
-  const handleWithdraw = async () => {
-    if (!withdrawAmount || !withdrawAddress) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsWithdrawing(true);
-      const result = await refundService.withdrawFromWallet(
-        withdrawAmount,
-        withdrawCurrency,
-        withdrawAddress
-      );
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Withdrawal request submitted successfully",
-        });
-        setIsWithdrawOpen(false);
-        setWithdrawAmount("");
-        setWithdrawAddress("");
-        fetchWallet();
-        fetchTransactions();
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "Failed to process withdrawal",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to process withdrawal",
-        variant: "destructive",
-      });
-    } finally {
-      setIsWithdrawing(false);
-    }
-  };
-
-  const getTransactionTypeColor = (type: string) => {
-    switch (type) {
-      case 'refund':
-      case 'partial_refund':
-        return 'text-green-400';
-      case 'withdrawal':
-        return 'text-red-400';
-      case 'deposit':
-        return 'text-blue-400';
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+      case "confirmed":
+        return "bg-green-600 text-white border-green-600";
+      case "pending":
+        return "bg-yellow-600 text-white border-yellow-600";
+      case "failed":
+        return "bg-red-600 text-white border-red-600";
+      case "processing":
+        return "bg-blue-600 text-white border-blue-600";
       default:
-        return 'text-gray-400';
+        return "bg-gray-600 text-white border-gray-600";
     }
   };
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'refund':
-      case 'partial_refund':
-        return <ArrowDownCircle className="w-4 h-4 text-green-400" />;
-      case 'withdrawal':
-        return <ArrowUpCircle className="w-4 h-4 text-red-400" />;
-      case 'deposit':
-        return <ArrowDownCircle className="w-4 h-4 text-blue-400" />;
+  const getTypeColor = (type: string) => {
+    switch (type.toLowerCase()) {
+      case "payment":
+        return "bg-green-500";
+      case "escrow_release":
+        return "bg-blue-500";
+      case "direct_payment":
+        return "bg-orange-500";
       default:
-        return <Wallet className="w-4 h-4" />;
+        return "bg-gray-500";
     }
   };
 
-  const totalPages = Math.ceil(transactions.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const displayedTransactions = transactions.slice(startIndex, endIndex);
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: "Address copied to clipboard.",
+      variant: "default",
+    });
+  };
 
   return (
     <BuyerLayout>
       <div className="space-y-6 p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Billing & Wallet</h1>
-            <p className="text-gray-400 text-sm sm:text-base mt-1">Manage your wallet balance and transactions</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Billing & Transactions</h1>
+            <p className="text-gray-400 text-sm sm:text-base mt-1">View your payment history and transactions</p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              fetchWallet();
-              fetchTransactions();
-            }}
-            disabled={isLoading}
+            onClick={() => fetchTransactionHistory(currentPage)}
+            disabled={loading}
             className="border-gray-600 text-gray-300 hover:bg-gray-700"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
-        ) : (
-          <>
-            {/* Wallet Balance Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <Card className="border border-gray-700 bg-gray-900">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-blue-400" />
-                    Bitcoin Balance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white mb-2">
-                    {wallet ? parseFloat(wallet.balance_btc || '0').toFixed(8) : '0.00000000'} BTC
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    Total Deposited: {wallet ? parseFloat(wallet.total_deposited_btc || '0').toFixed(8) : '0.00000000'} BTC
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="border border-gray-700 bg-gray-900">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-orange-400" />
-                    Monero Balance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-white mb-2">
-                    {wallet ? parseFloat(wallet.balance_xmr || '0').toFixed(8) : '0.00000000'} XMR
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    Total Deposited: {wallet ? parseFloat(wallet.total_deposited_xmr || '0').toFixed(8) : '0.00000000'} XMR
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-        {/* Withdraw Button */}
+        {/* Filters */}
         <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <Button
-              onClick={() => setIsWithdrawOpen(true)}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
-            >
-              <ArrowUpCircle className="w-4 h-4 mr-2" />
-              Withdraw Funds
-            </Button>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input 
+                    placeholder="Search transactions..." 
+                    className="pl-10 bg-gray-800 border-gray-700 text-white"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40 bg-gray-800 border-gray-700 text-white">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full sm:w-40 bg-gray-800 border-gray-700 text-white">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="payment">Payment</SelectItem>
+                  <SelectItem value="escrow_release">Escrow Release</SelectItem>
+                  <SelectItem value="direct_payment">Direct Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Transactions */}
+        {/* Transaction History */}
         <Card className="border border-gray-700 bg-gray-900">
           <CardHeader>
             <CardTitle className="text-white">Transaction History</CardTitle>
           </CardHeader>
           <CardContent>
-            {transactions.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <span className="ml-3 text-gray-400">Loading transaction history...</span>
+              </div>
+            ) : error ? (
               <div className="text-center py-12">
-                <Wallet className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                <p className="text-gray-400">No transactions yet</p>
+                <p className="text-red-400 mb-4">{error}</p>
+                <Button onClick={() => fetchTransactionHistory(currentPage)} variant="outline" size="sm">
+                  Try Again
+                </Button>
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <div className="text-center py-12">
+                <Bitcoin className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-400">No transactions found</p>
+                <p className="text-sm text-gray-500 mt-2">Your transaction history will appear here</p>
               </div>
             ) : (
               <>
-                <div className="space-y-3">
-                  {displayedTransactions.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="flex-shrink-0">
-                          {getTransactionIcon(tx.transaction_type)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-white capitalize">
-                              {tx.transaction_type.replace('_', ' ')}
-                            </span>
-                            {tx.order_id && (
-                              <Badge variant="outline" className="text-xs">
-                                Order: {tx.order_id}
-                              </Badge>
-                            )}
+                <div className="space-y-4">
+                  {filteredTransactions.map((transaction) => (
+                    <div key={transaction.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex items-start space-x-4 min-w-0 flex-1">
+                          <div className={`w-12 h-12 rounded-full ${getTypeColor(transaction.type)} flex items-center justify-center flex-shrink-0`}>
+                            <Bitcoin className="w-6 h-6 text-white" />
                           </div>
-                          <p className="text-sm text-gray-400">
-                            {new Date(tx.created_at).toLocaleString()}
+                          
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="font-semibold text-white">{transaction.description}</h3>
+                              <Badge className={getStatusColor(transaction.status)}>
+                                {transaction.status}
+                              </Badge>
+                              <Badge variant="outline">
+                                {transaction.type.replace('_', ' ').toUpperCase()}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-400">Order: {transaction.order_id}</p>
+                            <p className="text-xs text-gray-500">Vendor: {transaction.vendor_name}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-lg font-bold text-white">{transaction.amount}</p>
+                          <p className="text-sm text-gray-400">{transaction.usd_amount}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(transaction.timestamp).toLocaleString()}
                           </p>
-                          {tx.notes && (
-                            <p className="text-xs text-gray-500 mt-1">{tx.notes}</p>
-                          )}
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className={`font-bold ${getTransactionTypeColor(tx.transaction_type)}`}>
-                          {tx.transaction_type === 'withdrawal' ? '-' : '+'}
-                          {tx.amount} {tx.crypto_currency}
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-400 block mb-1">From:</span>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-mono text-white text-xs break-all flex-1">{transaction.from_address}</p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => copyToClipboard(transaction.from_address)}
+                              className="w-6 h-6 p-0 text-gray-400 hover:text-white"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
-                        {tx.transaction_hash && (
-                          <p className="text-xs text-gray-500 mt-1 font-mono truncate max-w-[150px]">
-                            {tx.transaction_hash.slice(0, 10)}...
-                          </p>
-                        )}
+                        <div>
+                          <span className="text-gray-400 block mb-1">To:</span>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-mono text-white text-xs break-all flex-1">{transaction.to_address}</p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => copyToClipboard(transaction.to_address)}
+                              className="w-6 h-6 p-0 text-gray-400 hover:text-white"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {transaction.transaction_hash && (
+                        <div className="mt-4 pt-4 border-t border-gray-700">
+                          <span className="text-gray-400 text-sm block mb-1">Transaction Hash:</span>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-mono text-white text-xs break-all flex-1">{transaction.transaction_hash}</p>
+                            <div className="flex items-center space-x-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => copyToClipboard(transaction.transaction_hash!)}
+                                className="w-6 h-6 p-0 text-gray-400 hover:text-white"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => window.open(`https://blockchair.com/${transaction.crypto_symbol.toLowerCase()}/transaction/${transaction.transaction_hash}`, '_blank')}
+                                className="w-6 h-6 p-0 text-gray-400 hover:text-white"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-
+                
                 {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="mt-6 flex items-center justify-between">
+                {filteredTransactions.length > 0 && totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-700">
                     <div className="text-sm text-gray-400">
-                      Showing {startIndex + 1} to {Math.min(endIndex, transactions.length)} of {transactions.length}
+                      Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
+                        onClick={() => fetchTransactionHistory(currentPage - 1)}
+                        disabled={currentPage === 1 || loading}
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
                       >
-                        <ChevronsLeft className="w-4 h-4" />
+                        Previous
                       </Button>
+                      
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                          if (page > totalPages) return null;
+                          
+                          return (
+                            <Button
+                              key={page}
+                              variant={page === currentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => fetchTransactionHistory(page)}
+                              disabled={loading}
+                              className={page === currentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-600 text-gray-300 hover:bg-gray-700"}
+                            >
+                              {page}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
+                        onClick={() => fetchTransactionHistory(currentPage + 1)}
+                        disabled={currentPage === totalPages || loading}
+                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
                       >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm text-gray-400 px-2">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronsRight className="w-4 h-4" />
+                        Next
                       </Button>
                     </div>
                   </div>
@@ -354,79 +362,7 @@ export default function BuyerBilling() {
             )}
           </CardContent>
         </Card>
-          </>
-        )}
       </div>
-
-      {/* Withdraw Modal */}
-      <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
-        <DialogContent className="bg-gray-900 border border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-white">Withdraw Funds</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Withdraw funds from your wallet to an external address
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="currency">Currency</Label>
-              <Select value={withdrawCurrency} onValueChange={(value: "BTC" | "XMR") => setWithdrawCurrency(value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
-                  <SelectItem value="XMR">Monero (XMR)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.00000001"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-                placeholder="0.00000000"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Available: {wallet ? (withdrawCurrency === 'BTC' ? parseFloat(wallet.balance_btc).toFixed(8) : parseFloat(wallet.balance_xmr).toFixed(8)) : '0.00000000'} {withdrawCurrency}
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="address">Withdrawal Address</Label>
-              <Input
-                id="address"
-                value={withdrawAddress}
-                onChange={(e) => setWithdrawAddress(e.target.value)}
-                placeholder="Enter {withdrawCurrency} address"
-                className="bg-gray-800 border-gray-700 text-white font-mono"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsWithdrawOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleWithdraw} disabled={isWithdrawing} className="bg-blue-600 hover:bg-blue-700">
-                {isWithdrawing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <ArrowUpCircle className="w-4 h-4 mr-2" />
-                    Withdraw
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </BuyerLayout>
   );
 }
-

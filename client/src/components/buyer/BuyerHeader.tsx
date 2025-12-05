@@ -131,7 +131,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
   };
 
   return (
-    <header className={`bg-transparent border-b border-gray-800/50 backdrop-blur-[1px] px-6 py-4 relative z-10 ${hasBanner ? 'mt-16' : ''}`} style={{ backdropFilter: 'blur(1px)' }}>
+    <header className={`bg-transparent border-b border-gray-800/50 backdrop-blur-[1px] px-6 py-4 relative z-10`} style={{ backdropFilter: 'blur(1px)' }}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Button 

@@ -2,6 +2,12 @@ from rest_framework import serializers
 from .models import VendorApplication
 from django.utils import timezone
 
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
+
+
 class VendorApplicationSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     category_display = serializers.CharField(source='get_category_display', read_only=True)
@@ -23,6 +29,7 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
     
     # Vendor user settings
     non_escrow_blocked = serializers.SerializerMethodField()
+    vendor_user_id = serializers.SerializerMethodField()
     
     class Meta:
         model = VendorApplication
@@ -37,7 +44,7 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'admin_notes',
             'reviewed_by', 'reviewed_at', 'reviewed_at_formatted',
             'created_at', 'created_at_formatted', 'updated_at',
-            'non_escrow_blocked'
+            'non_escrow_blocked', 'vendor_user_id'
         ]
         read_only_fields = ['id', 'status', 'admin_notes', 'reviewed_by', 'reviewed_at', 'created_at', 'updated_at']
     
@@ -100,16 +107,38 @@ class VendorApplicationSerializer(serializers.ModelSerializer):
             return [obj.images.url]  # Return as array
         return []  # Return empty array
     
+    def _get_vendor_user(self, obj):
+        """Helper to fetch vendor user by username (case-insensitive)."""
+        username = (obj.vendor_username or "").strip()
+        if not username:
+            return None
+        
+        user = User.objects.filter(username=username).first()
+        if user:
+            return user
+        
+        # Fallback to case-insensitive lookup
+        return User.objects.filter(username__iexact=username).first()
+    
     def get_non_escrow_blocked(self, obj):
         """Get non_escrow_blocked status from vendor user"""
         try:
-            from users.models import User
-            vendor_user = User.objects.get(username=obj.vendor_username)
-            return vendor_user.non_escrow_blocked
-        except User.DoesNotExist:
+            user = self._get_vendor_user(obj)
+            if user:
+                # Refresh from database to ensure we have latest value
+                user.refresh_from_db()
+                return bool(user.non_escrow_blocked)
             return False
-        except Exception:
+        except Exception as e:
+            # Log error but don't fail serialization
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error getting non_escrow_blocked for vendor {obj.vendor_username}: {str(e)}")
             return False
+    
+    def get_vendor_user_id(self, obj):
+        user = self._get_vendor_user(obj)
+        return str(user.id) if user else None
 
 class VendorApplicationCreateSerializer(serializers.ModelSerializer):
     class Meta:

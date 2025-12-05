@@ -109,7 +109,7 @@ class PaymentService {
   }
 
   // Polling for payment updates
-  startPaymentPolling(orderId: string, callback: (status: PaymentStatus) => void, intervalMs: number = 5000) {
+  startPaymentPolling(orderId: string, callback: (status: PaymentStatus) => void, intervalMs: number = 5000): ReturnType<typeof setInterval> {
     const pollInterval = setInterval(async () => {
       try {
         const status = await this.getPaymentStatus(orderId);
@@ -127,7 +127,7 @@ class PaymentService {
     return pollInterval;
   }
 
-  stopPaymentPolling(intervalId: number) {
+  stopPaymentPolling(intervalId: ReturnType<typeof setInterval>) {
     clearInterval(intervalId);
   }
 

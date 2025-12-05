@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, Heart, CheckCircle, AlertCircle, Info } from "lucide-react";
 import {
@@ -93,6 +93,8 @@ export default function VendorListings() {
   const [wishlistCounts, setWishlistCounts] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isVendorBlocked, setIsVendorBlocked] = useState(false);
+  const [sellingFee, setSellingFee] = useState<number | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,6 +107,47 @@ export default function VendorListings() {
   // Rejection reason dialog state
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [selectedRejectionProduct, setSelectedRejectionProduct] = useState<VendorProduct | null>(null);
+
+  // Check if vendor is blocked from non-escrow listings and fetch selling fee
+  useEffect(() => {
+    const checkVendorStatus = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const [profileResponse, commissionResponse] = await Promise.all([
+          fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/profile/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }),
+          fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/payments/admin/commission-settings/`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+        ]);
+
+        if (profileResponse.ok) {
+          const data = await profileResponse.json();
+          if (data.success && data.data?.non_escrow_blocked) {
+            setIsVendorBlocked(true);
+          }
+        }
+
+        if (commissionResponse.ok) {
+          const commissionData = await commissionResponse.json();
+          if (commissionData.success && commissionData.settings?.platform_fee_rate) {
+            setSellingFee(commissionData.settings.platform_fee_rate);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking vendor status:', error);
+      }
+    };
+
+    checkVendorStatus();
+  }, []);
 
   // Fetch vendor products and stats
   const fetchVendorData = async () => {
@@ -251,6 +294,45 @@ export default function VendorListings() {
   return (
     <>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
+        {/* Vendor Blocked Warning */}
+        {isVendorBlocked && (
+          <Card className="bg-red-900/20 border-red-500/30">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-red-300 font-semibold text-sm mb-2">⚠️ Only Escrow Enabled Listings Available</h4>
+                  <p className="text-red-200 text-xs mb-2">
+                    Your account is restricted to escrow-only listings. All new products must have escrow enabled.
+                  </p>
+                  <p className="text-red-200 text-xs">
+                    When creating a new product, escrow will be automatically enabled and cannot be disabled.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Selling Fee Display */}
+        {sellingFee !== null && (
+          <Card className="bg-blue-900/20 border-blue-500/30">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Info className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-blue-300 font-semibold text-sm mb-1">Platform Selling Fee</h4>
+                    <p className="text-blue-200 text-xs">
+                      Current platform fee: <span className="font-bold">{sellingFee}%</span> per sale
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="min-w-0 flex-1">

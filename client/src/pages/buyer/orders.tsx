@@ -65,7 +65,7 @@ export default function BuyerOrders() {
     setCurrentPage(1);
   }, [statusFilter, dateFilter]);
 
-  // Pagination logic
+  // Calculate pagination
   const totalItems = filteredOrders.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -82,11 +82,85 @@ export default function BuyerOrders() {
   const goToPreviousPage = () => goToPage(currentPage - 1);
   const goToNextPage = () => goToPage(currentPage + 1);
 
+  const handleExport = (format: 'csv' | 'excel') => {
+    try {
+      // Prepare data
+      const headers = ['Order ID', 'Product', 'Vendor', 'Quantity', 'Amount', 'Currency', 'Status', 'Payment Status', 'Created At'];
+      const rows = filteredOrders.map(order => [
+        order.order_id || 'N/A',
+        order.product?.listing_title || order.product?.headline || 'N/A',
+        order.vendor?.username || 'N/A',
+        order.quantity || 0,
+        order.total_amount || '0',
+        order.crypto_currency || 'BTC',
+        order.order_status || 'N/A',
+        order.payment_status || 'N/A',
+        new Date(order.created_at).toLocaleString()
+      ]);
+
+      if (format === 'csv') {
+        // Create CSV
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.map(cell => {
+            const stringCell = String(cell);
+            if (stringCell.includes(',') || stringCell.includes('"') || stringCell.includes('\n')) {
+              return `"${stringCell.replace(/"/g, '""')}"`;
+            }
+            return stringCell;
+          }).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const filename = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        toast({
+          title: "Export Successful",
+          description: "Orders exported as CSV",
+        });
+      } else if (format === 'excel') {
+        // For Excel, we'll create a CSV with .xlsx extension (simplified approach)
+        // In production, you might want to use a library like xlsx
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.map(cell => {
+            const stringCell = String(cell);
+            if (stringCell.includes(',') || stringCell.includes('"') || stringCell.includes('\n')) {
+              return `"${stringCell.replace(/"/g, '""')}"`;
+            }
+            return stringCell;
+          }).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const filename = `orders_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        toast({
+          title: "Export Successful",
+          description: "Orders exported as Excel",
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export orders",
+        variant: "destructive",
+      });
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       setIsLoading(true);
-      const ordersData = await orderService.getOrders();
-      const ordersArray = ordersData.results || ordersData || [];
+      // Use getBuyerOrders to fetch all orders
+      const ordersArray = await orderService.getBuyerOrders();
       setOrders(ordersArray);
       
       // Calculate stats
@@ -262,10 +336,22 @@ export default function BuyerOrders() {
               </DropdownMenu>
 
               {/* Export */}
-              <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleExport('csv')}>
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('excel')}>
+                    Export as Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

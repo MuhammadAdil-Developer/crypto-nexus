@@ -7,7 +7,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2, User, CheckCircle } from "lucide-react";
+import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2, User, CheckCircle, AlertTriangle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { SAMPLE_VENDORS } from "@/lib/constants";
 import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
@@ -40,6 +41,7 @@ interface VendorApplication {
   created_at_formatted: string;
   updated_at: string;
   non_escrow_blocked?: boolean; // Admin can block vendor from creating non-escrow listings
+  vendor_user_id?: string | null;
   
   // Enhanced fields
   sub_category?: string;
@@ -93,6 +95,11 @@ export default function AdminVendors() {
   const [selectedApplications, setSelectedApplications] = useState<number[]>([]);
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
+  
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmDialogVendor, setConfirmDialogVendor] = useState<VendorApplication | null>(null);
+  const [confirmDialogAction, setConfirmDialogAction] = useState<'block' | 'unblock' | null>(null);
 
   // Fetch applications on component mount
   useEffect(() => {
@@ -319,7 +326,19 @@ export default function AdminVendors() {
   };
 
   // Toggle non-escrow block for vendor
-  const handleToggleNonEscrowBlock = async (vendor: VendorApplication) => {
+  const handleToggleNonEscrowBlock = (vendor: VendorApplication) => {
+    // Show custom confirmation dialog
+    setConfirmDialogVendor(vendor);
+    setConfirmDialogAction(vendor.non_escrow_blocked ? 'unblock' : 'block');
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmToggleNonEscrowBlock = async () => {
+    if (!confirmDialogVendor || !confirmDialogAction) return;
+
+    const vendor = confirmDialogVendor;
+    setConfirmDialogOpen(false);
+
     try {
       const token = authService.getToken();
       if (!token) {
@@ -331,38 +350,69 @@ export default function AdminVendors() {
         return;
       }
 
-      // Get vendor user by username
-      const userResponse = await fetch(`${API_BASE_URL}/users/?username=${vendor.vendor_username}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Determine vendor user ID. Prefer API-provided ID to avoid search issues.
+      let vendorUserId = vendor.vendor_user_id;
+      let vendorUserRecord = null;
+      
+      if (!vendorUserId) {
+        // Try search endpoint
+        const searchResponse = await fetch(`${API_BASE_URL}/users/?search=${vendor.vendor_username}&user_type=vendor`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          if (searchData.results && searchData.results.length > 0) {
+            vendorUserRecord = searchData.results.find((u: any) => u.username === vendor.vendor_username) || searchData.results[0];
+          } else if (searchData.data?.users) {
+            vendorUserRecord = searchData.data.users.find((u: any) => u.username === vendor.vendor_username) || searchData.data.users[0];
+          }
         }
-      });
 
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch vendor user');
+        // If still not found, try direct username endpoint
+        if (!vendorUserRecord) {
+          const userResponse = await fetch(`${API_BASE_URL}/users/?username=${vendor.vendor_username}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.success && userData.data?.users) {
+              vendorUserRecord = userData.data.users.find((u: any) => u.username === vendor.vendor_username);
+            } else if (userData.results) {
+              vendorUserRecord = userData.results.find((u: any) => u.username === vendor.vendor_username);
+            }
+          }
+        }
+
+        vendorUserId = vendorUserRecord?.id;
       }
 
-      const userData = await userResponse.json();
-      let vendorUser = null;
-
-      if (userData.success && userData.data?.users) {
-        vendorUser = userData.data.users.find((u: any) => u.username === vendor.vendor_username);
-      } else if (userData.results) {
-        vendorUser = userData.results.find((u: any) => u.username === vendor.vendor_username);
-      }
-
-      if (!vendorUser) {
+      if (!vendorUserId) {
         toast({
           title: "Error",
-          description: "Vendor user not found",
+          description: `Vendor user not found for ${vendor.vendor_username}. Please try again.`,
           variant: "destructive",
         });
         return;
       }
 
-      // Toggle non_escrow_blocked
-      const newValue = !vendorUser.non_escrow_blocked;
-      const updateResponse = await fetch(`${API_BASE_URL}/users/${vendorUser.id}/admin-update/`, {
+      // Toggle non_escrow_blocked - use current vendor state from the list
+      const currentBlockedStatus = vendor.non_escrow_blocked || false;
+      const newValue = !currentBlockedStatus;
+      
+      console.log('Blocking vendor:', {
+        vendor_username: vendor.vendor_username,
+        user_id: vendorUserId,
+        current_status: currentBlockedStatus,
+        new_status: newValue
+      });
+
+      const updateResponse = await fetch(`${getApiUrl('/users/')}${vendorUserId}/update/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -374,14 +424,22 @@ export default function AdminVendors() {
       });
 
       if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        throw new Error(errorData.message || 'Failed to update vendor settings');
+        const errorData = await updateResponse.json().catch(() => ({}));
+        const errorMsg = errorData.message || errorData.error || `HTTP ${updateResponse.status}: ${updateResponse.statusText}`;
+        console.error('Update failed:', errorMsg, errorData);
+        throw new Error(errorMsg || 'Failed to update vendor settings');
       }
 
-      // Update local state
+      const updateData = await updateResponse.json();
+      console.log('Update response:', updateData);
+
+      // Refresh applications to get updated state from backend
+      await fetchApplications();
+      
+      // Also update local state immediately for better UX
       setApplications(prev => prev.map(app => 
         app.id === vendor.id 
-          ? { ...app, non_escrow_blocked: newValue }
+          ? { ...app, non_escrow_blocked: newValue, vendor_user_id: vendorUserId }
           : app
       ));
 
@@ -398,6 +456,9 @@ export default function AdminVendors() {
         description: error.message || "Failed to update vendor settings",
         variant: "destructive",
       });
+    } finally {
+      setConfirmDialogVendor(null);
+      setConfirmDialogAction(null);
     }
   };
 
@@ -874,7 +935,7 @@ export default function AdminVendors() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="border-border hover:bg-surface-2 text-gray-300" 
+                                className="border-border text-gray-300 whitespace-nowrap" 
                                 data-testid={`view-approved-vendor-${vendor.id}`}
                                 onClick={() => handleReview(vendor)}
                               >
@@ -884,7 +945,7 @@ export default function AdminVendors() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className={`border-border hover:bg-surface-2 ${vendor.non_escrow_blocked ? 'text-red-400 border-red-500' : 'text-gray-300'}`}
+                                className={`border-border whitespace-nowrap ${vendor.non_escrow_blocked ? 'text-red-400 border-red-500' : 'text-gray-300'}`}
                                 onClick={() => handleToggleNonEscrowBlock(vendor)}
                                 title={vendor.non_escrow_blocked ? 'Unblock non-escrow listings' : 'Block non-escrow listings'}
                               >
@@ -1157,7 +1218,7 @@ export default function AdminVendors() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="border-border hover:bg-surface-2 text-gray-300" 
+                                className="border-border text-gray-300" 
                                 data-testid={`view-rejected-vendor-${vendor.id}`}
                                 onClick={() => handleReview(vendor)}
                               >
@@ -1459,9 +1520,9 @@ export default function AdminVendors() {
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Logo & Images</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedApplication.logo && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Business Logo</Label>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-400">Business Logo</Label>
+                      {selectedApplication.logo ? (
                         <div className="mt-2">
                           <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.logo)}>
                             <img 
@@ -1488,12 +1549,14 @@ export default function AdminVendors() {
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <p className="mt-2 text-sm text-gray-500">Not provided</p>
+                      )}
+                    </div>
                     
-                    {selectedApplication.images && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Additional Images</Label>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-400">Additional Images</Label>
+                      {selectedApplication.images ? (
                         <div className="mt-2">
                           {/* Handle both array and single string */}
                           {Array.isArray(selectedApplication.images) ? (
@@ -1554,17 +1617,19 @@ export default function AdminVendors() {
                             </div>
                           )}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <p className="mt-2 text-sm text-gray-500">Not provided</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Documents */}
-              {selectedApplication.documents && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Documents</h3>
-                  
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Documents</h3>
+                
+                {selectedApplication.documents ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Handle both array and single string */}
                     {Array.isArray(selectedApplication.documents) ? (
@@ -1621,8 +1686,10 @@ export default function AdminVendors() {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-gray-500">Not provided</p>
+                )}
+              </div>
 
               {/* Admin Notes */}
               <div className="mb-6">
@@ -1951,6 +2018,48 @@ export default function AdminVendors() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Custom Confirmation Dialog for Block/Unblock Non-Escrow */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-gray-700">
+          <AlertDialogHeader>
+            <div className="flex items-center space-x-3 mb-2">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${confirmDialogAction === 'block' ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
+                <Shield className={`w-5 h-5 ${confirmDialogAction === 'block' ? 'text-red-400' : 'text-green-400'}`} />
+              </div>
+              <AlertDialogTitle className="text-white">
+                {confirmDialogAction === 'block' ? 'Block Non-Escrow Listings' : 'Unblock Non-Escrow Listings'}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-gray-300">
+              {confirmDialogAction === 'block' ? (
+                <>
+                  Are you sure you want to <span className="font-semibold text-red-400">BLOCK</span> @{confirmDialogVendor?.vendor_username} from creating non-escrow listings?
+                  <br /><br />
+                  This vendor will only be able to create listings with escrow enabled. They will not be able to disable escrow for any new listings.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to <span className="font-semibold text-green-400">ALLOW</span> @{confirmDialogVendor?.vendor_username} to create non-escrow listings again?
+                  <br /><br />
+                  This vendor will be able to create both escrow and non-escrow listings.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmToggleNonEscrowBlock}
+              className={confirmDialogAction === 'block' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+            >
+              {confirmDialogAction === 'block' ? 'Block Vendor' : 'Unblock Vendor'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Toaster Component for Notifications */}
       <Toaster />

@@ -79,6 +79,13 @@ def buyer_open_dispute(request):
         
         order = refund.order
         
+        # Check if order is confirmed - cannot dispute confirmed orders
+        if order.order_status == 'confirmed' or order.order_status == 'completed':
+            return Response({
+                'success': False,
+                'message': 'Cannot open dispute for confirmed/completed orders. Please contact the vendor directly for any issues.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         with transaction.atomic():
             # Create dispute
             dispute = OrderDispute.objects.create(

@@ -97,6 +97,40 @@ export default function VendorAddProduct() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isVendorBlocked, setIsVendorBlocked] = useState(false);
+
+  // Check if vendor is blocked from non-escrow listings
+  useEffect(() => {
+    const checkVendorStatus = async () => {
+      try {
+        const token = authService.getToken();
+        if (!token) return;
+
+        const user = authService.getCurrentUser();
+        if (!user || user.user_type !== 'vendor') return;
+
+        // Fetch user profile to check non_escrow_blocked
+        const response = await fetch(`${API_BASE_URL}/profile/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.non_escrow_blocked) {
+            setIsVendorBlocked(true);
+            // Auto-enable escrow if blocked
+            setFormData(prev => ({ ...prev, escrow_enabled: true }));
+          }
+        }
+      } catch (error) {
+        console.error('Error checking vendor status:', error);
+      }
+    };
+
+    checkVendorStatus();
+  }, []);
 
   // Form validation
   const validateForm = () => {
@@ -958,16 +992,38 @@ export default function VendorAddProduct() {
         </div>
 
         {/* Escrow Settings */}
-        <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+        <div className={`flex items-center justify-between p-4 rounded-lg ${isVendorBlocked ? 'bg-red-900/20 border border-red-500/30' : 'bg-gray-800'}`}>
           <div>
             <h4 className="font-medium text-white">Enable Escrow Protection</h4>
-            <p className="text-sm text-gray-400">
-              Payment will be held until buyer approves the order. Disabled by default.
-            </p>
+            {isVendorBlocked ? (
+              <div className="mt-2">
+                <p className="text-sm text-red-400 font-semibold">
+                  ⚠️ Only Escrow Enabled Listings Available
+                </p>
+                <p className="text-xs text-red-300 mt-1">
+                  Your account is restricted to escrow-only listings. Escrow is automatically enabled and cannot be disabled.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">
+                Payment will be held until buyer approves the order. Disabled by default.
+              </p>
+            )}
           </div>
           <Switch
             checked={formData.escrow_enabled}
-            onCheckedChange={(checked) => setFormData({...formData, escrow_enabled: checked})}
+            disabled={isVendorBlocked}
+            onCheckedChange={(checked) => {
+              if (isVendorBlocked) {
+                toast({
+                  title: "Escrow Required",
+                  description: "Your account is restricted to escrow-only listings. Escrow cannot be disabled.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setFormData({...formData, escrow_enabled: checked});
+            }}
           />
         </div>
       </CardContent>

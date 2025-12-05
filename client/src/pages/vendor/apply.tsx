@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
-import { Link, useLocation } from "wouter";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { getApiUrl } from "@/config/api";
@@ -18,7 +18,7 @@ interface VendorApplicationData {
 
 export default function VendorApply() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState<VendorApplicationData>({
     vendorUsername: "",
@@ -87,7 +87,7 @@ export default function VendorApply() {
 
         console.log('🔄 Navigating to success page...');
         // Navigate to success page
-        setLocation("/vendor/apply/success");
+        navigate("/vendor/apply/success");
       } else {
         const errorData = await response.json();
         console.error('❌ API response error:', errorData);
@@ -112,7 +112,7 @@ export default function VendorApply() {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/buyer">
+          <Link to="/buyer">
             <Button variant="ghost" className="mb-4 text-gray-400 hover:text-white">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
@@ -154,8 +154,8 @@ export default function VendorApply() {
                   {...register("applicationMessage", { 
                     required: "Please write a message to apply",
                     minLength: {
-                      value: 1000,
-                      message: "Please write at least 1,000 characters"
+                      value: 50,
+                      message: "Please write at least 50 characters"
                     }
                   })}
                   placeholder="Tell us about yourself, your products or services, and why you'd like to become a vendor. You don't need to provide any personal information - this is an anonymous marketplace."
@@ -170,7 +170,7 @@ export default function VendorApply() {
                   <p className="text-red-400 text-sm">{errors.applicationMessage.message}</p>
                 )}
                 <p className="text-xs text-gray-400">
-                  Write a detailed message (minimum 1,000 characters) explaining why you want to become a vendor. No personal information is required.
+                  Write a message explaining why you want to become a vendor. No personal information is required.
                 </p>
               </div>
 
@@ -186,7 +186,7 @@ export default function VendorApply() {
               <div className="flex justify-end">
                 <Button
                   type="submit"
-                  disabled={!watchedValues.applicationMessage || watchedValues.applicationMessage.length < 1000 || isSubmitting}
+                  disabled={!watchedValues.applicationMessage || watchedValues.applicationMessage.length < 50 || isSubmitting}
                   className="bg-blue-500 hover:bg-blue-600 min-w-[150px]"
                 >
                   {isSubmitting ? (

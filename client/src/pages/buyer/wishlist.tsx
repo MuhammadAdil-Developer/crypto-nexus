@@ -392,7 +392,10 @@ export default function BuyerWishlist() {
                 {/* Added Date */}
                 <div className="mt-2 text-center">
                   <p className="text-xs text-gray-400">
-                    Added on {item.added_at ? new Date(item.added_at).toLocaleDateString() : 'Unknown Date'}
+                    Added on {item.added_at || item.created_at ? (() => {
+                      const date = new Date(item.added_at || item.created_at);
+                      return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
+                    })() : 'Unknown Date'}
                   </p>
                 </div>
               </div>

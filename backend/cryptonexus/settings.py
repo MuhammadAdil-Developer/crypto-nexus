@@ -23,6 +23,8 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False  # Set to False for production security
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+if '88.99.143.151' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('88.99.143.151')
 
 # Application definition
 INSTALLED_APPS = [

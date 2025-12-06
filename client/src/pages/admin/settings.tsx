@@ -107,7 +107,7 @@ export default function AdminSettings() {
     });
     
     await authService.logout();
-    navigate('/admin-sign-in');
+    navigate('/admin-access-control-panel-secure-login');
   };
 
   // Check session on mount and user activity

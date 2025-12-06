@@ -95,6 +95,8 @@ export default function VendorListings() {
   const [error, setError] = useState<string | null>(null);
   const [isVendorBlocked, setIsVendorBlocked] = useState(false);
   const [sellingFee, setSellingFee] = useState<number | null>(null);
+  const [customFee, setCustomFee] = useState<number | null>(null);
+  const [usesDefaultFee, setUsesDefaultFee] = useState(true);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -115,13 +117,13 @@ export default function VendorListings() {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
 
-        const [profileResponse, commissionResponse] = await Promise.all([
+        const [profileResponse, vendorFeeResponse] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/profile/`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           }),
-          fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/payments/admin/commission-settings/`, {
+          fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/payments/vendor/my-fee/`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -135,10 +137,15 @@ export default function VendorListings() {
           }
         }
 
-        if (commissionResponse.ok) {
-          const commissionData = await commissionResponse.json();
-          if (commissionData.success && commissionData.settings?.platform_fee_rate) {
-            setSellingFee(commissionData.settings.platform_fee_rate);
+        // Get vendor's commission fee (custom or default)
+        if (vendorFeeResponse.ok) {
+          const vendorFeeData = await vendorFeeResponse.json();
+          if (vendorFeeData.success && vendorFeeData.data) {
+            setSellingFee(vendorFeeData.data.commission_rate);
+            setUsesDefaultFee(vendorFeeData.data.uses_default);
+            if (!vendorFeeData.data.uses_default) {
+              setCustomFee(vendorFeeData.data.commission_rate);
+            }
           }
         }
       } catch (error) {
@@ -314,7 +321,34 @@ export default function VendorListings() {
           </Card>
         )}
 
-        {/* Selling Fee Display */}
+        {/* Selling Fee Display - Shows Custom or Default */}
+        {sellingFee !== null && (
+          <Card className="bg-surface-2 border border-gray-700 mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Info className="w-5 h-5 text-blue-400" />
+                  <div>
+                    <p className="text-sm text-gray-400">Your Commission Rate</p>
+                    <p className="text-lg font-bold text-white">
+                      {usesDefaultFee ? (
+                        <>
+                          {sellingFee}% <span className="text-sm text-gray-400 font-normal">(Default Platform Rate)</span>
+                        </>
+                      ) : (
+                        <>
+                          {customFee}% <span className="text-sm text-green-400 font-normal">(Custom Rate)</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Selling Fee Display - Shows Custom or Default */}
         {sellingFee !== null && (
           <Card className="bg-blue-900/20 border-blue-500/30">
             <CardContent className="pt-6">
@@ -322,9 +356,17 @@ export default function VendorListings() {
                 <div className="flex items-center space-x-3">
                   <Info className="w-5 h-5 text-blue-400 flex-shrink-0" />
                   <div>
-                    <h4 className="text-blue-300 font-semibold text-sm mb-1">Platform Selling Fee</h4>
+                    <h4 className="text-blue-300 font-semibold text-sm mb-1">Your Commission Rate</h4>
                     <p className="text-blue-200 text-xs">
-                      Current platform fee: <span className="font-bold">{sellingFee}%</span> per sale
+                      {usesDefaultFee ? (
+                        <>
+                          Current rate: <span className="font-bold">{sellingFee}%</span> per sale <span className="text-gray-400">(Default Platform Rate)</span>
+                        </>
+                      ) : (
+                        <>
+                          Current rate: <span className="font-bold text-green-300">{customFee}%</span> per sale <span className="text-green-400">(Custom Rate)</span>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -347,7 +389,7 @@ export default function VendorListings() {
               onClick={() => navigate('/vendor/listings/bulk-upload')}
             >
               <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Bulk Upload</span>
+              <span className="sm:inline">Bulk Upload</span>
               <span className="sm:hidden">Bulk</span>
             </Button>
             <Button

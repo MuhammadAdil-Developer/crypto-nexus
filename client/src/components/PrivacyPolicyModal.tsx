@@ -38,17 +38,35 @@ export function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyModalProps)
             src="/privacy.html"
             className="w-full h-full border-0 rounded bg-slate-800"
             title="Privacy Policy"
+            style={{
+              filter: 'brightness(1.2) contrast(1.1)'
+            }}
           />
+          <style>{`
+            iframe {
+              color: #ffffff !important;
+            }
+            iframe body {
+              color: #e5e7eb !important;
+              background-color: #1e293b !important;
+            }
+            iframe p, iframe li, iframe span, iframe div {
+              color: #e5e7eb !important;
+            }
+            iframe h1, iframe h2, iframe h3, iframe h4, iframe h5, iframe h6 {
+              color: #ffffff !important;
+            }
+          `}</style>
         </div>
 
         {/* Footer with checkbox and button */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-10 py-6 border-t border-slate-600/50 flex items-center justify-between gap-6 flex-shrink-0">
+        <div className="bg-gradient-to-r px-10 py-6 border-t border-slate-600/50 flex items-center justify-between gap-6 flex-shrink-0">
           <label className="flex items-center gap-4 cursor-pointer flex-1">
             <input
               type="checkbox"
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
-              className="w-6 h-6 rounded border-2 border-orange-500 accent-orange-500 cursor-pointer"
+              className="w-6 h-6 rounded border-2 border-pink-700 accent-pink-500 cursor-pointer"
             />
             <span className="text-base font-medium text-white">
               I have read and agree to the Privacy Policy & Terms of Service
@@ -59,7 +77,7 @@ export function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyModalProps)
             disabled={!confirmed}
             className={`px-8 py-3 rounded-lg font-bold transition-all duration-200 whitespace-nowrap text-lg ${
               confirmed
-                ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/50 cursor-pointer"
+                ? "bg-gradient-to-r from-pink-700 to-pink-800 text-white hover:shadow-lg hover:shadow-pink-500/50 cursor-pointer"
                 : "bg-slate-700 text-slate-400 cursor-not-allowed"
             }`}
           >

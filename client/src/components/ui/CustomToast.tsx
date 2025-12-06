@@ -70,7 +70,7 @@ const Toast: React.FC<ToastProps> = ({ id, type, title, message, duration = 5000
           <h4 className={`text-sm font-medium ${getTextColor()}`}>
             {title}
           </h4>
-          <p className="text-sm text-gray-200 mt-1">
+          <p className="text-sm text-gray-200 mt-1 break-words whitespace-normal">
             {message}
           </p>
         </div>

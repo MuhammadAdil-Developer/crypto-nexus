@@ -52,6 +52,15 @@ interface CommissionHistoryItem {
   type: string;
 }
 
+interface VendorFee {
+  vendor_id: string;
+  vendor_username: string;
+  commission_rate: number | null;
+  updated_by: string | null;
+  updated_at: string | null;
+  uses_default: boolean;
+}
+
 export default function AdminCommissions() {
   const [settings, setSettings] = useState<CommissionSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +71,13 @@ export default function AdminCommissions() {
   const [commissionHistory, setCommissionHistory] = useState<CommissionHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  
+  // Vendor fees state
+  const [vendorFees, setVendorFees] = useState<VendorFee[]>([]);
+  const [vendorFeesLoading, setVendorFeesLoading] = useState(false);
+  const [vendorFeesError, setVendorFeesError] = useState<string | null>(null);
+  const [editingVendor, setEditingVendor] = useState<string | null>(null);
+  const [editFeeValue, setEditFeeValue] = useState<string>("");
 
   // Fetch commission settings
   const fetchSettings = async () => {
@@ -136,10 +152,54 @@ export default function AdminCommissions() {
     fetchSettings();
   }, []);
 
-  // Handle tab change to fetch commission history
+  // Fetch vendor fees
+  const fetchVendorFees = async () => {
+    try {
+      setVendorFeesLoading(true);
+      setVendorFeesError(null);
+      const response = await api.get('/payments/admin/vendor-fees/');
+      
+      if (response.data.success) {
+        setVendorFees(response.data.data);
+      } else {
+        setVendorFeesError('Failed to fetch vendor fees');
+      }
+    } catch (error: any) {
+      console.error('Error fetching vendor fees:', error);
+      setVendorFeesError('Failed to fetch vendor fees');
+    } finally {
+      setVendorFeesLoading(false);
+    }
+  };
+
+  // Update vendor fee
+  const updateVendorFee = async (vendorId: string, commissionRate: number | null) => {
+    try {
+      const response = await api.put('/payments/admin/vendor-fees/', {
+        vendor_id: vendorId,
+        commission_rate: commissionRate
+      });
+      
+      if (response.data.success) {
+        toast.success(`Vendor fee updated successfully!`);
+        setEditingVendor(null);
+        setEditFeeValue("");
+        fetchVendorFees();
+      } else {
+        toast.error(response.data.error || 'Failed to update vendor fee');
+      }
+    } catch (error: any) {
+      console.error('Error updating vendor fee:', error);
+      toast.error(error.response?.data?.error || 'Failed to update vendor fee');
+    }
+  };
+
+  // Handle tab change to fetch commission history or vendor fees
   const handleTabChange = (value: string) => {
     if (value === 'history') {
       fetchCommissionHistory();
+    } else if (value === 'vendors') {
+      fetchVendorFees();
     }
   };
 
@@ -237,7 +297,7 @@ export default function AdminCommissions() {
                 type="number"
                 value={(formData.platform_fee_rate as any) ?? ''}
                 onChange={(e) => handleInputChange('platform_fee_rate', e.target.value)}
-                className="bg-surface text-white border-gray-700 w-full"
+                className="text-white border-gray-700 w-full"
               />
             </div>
             <div>
@@ -246,7 +306,7 @@ export default function AdminCommissions() {
                 type="number"
                 value={(formData.escrow_fee_rate as any) ?? ''}
                 onChange={(e) => handleInputChange('escrow_fee_rate', e.target.value)}
-                className="bg-surface text-white border-gray-700 w-full"
+                className="text-white border-gray-700 w-full"
               />
             </div>
             <div className="sm:col-span-2 text-xs sm:text-sm text-gray-400">
@@ -259,11 +319,108 @@ export default function AdminCommissions() {
           <Card className="bg-surface-2 border border-gray-700">
             <CardHeader>
               <CardTitle className="text-white text-lg sm:text-xl">Vendor-Specific Rates</CardTitle>
+              <p className="text-gray-400 text-sm mt-2">Set custom commission rates for individual vendors. Leave empty to use default platform rate.</p>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
-              <div className="text-gray-400 text-sm">
-                Configure per-vendor overrides in a future update.
-              </div>
+              {vendorFeesLoading ? (
+                <div className="text-gray-400 text-sm sm:text-base">Loading vendor fees...</div>
+              ) : vendorFeesError ? (
+                <div className="text-red-400 text-sm sm:text-base">{vendorFeesError}</div>
+              ) : vendorFees.length === 0 ? (
+                <div className="text-gray-400 text-sm sm:text-base">No vendors found.</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="min-w-[600px] px-4 sm:px-0">
+                      <table className="w-full">
+                        <thead className="bg-surface border-b border-gray-800">
+                          <tr>
+                            <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Vendor</th>
+                            <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Commission Rate</th>
+                            <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Updated By</th>
+                            <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Last Updated</th>
+                            <th className="text-left p-3 text-xs sm:text-sm font-medium text-gray-300">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {vendorFees.map((vendorFee) => (
+                            <tr key={vendorFee.vendor_id} className="border-b border-gray-800 hover:bg-surface/50">
+                              <td className="p-3 text-xs sm:text-sm text-white font-medium">{vendorFee.vendor_username}</td>
+                              <td className="p-3 text-xs sm:text-sm text-gray-300">
+                                {editingVendor === vendorFee.vendor_id ? (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min={settings?.min_commission_rate || 3}
+                                    max={settings?.max_commission_rate || 15}
+                                    value={editFeeValue}
+                                    onChange={(e) => setEditFeeValue(e.target.value)}
+                                    className="bg-gray-800 border-gray-700 text-white w-24"
+                                    placeholder="Default"
+                                  />
+                                ) : (
+                                  <span className={vendorFee.uses_default ? "text-gray-500 italic" : "text-white"}>
+                                    {vendorFee.uses_default ? "Default" : `${vendorFee.commission_rate}%`}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-xs sm:text-sm text-gray-300">
+                                {vendorFee.updated_by || "-"}
+                              </td>
+                              <td className="p-3 text-xs sm:text-sm text-gray-300">
+                                {vendorFee.updated_at ? new Date(vendorFee.updated_at).toLocaleDateString() : "-"}
+                              </td>
+                              <td className="p-3 text-xs sm:text-sm">
+                                {editingVendor === vendorFee.vendor_id ? (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        const rate = editFeeValue === "" ? null : parseFloat(editFeeValue);
+                                        if (rate !== null && (isNaN(rate) || rate < (settings?.min_commission_rate || 3) || rate > (settings?.max_commission_rate || 15))) {
+                                          toast.error(`Rate must be between ${settings?.min_commission_rate || 3}% and ${settings?.max_commission_rate || 15}%`);
+                                          return;
+                                        }
+                                        updateVendorFee(vendorFee.vendor_id, rate);
+                                      }}
+                                      className="bg-blue-600 hover:bg-blue-700 text-white h-7 px-3"
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingVendor(null);
+                                        setEditFeeValue("");
+                                      }}
+                                      className="border-gray-600 text-gray-300 hover:bg-gray-700 h-7 px-3"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingVendor(vendorFee.vendor_id);
+                                      setEditFeeValue(vendorFee.commission_rate?.toString() || "");
+                                    }}
+                                    className="border-gray-600 text-gray-300 hover:bg-gray-700 h-7 px-3"
+                                  >
+                                    Edit
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

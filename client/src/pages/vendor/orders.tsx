@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,33 +22,29 @@ import { RefundModal } from "@/components/vendor/RefundModal";
 // Transform API data to match existing structure
 const transformOrderData = (apiOrder: Order) => {
   const orderDate = new Date(apiOrder.created_at);
-  const date = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  const date = orderDate.toISOString().split('T')[0];
   const time = orderDate.toLocaleTimeString('en-US', { 
     hour: '2-digit', 
     minute: '2-digit',
     hour12: true 
-  }); // HH:MM AM/PM
+  });
 
-  // Map API status to UI status with proper capitalization
-  // Consider both payment_status and order_status
   const getStatusDisplay = (apiOrder: Order) => {
     const paymentStatus = apiOrder.payment_status?.toLowerCase();
     const orderStatus = apiOrder.order_status?.toLowerCase();
     
-    // If payment is paid, order should be completed
     if (paymentStatus === 'paid') {
       if (orderStatus === 'completed') {
         return 'Completed';
       } else if (orderStatus === 'paid') {
-        return 'Completed'; // Payment is paid, order is paid - should be completed
+        return 'Completed';
       } else if (orderStatus === 'processing' || orderStatus === 'pending_payment') {
-        return 'Completed'; // Payment received, order should be completed
+        return 'Completed';
       } else if (orderStatus === 'pending') {
-        return 'Completed'; // Payment received, order should be completed
+        return 'Completed';
       }
     }
     
-    // If payment is pending, check order status
     if (paymentStatus === 'pending') {
       if (orderStatus === 'pending_payment') {
         return 'Pending';
@@ -56,7 +53,6 @@ const transformOrderData = (apiOrder: Order) => {
       }
     }
     
-    // Fallback to order status
     switch (orderStatus) {
       case 'pending':
         return 'Pending';
@@ -69,31 +65,28 @@ const transformOrderData = (apiOrder: Order) => {
       case 'cancelled':
         return 'Cancelled';
       case 'paid':
-        return 'Completed'; // If order status is paid, it should be completed
+        return 'Completed';
       default:
         return 'Pending';
     }
   };
 
   return {
-    // Basic order info for table display
-    id: apiOrder.order_id, // Use the order_id string for display
-    numericId: apiOrder.id, // Keep numeric ID for API calls
+    id: apiOrder.order_id,
+    numericId: apiOrder.id,
     buyer: apiOrder.buyer.username,
-    product: apiOrder.product.headline, // Keep as string for table display
+    product: apiOrder.product.headline,
     amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
-    usdAmount: `$${(parseFloat(apiOrder.total_amount) * 40000).toFixed(2)}`, // Approximate USD conversion
+    usdAmount: `$${(parseFloat(apiOrder.total_amount) * 40000).toFixed(2)}`,
     status: getStatusDisplay(apiOrder),
-    priority: "normal", // Default priority
+    priority: "normal",
     date: date,
     time: time,
     paymentMethod: apiOrder.crypto_currency,
     escrow: apiOrder.use_escrow || false,
-    // Add raw status for debugging
     rawPaymentStatus: apiOrder.payment_status,
     rawOrderStatus: apiOrder.order_status,
     
-    // Complete order object for modal - separate from table display
     order_id: apiOrder.order_id,
     order_status: apiOrder.order_status,
     payment_status: apiOrder.payment_status,
@@ -181,6 +174,7 @@ const getPriorityColor = (priority: string) => {
 };
 
 export default function VendorOrders() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -199,7 +193,6 @@ export default function VendorOrders() {
   const [orderForRefund, setOrderForRefund] = useState<any>(null);
   const { showToast } = useToast();
 
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -213,7 +206,6 @@ export default function VendorOrders() {
       const ordersData = await orderService.getOrders();
       const ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any).results || [];
       
-      // Transform API data to match existing structure
       const transformedOrders = ordersArray.map((order: any) => transformOrderData(order));
       
       setOrders(transformedOrders);
@@ -229,7 +221,6 @@ export default function VendorOrders() {
     }
   };
 
-  // Manual refresh function
   const refreshOrders = () => {
     fetchOrders();
     showToast({
@@ -243,7 +234,6 @@ export default function VendorOrders() {
     try {
       setReviewsLoading(true);
       setIsReviewsOpen(true);
-      // Clear previous reviews first
       setReviews([]);
       const res = await productService.getVendorProductReviewsSimple(productId, { page: 1, page_size: 10 });
       console.log('🔍 Loading reviews for product:', productId, 'Title:', productTitle, 'Reviews:', res.data);
@@ -256,9 +246,7 @@ export default function VendorOrders() {
     }
   };
 
-  // Modal handlers
   const handleViewDetails = (order: any) => {
-    // Transform the order data to match OrderProductModal expected structure
     const modalOrder = {
       order_id: order.order_id,
       order_status: order.order_status,
@@ -266,8 +254,8 @@ export default function VendorOrders() {
       total_amount: order.total_amount,
       crypto_currency: order.crypto_currency,
       created_at: order.created_at,
-      buyer: order.buyer_details, // Include buyer information
-      product: order.product_details, // Use the complete product details
+      buyer: order.buyer_details,
+      product: order.product_details,
       product_credentials: order.product_credentials
     };
     setSelectedOrder(modalOrder);
@@ -279,7 +267,6 @@ export default function VendorOrders() {
     setSelectedOrder(null);
   };
 
-  // Status update handlers
   const handleUpdateStatus = (order: any) => {
     setOrderToUpdate(order);
     setIsStatusModalOpen(true);
@@ -297,7 +284,6 @@ export default function VendorOrders() {
     setUpdatingStatusType(newStatus);
 
     try {
-      // Map UI status to backend status
       const statusMapping: { [key: string]: string } = {
         'Pending': 'pending_payment',
         'Processing': 'payment_received', 
@@ -308,12 +294,16 @@ export default function VendorOrders() {
 
       const backendStatus = statusMapping[newStatus] || newStatus.toLowerCase();
       
-      // Use the numeric ID for API calls
+      console.log('🔄 Attempting to update order status:', {
+        orderId: orderToUpdate.numericId,
+        currentStatus: orderToUpdate.rawOrderStatus,
+        newStatus: backendStatus
+      });
+      
       await orderService.updateOrderStatus(orderToUpdate.numericId, {
         order_status: backendStatus
       });
 
-      // Update local state after successful API call
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderToUpdate.id 
@@ -330,36 +320,90 @@ export default function VendorOrders() {
 
       handleCloseStatusModal();
     } catch (error: any) {
-      console.error('Status update error:', error);
+      console.error('❌ Status update error:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error response data:', error.response?.data);
       
-      // Extract error message from API response
       let errorMessage = "Failed to update order status";
       
-      if (error.response?.data) {
-        // Handle different error response formats
-        if (typeof error.response.data === 'string') {
-          errorMessage = error.response.data;
-        } else if (error.response.data.error) {
-          errorMessage = error.response.data.error;
-        } else if (error.response.data.detail) {
-          errorMessage = error.response.data.detail;
-        } else if (Array.isArray(error.response.data)) {
-          // Handle array of error messages
-          errorMessage = error.response.data.join(', ');
-        } else if (error.response.data.order_status) {
-          // Handle field-specific validation errors
-          errorMessage = Array.isArray(error.response.data.order_status) 
-            ? error.response.data.order_status.join(', ')
-            : error.response.data.order_status;
+      // Check if error.response and error.response.data exist
+      if (error.response && error.response.data) {
+        const responseData = error.response.data;
+        
+        console.log('🔍 Full response.data:', JSON.stringify(responseData, null, 2));
+        
+        // PRIORITY 1: Check order_status field (API sends error here)
+        if (responseData.order_status) {
+          console.log('🎯 Found order_status field:', responseData.order_status);
+          
+          if (Array.isArray(responseData.order_status)) {
+            errorMessage = responseData.order_status.join('. ');
+            console.log('✅ Extracted from array:', errorMessage);
+          } else {
+            errorMessage = String(responseData.order_status);
+            console.log('✅ Extracted as string:', errorMessage);
+          }
         }
-      } else if (error.message) {
+        // PRIORITY 2: Check non_field_errors
+        else if (responseData.non_field_errors) {
+          console.log('🔍 Found non_field_errors:', responseData.non_field_errors);
+          errorMessage = Array.isArray(responseData.non_field_errors) 
+            ? responseData.non_field_errors.join('. ') 
+            : String(responseData.non_field_errors);
+        }
+        // PRIORITY 3: Check error field
+        else if (responseData.error) {
+          console.log('🔍 Found error field:', responseData.error);
+          errorMessage = Array.isArray(responseData.error) 
+            ? responseData.error.join('. ') 
+            : String(responseData.error);
+        }
+        // PRIORITY 4: Check detail field
+        else if (responseData.detail) {
+          console.log('🔍 Found detail field:', responseData.detail);
+          errorMessage = Array.isArray(responseData.detail) 
+            ? responseData.detail.join('. ') 
+            : String(responseData.detail);
+        }
+        // PRIORITY 5: Check message field
+        else if (responseData.message) {
+          console.log('🔍 Found message field:', responseData.message);
+          errorMessage = String(responseData.message);
+        }
+        // PRIORITY 6: Check if response.data itself is a string
+        else if (typeof responseData === 'string') {
+          console.log('🔍 Response data is string:', responseData);
+          errorMessage = responseData;
+        }
+        // PRIORITY 7: Try to get first key's value if it's an object
+        else if (typeof responseData === 'object') {
+          const keys = Object.keys(responseData);
+          if (keys.length > 0) {
+            const firstKey = keys[0];
+            const firstValue = responseData[firstKey];
+            console.log(`🔍 Using first key "${firstKey}":`, firstValue);
+            
+            if (Array.isArray(firstValue)) {
+              errorMessage = firstValue.join('. ');
+            } else {
+              errorMessage = String(firstValue);
+            }
+          }
+        }
+      }
+      // Fallback to error.message
+      else if (error.message) {
+        console.log('🔍 Using error.message:', error.message);
         errorMessage = error.message;
       }
+      
+      console.log('🔔 Final error message for toast:', errorMessage);
       
       showToast({
         title: "Status Update Failed",
         message: errorMessage,
-        type: "error"
+        type: "error",
+        duration: 10000
       });
     } finally {
       setIsUpdatingStatus(false);
@@ -367,7 +411,6 @@ export default function VendorOrders() {
     }
   };
 
-  // Refund handlers
   const handleRequestRefund = (order: any) => {
     setOrderForRefund(order);
     setIsRefundModalOpen(true);
@@ -385,7 +428,6 @@ export default function VendorOrders() {
       message: "Your refund request has been submitted. We'll process it within 24-48 hours.",
       type: "success"
     });
-    // Optionally refresh orders
     fetchOrders();
   };
 
@@ -404,7 +446,6 @@ export default function VendorOrders() {
       order.product.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     
-    // Date filtering logic
     const matchesDate = (() => {
       if (dateFilter === "all") return true;
       
@@ -435,14 +476,12 @@ export default function VendorOrders() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  // Pagination logic
   const totalItems = filteredOrders.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentOrders = filteredOrders.slice(startIndex, endIndex);
 
-  // Pagination handlers
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
@@ -452,7 +491,6 @@ export default function VendorOrders() {
   const goToPreviousPage = () => goToPage(currentPage - 1);
   const goToNextPage = () => goToPage(currentPage + 1);
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, dateFilter]);
@@ -460,7 +498,6 @@ export default function VendorOrders() {
   return (
     <>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Orders & Sales</h1>
@@ -471,7 +508,6 @@ export default function VendorOrders() {
           </Button>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
@@ -505,7 +541,6 @@ export default function VendorOrders() {
           </Card>
         </div>
 
-        {/* Filters */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardContent className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -548,7 +583,6 @@ export default function VendorOrders() {
           </CardContent>
         </Card>
 
-        {/* Orders Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
             <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">
@@ -653,7 +687,24 @@ export default function VendorOrders() {
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            const buyerUsername = order.buyer_details?.username || order.buyer || order.buyer_username;
+                            if (buyerUsername) {
+                              navigate('/vendor/messages', {
+                                state: {
+                                  autoOpenBuyerUsername: buyerUsername,
+                                  autoOpenChat: true
+                                }
+                              });
+                            } else {
+                              showToast({
+                                title: 'Error',
+                                message: 'Buyer information not available. Please try again later.',
+                                type: 'error',
+                                duration: 4000
+                              });
+                            }
+                          }}>
                             <MessageSquare className="w-4 h-4 mr-2" />
                             Message Buyer
                           </DropdownMenuItem>
@@ -694,10 +745,8 @@ export default function VendorOrders() {
               )}
             </div>
 
-            {/* Pagination */}
             {filteredOrders.length > 0 && (
               <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-700">
-                {/* Items per page selector */}
                 <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-start">
                   <span className="text-xs sm:text-sm text-gray-400">Show:</span>
                   <Select value={itemsPerPage.toString()} onValueChange={(value) => {
@@ -717,12 +766,10 @@ export default function VendorOrders() {
                   <span className="text-xs sm:text-sm text-gray-400">per page</span>
                 </div>
 
-                {/* Pagination info */}
                 <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
                   Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} orders
                 </div>
 
-                {/* Pagination controls */}
                 <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap justify-center">
                   <Button
                     variant="outline"
@@ -743,7 +790,6 @@ export default function VendorOrders() {
                     <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
 
-                  {/* Page numbers */}
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNum;
@@ -800,7 +846,6 @@ export default function VendorOrders() {
         </Card>
       </div>
     
-      {/* Order Details Modal */}
       {selectedOrder && (
         <OrderProductModal
           order={selectedOrder}
@@ -809,7 +854,6 @@ export default function VendorOrders() {
         />
       )}
 
-      {/* Status Update Modal */}
       {isStatusModalOpen && orderToUpdate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto">
@@ -915,7 +959,6 @@ export default function VendorOrders() {
         </div>
       )}
 
-      {/* Product Reviews Modal */}
       <Dialog open={isReviewsOpen} onOpenChange={setIsReviewsOpen}>
         <DialogContent className="bg-gray-900 border border-gray-700 max-w-2xl">
           <DialogHeader>
@@ -948,7 +991,6 @@ export default function VendorOrders() {
         </DialogContent>
       </Dialog>
 
-      {/* Refund Modal */}
       <RefundModal
         isOpen={isRefundModalOpen}
         order={orderForRefund}

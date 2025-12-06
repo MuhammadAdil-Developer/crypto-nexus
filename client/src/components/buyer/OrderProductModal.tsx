@@ -109,7 +109,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
   const fetchVendorStats = async () => {
     const vendorUsername = order.product.vendor_username || order.product.vendor?.username;
     if (!vendorUsername) return;
-    
+
     setLoadingVendorStats(true);
     try {
       const response = await vendorService.getVendorStatistics(vendorUsername);
@@ -134,7 +134,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const fetchProductReviews = async () => {
     if (!order?.product?.id) return;
-    
+
     setLoadingReviews(true);
     try {
       const response = await productService.getProductReviewsModal(order.product.id, { page_size: 10 });
@@ -167,7 +167,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getAccountTypeColor = (type: string | null) => {
     if (!type) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'social': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       'gaming': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -184,7 +184,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getAccessTypeColor = (type: string | null) => {
     if (!type) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'full_ownership': 'bg-green-500/20 text-green-400 border-green-500/30',
       'shared': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -200,7 +200,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getDeliveryTimeColor = (time: string | null) => {
     if (!time) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'instant_auto': 'bg-green-500/20 text-green-400 border-green-500/30',
       'instant': 'bg-green-500/20 text-green-400 border-green-500/30',
@@ -212,7 +212,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getOrderStatusColor = (status: string | undefined) => {
     if (!status) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     switch (status.toLowerCase()) {
       case 'completed':
         return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -229,7 +229,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
   const getPaymentStatusColor = (status: string | undefined) => {
     if (!status) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     switch (status.toLowerCase()) {
       case 'paid':
         return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -243,10 +243,40 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: "Credentials copied to clipboard"
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Credentials copied (fallback)"
+          });
+        }
+      } catch (err) {
+        // fail silently
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied!",
+        description: "Credentials copied to clipboard"
+      });
+    }, () => {
+      toast({
+        title: "Error",
+        description: "Failed to copy credentials",
+        variant: "destructive"
+      });
     });
   };
 
@@ -289,8 +319,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       order.product.main_image
                         ? (order.product.main_image.startsWith('http') ? order.product.main_image : `http://localhost:8000${order.product.main_image}`)
                         : (order.product.main_images && order.product.main_images.length > 0
-                            ? (order.product.main_images[0].startsWith('http') ? order.product.main_images[0] : `http://localhost:8000${order.product.main_images[0]}`)
-                            : '')
+                          ? (order.product.main_images[0].startsWith('http') ? order.product.main_images[0] : `http://localhost:8000${order.product.main_images[0]}`)
+                          : '')
                     }
                     alt={order.product.headline || 'Product'}
                     className="w-full h-full object-cover"
@@ -316,13 +346,13 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                         <div key={`img-${index}`} className="aspect-square w-28 h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
                           <img
                             src={imageUrl}
-                        alt={`${order.product.headline || 'Product'} ${index + 1}`}
-                        className="w-full h-full object-cover"
+                            alt={`${order.product.headline || 'Product'} ${index + 1}`}
+                            className="w-full h-full object-cover"
                             onError={(e) => {
                               e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
                             }}
-                      />
-                    </div>
+                          />
+                        </div>
                       );
                     })}
                     {(order.product as any).documents && (order.product as any).documents.map((doc: string, index: number) => {
@@ -334,8 +364,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                           <div className="flex-1 min-w-0">
                             <p className="text-white text-sm font-medium truncate max-w-[120px]">{docName}</p>
                           </div>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="ghost"
                             className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-1.5 h-auto"
                             onClick={() => window.open(docUrl, '_blank')}
@@ -379,7 +409,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
                       <h3 className="text-lg font-semibold text-green-300">Escrow Protection Active</h3>
-                      <button 
+                      <button
                         className="text-green-400 hover:text-green-300 transition-colors"
                         title="Payment held until order approval • Automatic refund if order is not approved • Secure transaction with buyer protection"
                       >
@@ -502,7 +532,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     {showCredentials ? 'Hide' : 'Show'} Credentials
                   </Button>
                 </div>
-                
+
                 {showCredentials && (
                   <div className="space-y-4">
                     {Object.entries(order.product_credentials).map(([key, value]) => (
@@ -736,10 +766,10 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white flex items-center">
-                  <Star className="w-5 h-5 mr-2 text-yellow-400" />
-                  Reviews & Ratings
+                    <Star className="w-5 h-5 mr-2 text-yellow-400" />
+                    Reviews & Ratings
                     {loadingReviews && <DotLoader size="sm" color="text-yellow-400" />}
-                </h3>
+                  </h3>
                   {productReviews && productReviews.reviews && productReviews.reviews.length > 0 && (
                     <Button
                       variant="outline"
@@ -751,7 +781,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     </Button>
                   )}
                 </div>
-                
+
                 {loadingReviews ? (
                   <div className="text-center py-8">
                     <DotLoader size="lg" color="text-yellow-400" />
@@ -780,7 +810,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                         <span className="text-white">{order.product.views_count || 0} views</span>
                       </div>
                     </div>
-                    
+
                     {/* Reviews List */}
                     {showReviews && (
                       <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -792,9 +822,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                                   {[...Array(5)].map((_, i) => (
                                     <Star
                                       key={i}
-                                      className={`w-4 h-4 ${
-                                        i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
-                                      }`}
+                                      className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
+                                        }`}
                                     />
                                   ))}
                                 </div>
@@ -832,39 +861,38 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     )}
                   </div>
                 ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">Product Rating:</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star 
-                            key={star} 
-                            className={`w-4 h-4 ${
-                              star <= parseFloat(order.product.rating || '0') ? 
-                                'text-yellow-400 fill-current' : 
-                                'text-gray-400'
-                            }`} 
-                          />
-                        ))}
-                      </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Product Rating:</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-4 h-4 ${star <= parseFloat(order.product.rating || '0') ?
+                                  'text-yellow-400 fill-current' :
+                                  'text-gray-400'
+                                }`}
+                            />
+                          ))}
+                        </div>
                         <span className="text-white">{order.product.rating || '0.0'}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">Total Reviews:</span>
-                    <span className="text-white">{order.product.review_count || '0'} reviews</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">Views:</span>
-                    <span className="text-white">{order.product.views_count || '0'} views</span>
-                  </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Total Reviews:</span>
+                      <span className="text-white">{order.product.review_count || '0'} reviews</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Views:</span>
+                      <span className="text-white">{order.product.views_count || '0'} views</span>
+                    </div>
                     <div className="text-center py-6">
                       <Star className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                       <p className="text-gray-400 text-lg">No reviews yet</p>
                       <p className="text-gray-500 text-sm">Be the first to review this product</p>
+                    </div>
                   </div>
-                </div>
                 )}
               </div>
             </div>

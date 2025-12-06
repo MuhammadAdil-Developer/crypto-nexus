@@ -193,7 +193,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
                   "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
                   isActive 
                     ? "text-pink-600 bg-pink-600/10" 
-                    : "text-white hover:bg-gray-800 hover:text-pink-600"
+                    : "text-white hover:text-pink-600"
                 )}
                 data-testid={`buyer-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
               >

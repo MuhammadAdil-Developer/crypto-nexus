@@ -71,7 +71,7 @@ function App() {
             <Route path="/" element={<MarketplaceHome />} />
             <Route path="/sign-in" element={<SignIn />} />
             <Route path="/sign-up" element={<SignUp />} />
-            <Route path="/admin-sign-in" element={<AdminSignIn />} />
+            <Route path="/admin-access-control-panel-secure-login" element={<AdminSignIn />} />
             <Route path="/vender-sign-in" element={<VenderSignIn />} />
             <Route path="/payment-test" element={<PaymentTest />} />
             

@@ -41,7 +41,7 @@ services:
       - DJANGO_SETTINGS_MODULE=cryptonexus.settings
       - DEBUG=False
       - CORS_ALLOWED_ORIGINS=http://88.99.143.151:5000,http://localhost:5000,http://localhost:3000
-      - ALLOWED_HOSTS=94.130.201.44,localhost,127.0.0.1
+      - ALLOWED_HOSTS=88.99.143.151,94.130.201.44,localhost,127.0.0.1
     volumes:
       - ./backend/media:/app/media
       - ./backend/logs:/app/logs

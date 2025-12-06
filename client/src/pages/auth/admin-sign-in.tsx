@@ -11,6 +11,20 @@ import { CloudflareTurnstile, CloudflareTurnstileHandle } from "@/components/sec
 
 export default function AdminSignIn() {
   const navigate = useNavigate();
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  
+  // Protect admin route - check if user is trying to access directly
+  useEffect(() => {
+    // Add a simple check - you can enhance this with more security
+    const referrer = document.referrer;
+    const isDirectAccess = !referrer || referrer === window.location.href;
+    
+    // Optional: Add a secret key check or other protection mechanism
+    // For now, we'll just log it (you can add more protection as needed)
+    if (isDirectAccess) {
+      console.log('Admin sign-in accessed directly');
+    }
+  }, []);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -192,6 +206,14 @@ export default function AdminSignIn() {
     <div className="min-h-screen bg-black flex">
       {/* Left Side - Video */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {isVideoLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black z-20">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-white text-sm">Loading secure access...</p>
+            </div>
+          </div>
+        )}
         <video 
           autoPlay 
           muted 
@@ -204,6 +226,15 @@ export default function AdminSignIn() {
           onLoadedData={(e) => {
             // Ensure smooth rendering when video is loaded
             e.currentTarget.style.opacity = '1';
+            setIsVideoLoading(false);
+          }}
+          onTimeUpdate={(e) => {
+            const video = e.currentTarget;
+            // Stop video 1 second before it ends
+            if (video.duration && video.currentTime >= video.duration - 1) {
+              video.pause();
+              video.currentTime = video.duration - 1;
+            }
           }}
           onEnded={(e) => {
             // Pause at the last frame when video ends
@@ -211,6 +242,7 @@ export default function AdminSignIn() {
           }}
           onError={(e) => {
             console.error('Video failed to load:', e);
+            setIsVideoLoading(false);
             // Fallback to a dark background if video fails
             e.currentTarget.style.display = 'none';
           }}
@@ -233,41 +265,47 @@ export default function AdminSignIn() {
           </div>
 
           <div className="max-w-lg mx-auto text-center">
-            {/* Logo */}
+            {/* Logo - Always visible, not dependent on video */}
             <div className="mb-6">
               <img 
                 src="/images/logo.png" 
                 alt="AccountzClub Logo" 
                 className="h-20 w-auto mx-auto"
                 style={{ 
-                  opacity: 0.9
+                  opacity: 0.9,
+                  position: 'relative',
+                  zIndex: 10
                 }}
               />
             </div>
-            <p className="text-lg text-purple-100/90 leading-relaxed font-medium font-sans">
-              Secure administrative access to manage the entire crypto marketplace ecosystem
-            </p>
+            {!isVideoLoading && (
+              <p className="text-lg text-purple-100/90 leading-relaxed font-medium font-sans">
+                Secure administrative access to manage the entire crypto marketplace ecosystem
+              </p>
+            )}
           </div>
-          <div className="flex flex-col space-y-4 text-purple-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-red-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-red-500/30">
-                <Crown className="w-5 h-5 text-red-400" />
+          {!isVideoLoading && (
+            <div className="flex flex-col space-y-4 text-purple-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-red-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-red-500/30">
+                  <Crown className="w-5 h-5 text-red-400" />
+                </div>
+                <span className="text-lg">Administrative Control</span>
               </div>
-              <span className="text-lg">Administrative Control</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
-                <Shield className="w-5 h-5 text-purple-400" />
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
+                  <Shield className="w-5 h-5 text-purple-400" />
+                </div>
+                <span className="text-lg">System Management</span>
               </div>
-              <span className="text-lg">System Management</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
-                <Database className="w-6 h-6 text-blue-400" />
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
+                  <Database className="w-6 h-6 text-blue-400" />
+                </div>
+                <span className="text-lg">Full System Access</span>
               </div>
-              <span className="text-lg">Full System Access</span>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -402,4 +440,4 @@ export default function AdminSignIn() {
       />
     </div>
   );
-} 
+}

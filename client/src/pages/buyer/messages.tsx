@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { MessagesPanel } from "@/components/buyer/MessagesPanel";
 import { MessageSquare, Users, Clock } from "lucide-react";
@@ -17,7 +18,9 @@ export default function BuyerMessages() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [productContext, setProductContext] = useState<any>(null);
+  const [autoSelectConversation, setAutoSelectConversation] = useState<string | null>(null);
   const { toast } = useToast();
+  const location = useLocation();
 
   useEffect(() => {
     // Check for product context from ProductDetailModal
@@ -93,7 +96,15 @@ export default function BuyerMessages() {
     }
   };
 
-  const [autoSelectConversation, setAutoSelectConversation] = useState<string | null>(null);
+  // Auto-open vendor chat if navigated with state
+  useEffect(() => {
+    const navState: any = location.state as any;
+    if (navState?.openVendorChat && navState?.autoOpenChat) {
+      setAutoSelectConversation(navState.openVendorChat);
+      // Clean the state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleProductConversation = async (context: any) => {
     try {
@@ -213,6 +224,8 @@ export default function BuyerMessages() {
           conversations={conversations}
           loading={loading}
           onRefresh={loadConversations}
+          autoSelectConversation={autoSelectConversation}
+          onConversationSelected={() => setAutoSelectConversation(null)}
           autoSelectConversation={autoSelectConversation}
           onConversationSelected={() => setAutoSelectConversation(null)}
         />

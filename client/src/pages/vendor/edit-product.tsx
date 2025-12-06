@@ -302,9 +302,20 @@ export default function VendorEditProduct() {
         formDataToSend.append(`gallery_images`, img);
       });
       
-      const response = await productService.updateProduct(Number(id), formDataToSend as any);
+      // Use direct API call for FormData
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products/update/${id}/`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Don't set Content-Type for FormData - browser will set it with boundary
+        },
+        body: formDataToSend
+      });
       
-      if (response.success) {
+      const responseData = await response.json();
+      
+      if (response.ok && responseData.success) {
         showToast({
           type: 'success',
           title: 'Product updated successfully!',
@@ -312,11 +323,12 @@ export default function VendorEditProduct() {
         });
         navigate('/vendor/listings');
       } else {
-        setError(response.message || 'Failed to update product');
+        const errorMsg = responseData.message || responseData.error || 'Failed to update product';
+        setError(errorMsg);
         showToast({
           type: 'error',
           title: 'Error',
-          message: response.message || 'Failed to update product',
+          message: errorMsg,
         });
       }
     } catch (err: any) {
@@ -835,7 +847,8 @@ export default function VendorEditProduct() {
           {/* Action Buttons */}
           <div className="flex space-x-4">
             <Button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={saving}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >

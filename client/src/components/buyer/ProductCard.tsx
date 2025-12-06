@@ -48,9 +48,10 @@ interface Product {
 interface ProductCardProps {
   product: Product;
   viewMode?: 'grid' | 'list';
+  redirectOnAction?: boolean; // If true, redirects to listings page on button clicks
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'grid' }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'grid', redirectOnAction = false }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -121,6 +122,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   };
 
   const handleViewProduct = () => {
+    if (redirectOnAction) {
+      // Redirect to listings page with product name in search and open view modal
+      const productName = product.listing_title || product.headline || '';
+      window.location.href = `/buyer/listings?search=${encodeURIComponent(productName)}&openView=${product.id}`;
+      return;
+    }
     setIsModalOpen(true);
   };
 
@@ -133,8 +140,51 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       });
       return;
     }
+    if (redirectOnAction) {
+      // Redirect to listings page with product name in search and open payment modal
+      const productName = product.listing_title || product.headline || '';
+      window.location.href = `/buyer/listings?search=${encodeURIComponent(productName)}&openOrder=${product.id}`;
+      return;
+    }
     setIsPaymentModalOpen(true);
   };
+
+  // Listen for redirect events (Order Now, View, Add to Cart)
+  useEffect(() => {
+    const handleOpenProductOrder = (event: CustomEvent) => {
+      if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
+        setIsPaymentModalOpen(true);
+      }
+    };
+    
+    const handleOpenProductView = (event: CustomEvent) => {
+      if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
+        setIsModalOpen(true);
+      }
+    };
+    
+    const handleAddProductToCart = (event: CustomEvent) => {
+      if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
+        if (product.quantity_available > 0) {
+          addToCart(product);
+          toast({
+            title: "Added to Cart",
+            description: `${product.listing_title} added to your cart`
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('openProductOrder', handleOpenProductOrder as EventListener);
+    window.addEventListener('openProductView', handleOpenProductView as EventListener);
+    window.addEventListener('addProductToCart', handleAddProductToCart as EventListener);
+    
+    return () => {
+      window.removeEventListener('openProductOrder', handleOpenProductOrder as EventListener);
+      window.removeEventListener('openProductView', handleOpenProductView as EventListener);
+      window.removeEventListener('addProductToCart', handleAddProductToCart as EventListener);
+    };
+  }, [product.id, product.quantity_available, product.listing_title]);
 
   const checkWishlistStatus = async () => {
     if (wishlistLoading) return; // Prevent multiple simultaneous calls
@@ -205,6 +255,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         description: "This product is currently out of stock and cannot be added to cart",
         variant: "destructive"
       });
+      return;
+    }
+    if (redirectOnAction) {
+      // Redirect to listings page with product name in search and auto-add to cart
+      const productName = product.listing_title || product.headline || '';
+      window.location.href = `/buyer/listings?search=${encodeURIComponent(productName)}&addToCart=${product.id}`;
       return;
     }
     addToCart(product);

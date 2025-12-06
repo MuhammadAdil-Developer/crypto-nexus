@@ -18,7 +18,7 @@ from .views import (
     VendorTransactionHistoryView,
     DirectPaymentMonitorView,
 )
-from .commission_views import CommissionSettingsView, CommissionHistoryView
+from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView
 
 urlpatterns = [
     # Admin endpoints for refunds
@@ -67,4 +67,6 @@ urlpatterns = [
     # Commission settings
     path('admin/commission-settings/', CommissionSettingsView.as_view(), name='commission_settings'),
     path('admin/commission-history/', CommissionHistoryView.as_view(), name='commission_history'),
+    path('admin/vendor-fees/', VendorFeesView.as_view(), name='vendor_fees'),
+    path('vendor/my-fee/', VendorMyFeeView.as_view(), name='vendor_my_fee'),
 ]

@@ -36,7 +36,7 @@ export function TokenExpirationModal() {
     if (userType === 'vendor') {
       navigate('/vender-sign-in');
     } else if (userType === 'admin') {
-      navigate('/admin-sign-in');
+      navigate('/admin-access-control-panel-secure-login');
     } else {
       navigate('/sign-in');
     }

@@ -213,7 +213,7 @@ function VendorPublicListingsContent() {
                 <Star className="w-5 h-5 text-pink-500" />
                 <h3 className="text-sm font-medium text-gray-400">Total Favorites</h3>
               </div>
-              <p className="text-xl font-bold text-white">{vendorStats.total_favorites || 0}</p>
+              <p className="text-xl font-bold text-white">{vendorStats.total_favorites !== undefined ? vendorStats.total_favorites : 0}</p>
             </CardContent>
           </Card>
 

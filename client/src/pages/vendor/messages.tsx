@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { getRelativeTime } from "@/utils/timeUtils";
 import { useToast } from "@/hooks/use-toast";
 
 export default function VendorMessages() {
+  const location = useLocation();
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -75,6 +77,42 @@ export default function VendorMessages() {
     }
   }, []);
 
+  // Handle auto-open buyer username from navigation state
+  useEffect(() => {
+    const navState: any = location.state;
+    if (navState?.autoOpenBuyerUsername && conversations.length > 0) {
+      const buyerUsername = navState.autoOpenBuyerUsername;
+      // Find conversation with this buyer
+      const buyerConversation = conversations.find((conv: any) => {
+        // Check participants for buyer username
+        if (conv.participants && Array.isArray(conv.participants)) {
+          return conv.participants.some((p: any) =>
+            p.username === buyerUsername || p.user?.username === buyerUsername
+          );
+        }
+        return false;
+      });
+
+      if (buyerConversation) {
+        setTimeout(() => {
+          handleConversationSelect(buyerConversation);
+        }, 300);
+      } else {
+        // Create new conversation with buyer
+        // This would require API call to create conversation
+        toast({
+          title: "Opening Chat",
+          description: `Creating conversation with ${buyerUsername}...`,
+          variant: "default"
+        });
+        // You may need to implement createConversation API call here
+      }
+
+      // Clean navigation state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, conversations]);
+
   useEffect(() => {
     const context = messagingService.getProductContextFromStorage();
     if (context && context.id) {
@@ -82,7 +120,7 @@ export default function VendorMessages() {
     } else {
       loadConversations();
     }
-    
+
     // Restore selected conversation from localStorage
     const savedConversation = localStorage.getItem('selectedConversation');
     if (savedConversation) {
@@ -99,7 +137,7 @@ export default function VendorMessages() {
         console.error('Error parsing saved conversation:', error);
       }
     }
-    
+
     // WebSocket event handlers
     messagingService.onMessage((message) => {
       // Simple duplicate check by ID only
@@ -109,19 +147,19 @@ export default function VendorMessages() {
         if (existingById) {
           return prev; // Don't add duplicate
         }
-        
+
         // Check for duplicate by content + sender + timestamp (within 2 seconds) - safety check
-        const duplicateExists = prev.some(msg => 
+        const duplicateExists = prev.some(msg =>
           msg.id !== message.id &&
-          msg.content === message.content && 
+          msg.content === message.content &&
           msg.sender?.id === message.sender?.id &&
           Math.abs(new Date(msg.created_at).getTime() - new Date(message.created_at).getTime()) < 2000
         );
-        
+
         if (duplicateExists) {
           return prev; // Don't add duplicate
         }
-        
+
         // Add new message
         return [...prev, message];
       });
@@ -139,7 +177,7 @@ export default function VendorMessages() {
     const handleMessagesMarkedRead = () => {
       loadConversations();
     };
-    
+
     window.addEventListener('messages_marked_read', handleMessagesMarkedRead);
 
     // Listen for real-time conversation updates
@@ -159,10 +197,10 @@ export default function VendorMessages() {
       // Handle both data structures: {message: {...}} or direct message object
       const message = data?.message || data;
       const conversationId = message?.conversation || data?.conversation_id;
-      
+
       // Update message if it's in the current conversation
       if (message && message.id && selectedConversation?.id === conversationId) {
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg.id === message.id ? { ...msg, ...message, metadata: { ...msg.metadata, ...message.metadata, edited: true } } : msg
         ));
       }
@@ -172,41 +210,41 @@ export default function VendorMessages() {
       // Handle both data structures
       const messageId = data?.message_id || data?.id;
       const conversationId = data?.conversation_id || data?.conversation;
-      
+
       // Mark as deleted instead of removing (WhatsApp style)
       if (messageId && selectedConversation?.id === conversationId) {
-        setMessages(prev => prev.map(msg => 
-          msg.id === messageId 
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId
             ? { ...msg, is_deleted: true, content: 'This message was deleted', message_type: 'system' }
             : msg
         ));
       }
     };
-    
+
     // Also listen for message_edited and message_deleted from WebSocket directly
     const handleWebSocketMessageEdited = (event: CustomEvent) => {
       const message = event.detail;
       const conversationId = message?.conversation || message?.conversation_id;
       if (message && message.id && selectedConversation?.id === conversationId) {
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg.id === message.id ? { ...msg, ...message, metadata: { ...msg.metadata, ...message.metadata, edited: true } } : msg
         ));
       }
     };
-    
+
     const handleWebSocketMessageDeleted = (event: CustomEvent) => {
       const data = event.detail;
       const messageId = data?.message_id || data?.id;
       const conversationId = data?.conversation_id || data?.conversation;
       if (messageId && selectedConversation?.id === conversationId) {
-        setMessages(prev => prev.map(msg => 
-          msg.id === messageId 
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId
             ? { ...msg, is_deleted: true, content: 'This message was deleted', message_type: 'system' }
             : msg
         ));
       }
     };
-    
+
     window.addEventListener('message_edited', handleWebSocketMessageEdited as EventListener);
     window.addEventListener('message_deleted', handleWebSocketMessageDeleted as EventListener);
 
@@ -241,12 +279,12 @@ export default function VendorMessages() {
   const handleProductConversation = async (context: any) => {
     try {
       let convo: any = null;
-      
+
       // For refunds/disputes, always create a new conversation (don't reuse existing ones)
       if (context.isRefund || context.isDispute) {
         if (context.recipientId) {
           convo = await messagingService.createProductConversation(
-            context.id, 
+            context.id,
             context.recipientId,
             context.refundId,
             context.disputeId
@@ -267,10 +305,10 @@ export default function VendorMessages() {
           }
         }
       }
-      
+
       // Load conversations and wait for it to complete
       await loadConversations();
-      
+
       // For refunds/disputes, directly select the newly created conversation
       if (context.isRefund || context.isDispute) {
         if (convo && convo.id) {
@@ -288,7 +326,7 @@ export default function VendorMessages() {
                 const disputeContext = { disputeId: context.disputeId, conversationId: fullConvo.id };
                 localStorage.setItem('disputeContext', JSON.stringify(disputeContext));
               }
-              
+
               // Add it to conversations list if not already there
               setConversations(prev => {
                 const exists = prev.find(c => c.id === fullConvo.id);
@@ -321,7 +359,7 @@ export default function VendorMessages() {
           setAutoSelectConversation(convo.id);
         }
       }
-      
+
       if (context.isDispute) {
         toast({ title: 'Dispute Chat', description: `Opened chat for dispute ${context.disputeId}` });
       }
@@ -350,8 +388,8 @@ export default function VendorMessages() {
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: "smooth", 
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
         block: "end",
         inline: "nearest"
       });
@@ -367,8 +405,8 @@ export default function VendorMessages() {
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: "smooth", 
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
         block: "end",
         inline: "nearest"
       });
@@ -386,6 +424,34 @@ export default function VendorMessages() {
   };
 
   const handleCopyMessage = async (message: any) => {
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = message.content;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Message copied (fallback)",
+            duration: 2000,
+          });
+        }
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: "Failed to copy message",
+          variant: "destructive",
+        });
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(message.content);
       toast({
@@ -414,12 +480,12 @@ export default function VendorMessages() {
 
   const confirmDeleteMessage = async () => {
     if (!showDeleteConfirm) return;
-    
+
     try {
       await messagingService.deleteMessage(showDeleteConfirm.id);
       // Instead of removing, mark as deleted (WhatsApp style)
-      setMessages(prev => prev.map(m => 
-        m.id === showDeleteConfirm.id 
+      setMessages(prev => prev.map(m =>
+        m.id === showDeleteConfirm.id
           ? { ...m, is_deleted: true, content: 'This message was deleted', message_type: 'system' }
           : m
       ));
@@ -445,7 +511,7 @@ export default function VendorMessages() {
 
   const confirmReportMessage = async () => {
     if (!showReportConfirm) return;
-    
+
     try {
       await messagingService.reportMessage(showReportConfirm.id);
       setShowReportConfirm(null);
@@ -466,32 +532,32 @@ export default function VendorMessages() {
 
   const handleSaveEdit = async () => {
     if (!editingMessage || !editMessageContent.trim()) return;
-    
+
     const oldContent = editingMessage.content;
-    
+
     try {
       // Optimistically update the message
-      setMessages(prev => prev.map(m => 
-        m.id === editingMessage.id 
+      setMessages(prev => prev.map(m =>
+        m.id === editingMessage.id
           ? { ...m, content: editMessageContent, metadata: { ...m.metadata, edited: true, edited_at: new Date().toISOString() } }
           : m
       ));
-      
+
       setEditingMessage(null);
       setEditMessageContent('');
-      
+
       // Call API to update message
       // The real-time WebSocket update will handle updating the message with server response
       await messagingService.editMessage(editingMessage.id, editMessageContent);
-      
+
       toast({
         title: "Updated",
         description: "Message updated successfully",
       });
     } catch (error) {
       // Revert on error
-      setMessages(prev => prev.map(m => 
-        m.id === editingMessage.id 
+      setMessages(prev => prev.map(m =>
+        m.id === editingMessage.id
           ? { ...m, content: oldContent }
           : m
       ));
@@ -515,7 +581,7 @@ export default function VendorMessages() {
     if (!selectedConversation) return;
     const otherParticipant = selectedConversation.participants?.find((p: any) => p.id !== currentUserId);
     if (!otherParticipant) return;
-    
+
     try {
       const response = await messagingService.getUserAttachments(otherParticipant.id);
       if (response.success) {
@@ -536,7 +602,7 @@ export default function VendorMessages() {
     setShowBlockConfirm(false);
     const otherParticipant = selectedConversation.participants?.find((p: any) => p.id !== currentUserId);
     if (!otherParticipant) return;
-    
+
     try {
       // Lock this specific conversation instead of blocking the user globally
       const response = await messagingService.lockConversation(selectedConversation.id, true);
@@ -567,7 +633,7 @@ export default function VendorMessages() {
 
   const handleUnblockUser = async () => {
     if (!selectedConversation) return;
-    
+
     try {
       // Unlock this specific conversation
       const response = await messagingService.lockConversation(selectedConversation.id, false);
@@ -598,7 +664,7 @@ export default function VendorMessages() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast({
@@ -608,10 +674,10 @@ export default function VendorMessages() {
       });
       return;
     }
-    
+
     setSelectedFile(file);
     setShowFilePicker(false);
-    
+
     // Create preview for images
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -646,7 +712,7 @@ export default function VendorMessages() {
 
   const handleDeleteChat = async () => {
     if (!selectedConversation) return;
-    
+
     // For now, just lock the conversation
     // In future, you can implement actual deletion
     try {
@@ -672,7 +738,7 @@ export default function VendorMessages() {
     if (!selectedConversation || !reportReason) return;
     const otherParticipant = selectedConversation.participants?.find((p: any) => p.id !== currentUserId);
     if (!otherParticipant) return;
-    
+
     try {
       const response = await messagingService.reportUser(
         otherParticipant.id,
@@ -709,21 +775,21 @@ export default function VendorMessages() {
     if (selectedConversation?.id === conversation.id && messages.length > 0) {
       return;
     }
-    
+
     try {
       setSelectedConversation(conversation);
       setLoadingMessages(true);
-      
+
       // Store selected conversation in localStorage
       localStorage.setItem('selectedConversation', JSON.stringify(conversation));
-      
+
       // Disconnect from previous conversation
       messagingService.disconnect();
-      
+
       // Load messages for this conversation
       const messagesData = await messagingService.getMessages(conversation.id);
       setMessages(messagesData);
-      
+
       // Check if this is a product conversation with no messages yet
       if (conversation.product && messagesData.length === 0) {
         setShowProductReference(true);
@@ -738,13 +804,13 @@ export default function VendorMessages() {
         setShowProductReference(false);
         setProductReferenceData(null);
       }
-      
+
       // Connect to WebSocket for real-time messaging
       messagingService.connectToConversation(conversation.id);
-      
+
       // Mark messages as read
       await messagingService.markMessagesRead(conversation.id);
-      
+
     } catch (error) {
       console.error('Error selecting conversation:', error);
       toast({
@@ -770,7 +836,7 @@ export default function VendorMessages() {
           const disputeContext = localStorage.getItem('disputeContext');
           const refundContext = localStorage.getItem('refundContext');
           const productContext = localStorage.getItem('productContext');
-          
+
           // Check dispute context
           if (disputeContext && selectedConversation?.product) {
             try {
@@ -782,7 +848,7 @@ export default function VendorMessages() {
               // Ignore parse errors
             }
           }
-          
+
           // Check refund context
           if (refundContext && selectedConversation?.product) {
             try {
@@ -794,16 +860,16 @@ export default function VendorMessages() {
               // Ignore parse errors
             }
           }
-          
+
           // Check product context
           if (productContext && selectedConversation?.product) {
             try {
               const context = JSON.parse(productContext);
               const matchesProduct = (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id);
-              const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) || 
-                                       (context.recipientId && Array.isArray(selectedConversation.participants) && 
-                                        selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
-              
+              const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) ||
+                (context.recipientId && Array.isArray(selectedConversation.participants) &&
+                  selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
+
               if (matchesProduct && (matchesRecipient || !context.recipientId)) {
                 if (context.isDispute) {
                   return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>;
@@ -816,10 +882,10 @@ export default function VendorMessages() {
               // Ignore parse errors
             }
           }
-          
+
           // Check messages for refund/dispute metadata (fallback)
           if (messages && Array.isArray(messages)) {
-            const productRefMessage = messages.find((m: any) => 
+            const productRefMessage = messages.find((m: any) =>
               m.message_type === 'product_reference' && (m.metadata?.refund_id || m.metadata?.dispute_id)
             );
             if (productRefMessage) {
@@ -831,7 +897,7 @@ export default function VendorMessages() {
               }
             }
           }
-          
+
           return null;
         })()}
       </div>
@@ -851,7 +917,7 @@ export default function VendorMessages() {
 
     const messageText = newMessage.trim();
     const fileToSend = selectedFile;
-    
+
     // Clear inputs immediately for better UX
     setNewMessage("");
     clearFileSelection();
@@ -862,10 +928,10 @@ export default function VendorMessages() {
       if (fileToSend) {
         setIsUploading(true);
         setUploadProgress(0);
-        
+
         response = await messagingService.sendMessageWithAttachment(
-          selectedConversation.id, 
-          messageText, 
+          selectedConversation.id,
+          messageText,
           fileToSend,
           (progress) => setUploadProgress(progress)
         );
@@ -874,7 +940,7 @@ export default function VendorMessages() {
       } else {
         response = await messagingService.sendMessage(messageText, selectedConversation.id);
       }
-      
+
       // Immediately show message to sender (will be replaced by WebSocket if duplicate)
       if (response && response.id) {
         setMessages(prev => {
@@ -884,18 +950,18 @@ export default function VendorMessages() {
           return [...prev, response];
         });
       }
-      
+
       // Clear reply state after sending
       if (replyToMessage) {
         setReplyToMessage(null);
       }
-      
+
       // Hide product reference preview after sending first message
       if (showProductReference) {
         setShowProductReference(false);
         setProductReferenceData(null);
       }
-      
+
       // Message will also appear via WebSocket onMessage callback (will replace if duplicate)
     } catch (error: any) {
       setIsUploading(false);
@@ -912,7 +978,7 @@ export default function VendorMessages() {
           reader.readAsDataURL(fileToSend);
         }
       }
-      
+
       toast({
         title: "Error",
         description: error.message || "Failed to send message",
@@ -957,22 +1023,22 @@ export default function VendorMessages() {
   };
 
   return (
-      <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Messages</h1>
-            <p className="text-gray-300 text-sm sm:text-base">Communicate with your customers</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Badge className="bg-red-100 text-red-800 text-xs sm:text-sm">
-              {totalUnread} unread
-            </Badge>
-          </div>
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Messages</h1>
+          <p className="text-gray-300 text-sm sm:text-base">Communicate with your customers</p>
         </div>
+        <div className="flex items-center space-x-4">
+          <Badge className="bg-red-100 text-red-800 text-xs sm:text-sm">
+            {totalUnread} unread
+          </Badge>
+        </div>
+      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
@@ -1005,8 +1071,8 @@ export default function VendorMessages() {
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 ml-2">
               <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              </div>
+            </div>
+          </div>
         </div>
 
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
@@ -1024,25 +1090,25 @@ export default function VendorMessages() {
 
       {/* Main Messages Interface */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 h-[calc(100vh-120px)] sm:h-[calc(100vh-180px)] lg:h-[calc(100vh-200px)]">
-          {/* Conversations List */}
+        {/* Conversations List */}
         <Card className="lg:col-span-1 border border-gray-700 bg-gray-900 h-full flex flex-col overflow-hidden">
-            <CardHeader className="p-3 sm:p-6">
+          <CardHeader className="p-3 sm:p-6">
             <CardTitle className="flex items-center justify-between text-base sm:text-lg">
-                  <span>Conversations</span>
+              <span>Conversations</span>
               <Button variant="ghost" size="sm" onClick={loadConversations} className="h-8 w-8 p-0">
                 <Search className="w-4 h-4" />
               </Button>
-                </CardTitle>
-              <div className="relative mt-2 sm:mt-0">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search conversations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 text-sm sm:text-base"
-                />
-              </div>
-            </CardHeader>
+            </CardTitle>
+            <div className="relative mt-2 sm:mt-0">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search conversations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 text-sm sm:text-base"
+              />
+            </div>
+          </CardHeader>
           <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
             {loading ? (
               <div className="p-3 sm:p-4 text-center text-gray-400 text-xs sm:text-sm">Loading conversations...</div>
@@ -1053,37 +1119,36 @@ export default function VendorMessages() {
                 {filteredConversations.map((conv) => {
                   const buyer = getBuyerFromConversation(conv);
                   return (
-                  <div 
-                    key={conv.id}
-                      className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${
-                      selectedConversation?.id === conv.id 
-                          ? 'bg-blue-900/20 border-r-2 border-blue-500' 
+                    <div
+                      key={conv.id}
+                      className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${selectedConversation?.id === conv.id
+                          ? 'bg-blue-900/20 border-r-2 border-blue-500'
                           : 'hover:bg-gray-800'
-                    }`}
+                        }`}
                       onClick={() => handleConversationSelect(conv)}
-                  >
-                    <div className="flex items-center space-x-2 sm:space-x-3">
+                    >
+                      <div className="flex items-center space-x-2 sm:space-x-3">
                         <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
                           <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                             {buyer?.username?.charAt(0) || 'B'}
                           </AvatarFallback>
                         </Avatar>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                            <h4 className="font-medium text-white truncate text-sm sm:text-base">
-                              {conv.product?.headline || conv.product?.title || buyer?.username || 'Buyer'}
-                            </h4>
-                            <span className="text-xs sm:text-sm text-gray-400 flex-shrink-0">
-                              {getRelativeTime(conv.updated_at)}
-                            </span>
-                          </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                              <h4 className="font-medium text-white truncate text-sm sm:text-base">
+                                {conv.product?.headline || conv.product?.title || buyer?.username || 'Buyer'}
+                              </h4>
+                              <span className="text-xs sm:text-sm text-gray-400 flex-shrink-0">
+                                {getRelativeTime(conv.updated_at)}
+                              </span>
+                            </div>
                             {conv.unread_count > 0 && (
-                            <Badge className="bg-red-500 text-white text-[10px] sm:text-xs flex-shrink-0">
+                              <Badge className="bg-red-500 text-white text-[10px] sm:text-xs flex-shrink-0">
                                 {conv.unread_count}
-                            </Badge>
-                          )}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs sm:text-sm text-gray-400 truncate">
                             {(() => {
@@ -1105,159 +1170,159 @@ export default function VendorMessages() {
                 })}
               </div>
             )}
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
-          {/* Chat Window */}
+        {/* Chat Window */}
         <Card className="lg:col-span-2 border border-gray-700 bg-gray-900 h-full flex flex-col overflow-hidden">
-            {selectedConversation ? (
-              <>
-                {/* Chat Header */}
+          {selectedConversation ? (
+            <>
+              {/* Chat Header */}
               <CardHeader className="border-b p-3 sm:p-6">
-                  <div className="flex items-center justify-between gap-2 sm:gap-4">
-                    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                      <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
-                        <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
+                      <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                         {getBuyerFromConversation(selectedConversation)?.username?.charAt(0) || 'B'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <h3 
-                          className="font-semibold text-white flex items-center space-x-2 text-sm sm:text-base cursor-pointer hover:text-blue-400 transition-colors"
-                          onClick={handleOpenUserProfile}
-                        >
-                          <span className="truncate">{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
-                          {/* Dispute badge - only show if conversation was opened from dispute AND matches current conversation */}
-                          {(() => {
-                            // Check if this conversation was opened with dispute or refund context
-                            const disputeContext = localStorage.getItem('disputeContext');
-                            const refundContext = localStorage.getItem('refundContext');
-                            const productContext = localStorage.getItem('productContext');
-                            
-                            // Only show if we have context AND it matches the current conversation
-                            if (disputeContext && selectedConversation?.product) {
-                              try {
-                                const context = JSON.parse(disputeContext);
-                                // Only show if conversation ID matches
-                                if (context.conversationId === selectedConversation.id && context.disputeId) {
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <h3
+                        className="font-semibold text-white flex items-center space-x-2 text-sm sm:text-base cursor-pointer hover:text-blue-400 transition-colors"
+                        onClick={handleOpenUserProfile}
+                      >
+                        <span className="truncate">{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
+                        {/* Dispute badge - only show if conversation was opened from dispute AND matches current conversation */}
+                        {(() => {
+                          // Check if this conversation was opened with dispute or refund context
+                          const disputeContext = localStorage.getItem('disputeContext');
+                          const refundContext = localStorage.getItem('refundContext');
+                          const productContext = localStorage.getItem('productContext');
+
+                          // Only show if we have context AND it matches the current conversation
+                          if (disputeContext && selectedConversation?.product) {
+                            try {
+                              const context = JSON.parse(disputeContext);
+                              // Only show if conversation ID matches
+                              if (context.conversationId === selectedConversation.id && context.disputeId) {
+                                return (
+                                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                );
+                              }
+                            } catch (e) {
+                              // Ignore parse errors
+                            }
+                          }
+
+                          // Check refund context
+                          if (refundContext && selectedConversation?.product) {
+                            try {
+                              const context = JSON.parse(refundContext);
+                              // Only show if conversation ID matches
+                              if (context.conversationId === selectedConversation.id && context.refundId) {
+                                return (
+                                  <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
+                                );
+                              }
+                            } catch (e) {
+                              // Ignore parse errors
+                            }
+                          }
+
+                          // Also check productContext for dispute/refund flag - check by conversation ID or product match
+                          if (productContext && selectedConversation?.product) {
+                            try {
+                              const context = JSON.parse(productContext);
+                              // Check if this conversation matches the context (by product ID and recipient)
+                              const matchesProduct = (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id);
+                              const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) ||
+                                (context.recipientId && Array.isArray(selectedConversation.participants) &&
+                                  selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
+
+                              if (matchesProduct && (matchesRecipient || !context.recipientId)) {
+                                if (context.isDispute) {
                                   return (
                                     <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
                                   );
                                 }
-                              } catch (e) {
-                                // Ignore parse errors
-                              }
-                            }
-                            
-                            // Check refund context
-                            if (refundContext && selectedConversation?.product) {
-                              try {
-                                const context = JSON.parse(refundContext);
-                                // Only show if conversation ID matches
-                                if (context.conversationId === selectedConversation.id && context.refundId) {
+                                if (context.isRefund) {
                                   return (
                                     <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
                                   );
                                 }
-                              } catch (e) {
-                                // Ignore parse errors
+                              }
+                            } catch (e) {
+                              // Ignore parse errors
+                            }
+                          }
+
+                          // Also check messages for refund/dispute metadata (fallback)
+                          if (selectedConversation?.messages && Array.isArray(selectedConversation.messages)) {
+                            const productRefMessage = selectedConversation.messages.find((m: any) =>
+                              m.message_type === 'product_reference' && (m.metadata?.refund_id || m.metadata?.dispute_id)
+                            );
+                            if (productRefMessage) {
+                              if (productRefMessage.metadata?.refund_id) {
+                                return (
+                                  <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
+                                );
+                              }
+                              if (productRefMessage.metadata?.dispute_id) {
+                                return (
+                                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
+                                );
                               }
                             }
-                            
-                            // Also check productContext for dispute/refund flag - check by conversation ID or product match
-                            if (productContext && selectedConversation?.product) {
-                              try {
-                                const context = JSON.parse(productContext);
-                                // Check if this conversation matches the context (by product ID and recipient)
-                                const matchesProduct = (context.id === selectedConversation.product?.id || context.productId === selectedConversation.product?.id);
-                                const matchesRecipient = selectedConversation.participants?.some((p: any) => p.id === context.recipientId) || 
-                                                         (context.recipientId && Array.isArray(selectedConversation.participants) && 
-                                                          selectedConversation.participants.some((p: any) => String(p.id) === String(context.recipientId)));
-                                
-                                if (matchesProduct && (matchesRecipient || !context.recipientId)) {
-                                  if (context.isDispute) {
-                                    return (
-                                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
-                                    );
-                                  }
-                                  if (context.isRefund) {
-                                    return (
-                                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
-                                    );
-                                  }
-                                }
-                              } catch (e) {
-                                // Ignore parse errors
-                              }
-                            }
-                            
-                            // Also check messages for refund/dispute metadata (fallback)
-                            if (selectedConversation?.messages && Array.isArray(selectedConversation.messages)) {
-                              const productRefMessage = selectedConversation.messages.find((m: any) => 
-                                m.message_type === 'product_reference' && (m.metadata?.refund_id || m.metadata?.dispute_id)
-                              );
-                              if (productRefMessage) {
-                                if (productRefMessage.metadata?.refund_id) {
-                                  return (
-                                    <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>
-                                  );
-                                }
-                                if (productRefMessage.metadata?.dispute_id) {
-                                  return (
-                                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>
-                                  );
-                                }
-                              }
-                            }
-                            
-                            return null;
-                          })()}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
-                          <Package className="w-3 h-3 mr-1 flex-shrink-0" />
-                          <span className="truncate">{selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}</span>
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
-                          <DropdownMenuItem onClick={() => setShowReportModal(true)} className="text-xs sm:text-sm">
-                            <Flag className="w-4 h-4 mr-2" />
-                            Report User
-                          </DropdownMenuItem>
-                          {isConversationLocked ? (
-                            <DropdownMenuItem onClick={handleUnblockUser} className="text-green-600 text-xs sm:text-sm">
-                              <Shield className="w-4 h-4 mr-2" />
-                              Unblock Chat
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={handleBlockUser} className="text-red-600 text-xs sm:text-sm">
-                              <Lock className="w-4 h-4 mr-2" />
-                              Block Chat
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={handleOpenUserProfile} className="text-xs sm:text-sm">
-                            <User className="w-4 h-4 mr-2" />
-                            View Profile
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={handleDeleteChat} className="text-red-600 text-xs sm:text-sm">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Chat
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          }
+
+                          return null;
+                        })()}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
+                        <Package className="w-3 h-3 mr-1 flex-shrink-0" />
+                        <span className="truncate">{selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}</span>
+                      </p>
                     </div>
                   </div>
-                </CardHeader>
 
-                {/* Messages */}
+                  <div className="flex items-center space-x-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
+                        <DropdownMenuItem onClick={() => setShowReportModal(true)} className="text-xs sm:text-sm">
+                          <Flag className="w-4 h-4 mr-2" />
+                          Report User
+                        </DropdownMenuItem>
+                        {isConversationLocked ? (
+                          <DropdownMenuItem onClick={handleUnblockUser} className="text-green-600 text-xs sm:text-sm">
+                            <Shield className="w-4 h-4 mr-2" />
+                            Unblock Chat
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={handleBlockUser} className="text-red-600 text-xs sm:text-sm">
+                            <Lock className="w-4 h-4 mr-2" />
+                            Block Chat
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={handleOpenUserProfile} className="text-xs sm:text-sm">
+                          <User className="w-4 h-4 mr-2" />
+                          View Profile
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDeleteChat} className="text-red-600 text-xs sm:text-sm">
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Chat
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </CardHeader>
+
+              {/* Messages */}
               <CardContent className="flex-1 p-3 sm:p-4 flex flex-col min-h-0">
                 {loadingMessages ? (
                   <div className="flex-1 flex items-center justify-center">
@@ -1267,295 +1332,293 @@ export default function VendorMessages() {
                     </div>
                   </div>
                 ) : (
-                <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 h-[calc(100vh-240px)] sm:h-[calc(100vh-280px)] lg:h-full" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
-                  {messages.map((message) => {
-                    // Improved sender detection logic
-                    let isOwnMessage = false;
-                    
-                    // Get current user info
-                    const userStr = localStorage.getItem('user');
-                    let currentUser = null;
-                    if (userStr) {
-                      try {
-                        currentUser = JSON.parse(userStr);
-                      } catch (error) {
-                        console.error('Error parsing user data:', error);
+                  <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 h-[calc(100vh-240px)] sm:h-[calc(100vh-280px)] lg:h-full" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
+                    {messages.map((message) => {
+                      // Improved sender detection logic
+                      let isOwnMessage = false;
+
+                      // Get current user info
+                      const userStr = localStorage.getItem('user');
+                      let currentUser = null;
+                      if (userStr) {
+                        try {
+                          currentUser = JSON.parse(userStr);
+                        } catch (error) {
+                          console.error('Error parsing user data:', error);
+                        }
                       }
-                    }
-                    
-                    // Method 1: Direct ID comparison (most reliable)
-                    if (currentUserId && message.sender?.id) {
-                      isOwnMessage = String(message.sender.id) === String(currentUserId);
-                    }
-                    
-                    // Method 2: Username comparison (fallback)
-                    if (!isOwnMessage && currentUser && message.sender?.username) {
-                      isOwnMessage = message.sender.username === currentUser.username;
-                    }
-                    
-                    // Method 3: Check if sender ID matches current user ID from localStorage
-                    if (!isOwnMessage && currentUser && message.sender?.id) {
-                      isOwnMessage = String(message.sender.id) === String(currentUser.id);
-                    }
-                    
-                    console.log('🔍 Vendor message debug:', {
-                      messageId: message.id,
-                      senderId: message.sender?.id,
-                      senderUsername: message.sender?.username,
-                      currentUserId,
-                      currentUserFromStorage: currentUser?.id,
-                      currentUserUsername: currentUser?.username,
-                      isOwnMessage,
-                      messageContent: message.content?.substring(0, 50)
-                    });
-                    
-                    // Special handling for product reference messages
-                    if (message.message_type === 'product_reference') {
-                      // Find the first message to determine alignment
-                      const firstMessage = messages.find(m => m.message_type === 'text');
-                      const isFirstMessageFromCurrentUser = firstMessage && currentUserId && firstMessage.sender?.id === currentUserId;
-                      
-                      // Determine background color based on chat type
-                      const isRefund = message.metadata?.refund_id;
-                      const isDispute = message.metadata?.dispute_id;
-                      let bgColor = 'bg-blue-300/80 border-blue-400/50'; // Normal chat
-                      let textColor = 'text-blue-900';
-                      let borderColor = 'border-blue-400/50';
-                      
-                      if (isRefund) {
-                        bgColor = 'bg-orange-300/80 border-orange-400/50';
-                        textColor = 'text-orange-900';
-                        borderColor = 'border-orange-400/50';
-                      } else if (isDispute) {
-                        bgColor = 'bg-red-300/80 border-red-400/50';
-                        textColor = 'text-red-900';
-                        borderColor = 'border-red-400/50';
+
+                      // Method 1: Direct ID comparison (most reliable)
+                      if (currentUserId && message.sender?.id) {
+                        isOwnMessage = String(message.sender.id) === String(currentUserId);
                       }
-                      
-                      return (
-                        <div key={message.id} className={`flex ${isFirstMessageFromCurrentUser ? 'justify-end' : 'justify-start'} my-4`}>
-                          <div className="relative max-w-md">
-                            {/* Arrow pointing down */}
-                            <div className={`absolute -bottom-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
-                              <div className={`w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent ${isRefund ? 'border-t-orange-300/80' : isDispute ? 'border-t-red-300/80' : 'border-t-blue-300/80'}`}></div>
-                            </div>
-                            
-                            {/* Product reference box with color based on chat type */}
-                            <div className={`${bgColor} backdrop-blur-sm ${textColor} px-4 py-3 rounded-lg border ${borderColor} shadow-lg`}>
-                              <div className="flex items-center space-x-3">
-                                {message.metadata?.product_image ? (
-                                  <img 
-                                    src={message.metadata.product_image} 
-                                    alt={message.metadata.product_title}
-                                    className="w-10 h-10 rounded object-cover"
-                                  />
-                                ) : (
-                                  <div className={`w-10 h-10 rounded ${isRefund ? 'bg-orange-400' : isDispute ? 'bg-red-400' : 'bg-blue-400'} flex items-center justify-center`}>
-                                    <Package className={`w-5 h-5 ${isRefund ? 'text-orange-900' : isDispute ? 'text-red-900' : 'text-blue-900'}`} />
+
+                      // Method 2: Username comparison (fallback)
+                      if (!isOwnMessage && currentUser && message.sender?.username) {
+                        isOwnMessage = message.sender.username === currentUser.username;
+                      }
+
+                      // Method 3: Check if sender ID matches current user ID from localStorage
+                      if (!isOwnMessage && currentUser && message.sender?.id) {
+                        isOwnMessage = String(message.sender.id) === String(currentUser.id);
+                      }
+
+                      console.log('🔍 Vendor message debug:', {
+                        messageId: message.id,
+                        senderId: message.sender?.id,
+                        senderUsername: message.sender?.username,
+                        currentUserId,
+                        currentUserFromStorage: currentUser?.id,
+                        currentUserUsername: currentUser?.username,
+                        isOwnMessage,
+                        messageContent: message.content?.substring(0, 50)
+                      });
+
+                      // Special handling for product reference messages
+                      if (message.message_type === 'product_reference') {
+                        // Find the first message to determine alignment
+                        const firstMessage = messages.find(m => m.message_type === 'text');
+                        const isFirstMessageFromCurrentUser = firstMessage && currentUserId && firstMessage.sender?.id === currentUserId;
+
+                        // Determine background color based on chat type
+                        const isRefund = message.metadata?.refund_id;
+                        const isDispute = message.metadata?.dispute_id;
+                        let bgColor = 'bg-blue-300/80 border-blue-400/50'; // Normal chat
+                        let textColor = 'text-blue-900';
+                        let borderColor = 'border-blue-400/50';
+
+                        if (isRefund) {
+                          bgColor = 'bg-orange-300/80 border-orange-400/50';
+                          textColor = 'text-orange-900';
+                          borderColor = 'border-orange-400/50';
+                        } else if (isDispute) {
+                          bgColor = 'bg-red-300/80 border-red-400/50';
+                          textColor = 'text-red-900';
+                          borderColor = 'border-red-400/50';
+                        }
+
+                        return (
+                          <div key={message.id} className={`flex ${isFirstMessageFromCurrentUser ? 'justify-end' : 'justify-start'} my-4`}>
+                            <div className="relative max-w-md">
+                              {/* Arrow pointing down */}
+                              <div className={`absolute -bottom-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
+                                <div className={`w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent ${isRefund ? 'border-t-orange-300/80' : isDispute ? 'border-t-red-300/80' : 'border-t-blue-300/80'}`}></div>
+                              </div>
+
+                              {/* Product reference box with color based on chat type */}
+                              <div className={`${bgColor} backdrop-blur-sm ${textColor} px-4 py-3 rounded-lg border ${borderColor} shadow-lg`}>
+                                <div className="flex items-center space-x-3">
+                                  {message.metadata?.product_image ? (
+                                    <img
+                                      src={message.metadata.product_image}
+                                      alt={message.metadata.product_title}
+                                      className="w-10 h-10 rounded object-cover"
+                                    />
+                                  ) : (
+                                    <div className={`w-10 h-10 rounded ${isRefund ? 'bg-orange-400' : isDispute ? 'bg-red-400' : 'bg-blue-400'} flex items-center justify-center`}>
+                                      <Package className={`w-5 h-5 ${isRefund ? 'text-orange-900' : isDispute ? 'text-red-900' : 'text-blue-900'}`} />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs ${isRefund ? 'text-orange-700' : isDispute ? 'text-red-700' : 'text-blue-700'} mb-1`}>This message is related to:</p>
+                                    <h4 className={`font-medium text-sm ${textColor} truncate`}>{message.metadata?.product_title}</h4>
+                                    <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
                                   </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs ${isRefund ? 'text-orange-700' : isDispute ? 'text-red-700' : 'text-blue-700'} mb-1`}>This message is related to:</p>
-                                  <h4 className={`font-medium text-sm ${textColor} truncate`}>{message.metadata?.product_title}</h4>
-                                  <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
                                 </div>
                               </div>
                             </div>
                           </div>
+                        );
+                      }
+
+                      // Handle different message types (WhatsApp-style)
+                      const renderMessageContent = () => {
+                        const fileUrl = message.attachment_url || message.metadata?.file_url;
+
+                        if (message.message_type === 'image' && fileUrl) {
+                          return (
+                            <div className="space-y-2">
+                              <img
+                                src={fileUrl}
+                                alt="Shared image"
+                                className="max-w-full rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(fileUrl, '_blank')}
+                              />
+                              {message.content && (
+                                <p className="text-xs sm:text-sm break-words">{message.content}</p>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        if (message.message_type === 'video' && fileUrl) {
+                          return (
+                            <div className="space-y-2">
+                              <video
+                                src={fileUrl}
+                                controls
+                                className="max-w-full rounded-lg"
+                              />
+                              {message.content && (
+                                <p className="text-xs sm:text-sm break-words">{message.content}</p>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        if ((message.message_type === 'pdf' || message.message_type === 'file' || message.message_type === 'document') && fileUrl) {
+                          return (
+                            <div className="space-y-2">
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-colors"
+                              >
+                                {message.message_type === 'pdf' ? (
+                                  <File className="w-5 h-5 text-red-400" />
+                                ) : (
+                                  <File className="w-5 h-5 text-blue-400" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs sm:text-sm font-medium truncate">{message.metadata?.file_name || 'File'}</p>
+                                  <p className="text-[10px] opacity-75">
+                                    {message.metadata?.file_size ? `${(message.metadata.file_size / 1024).toFixed(1)} KB` : 'File'}
+                                  </p>
+                                </div>
+                              </a>
+                              {message.content && (
+                                <p className="text-xs sm:text-sm break-words">{message.content}</p>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Handle deleted messages (WhatsApp style)
+                        if (message.is_deleted || message.message_type === 'system' && message.content === 'This message was deleted') {
+                          return (
+                            <div className="flex items-center space-x-2 text-gray-400 italic">
+                              <Archive className="w-4 h-4" />
+                              <p className="text-xs sm:text-sm">This message was deleted</p>
+                            </div>
+                          );
+                        }
+
+                        // Default text message
+                        return message.content ? (
+                          <p className="text-xs sm:text-sm break-words">
+                            {message.content}
+                            {message.metadata?.edited && (
+                              <span className="text-[10px] text-gray-400 italic ml-2">edited</span>
+                            )}
+                          </p>
+                        ) : null;
+                      };
+
+                      return (
+                        <div
+                          key={message.id}
+                          className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
+                        >
+                          <div className={`max-w-[75%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${isOwnMessage
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-8'
+                              : 'bg-gray-700 text-white mr-8'
+                            }`}>
+                            {renderMessageContent()}
+                            <p className={`text-[10px] sm:text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-400'
+                              }`}>
+                              {formatTime(message.created_at)}
+                            </p>
+
+                            {/* Three-dot menu - Only show on own messages */}
+                            {isOwnMessage && (
+                              <div className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 hover:bg-white/30 text-blue-200 hover:text-white bg-white/10"
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleReplyMessage(message)}>
+                                      <MessageSquare className="w-4 h-4 mr-2" />
+                                      Reply
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleCopyMessage(message)}>
+                                      <Copy className="w-4 h-4 mr-2" />
+                                      Copy
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEditMessage(message)}>
+                                      <Star className="w-4 h-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleDeleteMessage(message)}
+                                      className="text-red-600"
+                                    >
+                                      <Archive className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            )}
+
+                            {/* Three-dot menu for other messages - Only Reply, Copy, Report */}
+                            {!isOwnMessage && (
+                              <div className="absolute top-1 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 hover:bg-white/30 text-gray-300 hover:text-white bg-white/10"
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onClick={() => handleReplyMessage(message)}>
+                                      <MessageSquare className="w-4 h-4 mr-2" />
+                                      Reply
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleCopyMessage(message)}>
+                                      <Copy className="w-4 h-4 mr-2" />
+                                      Copy
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleReportMessage(message)}
+                                      className="text-red-600"
+                                    >
+                                      <Archive className="w-4 h-4 mr-2" />
+                                      Report
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
-                    }
-                    
-                    // Handle different message types (WhatsApp-style)
-                    const renderMessageContent = () => {
-                      const fileUrl = message.attachment_url || message.metadata?.file_url;
-                      
-                      if (message.message_type === 'image' && fileUrl) {
-                        return (
-                          <div className="space-y-2">
-                            <img 
-                              src={fileUrl} 
-                              alt="Shared image" 
-                              className="max-w-full rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => window.open(fileUrl, '_blank')}
-                            />
-                            {message.content && (
-                              <p className="text-xs sm:text-sm break-words">{message.content}</p>
-                            )}
-                          </div>
-                        );
-                      }
-                      
-                      if (message.message_type === 'video' && fileUrl) {
-                        return (
-                          <div className="space-y-2">
-                            <video 
-                              src={fileUrl} 
-                              controls
-                              className="max-w-full rounded-lg"
-                            />
-                            {message.content && (
-                              <p className="text-xs sm:text-sm break-words">{message.content}</p>
-                            )}
-                          </div>
-                        );
-                      }
-                      
-                      if ((message.message_type === 'pdf' || message.message_type === 'file' || message.message_type === 'document') && fileUrl) {
-                        return (
-                          <div className="space-y-2">
-                            <a 
-                              href={fileUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 rounded-lg p-2 transition-colors"
-                            >
-                              {message.message_type === 'pdf' ? (
-                                <File className="w-5 h-5 text-red-400" />
-                              ) : (
-                                <File className="w-5 h-5 text-blue-400" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs sm:text-sm font-medium truncate">{message.metadata?.file_name || 'File'}</p>
-                                <p className="text-[10px] opacity-75">
-                                  {message.metadata?.file_size ? `${(message.metadata.file_size / 1024).toFixed(1)} KB` : 'File'}
-                                </p>
-                              </div>
-                            </a>
-                            {message.content && (
-                              <p className="text-xs sm:text-sm break-words">{message.content}</p>
-                            )}
-                          </div>
-                        );
-                      }
-                      
-                      // Handle deleted messages (WhatsApp style)
-                      if (message.is_deleted || message.message_type === 'system' && message.content === 'This message was deleted') {
-                        return (
-                          <div className="flex items-center space-x-2 text-gray-400 italic">
-                            <Archive className="w-4 h-4" />
-                            <p className="text-xs sm:text-sm">This message was deleted</p>
-                          </div>
-                        );
-                      }
-                      
-                      // Default text message
-                      return message.content ? (
-                        <p className="text-xs sm:text-sm break-words">
-                          {message.content}
-                          {message.metadata?.edited && (
-                            <span className="text-[10px] text-gray-400 italic ml-2">edited</span>
-                          )}
-                        </p>
-                      ) : null;
-                    };
-                    
-                    return (
-                      <div 
-                        key={message.id}
-                        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
-                      >
-                        <div className={`max-w-[75%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${
-                          isOwnMessage
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-8' 
-                            : 'bg-gray-700 text-white mr-8'
-                        }`}>
-                          {renderMessageContent()}
-                          <p className={`text-[10px] sm:text-xs mt-1 ${
-                            isOwnMessage ? 'text-blue-100' : 'text-gray-400'
-                          }`}>
-                            {formatTime(message.created_at)}
+                    })}
+
+                    {/* Typing indicator */}
+                    {typingUsers.length > 0 && (
+                      <div className="flex justify-start">
+                        <div className="bg-gray-700 text-white px-4 py-2 rounded-2xl">
+                          <p className="text-sm text-gray-400">
+                            {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
                           </p>
-                          
-                        {/* Three-dot menu - Only show on own messages */}
-                        {isOwnMessage && (
-                          <div className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-6 w-6 p-0 hover:bg-white/30 text-blue-200 hover:text-white bg-white/10"
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleReplyMessage(message)}>
-                                  <MessageSquare className="w-4 h-4 mr-2" />
-                                  Reply
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCopyMessage(message)}>
-                                  <Copy className="w-4 h-4 mr-2" />
-                                  Copy
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleEditMessage(message)}>
-                                  <Star className="w-4 h-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => handleDeleteMessage(message)}
-                                  className="text-red-600"
-                                >
-                                  <Archive className="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        )}
-                        
-                        {/* Three-dot menu for other messages - Only Reply, Copy, Report */}
-                        {!isOwnMessage && (
-                          <div className="absolute top-1 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-6 w-6 p-0 hover:bg-white/30 text-gray-300 hover:text-white bg-white/10"
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start">
-                                <DropdownMenuItem onClick={() => handleReplyMessage(message)}>
-                                  <MessageSquare className="w-4 h-4 mr-2" />
-                                  Reply
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCopyMessage(message)}>
-                                  <Copy className="w-4 h-4 mr-2" />
-                                  Copy
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => handleReportMessage(message)}
-                                  className="text-red-600"
-                                >
-                                  <Archive className="w-4 h-4 mr-2" />
-                                  Report
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        )}
                         </div>
                       </div>
-                    );
-                  })}
-                  
-                  {/* Typing indicator */}
-                  {typingUsers.length > 0 && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-700 text-white px-4 py-2 rounded-2xl">
-                        <p className="text-sm text-gray-400">
-                          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
-                        </p>
-                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
                   </div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-                </div>
                 )}
 
                 {/* Scroll to bottom button */}
@@ -1577,8 +1640,8 @@ export default function VendorMessages() {
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
                         {productReferenceData.product_image ? (
-                          <img 
-                            src={productReferenceData.product_image} 
+                          <img
+                            src={productReferenceData.product_image}
                             alt={productReferenceData.product_title}
                             className="w-12 h-12 rounded-lg object-cover"
                           />
@@ -1667,9 +1730,9 @@ export default function VendorMessages() {
                 {filePreview && (
                   <div className="border-t border-gray-700 pt-3 mb-2 px-3 sm:px-4">
                     <div className="relative inline-block">
-                      <img 
-                        src={filePreview} 
-                        alt="Preview" 
+                      <img
+                        src={filePreview}
+                        alt="Preview"
                         className="max-w-xs max-h-48 rounded-lg object-cover"
                       />
                       <Button
@@ -1683,7 +1746,7 @@ export default function VendorMessages() {
                     </div>
                   </div>
                 )}
-                
+
                 {selectedFile && !filePreview && (
                   <div className="border-t border-gray-700 pt-3 mb-2 px-3 sm:px-4">
                     <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
@@ -1715,7 +1778,7 @@ export default function VendorMessages() {
                       <span>This chat has been locked</span>
                     </div>
                   )}
-                  
+
                   {/* Upload Progress */}
                   {isUploading && (
                     <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-2 mb-2">
@@ -1724,14 +1787,14 @@ export default function VendorMessages() {
                         <span className="text-xs text-blue-400">{Math.round(uploadProgress)}%</span>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-1.5">
-                        <div 
+                        <div
                           className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                           style={{ width: `${uploadProgress}%` }}
                         />
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex items-center space-x-2 sm:space-x-3 relative">
                     {/* Hidden file inputs */}
                     <input
@@ -1769,7 +1832,7 @@ export default function VendorMessages() {
                       accept="image/*,video/*,.pdf,.doc,.docx,.txt"
                       className="hidden"
                     />
-                    
+
                     {/* File Picker Modal - Compact, Dark Theme */}
                     {showFilePicker && (
                       <div className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-50">
@@ -1842,7 +1905,7 @@ export default function VendorMessages() {
                         </div>
                       </div>
                     )}
-                    
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1869,7 +1932,7 @@ export default function VendorMessages() {
                         }
                       }}
                     />
-                    <Button 
+                    <Button
                       size="sm"
                       className="bg-blue-500 hover:bg-blue-600 h-9 sm:h-10 w-9 sm:w-10 p-0 flex-shrink-0"
                       disabled={(!newMessage.trim() && !selectedFile) || isConversationLocked}
@@ -1880,21 +1943,21 @@ export default function VendorMessages() {
                   </div>
                 </div>
               </CardContent>
-              </>
-            ) : (
-              <CardContent className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-white mb-2">
-                    Select a conversation
-                  </h3>
-                  <p className="text-gray-300">
-                    Choose a customer to start chatting
-                  </p>
-                </div>
-              </CardContent>
-            )}
-          </Card>
+            </>
+          ) : (
+            <CardContent className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">
+                  Select a conversation
+                </h3>
+                <p className="text-gray-300">
+                  Choose a customer to start chatting
+                </p>
+              </div>
+            </CardContent>
+          )}
+        </Card>
       </div>
 
       {/* Custom Delete Confirmation Dialog */}
@@ -1904,13 +1967,13 @@ export default function VendorMessages() {
             <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Delete Message</h3>
             <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Are you sure you want to delete this message? This action cannot be undone.</p>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-              <Button 
+              <Button
                 onClick={confirmDeleteMessage}
                 className="bg-red-500 hover:bg-red-600 text-white flex-1 text-sm sm:text-base"
               >
                 Delete
               </Button>
-              <Button 
+              <Button
                 onClick={() => setShowDeleteConfirm(null)}
                 variant="outline"
                 className="flex-1 text-sm sm:text-base"
@@ -1918,8 +1981,8 @@ export default function VendorMessages() {
                 Cancel
               </Button>
             </div>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Custom Report Confirmation Dialog */}
@@ -1929,13 +1992,13 @@ export default function VendorMessages() {
             <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Report Message</h3>
             <p className="text-gray-300 mb-4 sm:mb-6 text-sm sm:text-base">Are you sure you want to report this message? This will flag it for review.</p>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-              <Button 
+              <Button
                 onClick={confirmReportMessage}
                 className="bg-red-500 hover:bg-red-600 text-white flex-1 text-sm sm:text-base"
               >
                 Report
               </Button>
-              <Button 
+              <Button
                 onClick={() => setShowReportConfirm(null)}
                 variant="outline"
                 className="flex-1 text-sm sm:text-base"
@@ -1954,13 +2017,13 @@ export default function VendorMessages() {
             <h3 className="text-lg font-semibold text-white mb-4">Block Chat</h3>
             <p className="text-gray-300 mb-6">Are you sure you want to block this chat? This will lock the conversation for both users.</p>
             <div className="flex space-x-3">
-              <Button 
+              <Button
                 onClick={confirmBlockUser}
                 className="bg-red-500 hover:bg-red-600 text-white flex-1"
               >
                 Block
               </Button>
-              <Button 
+              <Button
                 onClick={() => setShowBlockConfirm(false)}
                 variant="outline"
                 className="flex-1"
@@ -1976,7 +2039,7 @@ export default function VendorMessages() {
       {showUserProfileModal && selectedConversation && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40"
             onClick={() => setShowUserProfileModal(false)}
           />
@@ -2008,7 +2071,7 @@ export default function VendorMessages() {
                   {getBuyerFromConversation(selectedConversation)?.username || 'User'}
                 </h4>
               </div>
-              
+
               {/* Attachments Section */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -2029,8 +2092,8 @@ export default function VendorMessages() {
                     {userAttachments.slice(0, 6).map((attachment) => (
                       <div key={attachment.id} className="relative aspect-square">
                         {attachment.file_type === 'image' ? (
-                          <img 
-                            src={attachment.file_url} 
+                          <img
+                            src={attachment.file_url}
                             alt={attachment.file_name}
                             className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={() => window.open(attachment.file_url, '_blank')}
@@ -2038,16 +2101,16 @@ export default function VendorMessages() {
                         ) : attachment.file_type === 'video' ? (
                           <div className="relative w-full h-full bg-gray-700 rounded-lg flex items-center justify-center">
                             <Video className="w-6 h-6 text-gray-400" />
-                            <video 
+                            <video
                               src={attachment.file_url}
                               className="absolute inset-0 w-full h-full object-cover rounded-lg"
                               controls
                             />
                           </div>
                         ) : (
-                          <a 
-                            href={attachment.file_url} 
-                            target="_blank" 
+                          <a
+                            href={attachment.file_url}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="flex flex-col items-center justify-center w-full h-full bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
                           >
@@ -2060,7 +2123,7 @@ export default function VendorMessages() {
                   </div>
                 )}
               </div>
-              
+
               {/* Privacy & Support Chat Section */}
               <div className="border-t border-gray-700 pt-4">
                 <h5 className="text-sm font-semibold text-gray-300 mb-3">Privacy & Support Chat</h5>
@@ -2118,7 +2181,7 @@ export default function VendorMessages() {
       {showAllAttachmentsModal && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40"
             onClick={() => setShowAllAttachmentsModal(false)}
           />
@@ -2135,74 +2198,69 @@ export default function VendorMessages() {
                 <X className="w-5 h-5" />
               </Button>
             </div>
-            
+
             {/* Filter Buttons */}
             <div className="p-4 border-b border-gray-700 flex items-center space-x-2 overflow-x-auto">
               <button
                 onClick={() => setAttachmentFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  attachmentFilter === 'all'
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'all'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 All
               </button>
               <button
                 onClick={() => setAttachmentFilter('image')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  attachmentFilter === 'image'
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'image'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 Images
               </button>
               <button
                 onClick={() => setAttachmentFilter('video')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  attachmentFilter === 'video'
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'video'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 Videos
               </button>
               <button
                 onClick={() => setAttachmentFilter('pdf')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  attachmentFilter === 'pdf'
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'pdf'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 PDFs
               </button>
               <button
                 onClick={() => setAttachmentFilter('file')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  attachmentFilter === 'file'
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'file'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 Files
               </button>
             </div>
-            
+
             {/* Attachments Grid */}
             <div className="flex-1 overflow-y-auto p-4">
               {(() => {
                 const filtered = attachmentFilter === 'all'
                   ? userAttachments
                   : userAttachments.filter(att => {
-                      if (attachmentFilter === 'image') return att.file_type === 'image';
-                      if (attachmentFilter === 'video') return att.file_type === 'video';
-                      if (attachmentFilter === 'pdf') return att.file_type === 'pdf';
-                      if (attachmentFilter === 'file') return att.file_type === 'file' || att.file_type === 'document';
-                      return true;
-                    });
-                
+                    if (attachmentFilter === 'image') return att.file_type === 'image';
+                    if (attachmentFilter === 'video') return att.file_type === 'video';
+                    if (attachmentFilter === 'pdf') return att.file_type === 'pdf';
+                    if (attachmentFilter === 'file') return att.file_type === 'file' || att.file_type === 'document';
+                    return true;
+                  });
+
                 return filtered.length === 0 ? (
                   <div className="text-center py-12">
                     <File className="w-12 h-12 text-gray-500 mx-auto mb-4" />
@@ -2214,8 +2272,8 @@ export default function VendorMessages() {
                       <div key={attachment.id} className="relative group">
                         {attachment.file_type === 'image' ? (
                           <div className="relative aspect-video">
-                            <img 
-                              src={attachment.file_url} 
+                            <img
+                              src={attachment.file_url}
                               alt={attachment.file_name}
                               className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                               onClick={() => window.open(attachment.file_url, '_blank')}
@@ -2226,7 +2284,7 @@ export default function VendorMessages() {
                           </div>
                         ) : attachment.file_type === 'video' ? (
                           <div className="relative aspect-video bg-gray-700 rounded-lg overflow-hidden">
-                            <video 
+                            <video
                               src={attachment.file_url}
                               className="w-full h-full object-cover rounded-lg"
                               controls
@@ -2236,9 +2294,9 @@ export default function VendorMessages() {
                             </div>
                           </div>
                         ) : (
-                          <a 
-                            href={attachment.file_url} 
-                            target="_blank" 
+                          <a
+                            href={attachment.file_url}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center space-x-3 w-full bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors p-4"
                           >
@@ -2297,14 +2355,14 @@ export default function VendorMessages() {
                   />
                 </div>
                 <div className="flex space-x-3 pt-4">
-                  <Button 
+                  <Button
                     onClick={handleReportUser}
                     disabled={!reportReason}
                     className="bg-red-500 hover:bg-red-600 text-white flex-1"
                   >
                     Submit Report
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => {
                       setShowReportModal(false);
                       setReportReason('');

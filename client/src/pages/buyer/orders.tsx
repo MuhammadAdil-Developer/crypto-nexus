@@ -42,19 +42,42 @@ export default function BuyerOrders() {
     fetchOrders();
   }, []);
 
-  // Show toast if navigated with state
+  // Show toast if navigated with state and auto-open order details
   useEffect(() => {
-    const navToast: any = (location.state as any)?.toast;
-    if (navToast) {
+    const navState: any = location.state as any;
+    
+    if (navState?.toast) {
       toast({
-        title: navToast.title,
-        description: navToast.description,
-        variant: navToast.variant,
+        title: navState.toast.title,
+        description: navState.toast.description,
+        variant: navState.toast.variant,
       });
       // Clean the state so it doesn't show again on refresh
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+    
+    // Auto-open order details if orderId is provided
+    if (navState?.openOrderId && orders.length > 0) {
+      const orderToOpen = orders.find(o => 
+        (o.order_id && o.order_id.toString() === navState.openOrderId.toString()) ||
+        (o.id && o.id.toString() === navState.openOrderId.toString())
+      );
+      
+      if (orderToOpen) {
+        // Trigger order details modal opening
+        // This will be handled by OrdersTable component
+        setTimeout(() => {
+          const event = new CustomEvent('openOrderDetails', { 
+            detail: { orderId: navState.openOrderId } 
+          });
+          window.dispatchEvent(event);
+        }, 500);
+      }
+      
+      // Clean the state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, orders]);
 
   useEffect(() => {
     filterOrders();

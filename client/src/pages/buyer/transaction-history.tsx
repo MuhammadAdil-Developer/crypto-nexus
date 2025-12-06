@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Bitcoin, 
-  Wallet, 
-  RefreshCw, 
-  Search, 
+import {
+  Bitcoin,
+  Wallet,
+  RefreshCw,
+  Search,
   Clock,
   ArrowLeft,
   Copy,
@@ -61,7 +61,7 @@ export default function BuyerTransactionHistory() {
           search: searchTerm || undefined
         }
       });
-      
+
       if (response.data.success) {
         setTransactions(response.data.data);
         setTotalPages(Math.ceil(response.data.total / itemsPerPage));
@@ -82,14 +82,14 @@ export default function BuyerTransactionHistory() {
   }, [statusFilter, typeFilter, searchTerm]);
 
   const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.vendor_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
     const matchesType = typeFilter === 'all' || transaction.type === typeFilter;
-    
+
     return matchesSearch && matchesStatus && matchesType;
   });
 
@@ -123,11 +123,42 @@ export default function BuyerTransactionHistory() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: "Address copied to clipboard.",
-      variant: "default",
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Address copied (fallback).",
+            variant: "default",
+          });
+        }
+      } catch (err) {
+        // fail silently
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied!",
+        description: "Address copied to clipboard.",
+        variant: "default",
+      });
+    }, () => {
+      toast({
+        title: "Error",
+        description: "Failed to copy address.",
+        variant: "destructive",
+      });
     });
   };
 
@@ -150,8 +181,8 @@ export default function BuyerTransactionHistory() {
               <p className="text-gray-400 text-sm sm:text-base">Track all your payment activities and transactions</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs sm:text-sm w-full sm:w-auto"
             onClick={() => fetchTransactionHistory(currentPage)}
@@ -170,8 +201,8 @@ export default function BuyerTransactionHistory() {
               <div className="flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input 
-                    placeholder="Search transactions..." 
+                  <Input
+                    placeholder="Search transactions..."
                     className="pl-10 bg-surface-2 border-border text-white text-sm sm:text-base"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -214,7 +245,7 @@ export default function BuyerTransactionHistory() {
               <p className="text-xs sm:text-sm text-gray-400 truncate">Total Transactions</p>
             </CardContent>
           </Card>
-          
+
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
               <div className="text-xl sm:text-2xl font-bold text-blue-600">
@@ -223,7 +254,7 @@ export default function BuyerTransactionHistory() {
               <p className="text-xs sm:text-sm text-gray-400 truncate">Completed</p>
             </CardContent>
           </Card>
-          
+
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
               <div className="text-xl sm:text-2xl font-bold text-yellow-600">
@@ -232,7 +263,7 @@ export default function BuyerTransactionHistory() {
               <p className="text-xs sm:text-sm text-gray-400 truncate">Pending</p>
             </CardContent>
           </Card>
-          
+
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
               <div className="text-xl sm:text-2xl font-bold text-red-600">
@@ -278,7 +309,7 @@ export default function BuyerTransactionHistory() {
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${getTypeColor(transaction.type)} flex items-center justify-center flex-shrink-0`}>
                           <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
-                        
+
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
                             <h3 className="font-semibold text-white text-sm sm:text-base break-words">{transaction.description}</h3>
@@ -295,7 +326,7 @@ export default function BuyerTransactionHistory() {
                           <p className="text-[10px] sm:text-xs text-gray-500 break-words">Vendor: {transaction.vendor_name}</p>
                         </div>
                       </div>
-                      
+
                       <div className="text-left sm:text-right flex-shrink-0">
                         <p className="text-base sm:text-lg font-bold text-white">{transaction.amount}</p>
                         <p className="text-xs sm:text-sm text-gray-400">{transaction.usd_amount}</p>
@@ -304,14 +335,14 @@ export default function BuyerTransactionHistory() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                       <div className="min-w-0">
                         <span className="text-gray-400 block mb-1">From:</span>
                         <div className="flex items-start space-x-2">
                           <p className="font-mono text-white text-[10px] sm:text-xs break-all flex-1 min-w-0">{transaction.from_address}</p>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => copyToClipboard(transaction.from_address)}
                             className="w-6 h-6 p-0 text-gray-400 hover:text-white flex-shrink-0"
@@ -324,8 +355,8 @@ export default function BuyerTransactionHistory() {
                         <span className="text-gray-400 block mb-1">To:</span>
                         <div className="flex items-start space-x-2">
                           <p className="font-mono text-white text-[10px] sm:text-xs break-all flex-1 min-w-0">{transaction.to_address}</p>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => copyToClipboard(transaction.to_address)}
                             className="w-6 h-6 p-0 text-gray-400 hover:text-white flex-shrink-0"
@@ -335,23 +366,23 @@ export default function BuyerTransactionHistory() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {transaction.transaction_hash && (
                       <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-700">
                         <span className="text-gray-400 text-xs sm:text-sm block mb-1">Transaction Hash:</span>
                         <div className="flex items-start space-x-2">
                           <p className="font-mono text-white text-[10px] sm:text-xs break-all flex-1 min-w-0">{transaction.transaction_hash}</p>
                           <div className="flex items-center space-x-1 flex-shrink-0">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => copyToClipboard(transaction.transaction_hash!)}
                               className="w-6 h-6 p-0 text-gray-400 hover:text-white"
                             >
                               <Copy className="w-3 h-3" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => window.open(`https://blockchair.com/${transaction.crypto_symbol.toLowerCase()}/transaction/${transaction.transaction_hash}`, '_blank')}
                               className="w-6 h-6 p-0 text-gray-400 hover:text-white"
@@ -366,7 +397,7 @@ export default function BuyerTransactionHistory() {
                 ))}
               </div>
             )}
-            
+
             {/* Pagination */}
             {filteredTransactions.length > 0 && totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-700">
@@ -383,12 +414,12 @@ export default function BuyerTransactionHistory() {
                   >
                     Previous
                   </Button>
-                  
+
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
                       if (page > totalPages) return null;
-                      
+
                       return (
                         <Button
                           key={page}
@@ -396,18 +427,17 @@ export default function BuyerTransactionHistory() {
                           size="sm"
                           onClick={() => fetchTransactionHistory(page)}
                           disabled={loading}
-                          className={`text-xs sm:text-sm ${
-                            page === currentPage 
-                              ? "bg-blue-600 text-white border-blue-600" 
+                          className={`text-xs sm:text-sm ${page === currentPage
+                              ? "bg-blue-600 text-white border-blue-600"
                               : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                          }`}
+                            }`}
                         >
                           {page}
                         </Button>
                       );
                     })}
                   </div>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"

@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 import uuid
 
 
@@ -94,4 +95,53 @@ class CommissionSettings(models.Model):
             }
         )
         return settings
+
+
+class VendorFee(models.Model):
+    """Vendor-specific commission fee overrides"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    vendor = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='vendor_fee',
+        limit_choices_to={'user_type': 'vendor'}
+    )
+    
+    # Custom commission rate for this vendor (overrides default)
+    commission_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Custom commission rate (%) for this vendor. If null, uses default platform rate."
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_vendor_fees',
+        limit_choices_to={'user_type': 'admin'}
+    )
+    
+    class Meta:
+        verbose_name = "Vendor Fee"
+        verbose_name_plural = "Vendor Fees"
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"Vendor Fee for {self.vendor.username}: {self.commission_rate}%" if self.commission_rate else f"Vendor Fee for {self.vendor.username}: Default"
+    
+    @classmethod
+    def get_vendor_fee(cls, vendor):
+        """Get vendor-specific fee or return None to use default"""
+        try:
+            vendor_fee = cls.objects.get(vendor=vendor)
+            return vendor_fee.commission_rate
+        except cls.DoesNotExist:
+            return None
 

@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL, getApiUrl } from "@/config/api";
-import { 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  Bitcoin, 
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  Bitcoin,
   Wallet,
   Loader2,
   AlertCircle,
@@ -58,13 +58,13 @@ export default function PaymentTest() {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (response.ok) {
         const ordersData = await response.json();
         const orders = ordersData.results || ordersData || [];
-        
+
         console.log('Raw orders from backend:', orders);
-        
+
         // Transform backend orders to match our interface
         const transformedOrders: Order[] = orders.map((order: any) => ({
           orderId: order.order_id,
@@ -74,9 +74,9 @@ export default function PaymentTest() {
           status: order.payment_status || 'pending_payment',
           createdAt: order.created_at
         }));
-        
+
         console.log('Transformed orders:', transformedOrders);
-        
+
         // Check if new orders were added
         if (previousOrderCount > 0 && transformedOrders.length > previousOrderCount) {
           const newOrdersCount = transformedOrders.length - previousOrderCount;
@@ -85,7 +85,7 @@ export default function PaymentTest() {
             description: `${newOrdersCount} new order${newOrdersCount > 1 ? 's' : ''} available for testing`,
           });
         }
-        
+
         setRealOrders(transformedOrders);
         setPreviousOrderCount(transformedOrders.length);
         setLastUpdated(new Date());
@@ -103,13 +103,13 @@ export default function PaymentTest() {
 
   useEffect(() => {
     fetchRealOrders();
-    
+
     // Set up polling to refresh orders every 5 seconds
     const interval = setInterval(() => {
       setIsRefreshing(true);
       fetchRealOrders();
     }, 5000);
-    
+
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
   }, []);
@@ -155,7 +155,7 @@ export default function PaymentTest() {
 
   const findOrderByAddress = async (address: string) => {
     console.log('Searching for address:', address);
-    
+
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
@@ -165,7 +165,7 @@ export default function PaymentTest() {
 
       console.log("DEBUG: Address being sent:", address);
       console.log("DEBUG: Encoded address:", encodeURIComponent(address));
-      console.log("DEBUG: Full URL:", );
+      console.log("DEBUG: Full URL:",);
       const response = await fetch(getApiUrl('/orders/find_by_payment_address/'), {
         method: 'POST',
         headers: {
@@ -180,7 +180,7 @@ export default function PaymentTest() {
       if (response.ok) {
         const orderData = await response.json();
         console.log('Found order by address:', orderData);
-        
+
         // Transform to match our interface
         const order: Order = {
           orderId: orderData.order_id,
@@ -190,7 +190,7 @@ export default function PaymentTest() {
           status: orderData.payment_status || 'pending_payment',
           createdAt: orderData.created_at
         };
-        
+
         return order;
       } else {
         console.log('Order not found for address:', address);
@@ -205,7 +205,7 @@ export default function PaymentTest() {
   const findOrderByAmount = (amount: string, crypto: string) => {
     console.log('Searching for amount:', amount, 'crypto:', crypto);
     console.log('Available orders:', ordersToSearch);
-    const found = ordersToSearch.find(order => 
+    const found = ordersToSearch.find(order =>
       order.amount === amount && order.cryptoCurrency === crypto
     );
     console.log('Found order by amount:', found);
@@ -214,13 +214,13 @@ export default function PaymentTest() {
 
   const handleAddressChange = async (address: string) => {
     setPaymentAddress(address);
-    
+
     // Only search if address is not empty
     if (!address || address.trim() === "") {
       setFoundOrder(null);
       return;
     }
-    
+
     // Try to find order by address
     const orderByAddress = await findOrderByAddress(address);
     if (orderByAddress) {
@@ -238,7 +238,7 @@ export default function PaymentTest() {
 
   const handleAmountChange = (amount: string) => {
     setPaymentAmount(amount);
-    
+
     // Try to find order by amount and crypto
     const orderByAmount = findOrderByAmount(amount, cryptoCurrency);
     if (orderByAmount && !foundOrder) {
@@ -298,7 +298,7 @@ export default function PaymentTest() {
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!paymentAddress || !paymentAmount) {
       toast({
         title: "Missing Information",
@@ -314,14 +314,14 @@ export default function PaymentTest() {
     // Simulate payment processing
     setTimeout(() => {
       setIsProcessing(false);
-      
+
       const isSuccess = Math.random() > 0.1;
-      
+
       if (isSuccess) {
         setPaymentStatus('success');
         toast({
           title: "Payment Successful!",
-          description: foundOrder 
+          description: foundOrder
             ? `Payment for Order ${foundOrder.orderId} completed successfully.`
             : `Payment of ${paymentAmount} ${cryptoCurrency} completed successfully.`,
         });
@@ -346,6 +346,29 @@ export default function PaymentTest() {
   };
 
   const copyToClipboard = (text: string) => {
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Address copied (fallback).",
+          });
+        }
+      } catch (err) {
+        // fail silently
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied!",
@@ -357,12 +380,12 @@ export default function PaymentTest() {
     if (!foundOrder) return;
 
     setIsProcessing(true);
-    
+
     setTimeout(async () => {
       setIsProcessing(false);
-      
+
       const isSuccess = Math.random() > 0.1;
-      
+
       if (isSuccess) {
         // Update backend order status
         try {
@@ -380,13 +403,13 @@ export default function PaymentTest() {
               title: "Payment Successful!",
               description: `Payment of ${foundOrder.amount} ${foundOrder.cryptoCurrency} completed successfully. Order status updated.`,
             });
-            
+
             // Update local order status
             setFoundOrder(prev => prev ? { ...prev, status: 'paid' } : null);
-            
+
             // Update orders list
-            setRealOrders(prev => prev.map(order => 
-              order.orderId === foundOrder.orderId 
+            setRealOrders(prev => prev.map(order =>
+              order.orderId === foundOrder.orderId
                 ? { ...order, payment_status: 'paid', order_status: 'processing' }
                 : order
             ));
@@ -717,5 +740,5 @@ export default function PaymentTest() {
       </div>
     </div>
   );
-} 
- 
+}
+

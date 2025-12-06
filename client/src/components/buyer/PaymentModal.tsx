@@ -63,7 +63,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [timeRemaining, setTimeRemaining] = useState(1800); // 30 minutes
   const [addressVisible, setAddressVisible] = useState(false);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
-  
+
   // Real API integration states
   const [realPaymentAddress, setRealPaymentAddress] = useState<PaymentAddress | null>(null);
   const [realPaymentAddresses, setRealPaymentAddresses] = useState<PaymentAddress[] | null>(null);
@@ -78,12 +78,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     listing_title: `Bulk Purchase (${items.length} items)`,
     price: items.reduce((sum, it) => sum + ((parseFloat(it.price) || 0) * (Number(it.quantity || 1))), 0).toString(),
     vendor: { username: 'Multiple Vendors' },
-    accepted_cryptocurrencies: items[0]?.accepted_cryptocurrencies || ['BTC','XMR'],
+    accepted_cryptocurrencies: items[0]?.accepted_cryptocurrencies || ['BTC', 'XMR'],
     escrow_available: true,
     escrow_enabled: false
   } as Product : null);
 
-  
+
   // Credit card form data
   const [cardData, setCardData] = useState({
     cardNumber: '',
@@ -91,7 +91,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     cvv: '',
     holderName: ''
   });
-  
+
   // Exchange connection data
   const [exchangeData, setExchangeData] = useState({
     selectedExchange: '',
@@ -101,7 +101,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
   // Real payment creation
 
-    const createRealPayment = async () => {
+  const createRealPayment = async () => {
     // Prevent duplicate runs
     if (orderId && (!items || items.length === 0)) {
       return;
@@ -254,18 +254,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       const productId = effectiveProduct.id;
       const storageKey = `payment_order_${productId}`;
       const stored = localStorage.getItem(storageKey);
-      
+
       if (stored) {
         try {
           const data = JSON.parse(stored);
           const { orderId: storedOrderId, orderCreatedAt: storedCreatedAt, paymentAddress: storedAddress, paymentAmount: storedAmount, selectedCrypto: storedCrypto } = data;
-          
+
           // Calculate remaining time
           const createdAt = new Date(storedCreatedAt).getTime();
           const expiresAt = createdAt + (30 * 60 * 1000); // 30 minutes
           const now = Date.now();
           const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-          
+
           if (remainingSeconds > 0) {
             // Order still valid, restore state
             setOrderId(storedOrderId);
@@ -275,7 +275,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
             setSelectedCrypto(storedCrypto);
             setTimeRemaining(remainingSeconds);
             setStep(3); // Go directly to payment step
-            
+
             // Restore payment address if available
             if (storedAddress) {
               setRealPaymentAddress({
@@ -301,7 +301,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       const productId = effectiveProduct.id;
       const storageKey = `payment_order_${productId}`;
       const createdAt = orderCreatedAt || new Date().toISOString();
-      
+
       localStorage.setItem(storageKey, JSON.stringify({
         orderId,
         orderCreatedAt: createdAt,
@@ -309,7 +309,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         paymentAmount: realPaymentAddress?.expected_amount || paymentAmount,
         selectedCrypto
       }));
-      
+
       if (!orderCreatedAt) {
         setOrderCreatedAt(createdAt);
       }
@@ -324,9 +324,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         const expiresAt = createdAt + (30 * 60 * 1000);
         const now = Date.now();
         const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-        
+
         setTimeRemaining(remainingSeconds);
-        
+
         // If expired, clear storage and reset
         if (remainingSeconds === 0 && effectiveProduct) {
           const productId = effectiveProduct.id;
@@ -376,7 +376,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       });
       return;
     }
-    
+
     // Reset confirmations when moving to step 2
     if (!effectiveProduct?.escrow_enabled && !useEscrow) {
       setDirectOrderConfirmed(false);
@@ -384,7 +384,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     if (effectiveProduct?.escrow_enabled || useEscrow) {
       setEscrowTermsConfirmed(false);
     }
-    
+
     setPaymentType('wallet');
     setStep(2);
   };
@@ -407,10 +407,51 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   };
 
   const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: `${type} copied to clipboard`,
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";  // Avoid scrolling to bottom
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: `${type} copied to clipboard (fallback)`,
+          });
+        } else {
+          toast({
+            title: "Failed",
+            description: "Could not copy text.",
+            variant: "destructive"
+          });
+        }
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: "Could not copy text.",
+          variant: "destructive"
+        });
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
+    // Modern Secure Context method
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied!",
+        description: `${type} copied to clipboard`,
+      });
+    }, () => {
+      toast({
+        title: "Error",
+        description: "Failed to copy. Please copy manually.",
+        variant: "destructive"
+      });
     });
   };
 
@@ -431,12 +472,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       });
       return;
     }
-    
+
     toast({
       title: "Processing Payment",
       description: "Buying crypto and processing your order...",
     });
-    
+
     // Simulate crypto purchase
     setTimeout(() => {
       handlePaymentComplete();
@@ -452,13 +493,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       });
       return;
     }
-    
+
     setExchangeData(prev => ({ ...prev, isConnected: true }));
     toast({
       title: "Exchange Connected",
       description: "Successfully connected to your exchange",
     });
-    
+
     setTimeout(() => {
       handlePaymentComplete();
     }, 2000);
@@ -472,20 +513,20 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Modal Content */}
       <div className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 rounded-xl shadow-2xl overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-full w-10 h-10 p-0"
                 onClick={step === 1 ? onBack : () => setStep(step - 1)}
               >
@@ -501,19 +542,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 <p className="text-gray-400 text-sm">{effectiveProduct?.listing_title}</p>
               </div>
             </div>
-            
+
             {/* Step Indicator */}
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4].map((stepNum) => (
-                <div 
+                <div
                   key={stepNum}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    stepNum === step 
-                      ? 'bg-blue-600 text-white' 
-                      : stepNum < step 
-                        ? 'bg-green-600 text-white' 
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${stepNum === step
+                      ? 'bg-blue-600 text-white'
+                      : stepNum < step
+                        ? 'bg-green-600 text-white'
                         : 'bg-gray-700 text-gray-400'
-                  }`}
+                    }`}
                 >
                   {stepNum < step ? <CheckCircle className="w-4 h-4" /> : stepNum}
                 </div>
@@ -544,18 +584,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300">Quantity</span>
                     <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         className="w-8 h-8 p-0"
                       >
                         -
                       </Button>
                       <span className="text-white w-8 text-center">{quantity}</span>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setQuantity(quantity + 1)}
                         className="w-8 h-8 p-0"
                       >
@@ -634,7 +674,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="text-lg font-semibold text-green-300">Escrow Protection Active</h3>
-                            <button 
+                            <button
                               className="text-green-400 hover:text-green-300 transition-colors"
                               title="Payment held until you approve the order • Automatic refund if order is not approved • No additional fees for escrow protection"
                             >
@@ -680,8 +720,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   <Card className="bg-gray-800 border-gray-700">
                     <CardContent className="pt-6">
                       <div className="flex items-start space-x-3">
-                        <Checkbox 
-                          id="escrow" 
+                        <Checkbox
+                          id="escrow"
                           checked={useEscrow}
                           onCheckedChange={(checked) => {
                             setUseEscrow(checked === true);
@@ -708,7 +748,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       </div>
                     </CardContent>
                   </Card>
-                  
+
                   {!useEscrow && (
                     <Card className="bg-red-900/20 border-red-500/30">
                       <CardContent className="pt-6">
@@ -746,7 +786,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </div>
               )}
 
-              <Button 
+              <Button
                 onClick={handlePaymentMethodSubmit} disabled={isCreatingPayment}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
                 size="lg"
@@ -763,7 +803,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 <CardHeader>
                   <CardTitle className="text-white">Pay with Your Crypto Wallet</CardTitle>
                   <p className="text-gray-400 text-sm">
-                    
+
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -830,10 +870,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                           By confirming this order, you acknowledge that you have received the product in satisfactory condition and forfeit all dispute rights.
                         </p>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3 pt-2 border-t border-gray-700">
-                        <Checkbox 
-                          id="escrow-terms-confirm" 
+                        <Checkbox
+                          id="escrow-terms-confirm"
                           checked={escrowTermsConfirmed}
                           onCheckedChange={(checked) => setEscrowTermsConfirmed(checked as boolean)}
                           className="mt-1"
@@ -860,10 +900,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                           Please carefully read the vendor's policies before proceeding with this order. Once payment is sent, you will not be able to initiate a dispute through the platform.
                         </p>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3 pt-2 border-t border-gray-700">
-                        <Checkbox 
-                          id="direct-order-confirm" 
+                        <Checkbox
+                          id="direct-order-confirm"
                           checked={directOrderConfirmed}
                           onCheckedChange={(checked) => setDirectOrderConfirmed(checked as boolean)}
                           className="mt-1"
@@ -877,10 +917,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </Card>
               )}
 
-              <Button 
-                onClick={handlePaymentTypeSubmit} 
+              <Button
+                onClick={handlePaymentTypeSubmit}
                 disabled={
-                  isCreatingPayment || 
+                  isCreatingPayment ||
                   ((effectiveProduct?.escrow_enabled || useEscrow) && !escrowTermsConfirmed) ||
                   (!effectiveProduct?.escrow_enabled && !useEscrow && !directOrderConfirmed)
                 }
@@ -904,11 +944,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
             <div className="space-y-6">
               {/* Real Payment Status */}
               {realPaymentStatus && (
-                <Card className={`${
-                  realPaymentStatus.status === 'paid' ? 'bg-green-900/20 border-green-700' :
-                  realPaymentStatus.status === 'pending' ? 'bg-yellow-900/20 border-yellow-700' :
-                  'bg-red-900/20 border-red-700'
-                }`}>
+                <Card className={`${realPaymentStatus.status === 'paid' ? 'bg-green-900/20 border-green-700' :
+                    realPaymentStatus.status === 'pending' ? 'bg-yellow-900/20 border-yellow-700' :
+                      'bg-red-900/20 border-red-700'
+                  }`}>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3">
                       {realPaymentStatus.status === 'paid' ? (
@@ -969,81 +1008,81 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       Send {selectedCrypto} Payment
                     </CardTitle>
                   </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-gray-300">Order ID</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input 
-                        value={orderId} 
-                        readOnly 
-                        className="bg-gray-700 border-gray-600 text-white"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => copyToClipboard(orderId, 'Order ID')}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-gray-300">Order ID</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          value={orderId}
+                          readOnly
+                          className="bg-gray-700 border-gray-600 text-white"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(orderId, 'Order ID')}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <Label className="text-gray-300">Send exactly this amount</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input 
-                        value={`${paymentAmount} ${selectedCrypto}`} 
-                        readOnly 
-                        className="bg-gray-700 border-gray-600 text-white font-mono"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => copyToClipboard(paymentAmount, 'Amount')}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
+                    <div>
+                      <Label className="text-gray-300">Send exactly this amount</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          value={`${paymentAmount} ${selectedCrypto}`}
+                          readOnly
+                          className="bg-gray-700 border-gray-600 text-white font-mono"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(paymentAmount, 'Amount')}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-gray-300">Payment Address</Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAddressVisible(!addressVisible)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        {addressVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-gray-300">Payment Address</Label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAddressVisible(!addressVisible)}
+                          className="text-gray-400 hover:text-white"
+                        >
+                          {addressVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          value={addressVisible ? paymentAddress : '••••••••••••••••••••••••••••••••'}
+                          readOnly
+                          className="bg-gray-700 border-gray-600 text-white font-mono text-sm"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(paymentAddress, 'Address')}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input 
-                        value={addressVisible ? paymentAddress : '••••••••••••••••••••••••••••••••'} 
-                        readOnly 
-                        className="bg-gray-700 border-gray-600 text-white font-mono text-sm"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => copyToClipboard(paymentAddress, 'Address')}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
 
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => toast({ title: "QR Code", description: "QR code feature coming soon!" })}
-                  >
-                    <QrCode className="w-4 h-4 mr-2" />
-                    Show QR Code
-                  </Button>
-                </CardContent>
-              </Card>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => toast({ title: "QR Code", description: "QR code feature coming soon!" })}
+                    >
+                      <QrCode className="w-4 h-4 mr-2" />
+                      Show QR Code
+                    </Button>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Credit Card Payment Form */}
@@ -1061,7 +1100,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                     <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
                         <Label className="text-gray-300">Card Number</Label>
-                        <Input 
+                        <Input
                           placeholder="1234 5678 9012 3456"
                           value={cardData.cardNumber}
                           onChange={(e) => setCardData(prev => ({ ...prev, cardNumber: e.target.value }))}
@@ -1070,7 +1109,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       </div>
                       <div>
                         <Label className="text-gray-300">Expiry Date</Label>
-                        <Input 
+                        <Input
                           placeholder="MM/YY"
                           value={cardData.expiryDate}
                           onChange={(e) => setCardData(prev => ({ ...prev, expiryDate: e.target.value }))}
@@ -1079,7 +1118,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       </div>
                       <div>
                         <Label className="text-gray-300">CVV</Label>
-                        <Input 
+                        <Input
                           placeholder="123"
                           value={cardData.cvv}
                           onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value }))}
@@ -1088,7 +1127,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       </div>
                       <div className="col-span-2">
                         <Label className="text-gray-300">Cardholder Name</Label>
-                        <Input 
+                        <Input
                           placeholder="John Doe"
                           value={cardData.holderName}
                           onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value }))}
@@ -1096,7 +1135,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                         />
                       </div>
                     </div>
-                    
+
                     <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-green-400 mb-2">
                         <Shield className="w-4 h-4" />
@@ -1126,8 +1165,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       <>
                         <div>
                           <Label className="text-gray-300">Select Exchange</Label>
-                          <RadioGroup 
-                            value={exchangeData.selectedExchange} 
+                          <RadioGroup
+                            value={exchangeData.selectedExchange}
                             onValueChange={(value) => setExchangeData(prev => ({ ...prev, selectedExchange: value }))}
                           >
                             <div className="flex items-center space-x-3 p-3 border border-gray-700 rounded-lg">
@@ -1153,7 +1192,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                             </div>
                           </RadioGroup>
                         </div>
-                        
+
                         <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-4">
                           <div className="flex items-center gap-2 text-purple-400 mb-2">
                             <Shield className="w-4 h-4" />
@@ -1195,7 +1234,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
               {/* Payment Action Buttons */}
               {paymentType === 'wallet' && (
-                <Button 
+                <Button
                   onClick={handlePaymentComplete}
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
                   size="lg"
@@ -1205,7 +1244,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               )}
 
               {paymentType === 'buy' && (
-                <Button 
+                <Button
                   onClick={handleCreditCardPayment}
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
                   size="lg"
@@ -1215,7 +1254,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               )}
 
               {paymentType === 'exchange' && (
-                <Button 
+                <Button
                   onClick={handleExchangeConnection}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3"
                   size="lg"
@@ -1232,7 +1271,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto">
                 <Clock className="w-8 h-8 text-white animate-pulse" />
               </div>
-              
+
               <div>
                 <h3 className="text-xl font-bold text-white mb-2">Payment Submitted</h3>
                 <p className="text-gray-400">
@@ -1260,14 +1299,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               </Card>
 
               <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={onClose}
                   className="flex-1"
                 >
                   Close
                 </Button>
-                <Button 
+                <Button
                   onClick={() => toast({ title: "Order Tracking", description: "Redirecting to order tracking..." })}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >

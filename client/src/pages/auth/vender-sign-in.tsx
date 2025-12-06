@@ -311,6 +311,14 @@ export default function VenderSignIn() {
             // Ensure smooth rendering when video is loaded
             e.currentTarget.style.opacity = '1';
           }}
+          onTimeUpdate={(e) => {
+            const video = e.currentTarget;
+            // Stop video 1 second before it ends
+            if (video.duration && video.currentTime >= video.duration - 2.2) {
+              video.pause();
+              video.currentTime = video.duration - 2.2;
+            }
+          }}
           onEnded={(e) => {
             // Pause at the last frame when video ends
             e.currentTarget.pause();

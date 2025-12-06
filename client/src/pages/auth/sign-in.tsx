@@ -332,6 +332,14 @@ export default function SignIn() {
             // Ensure smooth rendering when video is loaded
             e.currentTarget.style.opacity = '1';
           }}
+          onTimeUpdate={(e) => {
+            const video = e.currentTarget;
+            // Cut last 0.2 seconds (200ms) - pause before video ends
+            if (video.duration && video.currentTime >= video.duration - 0.2) {
+              video.pause();
+              video.currentTime = video.duration - 0.2;
+            }
+          }}
           onEnded={(e) => {
             // Pause at the last frame when video ends
             e.currentTarget.pause();
@@ -471,13 +479,26 @@ export default function SignIn() {
                 {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
                 {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
 
-                <div className="text-center">
-                  <span className="text-gray-400">Don't have an account? </span>
-                  <Link to="/sign-up">
-                    <span className="transition-colors cursor-pointer font-semibold" style={{ color: '#f2306d' }}>
-                      Create Account
-                    </span>
-                  </Link>
+                <div className="text-center space-y-3">
+                  <div>
+                    <span className="text-gray-400">Don't have an account? </span>
+                    <Link to="/sign-up">
+                      <span className="transition-colors cursor-pointer font-semibold" style={{ color: '#f2306d' }}>
+                        Create Account
+                      </span>
+                    </Link>
+                  </div>
+                  <div className="pt-2 border-t border-gray-700/50">
+                    <span className="text-gray-400 text-sm">Are you a vendor? </span>
+                    <Link to="/vender-sign-in">
+                      <span className="transition-all duration-300 cursor-pointer font-semibold hover:underline inline-flex items-center gap-1" style={{ color: '#f2306d' }}>
+                        Vendor Sign In
+                        <svg className="w-4 h-4 inline-block transition-transform duration-300 hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
+                    </Link>
+                  </div>
                 </div>
               </form>
               ) : (

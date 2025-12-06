@@ -88,6 +88,69 @@ function BuyerListingsContent() {
     }
   }, [searchParams]);
 
+  // Handle redirect actions - open modals or add to cart (after products are loaded)
+  useEffect(() => {
+    if (isLoading) return; // Wait for products to load
+    
+    const openOrderId = searchParams.get('openOrder');
+    const openViewId = searchParams.get('openView');
+    const addToCartId = searchParams.get('addToCart');
+    
+    if (openOrderId && filteredProducts.length > 0) {
+      const productToOpen = filteredProducts.find(p => p.id.toString() === openOrderId);
+      if (productToOpen) {
+        // Trigger order modal opening via custom event
+        setTimeout(() => {
+          const event = new CustomEvent('openProductOrder', { 
+            detail: { productId: openOrderId, product: productToOpen } 
+          });
+          window.dispatchEvent(event);
+        }, 800);
+        
+        // Clean URL
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('openOrder');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+    
+    if (openViewId && filteredProducts.length > 0) {
+      const productToOpen = filteredProducts.find(p => p.id.toString() === openViewId);
+      if (productToOpen) {
+        // Trigger view modal opening via custom event
+        setTimeout(() => {
+          const event = new CustomEvent('openProductView', { 
+            detail: { productId: openViewId, product: productToOpen } 
+          });
+          window.dispatchEvent(event);
+        }, 800);
+        
+        // Clean URL
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('openView');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+    
+    if (addToCartId && filteredProducts.length > 0) {
+      const productToAdd = filteredProducts.find(p => p.id.toString() === addToCartId);
+      if (productToAdd) {
+        // Trigger add to cart via custom event
+        setTimeout(() => {
+          const event = new CustomEvent('addProductToCart', { 
+            detail: { productId: addToCartId, product: productToAdd } 
+          });
+          window.dispatchEvent(event);
+        }, 800);
+        
+        // Clean URL
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('addToCart');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+  }, [isLoading, filteredProducts, searchParams, setSearchParams]);
+
   // Fetch products from API
   useEffect(() => {
     fetchProducts();
@@ -470,12 +533,37 @@ function BuyerListingsContent() {
         {/* Main Content - Products Grid/List/Table */}
         <div>
           {isLoading && filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="relative w-16 h-16 mb-4">
-                <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-              <p className="text-gray-400 text-sm">Loading products...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(12)].map((_, index) => (
+                <Card key={index} className="border border-gray-700 bg-gray-900 overflow-hidden group">
+                  <div className="relative aspect-video bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-700/20 to-transparent animate-shimmer"></div>
+                  </div>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-3/4 bg-[length:200%_100%]"></div>
+                      <div className="h-3 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-1/2 bg-[length:200%_100%]"></div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="h-3 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-full bg-[length:200%_100%]"></div>
+                      <div className="h-3 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-5/6 bg-[length:200%_100%]"></div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                      <div className="h-5 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-20 bg-[length:200%_100%]"></div>
+                      <div className="h-4 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-16 bg-[length:200%_100%]"></div>
+                    </div>
+                  </CardContent>
+                  <style>{`
+                    @keyframes shimmer {
+                      0% { transform: translateX(-100%); }
+                      100% { transform: translateX(100%); }
+                    }
+                    .animate-shimmer {
+                      animation: shimmer 2s infinite;
+                    }
+                  `}</style>
+                </Card>
+              ))}
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-12">

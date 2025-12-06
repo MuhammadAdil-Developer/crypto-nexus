@@ -28,9 +28,10 @@ interface Product {
   account_balance?: string;
   account_age?: string;
   verification_level?: string;
-  main_images: string[];
-  gallery_images: string[];
-  documents: string[];
+  main_image?: string;
+  main_images?: string[];
+  gallery_images?: string[];
+  documents?: string[];
   special_features?: string[];
   region_restrictions?: string[];
   tags?: string[];
@@ -38,7 +39,7 @@ interface Product {
   auto_delivery_script?: string;
   discount_percentage?: string;
   escrow_enabled?: boolean;
-  vendor: {
+  vendor?: {
     username: string;
     email: string;
     date_joined: string;
@@ -75,6 +76,7 @@ const ProductDetailPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isInWishlist, setIsInWishlist] = useState(false);
+  const [vendorStats, setVendorStats] = useState<any>(null);
 
   // Stock management logic
   const isOutOfStock = product ? (product.quantity_available <= 0 || product.status !== 'approved') : false;
@@ -99,9 +101,20 @@ const ProductDetailPage: React.FC = () => {
       
       if (response.success && response.data) {
         console.log('✅ Setting product state:', response.data);
-        setProduct(response.data);
-        if (response.data.main_images && Array.isArray(response.data.main_images) && response.data.main_images.length > 0) {
-          setSelectedImage(response.data.main_images[0]);
+        const productData = response.data as any;
+        setProduct(productData);
+        
+        // Set selected image
+        if (productData.main_images && Array.isArray(productData.main_images) && productData.main_images.length > 0) {
+          setSelectedImage(productData.main_images[0]);
+        } else if (productData.main_image) {
+          setSelectedImage(productData.main_image);
+        }
+        
+        // Fetch vendor statistics
+        const vendorUsername = productData.vendor?.username || productData.vendor_username;
+        if (vendorUsername) {
+          fetchVendorStatistics(vendorUsername);
         }
         
         // Check wishlist status
@@ -126,38 +139,65 @@ const ProductDetailPage: React.FC = () => {
     }
   };
 
+  const fetchVendorStatistics = async (vendorUsername: string) => {
+    try {
+      const statsResponse = await vendorService.getVendorStatistics(vendorUsername);
+      if (statsResponse.success && statsResponse.data) {
+        setVendorStats(statsResponse.data);
+      }
+    } catch (error) {
+      console.error('Error fetching vendor statistics:', error);
+    }
+  };
+
   const fetchProductReviews = async () => {
     if (!id) return;
     
     try {
       console.log('🔍 Fetching reviews for product ID:', id);
       
-      const response = await fetch(`${API_BASE_URL}/products/${id}/reviews/modal/?page_size=5`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // Try multiple endpoints
+      const endpoints = [
+        `${API_BASE_URL}/products/${id}/reviews/`,
+        `${API_BASE_URL}/products/${id}/reviews/modal/`,
+        `${API_BASE_URL}/reviews/product/${id}/`
+      ];
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🔍 Reviews response:', data);
-        
-        // Handle different possible response structures
-        if (data.results) {
-          setReviews(data.results);
-        } else if (Array.isArray(data)) {
-          setReviews(data);
-        } else if (data.data && Array.isArray(data.data)) {
-          setReviews(data.data);
-        } else {
-          console.log('📝 No reviews found or unexpected format');
-          setReviews([]);
+      let reviewsData: Review[] = [];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(`${endpoint}?page_size=100`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('🔍 Reviews response from', endpoint, ':', data);
+            
+            // Handle different possible response structures
+            if (data.results && Array.isArray(data.results)) {
+              reviewsData = data.results;
+              break;
+            } else if (data.data && Array.isArray(data.data)) {
+              reviewsData = data.data;
+              break;
+            } else if (Array.isArray(data)) {
+              reviewsData = data;
+              break;
+            }
+          }
+        } catch (err) {
+          console.log('Failed to fetch from', endpoint, err);
+          continue;
         }
-      } else {
-        console.log('📝 Reviews endpoint returned:', response.status);
-        setReviews([]);
       }
+      
+      setReviews(reviewsData);
+      console.log('📝 Final reviews count:', reviewsData.length);
     } catch (error) {
       console.error('❌ Failed to fetch reviews:', error);
       setReviews([]);
@@ -177,7 +217,6 @@ const ProductDetailPage: React.FC = () => {
 
   const handleOrder = () => {
     if (isOutOfStock) {
-      // Show out of stock message using toast
       toast({
         title: "Out of Stock",
         description: "This product is currently out of stock",
@@ -185,11 +224,16 @@ const ProductDetailPage: React.FC = () => {
       });
       return;
     }
-    toast({
-      title: "Order Placed",
-      description: "Your order has been placed successfully!",
+    
+    // Navigate to listings page with product name in search and open order modal
+    const productName = product?.headline || product?.listing_title || '';
+    navigate(`/buyer/listings?search=${encodeURIComponent(productName)}&openOrder=${id}`, {
+      state: {
+        openProductId: id,
+        autoOpenOrder: true,
+        productName: productName
+      }
     });
-    // Navigate to checkout or order confirmation
   };
 
   const handleAddToWishlist = () => {
@@ -269,14 +313,24 @@ const ProductDetailPage: React.FC = () => {
           </Button>
         </div>
 
+        {/* Product Name Header - Highlighted */}
+        <div className="mb-8 bg-blue-600/10 rounded-xl p-6 border border-blue-500/30 shadow-xl">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-3">
+            {product.headline || product.listing_title || 'Product'}
+          </h1>
+          {product.website && (
+            <p className="text-gray-300 text-base sm:text-lg">{product.website}</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Left Column - Product Details */}
           <div className="space-y-6 lg:col-span-3">
             {/* Product Header */}
             <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-700">
-              <h1 className="text-4xl font-bold text-white mb-3 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {product.listing_title}
-              </h1>
+              <h2 className="text-xl font-semibold text-gray-300 mb-3">
+                Product Information
+              </h2>
               <div className="flex items-center gap-4 text-gray-400 flex-wrap">
                 <Badge variant="outline" className="border-blue-600 text-blue-400">
                   {product.category?.name || 'N/A'}
@@ -325,7 +379,11 @@ const ProductDetailPage: React.FC = () => {
                   </div>
                   <div className="bg-gray-800/50 p-3 rounded-lg">
                     <span className="text-gray-400 text-sm">Verification Level</span>
-                    <p className="text-white font-semibold mt-1">{product.verification_level}</p>
+                    <p className="text-white font-semibold mt-1">
+                      {product.verification_level && product.verification_level !== 'none' && product.verification_level !== 'None' 
+                        ? product.verification_level 
+                        : (product.verification_level || 'N/A')}
+                    </p>
                   </div>
                   <div className="bg-gray-800/50 p-3 rounded-lg">
                     <span className="text-gray-400 text-sm">Listed</span>
@@ -353,8 +411,12 @@ const ProductDetailPage: React.FC = () => {
               <CardContent className="space-y-4 pt-6">
                 <div className="flex items-start justify-between bg-gray-800/30 p-4 rounded-lg">
                   <div>
-                    <p className="text-white font-semibold text-xl">{product.vendor?.username || 'Unknown Vendor'}</p>
-                    <p className="text-gray-400 text-sm mt-1">Member since {product.vendor?.date_joined ? formatDate(product.vendor.date_joined) : 'Unknown'}</p>
+                    <p className="text-white font-semibold text-xl">
+                      {product.vendor?.username || product.vendor_username || 'Unknown Vendor'}
+                    </p>
+                    <p className="text-gray-400 text-sm mt-1">
+                      Member since {vendorStats?.member_since || (product.vendor?.date_joined ? formatDate(product.vendor.date_joined) : 'Unknown')}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 bg-green-500/10 px-3 py-1.5 rounded-full">
                     <CheckCircle className="w-4 h-4 text-green-400" />
@@ -365,15 +427,17 @@ const ProductDetailPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-800/50 p-3 rounded-lg">
                     <span className="text-gray-400 text-sm">Total Sales</span>
-                    <p className="text-white font-semibold mt-1">0 products</p>
+                    <p className="text-white font-semibold mt-1">{vendorStats?.total_sales || 0} products</p>
                   </div>
                   <div className="bg-gray-800/50 p-3 rounded-lg">
                     <span className="text-gray-400 text-sm">Vendor Rating</span>
-                    <p className="text-white font-semibold mt-1">No rating</p>
+                    <p className="text-white font-semibold mt-1">
+                      {vendorStats?.vendor_rating ? `${vendorStats.vendor_rating}` : (product.rating ? `${Number(product.rating).toFixed(1)}` : 'No rating')}
+                    </p>
                   </div>
                   <div className="bg-gray-800/50 p-3 rounded-lg col-span-2">
                     <span className="text-gray-400 text-sm">Completion Rate</span>
-                    <p className="text-white font-semibold mt-1">100%</p>
+                    <p className="text-white font-semibold mt-1">{vendorStats?.completion_rate || '100%'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -404,7 +468,7 @@ const ProductDetailPage: React.FC = () => {
                   className={`flex-1 font-semibold text-lg h-14 ${
                     isOutOfStock 
                       ? 'bg-gray-600 hover:bg-gray-500 cursor-not-allowed opacity-60 text-white' 
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl transition-all'
+                      : 'bg-pink-800 hover:bg-pink-700 text-white shadow-lg hover:shadow-xl transition-all'
                   }`}
                   onClick={handleOrder}
                   disabled={isOutOfStock}
@@ -428,24 +492,26 @@ const ProductDetailPage: React.FC = () => {
           {/* Right Column - Images */}
           <div className="space-y-4 lg:col-span-2">
             {/* Main Image */}
-            <div className="w-full aspect-square bg-gray-800 rounded-xl overflow-hidden shadow-2xl">
+            <div className="w-full bg-gray-800 rounded-xl overflow-hidden shadow-2xl flex items-center justify-center" style={{ maxHeight: '400px' }}>
               {selectedImage ? (
                 <img
                   src={getFullUrl(selectedImage)}
                   alt={product?.listing_title || 'Product'}
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto max-h-[400px] object-contain"
+                  style={{ maxWidth: '100%' }}
                 />
               ) : (
-                <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                <div className="w-full h-96 bg-gray-700 flex items-center justify-center">
                   <span className="text-gray-400 text-6xl">📦</span>
                 </div>
               )}
             </div>
 
             {/* Gallery Images */}
-            {product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0 && (
+            {((product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) ||
+              (product.main_images && Array.isArray(product.main_images) && product.main_images.length > 1)) && (
               <div className="grid grid-cols-4 gap-3">
-                {product.gallery_images.map((image, index) => (
+                {(product.gallery_images || product.main_images || []).slice(0, 4).map((image, index) => (
                   <div
                     key={index}
                     className={`w-full aspect-square bg-gray-800 rounded-lg cursor-pointer overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all ${

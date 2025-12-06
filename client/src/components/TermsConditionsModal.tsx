@@ -38,7 +38,25 @@ export function TermsConditionsModal({ isOpen, onClose }: TermsConditionsModalPr
             src="/terms.html"
             className="w-full h-full border-0 rounded bg-slate-800"
             title="Terms and Conditions"
+            style={{
+              filter: 'brightness(1.2) contrast(1.1)'
+            }}
           />
+          <style>{`
+            iframe {
+              color: #ffffff !important;
+            }
+            iframe body {
+              color: #e5e7eb !important;
+              background-color: #1e293b !important;
+            }
+            iframe p, iframe li, iframe span, iframe div {
+              color: #e5e7eb !important;
+            }
+            iframe h1, iframe h2, iframe h3, iframe h4, iframe h5, iframe h6 {
+              color: #ffffff !important;
+            }
+          `}</style>
         </div>
 
         {/* Footer with checkbox and button */}

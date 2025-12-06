@@ -115,3 +115,86 @@ def create_escrow_payout(order_id: str):
     except Exception as e:
         logger.error(f"Error creating escrow payout for order {order_id}: {str(e)}")
         return f"Error creating escrow payout: {str(e)}"
+
+
+@shared_task
+def process_non_escrow_payout(order_id: str):
+    """Process non-escrow order payout - calculate fees and send to vendor"""
+    try:
+        from orders.models import Order
+        from .models import DirectPayment, PaymentAddress
+        
+        order = Order.objects.get(order_id=order_id)
+        
+        # Get payment address
+        try:
+            payment_address = PaymentAddress.objects.get(order_id=order_id)
+        except PaymentAddress.DoesNotExist:
+            logger.error(f"Payment address not found for order {order_id}")
+            return f"Payment address not found for order {order_id}"
+        
+        # Get or create direct payment
+        direct_payment, created = DirectPayment.objects.get_or_create(
+            order=order,
+            defaults={
+                'vendor': order.product.vendor,
+                'buyer': order.buyer,
+                'crypto_currency': payment_address.crypto_currency,
+                'amount': payment_address.received_amount or payment_address.expected_amount,
+                'vendor_address': payment_address.payment_address,
+                'status': 'pending'
+            }
+        )
+        
+        # Only process if not already completed
+        if direct_payment.status in ['completed', 'processing']:
+            logger.info(f"Direct payment for order {order_id} already processed")
+            return f"Direct payment for order {order_id} already processed"
+        
+        # Mark as processing
+        direct_payment.status = 'processing'
+        direct_payment.save()
+        
+        # Calculate fees
+        from .commission_models import CommissionSettings
+        commission_settings = CommissionSettings.get_settings()
+        
+        amount = direct_payment.amount
+        platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+        escrow_fee_rate = commission_settings.escrow_fee_rate / Decimal('100')
+        
+        platform_fee = amount * platform_fee_rate
+        escrow_fee = amount * escrow_fee_rate
+        net_amount = amount - platform_fee - escrow_fee
+        
+        # Update direct payment with fees
+        direct_payment.platform_fee = platform_fee
+        direct_payment.escrow_fee = escrow_fee
+        direct_payment.net_amount = net_amount
+        direct_payment.transaction_hash = payment_address.transaction_hash
+        direct_payment.confirmed_at = payment_address.confirmed_at or timezone.now()
+        direct_payment.save()
+        
+        logger.info(f"Calculated fees for order {order_id}: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
+        
+        # Send to vendor
+        payout_service = PayoutService()
+        success = payout_service._send_direct_payment_to_vendor(direct_payment, net_amount)
+        
+        if success:
+            direct_payment.status = 'completed'
+            direct_payment.save()
+            logger.info(f"Successfully processed non-escrow payout for order {order_id}")
+            return f"Non-escrow payout processed for order {order_id}"
+        else:
+            direct_payment.status = 'failed'
+            direct_payment.save()
+            logger.error(f"Failed to send payout to vendor for order {order_id}")
+            return f"Failed to send payout to vendor for order {order_id}"
+            
+    except Order.DoesNotExist:
+        logger.error(f"Order not found: {order_id}")
+        return f"Order not found: {order_id}"
+    except Exception as e:
+        logger.error(f"Error processing non-escrow payout for order {order_id}: {str(e)}")
+        return f"Error processing non-escrow payout: {str(e)}"

@@ -1297,6 +1297,30 @@ class PaymentService:
                         logger.info(f"Escrow payout creation queued for paid order {order.order_id}")
                     except Exception as e:
                         logger.error(f"Failed to queue escrow payout for order {order.order_id}: {str(e)}")
+                else:
+                    # For non-escrow orders, process direct payment and send to vendor
+                    try:
+                        from .models import DirectPayment
+                        from payments.tasks import process_non_escrow_payout
+                        
+                        # Check if direct payment exists
+                        try:
+                            direct_payment = DirectPayment.objects.get(order=order)
+                            
+                            # Only process if not already processed
+                            if direct_payment.status not in ['completed', 'processing']:
+                                # Process non-escrow payout asynchronously
+                                process_non_escrow_payout.apply_async(args=[order.order_id])
+                                logger.info(f"Non-escrow payout processing queued for paid order {order.order_id}")
+                        except DirectPayment.DoesNotExist:
+                            # Create direct payment record if it doesn't exist
+                            logger.info(f"Direct payment record not found for order {order.order_id}, creating...")
+                            if self.create_direct_payment(order.order_id):
+                                # Process payout after creating direct payment record
+                                process_non_escrow_payout.apply_async(args=[order.order_id])
+                                logger.info(f"Non-escrow payout processing queued for paid order {order.order_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to process non-escrow payout for order {order.order_id}: {str(e)}")
             
         except Order.DoesNotExist:
             logger.error(f"Order not found with order_id: {order_id}")

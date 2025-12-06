@@ -1093,6 +1093,45 @@ class BuyerTransactionHistoryView(APIView):
                             'vendor_name': payout.vendor.username,
                             'crypto_symbol': payout.crypto_currency.symbol
                         })
+                
+                # Add refund transactions
+                try:
+                    from payments.models import RefundRequest
+                    refund_requests = RefundRequest.objects.filter(
+                        order=order,
+                        status__in=['completed', 'vendor_approved', 'admin_approved']
+                    )
+                    for refund in refund_requests:
+                        # Get buyer payout address if available
+                        buyer_payout_address = 'Your Wallet'
+                        try:
+                            from shared.models import UserWallet
+                            buyer_wallet = UserWallet.objects.filter(user=buyer).first()
+                            if buyer_wallet:
+                                if order.crypto_currency.symbol == 'BTC':
+                                    buyer_payout_address = buyer_wallet.btc_address or 'Your Wallet'
+                                elif order.crypto_currency.symbol == 'XMR':
+                                    buyer_payout_address = buyer_wallet.xmr_address or 'Your Wallet'
+                        except Exception:
+                            pass
+                        
+                        transactions.append({
+                            'id': f"refund_{refund.id}",
+                            'type': 'refund',
+                            'description': f'Refund received for order {order.order_id}',
+                            'amount': f"+{refund.amount} {order.crypto_currency}",
+                            'usd_amount': f"${float(refund.amount) * 40000:.2f}",
+                            'from_address': 'Platform Wallet' if refund.vendor_payment_source == 'platform' else 'Vendor Wallet',
+                            'to_address': buyer_payout_address,
+                            'transaction_hash': refund.vendor_refund_transaction_hash or refund.transaction_hash,
+                            'status': 'completed' if refund.vendor_refund_completed else 'pending',
+                            'timestamp': refund.completed_at or refund.admin_decision_at or refund.vendor_decision_at or refund.created_at,
+                            'order_id': order.order_id,
+                            'vendor_name': order.product.vendor.username,
+                            'crypto_symbol': order.crypto_currency
+                        })
+                except Exception as e:
+                    logger.error(f"Error fetching refunds for order {order.order_id}: {str(e)}")
             
             # Sort by timestamp (newest first)
             transactions.sort(key=lambda x: x['timestamp'], reverse=True)

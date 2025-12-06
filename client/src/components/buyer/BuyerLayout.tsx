@@ -24,10 +24,40 @@ function PendingOrderBanner() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: "Payment address copied to clipboard",
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Payment address copied (fallback)",
+          });
+        }
+      } catch (err) {
+        // fail silently
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied!",
+        description: "Payment address copied to clipboard",
+      });
+    }, () => {
+      toast({
+        title: "Error",
+        description: "Failed to copy payment address",
+        variant: "destructive"
+      });
     });
   };
 
@@ -104,7 +134,7 @@ function BuyerLayoutContent({ children, hasBanner }: BuyerLayoutProps) {
       {showBanner && <PendingOrderBanner />}
       <div className="flex flex-1 overflow-hidden" style={{ marginTop: showBanner ? '0' : '0' }}>
         <div className="hidden lg:block h-full">
-          <BuyerSidebar 
+          <BuyerSidebar
             expanded={sidebarExpanded}
             onExpandedChange={setSidebarExpanded}
             hasBanner={showBanner}
@@ -113,14 +143,14 @@ function BuyerLayoutContent({ children, hasBanner }: BuyerLayoutProps) {
 
         {mobileSidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <div 
+            <div
               className="absolute inset-0 bg-black/60"
               onClick={() => setMobileSidebarOpen(false)}
             />
             <div className="absolute inset-y-0 left-0 w-64 bg-gray-950 shadow-2xl">
-              <BuyerSidebar 
+              <BuyerSidebar
                 expanded={true}
-                onExpandedChange={() => {}}
+                onExpandedChange={() => { }}
                 hasBanner={showBanner}
               />
             </div>
@@ -129,9 +159,9 @@ function BuyerLayoutContent({ children, hasBanner }: BuyerLayoutProps) {
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <div style={{ marginTop: showBanner ? '60px' : '0' }}>
-            <BuyerHeader 
-              hasBanner={showBanner} 
-              onMenuClick={() => setMobileSidebarOpen(true)} 
+            <BuyerHeader
+              hasBanner={showBanner}
+              onMenuClick={() => setMobileSidebarOpen(true)}
             />
           </div>
           <main className="flex-1 overflow-y-auto">

@@ -7,14 +7,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  Search, 
-  TrendingUp, 
-  Clock, 
-  Star, 
-  ShoppingCart, 
-  Heart, 
-  MessageSquare, 
+import {
+  Search,
+  TrendingUp,
+  Clock,
+  Star,
+  ShoppingCart,
+  Heart,
+  MessageSquare,
   Package,
   Filter,
   ChevronRight,
@@ -24,7 +24,7 @@ import {
   Play,
   Image,
   Code,
-  Gamepad2,   
+  Gamepad2,
   ChevronLeft,
   Timer,
   Award,
@@ -35,9 +35,12 @@ import {
   AlertTriangle,
   Bitcoin,
   Wallet,
-  Loader2
+  Loader2,
+  Users,
+  Briefcase,
+  Music
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
@@ -67,7 +70,20 @@ interface Order {
   [key: string]: any;
 }
 
-const categories = [
+// Static category icons mapping - will be used as fallback
+const categoryIconMap: { [key: string]: any } = {
+  'streaming': Play,
+  'software': Code,
+  'gaming': Gamepad2,
+  'design': Image,
+  'social': Users,
+  'business': Briefcase,
+  'music': Music,
+  'default': Package,
+};
+
+// Default categories for fallback
+const defaultCategories = [
   { id: 1, name: "Streaming Services", icon: Play, count: "21", color: "from-red-500 to-pink-900", services: "NETFLIX, SPOTIFY, DISNEY+, HULU + MORE" },
   { id: 2, name: "Software", icon: Code, count: "892", color: "from-red-500 to-pink-800", services: "ADOBE, MICROSOFT, AUTODESK + MORE" },
   { id: 3, name: "Gaming", icon: Gamepad2, count: "567", color: "from-red-500 to-pink-900", services: "STEAM, EPIC GAMES, XBOX + MORE" },
@@ -124,6 +140,8 @@ function BuyerHomeContent() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [topVendorsData, setTopVendorsData] = useState<any[]>([]);
+  const [categoriesData, setCategoriesData] = useState<any[]>([]);
+  const [currentCategorySlide, setCurrentCategorySlide] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,10 +178,10 @@ function BuyerHomeContent() {
   const [trendingProductsFetched, setTrendingProductsFetched] = useState(false);
   const [recentActivityFetched, setRecentActivityFetched] = useState(false);
   const { toast } = useToast();
-  
+
   // Get messaging data from context
   const { unreadCount, isLoading: isLoadingMessages } = useMessaging();
-  
+
   // Cache keys for localStorage
   const CACHE_KEYS = {
     TRENDING_PRODUCTS: 'buyer_home_trending_products',
@@ -186,7 +204,7 @@ function BuyerHomeContent() {
 
   // Auto-slide effect with 5 second interval
   useEffect(() => {
-    
+
     // Dev/testing: force-show legal modals when URL contains ?forceShowLegal=1 (dev only)
     try {
       const params = new URLSearchParams(window.location.search);
@@ -194,7 +212,7 @@ function BuyerHomeContent() {
         localStorage.removeItem('legal_confirmed_privacy');
         localStorage.removeItem('legal_confirmed_terms');
       }
-    } catch(e) { /* ignore in SSR */ }
+    } catch (e) { /* ignore in SSR */ }
 
     // Check if legal documents have been confirmed
     const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
@@ -205,7 +223,7 @@ function BuyerHomeContent() {
       setShowTermsModal(true);
     }
     if (!trendingProducts.length || !isAutoPlaying) return;
-    
+
     const cardsPerView = windowWidth < 640 ? 1 : 4;
     scrollIntervalRef.current = setInterval(() => {
       setCurrentSlide((prev) => {
@@ -213,7 +231,7 @@ function BuyerHomeContent() {
         return prev >= maxSlide ? 0 : prev + 1;
       });
     }, 5000); // Auto scroll every 5 seconds
-    
+
     return () => {
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
@@ -274,7 +292,7 @@ function BuyerHomeContent() {
   // Fetch wishlist count with caching
   useEffect(() => {
     if (wishlistFetched) return;
-    
+
     // Try cache first
     const cached = getCachedData(CACHE_KEYS.WISHLIST_COUNT);
     if (cached !== null) {
@@ -282,7 +300,7 @@ function BuyerHomeContent() {
       setWishlistFetched(true);
       return;
     }
-    
+
     const fetchWishlistCount = async () => {
       try {
         const response = await wishlistService.getWishlistStats();
@@ -290,21 +308,46 @@ function BuyerHomeContent() {
           const count = response.data.total_items || 0;
           setWishlistCount(count);
           setCachedData(CACHE_KEYS.WISHLIST_COUNT, count);
+        } else {
+          // Fallback: try to get count from wishlist items
+          try {
+            const wishlistResponse = await wishlistService.getWishlist();
+            if (wishlistResponse.success && wishlistResponse.data) {
+              const count = wishlistResponse.data.length || 0;
+              setWishlistCount(count);
+              setCachedData(CACHE_KEYS.WISHLIST_COUNT, count);
+            }
+          } catch (fallbackError) {
+            console.error('Error fetching wishlist fallback:', fallbackError);
+          }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching wishlist count:', error);
+        // If API returns 500, try fallback
+        if (error.response?.status === 500) {
+          try {
+            const wishlistResponse = await wishlistService.getWishlist();
+            if (wishlistResponse.success && wishlistResponse.data) {
+              const count = wishlistResponse.data.length || 0;
+              setWishlistCount(count);
+              setCachedData(CACHE_KEYS.WISHLIST_COUNT, count);
+            }
+          } catch (fallbackError) {
+            console.error('Error fetching wishlist fallback:', fallbackError);
+          }
+        }
       } finally {
         setWishlistFetched(true);
       }
     };
-    
+
     fetchWishlistCount();
   }, [wishlistFetched]);
 
   // Fetch trending products with caching
   useEffect(() => {
     if (trendingProductsFetched) return;
-    
+
     // Try cache first
     const cached = getCachedData(CACHE_KEYS.TRENDING_PRODUCTS);
     if (cached !== null && cached.length > 0) {
@@ -313,7 +356,7 @@ function BuyerHomeContent() {
       setLoading(false); // Ensure loader is off when using cache
       return;
     }
-    
+
     const fetchTrendingProducts = async () => {
       try {
         setLoading(true);
@@ -321,7 +364,7 @@ function BuyerHomeContent() {
           sort_by: "views_count",
           page_size: 50 // Fetch more products to show variety
         });
-        
+
         if (response.success && response.data) {
           setTrendingProducts(response.data);
           setCachedData(CACHE_KEYS.TRENDING_PRODUCTS, response.data);
@@ -340,37 +383,85 @@ function BuyerHomeContent() {
     fetchTrendingProducts();
   }, [trendingProductsFetched]);
 
-  // Fetch approved vendors for Top Vendors section
+  // Fetch approved vendors for Top Vendors section with actual statistics
   useEffect(() => {
     const loadTopVendors = async () => {
       try {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
-        
+
         const res = await fetch(`${API_BASE_URL}/vendors/approved/?limit=4`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (res.ok) {
           const data = await res.json();
           if (data?.success && Array.isArray(data.data)) {
-            const mapped = data.data.map((v: any, idx: number) => {
-              const initials = (v.business_name || v.vendor_username || 'VN').slice(0, 2).toUpperCase();
-              return {
-                id: idx + 1,
-                name: v.business_name || v.vendor_username,
-                rating: 4.8,
-                totalSales: 0,
-                verified: true,
-                specialization: v.category || 'Marketplace Vendor',
-                avatar: initials,
-                responseTime: '< 2 hours',
-                vendor_username: v.vendor_username,
-              };
-            });
-            setTopVendorsData(mapped);
+            // Fetch statistics for each vendor
+            const vendorsWithStats = await Promise.all(
+              data.data.map(async (v: any, idx: number) => {
+                const initials = (v.business_name || v.vendor_username || 'VN').slice(0, 2).toUpperCase();
+                const vendorUsername = v.vendor_username || v.username;
+
+                // Fetch vendor statistics
+                let rating = 0;
+                let totalSales = 0;
+                let responseTime = '< 2 hours';
+
+                if (vendorUsername) {
+                  try {
+                    const statsRes = await fetch(`${API_BASE_URL}/vendors/statistics/${vendorUsername}/`, {
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                      },
+                    });
+
+                    if (statsRes.ok) {
+                      const statsData = await statsRes.json();
+                      if (statsData?.success && statsData.data) {
+                        // Extract rating (format: "4.5/5" or "No rating")
+                        const ratingStr = statsData.data.vendor_rating || '0';
+                        rating = parseFloat(ratingStr.replace('/5', '')) || 0;
+                        totalSales = statsData.data.total_sales || 0;
+
+                        // Calculate response time based on last sale or average
+                        if (statsData.data.last_sale_date) {
+                          const lastSale = new Date(statsData.data.last_sale_date);
+                          const hoursSince = (Date.now() - lastSale.getTime()) / (1000 * 60 * 60);
+                          if (hoursSince < 1) {
+                            responseTime = '< 1 hour';
+                          } else if (hoursSince < 2) {
+                            responseTime = '< 2 hours';
+                          } else if (hoursSince < 24) {
+                            responseTime = `< ${Math.floor(hoursSince)} hours`;
+                          } else {
+                            responseTime = `< ${Math.floor(hoursSince / 24)} days`;
+                          }
+                        }
+                      }
+                    }
+                  } catch (err) {
+                    console.error('Error fetching vendor stats:', err);
+                  }
+                }
+
+                return {
+                  id: idx + 1,
+                  name: v.business_name || v.vendor_username,
+                  rating: rating || 4.8,
+                  totalSales: totalSales,
+                  verified: v.is_verified || true,
+                  specialization: v.category || 'Marketplace Vendor',
+                  avatar: initials,
+                  responseTime: responseTime,
+                  vendor_username: vendorUsername,
+                };
+              })
+            );
+
+            setTopVendorsData(vendorsWithStats);
           }
         }
       } catch (_) {
@@ -379,6 +470,71 @@ function BuyerHomeContent() {
     };
     loadTopVendors();
   }, []);
+
+  // Fetch categories from API for Featured Categories section
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          setCategoriesData(defaultCategories);
+          return;
+        }
+
+        const response = await productService.getCategories();
+        if (response.success && response.data && Array.isArray(response.data) && response.data.length > 0) {
+          // Map API categories to display format
+          const mappedCategories = response.data.map((cat: any, idx: number) => {
+            const slug = (cat.slug?.toLowerCase() || cat.name?.toLowerCase() || '').trim();
+            const slugParts = slug.split('-');
+            const firstPart = slugParts[0] || slug.split(' ')[0] || '';
+            const Icon = categoryIconMap[slug] || categoryIconMap[firstPart] || categoryIconMap['default'] || Package;
+
+            // Count products in this category (if available)
+            const count = cat.product_count || cat.count || '0';
+
+            return {
+              id: cat.id || idx + 1,
+              name: cat.name || 'Category',
+              icon: Icon,
+              count: count.toString(),
+              color: "from-red-500 to-pink-900", // Default gradient
+              services: cat.description || `${(cat.name || 'Category').toUpperCase()} PRODUCTS`,
+              slug: cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-'),
+            };
+          });
+
+          setCategoriesData(mappedCategories);
+        } else {
+          setCategoriesData(defaultCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setCategoriesData(defaultCategories);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Auto-slide categories every 10 seconds
+  useEffect(() => {
+    const categoriesToShow = categoriesData.length > 0 ? categoriesData : defaultCategories;
+    if (categoriesToShow.length <= 4) {
+      setCurrentCategorySlide(0);
+      return; // No need to slide if 4 or fewer categories
+    }
+
+    const maxSlides = Math.ceil(categoriesToShow.length / 4);
+
+    const interval = setInterval(() => {
+      setCurrentCategorySlide((prev) => {
+        return (prev + 1) >= maxSlides ? 0 : prev + 1;
+      });
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(interval);
+  }, [categoriesData.length]);
 
   // Fetch search suggestions from actual product listings
   useEffect(() => {
@@ -504,15 +660,15 @@ function BuyerHomeContent() {
       setIsLoadingOrder(true);
       setIsLoadingOrdersData(true);
       setOrdersError(null);
-      
+
       // Direct API call with better error handling
       const ordersData = await orderService.getOrders();
-      
+
       const orders = Array.isArray(ordersData) ? ordersData : (ordersData.results || []);
-      
+
       // Cache the orders data
       setCachedData(CACHE_KEYS.ORDERS_DATA, orders);
-      
+
       // Process orders data
       processOrdersData(orders);
 
@@ -522,7 +678,7 @@ function BuyerHomeContent() {
     } catch (error) {
       console.error('Failed to fetch orders data:', error);
       setOrdersError('Failed to load order data');
-      
+
       // Only retry once if retry count is less than 2
       if (retryCount < 2) {
         setRetryCount(prev => prev + 1);
@@ -532,7 +688,7 @@ function BuyerHomeContent() {
       } else {
         setRetryCount(0); // Reset for next time
       }
-      
+
     } finally {
       setIsLoadingOrder(false);
       setIsLoadingOrdersData(false);
@@ -542,26 +698,26 @@ function BuyerHomeContent() {
   // Process orders data (extracted for reuse)
   const processOrdersData = (orders: any[]) => {
     // Process pending orders for active order banner - show for newly created orders
-    const pendingOrders = orders.filter((order) => 
-      (order.payment_status === 'pending' || order.payment_status === 'pending_payment') && 
+    const pendingOrders = orders.filter((order) =>
+      (order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
       (order.order_status === 'pending_payment' || order.order_status === 'pending')
     );
 
     if (pendingOrders.length > 0) {
       // Sort by created_at (most recent first) to show newest pending order
-      const sortedPending = pendingOrders.sort((a: any, b: any) => 
+      const sortedPending = pendingOrders.sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       const lastOrder = sortedPending[0];
 
       setActiveOrder(lastOrder);
       setPendingOrdersCount(pendingOrders.length);
-      
+
       const orderCreatedAt = new Date(lastOrder.created_at).getTime();
       const expiresAt = orderCreatedAt + (30 * 60 * 1000); // 30 minutes
       const now = Date.now();
       const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-      
+
       setTimeRemaining(remainingSeconds);
     } else {
       setActiveOrder(null);
@@ -577,8 +733,8 @@ function BuyerHomeContent() {
 
     // Process order counts
     setTotalOrders(orders.length);
-    
-    const activeOrdersList = orders.filter((order: any) => 
+
+    const activeOrdersList = orders.filter((order: any) =>
       ["pending", "processing", "shipped"].includes(order.order_status)
     );
     setActiveOrders(activeOrdersList.length);
@@ -592,7 +748,7 @@ function BuyerHomeContent() {
   // Fetch active order - only once on mount
   useEffect(() => {
     if (ordersFetched) return;
-    
+
     fetchOrderImmediately().then(() => {
       setOrdersFetched(true);
     });
@@ -605,7 +761,7 @@ function BuyerHomeContent() {
       const interval = setInterval(() => {
         fetchOrdersData();
       }, 300000); // Every 5 minutes instead of 2 minutes - reduce auto-reload
-      
+
       return () => clearInterval(interval);
     }
   }, [activeOrders, pendingOrdersCount]);
@@ -617,12 +773,12 @@ function BuyerHomeContent() {
   // Fetch recent activity from API (real notifications only, no static fallback)
   const fetchRecentActivity = async (force = false) => {
     if (recentActivityFetched && !force) return;
-    
+
     try {
       const response = await messagingService.getRecentActivity();
       // Handle both direct array and response.data format
       const activity = Array.isArray(response) ? response : (response?.data || response || []);
-      
+
       if (activity && Array.isArray(activity) && activity.length > 0) {
         const formattedActivity = activity.map((act: any) => ({
           id: act.id,
@@ -650,12 +806,12 @@ function BuyerHomeContent() {
 
   useEffect(() => {
     fetchRecentActivity();
-    
+
     // Refresh activity every 15 seconds to get new notifications
     const interval = setInterval(() => {
       fetchRecentActivity(true);
     }, 15000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -666,7 +822,7 @@ function BuyerHomeContent() {
       fetchOrdersData(true);
       fetchRecentActivity(true);
     };
-    
+
     window.addEventListener('order_created', handleOrderCreated);
     return () => window.removeEventListener('order_created', handleOrderCreated);
   }, []);
@@ -717,7 +873,7 @@ function BuyerHomeContent() {
           return prev - 1;
         });
       }, 1000);
-      
+
       return () => clearInterval(timer);
     }
   }, [activeOrder, timeRemaining]);
@@ -727,7 +883,7 @@ function BuyerHomeContent() {
     const timestampTimer = setInterval(() => {
       updateActivityTimestamps();
     }, 60000);
-    
+
     return () => clearInterval(timestampTimer);
   }, []);
 
@@ -735,13 +891,13 @@ function BuyerHomeContent() {
 
   const cancelExpiredOrder = async () => {
     if (!activeOrder) return;
-    
+
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
 
       const productName = activeOrder.product?.headline || activeOrder.product?.listing_title || "Product";
-      
+
       // Call backend API to expire the order (this will also send notifications)
       const response = await fetch(`http://localhost:8000/api/v1/orders/expire/`, {
         method: 'POST',
@@ -758,11 +914,11 @@ function BuyerHomeContent() {
         setTimeRemaining(0);
         setPendingOrdersCount(0);
         localStorage.removeItem('activeOrderTimer');
-        
+
         // Refresh orders and recent activity to show notifications
         fetchOrdersData(true);
         fetchRecentActivity(true);
-        
+
         toast({
           title: "Order Expired",
           description: `Order ${activeOrder.order_id} has expired due to payment timeout`,
@@ -796,7 +952,7 @@ function BuyerHomeContent() {
   };
 
   // These functions are now consolidated into fetchOrdersData()
-  const addOrderCancellationNotification = (orderId, productName) => {
+  const addOrderCancellationNotification = (orderId: string, productName: string) => {
     const newActivity = {
       id: Date.now(),
       type: "order_cancelled",
@@ -836,18 +992,41 @@ function BuyerHomeContent() {
     }));
   };
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = (text: string) => {
+    // Basic fallback for unsecure contexts (HTTP)
+    if (!navigator.clipboard && document.execCommand) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          toast({
+            title: "Copied!",
+            description: "Payment address copied (fallback).",
+          });
+        }
+      } catch (err) {
+        // fail silently
+      }
+      document.body.removeChild(textArea);
+      return;
+    }
+
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied!",
@@ -917,25 +1096,25 @@ function BuyerHomeContent() {
         </div>
       )}
 
-      <BuyerLayout hasBanner={activeOrder && !isLoadingOrder && timeRemaining > 0}>
+      <BuyerLayout hasBanner={!!(activeOrder && !isLoadingOrder && timeRemaining > 0)}>
         <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
           {/* AC Logo and Branding Section - Same as Vendor */}
           <div className="flex flex-col items-center justify-center py-4 sm:py-6">
             {/* AC Logo Monogram */}
             <div className="mb-3 sm:mb-4">
-              <img 
-                src="/images/ac-logo-monogram.png" 
-                alt="AC Logo Monogram" 
+              <img
+                src="/images/ac-logo-monogram.png"
+                alt="AC Logo Monogram"
                 className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 object-contain"
                 style={{ filter: 'brightness(0.6) contrast(1.1) saturate(0.9)', imageRendering: '-webkit-optimize-contrast' }}
               />
             </div>
-            
+
             {/* THE ONE AND ONLY Text */}
             <div className="mb-0">
-              <img 
-                src="/images/the-one-and-only.png" 
-                alt="THE ONE AND ONLY" 
+              <img
+                src="/images/the-one-and-only.png"
+                alt="THE ONE AND ONLY"
                 className="h-5 sm:h-6 lg:h-7 object-contain"
                 style={{ filter: 'brightness(0.75) contrast(1.2) saturate(0.85)', imageRendering: '-webkit-optimize-contrast' }}
               />
@@ -960,11 +1139,11 @@ function BuyerHomeContent() {
                       handleHomeSearch();
                     }
                   }}
-                  className="w-full pl-12 pr-16 py-3 sm:py-4 text-base sm:text-lg bg-white text-gray-900 placeholder-gray-500 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full pl-12 pr-16 py-3 sm:py-4 text-base sm:text-lg  text-gray-900 placeholder-gray-500 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500"
                 />
               </div>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="absolute right-2 w-10 h-10 sm:w-12 sm:h-12 rounded-full p-0 flex items-center justify-center shadow-lg transition-all duration-200"
                 style={{ backgroundColor: '#AD0539' }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c10647'}
@@ -1009,7 +1188,7 @@ function BuyerHomeContent() {
                         )}
                       </div>
                     ))}
-                    </>
+                  </>
                 ) : (
                   <div className="px-4 py-3 text-gray-400 text-center">
                     No products found
@@ -1096,43 +1275,59 @@ function BuyerHomeContent() {
                 </Button>
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-              {categories.map((category) => {
-                const Icon = category.icon;
+            <div className="relative overflow-hidden">
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 transition-opacity duration-500"
+                style={{
+                  opacity: 1
+                }}
+              >
+                {(() => {
+                  const allCategories = categoriesData.length > 0 ? categoriesData : defaultCategories;
+                  const startIndex = currentCategorySlide * 4;
+                  const endIndex = startIndex + 4;
+                  const visibleCategories = allCategories.slice(startIndex, endIndex);
 
-                return (
-                        <Card key={category.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900 overflow-hidden">
-                    <CardContent className="p-0">
-                      {/* Image/Icon Section - Top Part - Original Category Icon */}
-                      <div className="relative h-32 sm:h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-20`}></div>
-                        <div className="relative z-10 w-full h-full flex items-center justify-center">
-                          <div className={`w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
-                            <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                  return visibleCategories.map((category: any) => {
+                    const Icon = category.icon;
+
+                    return (
+                      <Card
+                        key={category.id}
+                        className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900 overflow-hidden"
+                      >
+                        <CardContent className="p-0">
+                          {/* Image/Icon Section - Top Part - Original Category Icon */}
+                          <div className="relative h-32 sm:h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
+                            <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-20`}></div>
+                            <div className="relative z-10 w-full h-full flex items-center justify-center">
+                              <div className={`w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
+                                <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      
-                      {/* Content Section */}
-                      <div className="p-4 sm:p-5">
-                        <h3 className="font-bold mb-2 text-sm sm:text-base uppercase tracking-wide" style={{ color: '#AD0539' }}>{category.name}</h3>
-                        <p className="text-xs sm:text-sm text-white mb-2 leading-relaxed">{category.services}</p>
-                        <div className="flex items-center justify-between mt-3">
-                          <p className="text-xs sm:text-sm font-medium" style={{ color: '#AD0539' }}>{category.count} LISTINGS</p>
-                          <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
+
+                          {/* Content Section */}
+                          <div className="p-4 sm:p-5">
+                            <h3 className="font-bold mb-2 text-sm sm:text-base uppercase tracking-wide" style={{ color: '#AD0539' }}>{category.name}</h3>
+                            <p className="text-xs sm:text-sm text-white mb-2 leading-relaxed">{category.services}</p>
+                            <div className="flex items-center justify-between mt-3">
+                              <p className="text-xs sm:text-sm font-medium" style={{ color: '#AD0539' }}>{category.count} LISTINGS</p>
+                              <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                
-    );
-              })}
+                        </CardContent>
+                      </Card>
+                    );
+                  });
+                })()}
+              </div>
             </div>
           </section>
 
-          {/* Trending Now - Clean 4 cards layout */}
+          {/* Featured Listings - Infinite Horizontal Scroll */}
           <section>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
               <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide" style={{ color: '#AD0539' }}>
@@ -1146,105 +1341,88 @@ function BuyerHomeContent() {
                 </Link>
               </div>
             </div>
-            
+
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400"></div>
+              <div className="w-full overflow-hidden" style={{ position: 'relative', isolation: 'isolate' }}>
+                <div className="flex gap-4">
+                  {[...Array(8)].map((_, index) => (
+                    <div key={index} className="flex-shrink-0 w-[280px] sm:w-[300px]">
+                      <Card className="border border-gray-700 bg-gray-900 overflow-hidden group">
+                        <div className="relative aspect-video bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-700/20 to-transparent animate-shimmer"></div>
+                        </div>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-3/4 bg-[length:200%_100%]"></div>
+                            <div className="h-3 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-1/2 bg-[length:200%_100%]"></div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="h-3 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-full bg-[length:200%_100%]"></div>
+                            <div className="h-3 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-5/6 bg-[length:200%_100%]"></div>
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+                            <div className="h-5 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-20 bg-[length:200%_100%]"></div>
+                            <div className="h-4 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 rounded animate-pulse w-16 bg-[length:200%_100%]"></div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ))}
+                </div>
+                <style>{`
+                  @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
+                  }
+                  .animate-shimmer {
+                    animation: shimmer 2s infinite;
+                  }
+                `}</style>
+              </div>
+            ) : trendingProducts.length > 0 ? (
+              <div className="w-full overflow-hidden" style={{ position: 'relative', isolation: 'isolate' }}>
+                <div
+                  className="flex gap-4"
+                  id="featured-listings-scroll"
+                  style={{
+                    animation: `scroll-horizontal-${trendingProducts.length} 300s linear infinite`,
+                    width: 'max-content',
+                    willChange: 'transform',
+                    display: 'inline-flex'
+                  }}
+                  onMouseEnter={(e) => {
+                    const element = e.currentTarget;
+                    element.style.animationPlayState = 'paused';
+                  }}
+                  onMouseLeave={(e) => {
+                    const element = e.currentTarget;
+                    element.style.animationPlayState = 'running';
+                  }}
+                >
+                  {/* Duplicate products for seamless loop */}
+                  {[...trendingProducts, ...trendingProducts, ...trendingProducts].map((product, idx) => (
+                    <div key={`${product.id}-${idx}`} className="flex-shrink-0 w-[280px] sm:w-[300px]">
+                      <ProductCard product={product as any} redirectOnAction={true} />
+                    </div>
+                  ))}
+                </div>
+                <style>{`
+                  @keyframes scroll-horizontal-${trendingProducts.length} {
+                    0% {
+                      transform: translateX(0);
+                    }
+                    100% {
+                      transform: translateX(-${trendingProducts.length * 304}px);
+                    }
+                  }
+                  #featured-listings-scroll {
+                    transition: animation-play-state 0.3s ease;
+                  }
+                `}</style>
               </div>
             ) : (
-              <div className="relative max-w-[1200px] mx-auto">
-                {/* Navigation Buttons - Smaller & Compact */}
-                {trendingProducts.length > 4 && (
-                  <>
-                    <button
-                      onClick={handlePrevSlide}
-                      className="absolute -left-8 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-gray-900/95 to-gray-800/95 hover:from-gray-800 hover:to-gray-700 text-white p-2 rounded-full shadow-lg border border-cyan-500/60 hover:border-cyan-400 transition-all duration-300 backdrop-blur-md hover:scale-105 active:scale-95"
-                      aria-label="Previous"
-                    >
-                      <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
-                    </button>
-                    <button
-                      onClick={handleNextSlide}
-                      className="absolute -right-8 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-gray-900/95 to-gray-800/95 hover:from-gray-800 hover:to-gray-700 text-white p-2 rounded-full shadow-lg border border-cyan-500/60 hover:border-cyan-400 transition-all duration-300 backdrop-blur-md hover:scale-105 active:scale-95"
-                      aria-label="Next"
-                    >
-                      <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
-                    </button>
-                    </>
-
-                )}
-
-                {/* Cards Container - Responsive: 1 card on mobile, 4 on desktop */}
-                <div className="overflow-hidden">
-                  <div 
-                    className="flex transition-transform duration-700 ease-in-out"
-                    style={{ 
-                      transform: `translateX(-${currentSlide * 100}%)`
-                    }}
-                  >
-                    {(() => {
-                      const cardsPerView = windowWidth < 640 ? 1 : 4;
-                      const totalSlides = Math.ceil(trendingProducts.length / cardsPerView);
-                      return Array.from({ length: totalSlides }).map((_, groupIndex) => {
-                        const startIndex = groupIndex * cardsPerView;
-                        const endIndex = startIndex + cardsPerView;
-                        return (
-                          <div key={groupIndex} className="min-w-full flex gap-2 sm:gap-4 px-2">
-                            {trendingProducts.slice(startIndex, endIndex).map((product) => (
-                              <div key={product.id} className="w-full sm:w-[calc(25%-12px)] flex-shrink-0 min-w-0">
-                                <ProductCard product={product as any} />
-                              </div>
-                            ))}
-                            {/* Fill empty spaces if less than cardsPerView */}
-                            {trendingProducts.slice(startIndex, endIndex).length < cardsPerView &&
-                              Array.from({ length: cardsPerView - trendingProducts.slice(startIndex, endIndex).length }).map((_, idx) => (
-                                <div key={`empty-${idx}`} className="w-full sm:w-[calc(25%-12px)] flex-shrink-0" />
-                              ))
-                            }
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
-
-                {/* Slide Indicators */}
-                {trendingProducts.length > (windowWidth < 640 ? 1 : 4) && (
-                  <div className="flex justify-center mt-6 space-x-2">
-                    {Array.from({ length: Math.ceil(trendingProducts.length / (windowWidth < 640 ? 1 : 4)) }).map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          setCurrentSlide(idx);
-                          setIsAutoPlaying(false);
-                          setTimeout(() => setIsAutoPlaying(true), 10000);
-                        }}
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          idx === currentSlide 
-                            ? 'w-8 bg-cyan-400' 
-                            : 'w-2 bg-gray-600 hover:bg-gray-500'
-                        }`}
-                        aria-label={`Go to slide ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* Product stats */}
-            {!loading && trendingProducts.length > 0 && (
-              <div className="flex justify-center mt-6 text-sm text-gray-400">
-                <div className="flex items-center space-x-6">
-                  <div className="flex items-center space-x-2">
-                    <Package className="w-4 h-4" />
-                    <span>{trendingProducts.length} products</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Timer className="w-4 h-4" />
-                    <span>Auto-scrolls every 5s</span>
-                  </div>
-                </div>
+              <div className="text-center py-12 text-gray-400">
+                <p>No featured products available</p>
               </div>
             )}
           </section>
@@ -1290,18 +1468,18 @@ function BuyerHomeContent() {
                               <span>•</span>
                               <span>{order.created_at || order.orderDate ? new Date(order.created_at || order.orderDate!).toLocaleDateString() : ""}</span>
                             </div>
-                            {order.product_credentials && Object.keys(order.product_credentials).length > 0 && 
-                             (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && (
-                              <div className="mt-2">
-                                <button 
-                                  onClick={() => {
-                                    const credentialsData = order.product_credentials?.credentials || '';
-                                    const emailPart = credentialsData.split('Password:')[0]?.replace('Email:', '').trim() || 'N/A';
-                                    const passwordPart = credentialsData.split('Password:')[1]?.trim() || 'N/A';
-                                    const modal = document.createElement('div');
-                                    modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
-                                    
-                                    modal.innerHTML = `
+                            {order.product_credentials && Object.keys(order.product_credentials).length > 0 &&
+                              (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && (
+                                <div className="mt-2">
+                                  <button
+                                    onClick={() => {
+                                      const credentialsData = order.product_credentials?.credentials || '';
+                                      const emailPart = credentialsData.split('Password:')[0]?.replace('Email:', '').trim() || 'N/A';
+                                      const passwordPart = credentialsData.split('Password:')[1]?.trim() || 'N/A';
+                                      const modal = document.createElement('div');
+                                      modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+
+                                      modal.innerHTML = `
                                       <div class="bg-gray-900 border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
                                         <div class="flex items-center justify-between p-6 border-b border-gray-600/20">
                                           <h2 class="text-xl font-bold text-white">Product Credentials</h2>
@@ -1340,46 +1518,45 @@ function BuyerHomeContent() {
                                       </div>
                                     `;
 
-                                    const downloadBtn = modal.querySelector('#downloadBtn');
-                                    downloadBtn?.addEventListener('click', () => {
-                                      const credentialsText = `Email: ${emailPart}\nPassword: ${passwordPart}`;
-                                      const blob = new Blob([credentialsText], { type: 'text/plain' });
-                                      const url = window.URL.createObjectURL(blob);
-                                      const a = document.createElement('a');
-                                      a.href = url;
-                                      a.download = `${order.product?.headline || 'product'}_credentials.txt`;
-                                      document.body.appendChild(a);
-                                      a.click();
-                                      document.body.removeChild(a);
-                                      window.URL.revokeObjectURL(url);
-                                    });
-                                    
-                                    document.body.appendChild(modal);
-                                  }}
-                                  className="text-xs text-green-400 hover:text-green-300 underline cursor-pointer"
-                                >
-                                  Click to view credentials
-                                </button>
-                              </div>
-                            )}
+                                      const downloadBtn = modal.querySelector('#downloadBtn');
+                                      downloadBtn?.addEventListener('click', () => {
+                                        const credentialsText = `Email: ${emailPart}\nPassword: ${passwordPart}`;
+                                        const blob = new Blob([credentialsText], { type: 'text/plain' });
+                                        const url = window.URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `${order.product?.headline || 'product'}_credentials.txt`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        window.URL.revokeObjectURL(url);
+                                      });
+
+                                      document.body.appendChild(modal);
+                                    }}
+                                    className="text-xs text-green-400 hover:text-green-300 underline cursor-pointer"
+                                  >
+                                    Click to view credentials
+                                  </button>
+                                </div>
+                              )}
                           </div>
                           <div className="text-right ml-6">
                             <p className="text-lg font-bold text-white mb-1">{order.price}</p>
-                            <Badge 
+                            <Badge
                               variant="outline"
-                              className={`text-xs border-gray-600 ${
-                                order.status === 'delivered' ? 'text-gray-300' :
-                                order.status === 'processing' ? 'text-gray-300' :
-                                order.status === 'shipped' ? 'text-gray-300' : 'text-gray-300'
-                              }`}
+                              className={`text-xs border-gray-600 ${order.status === 'delivered' ? 'text-gray-300' :
+                                  order.status === 'processing' ? 'text-gray-300' :
+                                    order.status === 'shipped' ? 'text-gray-300' : 'text-gray-300'
+                                }`}
                             >
                               {order.status === 'delivered' ? 'Delivered' :
-                               order.status === 'processing' ? 'Processing' :
-                               order.status === 'shipped' ? 'Shipped' : order.status}
+                                order.status === 'processing' ? 'Processing' :
+                                  order.status === 'shipped' ? 'Shipped' : order.status}
                             </Badge>
                           </div>
                         </div>
-                        
+
                         <div className="mb-4">
                           <div className="flex items-center space-x-4 text-xs">
                             <span className="text-gray-400">
@@ -1390,12 +1567,12 @@ function BuyerHomeContent() {
                             </span>
                           </div>
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-2">
                           {(order.status === 'paid' || order.status === 'delivered' || order.status === 'confirmed') && order.canRate ? (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="border-gray-600 hover:border-gray-500"
                               onClick={() => {
                                 const pid = (order as any)?.product?.id;
@@ -1412,19 +1589,78 @@ function BuyerHomeContent() {
                               <Star className="w-4 h-4 mr-2" />
                               Rate Order
                             </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" className="border-gray-600 hover:border-gray-500">
-                              <Package className="w-4 h-4 mr-2" />
-                              Track Order
-                            </Button>
-                          )}
-                          <Button variant="outline" size="sm" className="border-gray-600 hover:border-gray-500">
+                          ) : null}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-gray-600 hover:border-gray-500"
+                            onClick={() => {
+                              // Navigate to orders page with order ID to auto-open details
+                              navigate(`/buyer/orders`, {
+                                state: {
+                                  openOrderId: order.order_id || order.id,
+                                  openOrderDetails: true
+                                }
+                              });
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-gray-600 hover:border-gray-500"
+                            onClick={() => {
+                              // Navigate to messages page and auto-open vendor chat
+                              const vendorUsername = typeof order.vendor === 'string'
+                                ? order.vendor
+                                : order.vendor?.username || '';
+                              if (vendorUsername) {
+                                navigate(`/buyer/messages`, {
+                                  state: {
+                                    openVendorChat: vendorUsername,
+                                    autoOpenChat: true
+                                  }
+                                });
+                              } else {
+                                toast({
+                                  title: 'Error',
+                                  description: 'Vendor information not available',
+                                  variant: 'destructive'
+                                });
+                              }
+                            }}
+                          >
                             <MessageSquare className="w-4 h-4 mr-2" />
                             Contact Vendor
                           </Button>
-                          <Button variant="outline" size="sm" className="border-gray-600 hover:border-gray-500">
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-gray-600 hover:border-gray-500"
+                            onClick={() => {
+                              // Show status change modal
+                              const currentStatus = order.order_status || order.status || 'unknown';
+                              const statusOptions = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+                              const currentIndex = statusOptions.indexOf(currentStatus.toLowerCase());
+                              const nextStatus = currentIndex < statusOptions.length - 1
+                                ? statusOptions[currentIndex + 1]
+                                : statusOptions[0];
+
+                              toast({
+                                title: 'Change Status',
+                                description: `Current status: ${currentStatus}. Would you like to update it? Go to order history if want`,
+                                variant: 'default'
+                              });
+
+                              // In a real implementation, this would call an API to update status
+                              // For now, just show a message
+                              console.log('Would update order status to:', nextStatus);
+                            }}
+                          >
+                            <Package className="w-4 h-4 mr-2" />
+                            Change Status
                           </Button>
                         </div>
                       </div>
@@ -1454,7 +1690,7 @@ function BuyerHomeContent() {
                   <div>
                     <Label className="text-gray-300">Rating</Label>
                     <div className="flex space-x-2 mt-2">
-                      {[1,2,3,4,5].map(n => (
+                      {[1, 2, 3, 4, 5].map(n => (
                         <button
                           key={n}
                           className={`w-8 h-8 rounded-full flex items-center justify-center border ${reviewRating >= n ? 'bg-yellow-500 text-black border-yellow-400' : 'bg-gray-800 text-gray-300 border-gray-700'}`}
@@ -1528,12 +1764,12 @@ function BuyerHomeContent() {
                     <p className="text-xs text-gray-400 mb-3">{vendor.specialization}</p>
                     <div className="flex items-center justify-center space-x-1 mb-3">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-white">{vendor.rating}</span>
-                      <span className="text-xs text-gray-400">({vendor.totalSales} sales)</span>
+                      <span className="text-sm text-white">{vendor.rating.toFixed(1)}</span>
+                      <span className="text-xs text-gray-400">({vendor.totalSales || 0} sales)</span>
                     </div>
                     <div className="flex items-center justify-center space-x-2 mb-4">
                       <Clock className="w-3 h-3 text-green-400" />
-                      <span className="text-xs text-green-400">{vendor.responseTime}</span>
+                      <span className="text-xs text-green-400">{vendor.responseTime || '< 2 hours'}</span>
                     </div>
                     <Button
                       variant="outline"
@@ -1568,7 +1804,7 @@ function BuyerHomeContent() {
                     <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-white mb-1">Track Orders</h3>
+                          <h3 className="font-semibold text-white mb-1">Active Orders</h3>
                           <p className="text-sm text-gray-400">{activeOrders} active orders</p>
                         </div>
                         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
@@ -1578,7 +1814,7 @@ function BuyerHomeContent() {
                     </CardContent>
                   </Card>
                 </Link>
-                
+
                 <Link to="/buyer/messages">
                   <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
                     <CardContent className="p-4 sm:p-6">
@@ -1603,7 +1839,7 @@ function BuyerHomeContent() {
                     </CardContent>
                   </Card>
                 </Link>
-                
+
                 <Link to="/buyer/transaction-history">
                   <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
                     <CardContent className="p-4 sm:p-6">
@@ -1619,7 +1855,7 @@ function BuyerHomeContent() {
                     </CardContent>
                   </Card>
                 </Link>
-                
+
                 <Link to="/buyer/support">
                   <Card className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900">
                     <CardContent className="p-4 sm:p-6">
@@ -1656,12 +1892,11 @@ function BuyerHomeContent() {
                     <Card key={activity.id} className="border border-gray-700 bg-gray-900 hover:bg-gray-800/80 transition-colors duration-200">
                       <CardContent className="p-4 sm:p-5">
                         <div className="flex items-start space-x-4">
-                          <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${
-                            activity.status === 'success' ? 'bg-green-400' :
-                            activity.status === 'info' ? 'bg-blue-400' :
-                            activity.status === 'warning' ? 'bg-yellow-400' :
-                            activity.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
-                          }`}></div>
+                          <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${activity.status === 'success' ? 'bg-green-400' :
+                              activity.status === 'info' ? 'bg-blue-400' :
+                                activity.status === 'warning' ? 'bg-yellow-400' :
+                                  activity.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
+                            }`}></div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-white text-sm mb-1">{activity.title}</h4>
                             <p className="text-xs text-gray-400 mb-2">{activity.description}</p>

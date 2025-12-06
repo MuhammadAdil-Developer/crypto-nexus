@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +92,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const [timers, setTimers] = useState<Record<string, number>>({});
   const [expiredOrders, setExpiredOrders] = useState<Set<string>>(new Set());
   const [refundRequests, setRefundRequests] = useState<Record<string, any>>({});
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
@@ -102,20 +103,20 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     if (expiredOrders.has(order.id.toString())) {
       return 0;
     }
-    
+
     // Check if order is pending payment
     const isPending = (order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
-                      (order.order_status === 'pending_payment' || order.order_status === 'pending');
-    
+      (order.order_status === 'pending_payment' || order.order_status === 'pending');
+
     if (!isPending) {
       return 0;
     }
-    
+
     const orderCreatedAt = new Date(order.created_at).getTime();
     const expiresAt = orderCreatedAt + (30 * 60 * 1000); // 30 minutes
     const now = Date.now();
     const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-    
+
     return remainingSeconds;
   };
 
@@ -136,7 +137,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     try {
       await orderService.expireOrder(order.id.toString());
       setExpiredOrders(prev => new Set(prev).add(order.id.toString()));
-      
+
       toast({
         title: "Order Expired",
         description: `Order #${order.order_id} has been expired due to payment timeout.`,
@@ -169,12 +170,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     // Initialize timers for pending orders
     const pendingOrders = displayOrders.filter(order => {
       const isPending = (order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
-                        (order.order_status === 'pending_payment' || order.order_status === 'pending');
+        (order.order_status === 'pending_payment' || order.order_status === 'pending');
       return isPending && !expiredOrders.has(order.id.toString());
     });
 
     const newTimers: Record<string, number> = {};
-    
+
     pendingOrders.forEach(order => {
       const timeRemaining = calculateTimeRemaining(order);
       newTimers[order.id.toString()] = timeRemaining;
@@ -183,11 +184,11 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
       const interval = setInterval(() => {
         setTimers(prev => {
           const current = prev[order.id.toString()] || 0;
-          
+
           // Recalculate time remaining to ensure accuracy
           const actualTimeRemaining = calculateTimeRemaining(order);
           const newTime = Math.max(0, actualTimeRemaining);
-          
+
           // AGGRESSIVE: If timer reaches 0 or is already 0, expire immediately
           if (newTime === 0 && !expiredOrders.has(order.id.toString())) {
             // Clear this interval immediately to prevent multiple calls
@@ -195,10 +196,10 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
               clearInterval(intervalRefs.current[order.id.toString()]);
               delete intervalRefs.current[order.id.toString()];
             }
-            
+
             // Mark as expired immediately to prevent duplicate calls
             setExpiredOrders(prev => new Set(prev).add(order.id.toString()));
-            
+
             // Call expire order IMMEDIATELY - no delay
             console.log(`⏰ Timer reached 0 for order ${order.id}, expiring immediately...`);
             orderService.expireOrder(order.id.toString())
@@ -209,13 +210,13 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                   description: `Order #${order.order_id} has been expired due to payment timeout.`,
                   variant: "destructive",
                 });
-                
+
                 // Force immediate UI update
                 setTimers(prev => ({
                   ...prev,
                   [order.id.toString()]: 0
                 }));
-                
+
                 // Refresh orders immediately
                 if (onOrderUpdate) {
                   setTimeout(() => {
@@ -241,13 +242,13 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                   variant: "destructive",
                 });
               });
-            
+
             return {
               ...prev,
               [order.id.toString()]: 0
             };
           }
-          
+
           return {
             ...prev,
             [order.id.toString()]: newTime
@@ -371,7 +372,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
         setRefundRequests(refundMap);
       }
     });
-    
+
     if (onOrderUpdate) {
       onOrderUpdate();
     } else {
@@ -387,7 +388,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const handleApproveOrder = async (order: Order) => {
     try {
       setIsApproving(order.order_id);
-      
+
       // Call the order confirmation API
       const response = await fetch(getApiUrl(`/orders/${order.id}/confirm/`), {
         method: 'POST',
@@ -402,7 +403,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
           title: "Order Approved!",
           description: "Payment has been released to the vendor. Thank you for your purchase!",
         });
-        
+
         // Refresh the page to update order status
         window.location.reload();
       } else {
@@ -427,7 +428,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
   const confirmOrderApproval = async () => {
     if (!orderToConfirm) return;
-    
+
     await handleApproveOrder(orderToConfirm);
     setConfirmModalOpen(false);
     setOrderToConfirm(null);
@@ -442,8 +443,8 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
               <CardTitle className="text-xl font-bold text-white">
                 Your Orders
               </CardTitle>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => navigate('/buyer/my-reviews')}
                 className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
@@ -472,7 +473,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                 });
 
                 return (
-                  <div 
+                  <div
                     key={order.order_id}
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors duration-200"
                   >
@@ -480,7 +481,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(order.order_status)}`}>
                         {getStatusIcon(order.order_status)}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-white truncate">
                           {order.product.headline}
@@ -488,7 +489,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                         <p className="text-sm text-gray-400">
                           {order.vendor.username} • {formattedDate}
                         </p>
-                        
+
                         {/* Payment Address - Show for orders with payment address */}
                         {order.payment_address && (
                           <div className="mt-2 flex items-center gap-2 group">
@@ -501,11 +502,35 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigator.clipboard.writeText(order.payment_address);
-                                  toast({
-                                    title: "Copied!",
-                                    description: "Payment address copied to clipboard",
-                                  });
+                                  const text = order.payment_address;
+                                  if (!navigator.clipboard && document.execCommand) {
+                                    // Fallback
+                                    const textArea = document.createElement("textarea");
+                                    textArea.value = text;
+                                    textArea.style.position = "fixed";
+                                    document.body.appendChild(textArea);
+                                    textArea.focus();
+                                    textArea.select();
+                                    try {
+                                      const successful = document.execCommand('copy');
+                                      if (successful) {
+                                        toast({
+                                          title: "Copied!",
+                                          description: "Payment address copied (fallback)",
+                                        });
+                                      }
+                                    } catch (err) {
+                                      // Fail silently or toast
+                                    }
+                                    document.body.removeChild(textArea);
+                                  } else {
+                                    navigator.clipboard.writeText(text).then(() => {
+                                      toast({
+                                        title: "Copied!",
+                                        description: "Payment address copied to clipboard",
+                                      });
+                                    });
+                                  }
                                 }}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-600 rounded"
                                 title="Copy payment address"
@@ -515,24 +540,23 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Timer for pending orders */}
                         {(order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
-                         (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
-                         !expiredOrders.has(order.id.toString()) && (
-                          <div className="mt-2 flex items-center space-x-2">
-                            <Timer className="w-4 h-4 text-yellow-400" />
-                            <span className={`text-sm font-semibold ${
-                              (timers[order.id.toString()] || 0) <= 300 
-                                ? 'text-red-400 animate-pulse' 
-                                : 'text-yellow-400'
-                            }`}>
-                              {formatTime(timers[order.id.toString()] || calculateTimeRemaining(order))}
-                            </span>
-                            <span className="text-xs text-gray-500">remaining to pay</span>
-                          </div>
-                        )}
-                        
+                          (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
+                          !expiredOrders.has(order.id.toString()) && (
+                            <div className="mt-2 flex items-center space-x-2">
+                              <Timer className="w-4 h-4 text-yellow-400" />
+                              <span className={`text-sm font-semibold ${(timers[order.id.toString()] || 0) <= 300
+                                  ? 'text-red-400 animate-pulse'
+                                  : 'text-yellow-400'
+                                }`}>
+                                {formatTime(timers[order.id.toString()] || calculateTimeRemaining(order))}
+                              </span>
+                              <span className="text-xs text-gray-500">remaining to pay</span>
+                            </div>
+                          )}
+
                         {/* Expired indicator */}
                         {expiredOrders.has(order.id.toString()) && (
                           <div className="mt-2 flex items-center space-x-2">
@@ -540,26 +564,26 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             <span className="text-sm font-semibold text-red-400">Order Expired</span>
                           </div>
                         )}
-                        
+
                         {/* Credentials Display - For paid, confirmed, and delivered orders */}
-                        {order.product_credentials && Object.keys(order.product_credentials).length > 0 && 
-                         (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered' || order.order_status === 'completed') && (
-                          <div className="mt-2">
-                            <button 
-                              onClick={() => {
-                                // Extract credentials data
-                                const credentialsData = order.product_credentials.credentials || 'No credentials available';
-                                const releaseDate = order.product_credentials.released_at || order.created_at;
-                                const productHeadline = order.product.headline || 'product';
-                                
-                                // Create modal element
-                                const modal = document.createElement('div');
-                                modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
-                                modal.style.animation = 'fadeIn 0.2s ease-out';
-                                
-                                // Add CSS animation
-                                const style = document.createElement('style');
-                                style.textContent = `
+                        {order.product_credentials && Object.keys(order.product_credentials).length > 0 &&
+                          (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered' || order.order_status === 'completed') && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => {
+                                  // Extract credentials data
+                                  const credentialsData = order.product_credentials.credentials || 'No credentials available';
+                                  const releaseDate = order.product_credentials.released_at || order.created_at;
+                                  const productHeadline = order.product.headline || 'product';
+
+                                  // Create modal element
+                                  const modal = document.createElement('div');
+                                  modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+                                  modal.style.animation = 'fadeIn 0.2s ease-out';
+
+                                  // Add CSS animation
+                                  const style = document.createElement('style');
+                                  style.textContent = `
                                   @keyframes fadeIn {
                                     from { opacity: 0; }
                                     to { opacity: 1; }
@@ -573,9 +597,9 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                     transition: all 0.3s ease; 
                                   }
                                 `;
-                                document.head.appendChild(style);
-                                
-                                modal.innerHTML = `
+                                  document.head.appendChild(style);
+
+                                  modal.innerHTML = `
                                   <div class="bg-gray-900 border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
                                     <div class="flex items-center justify-between p-6 border-b border-gray-600/20">
                                       <div>
@@ -602,12 +626,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                           <p class="text-sm text-gray-300">
                                             <span class="text-gray-400">Released on:</span> 
                                             ${new Date(releaseDate).toLocaleString('en-US', {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric',
-                                              hour: '2-digit',
-                                              minute: '2-digit'
-                                            })}
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
                                           </p>
                                         </div>
 
@@ -657,129 +681,129 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                     </div>
                                   </div>
                                 `;
-                                
-                                document.body.appendChild(modal);
-                                
-                                // Add functionality
-                                let isVisible = false;
-                                const credentialsText = modal.querySelector('#credentialsText');
-                                const blurOverlay = modal.querySelector('#blurOverlay');
-                                const toggleBtn = modal.querySelector('#toggleVisibility');
-                                const eyeIcon = modal.querySelector('#eyeIcon');
-                                const toggleText = modal.querySelector('#toggleText');
-                                const copyBtn = modal.querySelector('#copyBtn');
-                                const downloadBtn = modal.querySelector('#downloadBtn');
-                                const closeBtn = modal.querySelector('#closeModal');
-                                
-                                // Toggle visibility
-                                toggleBtn?.addEventListener('click', () => {
-                                  isVisible = !isVisible;
-                                  
-                                  if (isVisible) {
-                                    credentialsText?.classList.remove('credentials-hidden');
-                                    credentialsText?.classList.add('credentials-visible');
-                                    (blurOverlay as HTMLElement).style.display = 'none';
-                                    (toggleText as HTMLElement).textContent = 'Hide';
-                                    (eyeIcon as HTMLElement).innerHTML = `
+
+                                  document.body.appendChild(modal);
+
+                                  // Add functionality
+                                  let isVisible = false;
+                                  const credentialsText = modal.querySelector('#credentialsText');
+                                  const blurOverlay = modal.querySelector('#blurOverlay');
+                                  const toggleBtn = modal.querySelector('#toggleVisibility');
+                                  const eyeIcon = modal.querySelector('#eyeIcon');
+                                  const toggleText = modal.querySelector('#toggleText');
+                                  const copyBtn = modal.querySelector('#copyBtn');
+                                  const downloadBtn = modal.querySelector('#downloadBtn');
+                                  const closeBtn = modal.querySelector('#closeModal');
+
+                                  // Toggle visibility
+                                  toggleBtn?.addEventListener('click', () => {
+                                    isVisible = !isVisible;
+
+                                    if (isVisible) {
+                                      credentialsText?.classList.remove('credentials-hidden');
+                                      credentialsText?.classList.add('credentials-visible');
+                                      (blurOverlay as HTMLElement).style.display = 'none';
+                                      (toggleText as HTMLElement).textContent = 'Hide';
+                                      (eyeIcon as HTMLElement).innerHTML = `
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
                                     `;
-                                  } else {
-                                    credentialsText?.classList.remove('credentials-visible');
-                                    credentialsText?.classList.add('credentials-hidden');
-                                    (blurOverlay as HTMLElement).style.display = 'flex';
-                                    (toggleText as HTMLElement).textContent = 'Show';
-                                    (eyeIcon as HTMLElement).innerHTML = `
+                                    } else {
+                                      credentialsText?.classList.remove('credentials-visible');
+                                      credentialsText?.classList.add('credentials-hidden');
+                                      (blurOverlay as HTMLElement).style.display = 'flex';
+                                      (toggleText as HTMLElement).textContent = 'Show';
+                                      (eyeIcon as HTMLElement).innerHTML = `
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                     `;
-                                  }
-                                });
-                                
-                                // Copy functionality
-                                copyBtn?.addEventListener('click', async () => {
-                                  try {
-                                    await navigator.clipboard.writeText(credentialsData);
-                                    copyBtn.innerHTML = `
+                                    }
+                                  });
+
+                                  // Copy functionality
+                                  copyBtn?.addEventListener('click', async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(credentialsData);
+                                      copyBtn.innerHTML = `
                                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                       </svg>
                                       <span>Copied!</span>
                                     `;
-                                    setTimeout(() => {
-                                      copyBtn.innerHTML = `
+                                      setTimeout(() => {
+                                        copyBtn.innerHTML = `
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                                         </svg>
                                         <span>Copy</span>
                                       `;
-                                    }, 2000);
-                                  } catch (err) {
-                                    console.error('Copy failed:', err);
-                                  }
-                                });
-                                
-                                // Download functionality
-                                downloadBtn?.addEventListener('click', () => {
-                                  const timestamp = new Date().toISOString().slice(0, 10);
-                                  const filename = `${productHeadline.replace(/[^a-z0-9]/gi, '_')}_credentials_${timestamp}.txt`;
-                                  const content = `Product: ${productHeadline}\\nOrder ID: ${order.order_id}\\nReleased: ${new Date(releaseDate).toLocaleString()}\\n\\nCredentials:\\n${credentialsData}`;
-                                  
-                                  const blob = new Blob([content], { type: 'text/plain' });
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = filename;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  window.URL.revokeObjectURL(url);
-                                  
-                                  downloadBtn.innerHTML = `
+                                      }, 2000);
+                                    } catch (err) {
+                                      console.error('Copy failed:', err);
+                                    }
+                                  });
+
+                                  // Download functionality
+                                  downloadBtn?.addEventListener('click', () => {
+                                    const timestamp = new Date().toISOString().slice(0, 10);
+                                    const filename = `${productHeadline.replace(/[^a-z0-9]/gi, '_')}_credentials_${timestamp}.txt`;
+                                    const content = `Product: ${productHeadline}\\nOrder ID: ${order.order_id}\\nReleased: ${new Date(releaseDate).toLocaleString()}\\n\\nCredentials:\\n${credentialsData}`;
+
+                                    const blob = new Blob([content], { type: 'text/plain' });
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = filename;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    window.URL.revokeObjectURL(url);
+
+                                    downloadBtn.innerHTML = `
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                     </svg>
                                     <span>Downloaded!</span>
                                   `;
-                                  setTimeout(() => {
-                                    downloadBtn.innerHTML = `
+                                    setTimeout(() => {
+                                      downloadBtn.innerHTML = `
                                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                       </svg>
                                       <span>Download</span>
                                     `;
-                                  }, 2000);
-                                });
-                                
-                                // Close functionality
-                                closeBtn?.addEventListener('click', () => {
-                                  modal.remove();
-                                  style.remove();
-                                });
-                                
-                                // Click outside to close
-                                modal.addEventListener('click', (e: Event) => {
-                                  if (e.target === modal) {
+                                    }, 2000);
+                                  });
+
+                                  // Close functionality
+                                  closeBtn?.addEventListener('click', () => {
                                     modal.remove();
                                     style.remove();
-                                  }
-                                });
-                                
-                                // Escape key to close
-                                const handleEscape = (e: KeyboardEvent) => {
-                                  if (e.key === 'Escape') {
-                                    modal.remove();
-                                    style.remove();
-                                    document.removeEventListener('keydown', handleEscape);
-                                  }
-                                };
-                                document.addEventListener('keydown', handleEscape);
-                              }}
-                              className="text-xs text-green-400 hover:text-green-300 underline cursor-pointer"
-                            >
-                              View credentials
-                            </button>
-                          </div>
-                        )}
+                                  });
+
+                                  // Click outside to close
+                                  modal.addEventListener('click', (e: Event) => {
+                                    if (e.target === modal) {
+                                      modal.remove();
+                                      style.remove();
+                                    }
+                                  });
+
+                                  // Escape key to close
+                                  const handleEscape = (e: KeyboardEvent) => {
+                                    if (e.key === 'Escape') {
+                                      modal.remove();
+                                      style.remove();
+                                      document.removeEventListener('keydown', handleEscape);
+                                    }
+                                  };
+                                  document.addEventListener('keydown', handleEscape);
+                                }}
+                                className="text-xs text-green-400 hover:text-green-300 underline cursor-pointer"
+                              >
+                                View credentials
+                              </button>
+                            </div>
+                          )}
 
                         {/* Escrow Badge */}
                         {order.use_escrow && (
@@ -827,7 +851,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                         <p className="font-semibold text-white">
                           {order.total_amount} {order.crypto_currency}
                         </p>
-                        <Badge 
+                        <Badge
                           className={`text-xs ${getStatusColor(order.order_status)}`}
                           variant="secondary"
                         >
@@ -855,7 +879,111 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleViewDetails(order)}>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Track Order</DropdownMenuItem>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                <Package className="w-4 h-4 mr-2" />
+                                Update Status
+                              </DropdownMenuItem>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              {(() => {
+                                const currentStatus = order.order_status?.toLowerCase() || order.payment_status?.toLowerCase() || 'pending_payment';
+                                const allowedTransitions: { [key: string]: string[] } = {
+                                  'pending_payment': ['payment_received', 'cancelled'],
+                                  'payment_received': ['paid', 'cancelled'],
+                                  'paid': ['delivered', 'disputed'],
+                                  'delivered': ['confirmed', 'disputed'],
+                                  'processing': ['paid', 'delivered', 'cancelled'],
+                                  'pending': ['processing', 'cancelled']
+                                };
+
+                                const nextStatuses = allowedTransitions[currentStatus] || [];
+                                const statusLabels: { [key: string]: string } = {
+                                  'payment_received': 'Payment Received',
+                                  'paid': 'Paid',
+                                  'delivered': 'Delivered',
+                                  'confirmed': 'Confirmed',
+                                  'cancelled': 'Cancelled',
+                                  'disputed': 'Disputed'
+                                };
+
+                                if (nextStatuses.length === 0) {
+                                  return (
+                                    <DropdownMenuItem disabled className="text-gray-500">
+                                      No status updates available
+                                    </DropdownMenuItem>
+                                  );
+                                }
+
+                                return nextStatuses.map((status) => (
+                                  <DropdownMenuItem
+                                    key={status}
+                                    onClick={async () => {
+                                      setUpdatingOrderId(order.id.toString());
+                                      try {
+                                        await orderService.updateOrderStatus(order.id.toString(), {
+                                          order_status: status
+                                        });
+                                        toast({
+                                          title: "Status Updated",
+                                          description: `Order status updated to ${statusLabels[status] || status}`,
+                                          variant: "default"
+                                        });
+                                        if (onOrderUpdate) {
+                                          onOrderUpdate();
+                                        }
+                                      } catch (error: any) {
+                                        // Extract full error message with proper formatting
+                                        let errorMsg = 'Failed to update order status';
+
+                                        if (error.response?.data) {
+                                          if (error.response.data.order_status) {
+                                            if (Array.isArray(error.response.data.order_status)) {
+                                              errorMsg = error.response.data.order_status.join(', ');
+                                            } else if (typeof error.response.data.order_status === 'string') {
+                                              errorMsg = error.response.data.order_status;
+                                            } else {
+                                              errorMsg = JSON.stringify(error.response.data.order_status);
+                                            }
+                                          } else if (error.response.data.detail) {
+                                            errorMsg = error.response.data.detail;
+                                          } else if (typeof error.response.data === 'string') {
+                                            errorMsg = error.response.data;
+                                          } else if (error.response.data.error) {
+                                            errorMsg = error.response.data.error;
+                                          } else {
+                                            errorMsg = JSON.stringify(error.response.data);
+                                          }
+                                        } else if (error.message) {
+                                          errorMsg = error.message;
+                                        }
+
+                                        toast({
+                                          title: "Update Failed",
+                                          description: errorMsg,
+                                          variant: "destructive",
+                                          duration: 5000
+                                        });
+                                      } finally {
+                                        setUpdatingOrderId(null);
+                                      }
+                                    }}
+                                    disabled={updatingOrderId === order.id.toString()}
+                                  >
+                                    {updatingOrderId === order.id.toString() ? (
+                                      <span className="flex items-center">
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Updating...
+                                      </span>
+                                    ) : (
+                                      statusLabels[status] || status
+                                    )}
+                                  </DropdownMenuItem>
+                                ));
+                              })()}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
                             <DropdownMenuItem onClick={() => handleLeaveReview(order)}>
                               <Star className="w-4 h-4 mr-2" />
@@ -865,15 +993,15 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                           {(() => {
                             const existingRefund = refundRequests[order.order_id];
                             const isRefunded = order.order_status === 'refunded';
-                            const hasPendingRefund = existingRefund && 
-                              (existingRefund.status === 'pending_vendor' || 
-                               existingRefund.status === 'pending_admin' || 
-                               existingRefund.status === 'disputed');
-                            const canRequestRefund = (order.order_status === "paid" || 
-                              order.order_status === "delivered" || 
-                              order.order_status === "confirmed" || 
-                              order.order_status === "processing") && 
-                              !isRefunded && 
+                            const hasPendingRefund = existingRefund &&
+                              (existingRefund.status === 'pending_vendor' ||
+                                existingRefund.status === 'pending_admin' ||
+                                existingRefund.status === 'disputed');
+                            const canRequestRefund = (order.order_status === "paid" ||
+                              order.order_status === "delivered" ||
+                              order.order_status === "confirmed" ||
+                              order.order_status === "processing") &&
+                              !isRefunded &&
                               !hasPendingRefund;
 
                             if (isRefunded) {
@@ -884,7 +1012,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                 </DropdownMenuItem>
                               );
                             }
-                            
+
                             if (hasPendingRefund) {
                               return (
                                 <DropdownMenuItem disabled className="text-yellow-400 cursor-not-allowed">
@@ -906,7 +1034,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             return null;
                           })()}
                           {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => {
                                 if (order.order_status === 'confirmed' || order.order_status === 'completed') {
                                   toast({
@@ -917,7 +1045,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                 } else {
                                   handleCreateDispute(order);
                                 }
-                              }} 
+                              }}
                               disabled={order.order_status === 'confirmed' || order.order_status === 'completed'}
                               className="text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
@@ -1009,17 +1137,17 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                 <span className="text-gray-400">Vendor:</span>
                 <span className="text-white font-semibold">{orderToConfirm.product?.vendor?.username}</span>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Order ID:</span>
                 <span className="text-white font-mono">{orderToConfirm.order_id}</span>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Product:</span>
                 <span className="text-white">{orderToConfirm.product?.headline}</span>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Amount:</span>
                 <span className="text-green-400 font-bold">
@@ -1029,14 +1157,14 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
             </div>
 
             <div className="flex space-x-3">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setConfirmModalOpen(false)}
                 className="flex-1"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 className="bg-green-600 hover:bg-green-700 text-white flex-1"
                 onClick={confirmOrderApproval}
                 disabled={isApproving === orderToConfirm.order_id}

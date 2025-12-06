@@ -59,6 +59,73 @@ api.interceptors.response.use(
   }
 );
 
+// Helper function to extract error message from API response
+const extractErrorMessage = (error: any, defaultMessage: string): string => {
+  if (!error.response?.data) {
+    return error.message || defaultMessage;
+  }
+
+  const data = error.response.data;
+
+  // Priority 1: Check order_status field (for order status update errors)
+  if (data.order_status) {
+    if (Array.isArray(data.order_status)) {
+      return data.order_status.join('. ');
+    }
+    return String(data.order_status);
+  }
+
+  // Priority 2: Check non_field_errors
+  if (data.non_field_errors) {
+    if (Array.isArray(data.non_field_errors)) {
+      return data.non_field_errors.join('. ');
+    }
+    return String(data.non_field_errors);
+  }
+
+  // Priority 3: Check error field
+  if (data.error) {
+    if (Array.isArray(data.error)) {
+      return data.error.join('. ');
+    }
+    return String(data.error);
+  }
+
+  // Priority 4: Check detail field
+  if (data.detail) {
+    if (Array.isArray(data.detail)) {
+      return data.detail.join('. ');
+    }
+    return String(data.detail);
+  }
+
+  // Priority 5: Check message field
+  if (data.message) {
+    return String(data.message);
+  }
+
+  // Priority 6: If data is a string
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  // Priority 7: Try to get first key's value
+  if (typeof data === 'object') {
+    const keys = Object.keys(data);
+    if (keys.length > 0) {
+      const firstKey = keys[0];
+      const firstValue = data[firstKey];
+      
+      if (Array.isArray(firstValue)) {
+        return firstValue.join('. ');
+      }
+      return String(firstValue);
+    }
+  }
+
+  return error.message || defaultMessage;
+};
+
 export interface Order {
   id: string;
   order_id: string;
@@ -112,7 +179,7 @@ class OrderService {
       const response = await api.post('/orders/', orderData);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to create order');
+      throw new Error(extractErrorMessage(error, 'Failed to create order'));
     }
   }
 
@@ -121,7 +188,7 @@ class OrderService {
       const response = await api.get('/orders/');
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch orders');
+      throw new Error(extractErrorMessage(error, 'Failed to fetch orders'));
     }
   }
 
@@ -130,7 +197,7 @@ class OrderService {
       const response = await api.get(`/orders/${orderId}/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch order');
+      throw new Error(extractErrorMessage(error, 'Failed to fetch order'));
     }
   }
 
@@ -138,10 +205,29 @@ class OrderService {
     try {
       // Backwards-compatible: allow passing a string for statusData
       const payload = typeof statusData === 'string' ? { order_status: statusData } : statusData;
+      
+      console.log('📤 Sending order status update:', {
+        orderId,
+        payload
+      });
+      
       const response = await api.patch(`/orders/${orderId}/`, payload);
+      
+      console.log('✅ Order status updated successfully:', response.data);
+      
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to update order status');
+      console.error('❌ Order status update failed:', {
+        orderId,
+        error: error.response?.data
+      });
+      
+      // Extract the specific error message from the API response
+      const errorMessage = extractErrorMessage(error, 'Failed to update order status');
+      
+      console.log('🔔 Extracted error message:', errorMessage);
+      
+      throw new Error(errorMessage);
     }
   }
 
@@ -151,7 +237,7 @@ class OrderService {
       const response = await api.post(`/orders/${orderId}/confirm_delivery/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to confirm order');
+      throw new Error(extractErrorMessage(error, 'Failed to confirm order'));
     }
   }
 
@@ -162,7 +248,7 @@ class OrderService {
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to open dispute');
+      throw new Error(extractErrorMessage(error, 'Failed to open dispute'));
     }
   }
 
@@ -173,7 +259,7 @@ class OrderService {
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to resolve dispute');
+      throw new Error(extractErrorMessage(error, 'Failed to resolve dispute'));
     }
   }
 
@@ -182,7 +268,7 @@ class OrderService {
       const response = await api.post(`/orders/${orderId}/confirm_payment_success/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to confirm payment');
+      throw new Error(extractErrorMessage(error, 'Failed to confirm payment'));
     }
   }
 
@@ -191,7 +277,7 @@ class OrderService {
       const response = await api.get(`/orders/${orderId}/get_credentials/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to get credentials');
+      throw new Error(extractErrorMessage(error, 'Failed to get credentials'));
     }
   }
 
@@ -200,7 +286,7 @@ class OrderService {
       const response = await api.post(`/orders/${orderId}/mark_delivered/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to mark as delivered');
+      throw new Error(extractErrorMessage(error, 'Failed to mark as delivered'));
     }
   }
 
@@ -209,7 +295,7 @@ class OrderService {
       const response = await api.post(`/orders/${orderId}/confirm_delivery/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to confirm delivery');
+      throw new Error(extractErrorMessage(error, 'Failed to confirm delivery'));
     }
   }
 
@@ -220,7 +306,7 @@ class OrderService {
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to cancel order');
+      throw new Error(extractErrorMessage(error, 'Failed to cancel order'));
     }
   }
 
@@ -229,7 +315,7 @@ class OrderService {
       const response = await api.get('/orders/history/');
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch order history');
+      throw new Error(extractErrorMessage(error, 'Failed to fetch order history'));
     }
   }
 
@@ -239,7 +325,7 @@ class OrderService {
       const response = await api.get('/orders/');
       return response.data.results || response.data || [];
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch vendor orders');
+      throw new Error(extractErrorMessage(error, 'Failed to fetch vendor orders'));
     }
   }
 
@@ -253,7 +339,7 @@ class OrderService {
       }
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch buyer orders');
+      throw new Error(extractErrorMessage(error, 'Failed to fetch buyer orders'));
     }
   }
 
@@ -272,7 +358,7 @@ class OrderService {
       const response = await api.get('/orders/admin_dashboard/');
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to fetch admin dashboard data');
+      throw new Error(extractErrorMessage(error, 'Failed to fetch admin dashboard data'));
     }
   }
 
@@ -282,7 +368,7 @@ class OrderService {
       const response = await api.post(`/orders/${orderId}/expire_order/`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to expire order');
+      throw new Error(extractErrorMessage(error, 'Failed to expire order'));
     }
   }
 

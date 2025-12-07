@@ -37,7 +37,7 @@ function PendingOrderBanner() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Payment address copied (fallback)",
+            description: "Payment address copied",
           });
         }
       } catch (err) {

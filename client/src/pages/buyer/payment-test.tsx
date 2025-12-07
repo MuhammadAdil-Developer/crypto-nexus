@@ -359,7 +359,7 @@ export default function PaymentTest() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Address copied (fallback).",
+            description: "Address copied.",
           });
         }
       } catch (err) {

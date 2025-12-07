@@ -807,7 +807,7 @@ export function VendorHeader() {
             <Button 
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="bg-pink-600 hover:bg-pink-700 text-white disabled:opacity-50"
+              className="bg-pink-800 hover:bg-pink-900 text-white disabled:opacity-50"
             >
               {isLoggingOut ? (
                 <>

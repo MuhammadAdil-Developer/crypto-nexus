@@ -136,7 +136,7 @@ export default function BuyerTransactionHistory() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Address copied (fallback).",
+            description: "Address copied.",
             variant: "default",
           });
         }
@@ -428,8 +428,8 @@ export default function BuyerTransactionHistory() {
                           onClick={() => fetchTransactionHistory(page)}
                           disabled={loading}
                           className={`text-xs sm:text-sm ${page === currentPage
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "border-gray-600 text-gray-300 hover:bg-gray-700"
                             }`}
                         >
                           {page}

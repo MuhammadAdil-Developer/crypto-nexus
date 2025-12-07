@@ -141,7 +141,7 @@ export default function BuyerBilling() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Address copied (fallback).",
+            description: "Address copied.",
             variant: "default",
           });
         }

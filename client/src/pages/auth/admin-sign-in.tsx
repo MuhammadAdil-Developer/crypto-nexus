@@ -12,13 +12,13 @@ import { CloudflareTurnstile, CloudflareTurnstileHandle } from "@/components/sec
 export default function AdminSignIn() {
   const navigate = useNavigate();
   const [isVideoLoading, setIsVideoLoading] = useState(true);
-  
+
   // Protect admin route - check if user is trying to access directly
   useEffect(() => {
     // Add a simple check - you can enhance this with more security
     const referrer = document.referrer;
     const isDirectAccess = !referrer || referrer === window.location.href;
-    
+
     // Optional: Add a secret key check or other protection mechanism
     // For now, we'll just log it (you can add more protection as needed)
     if (isDirectAccess) {
@@ -40,7 +40,7 @@ export default function AdminSignIn() {
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
-  
+
   // Reset CAPTCHA state on page load
   useEffect(() => {
     setCaptchaVerified(false);
@@ -52,7 +52,7 @@ export default function AdminSignIn() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Clear error when user starts typing
     if (errors[name as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
@@ -76,7 +76,7 @@ export default function AdminSignIn() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -105,13 +105,13 @@ export default function AdminSignIn() {
     setShowCaptchaModal(false); // Close CAPTCHA modal
     // Only clear captcha error, keep other errors
     setErrors(prev => ({ ...prev, captcha: undefined }));
-    
+
     // Execute Cloudflare Turnstile after circle captcha is verified
     // This ensures user interaction is required
     setTimeout(() => {
       turnstileRef.current?.execute();
     }, 100);
-    
+
     // If there was a pending login attempt, proceed with login automatically
     if (pendingLoginAttempt) {
       setPendingLoginAttempt(false);
@@ -150,24 +150,24 @@ export default function AdminSignIn() {
         setIsLoading(false);
         return;
       }
-      
+
       const loginData = {
         ...formData,
         ...(finalToken && { captcha_token: finalToken }),  // Only include if token exists
         cloudflare_token: currentTurnstileToken
       };
-      
+
       const response = await authService.login(loginData as any);
       console.log('🔐 Admin login response:', response);
-      
+
       if (response.success) {
         // Check if user is admin (only admins can login from admin-sign-in page)
         if (response.data?.user?.user_type === 'admin') {
           console.log('✅ Admin login successful, redirecting to /admin');
           navigate('/admin/dashboard');
         } else {
-          setErrors({ 
-            general: 'Invalid username or password' 
+          setErrors({
+            general: 'Invalid username or password'
           });
           // Clear stored data since non-admin tried to access admin login
           localStorage.removeItem('accessToken');
@@ -185,14 +185,14 @@ export default function AdminSignIn() {
       }
     } catch (error: any) {
       console.error('❌ Admin login error:', error);
-      
+
       // Check if captcha is required in error response
       if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
         setShowCaptchaModal(true);
         setErrors({ captcha: 'incorrect username or passwor' });
       } else {
-        setErrors({ 
-          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
+        setErrors({
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.'
         });
       }
     } finally {
@@ -214,13 +214,13 @@ export default function AdminSignIn() {
             </div>
           </div>
         )}
-        <video 
-          autoPlay 
-          muted 
+        <video
+          autoPlay
+          muted
           playsInline
           className="w-full h-full object-cover"
           style={{
-            objectFit: 'cover',
+            objectFit: 'contain',
             transition: 'opacity 0.5s ease-in-out'
           }}
           onLoadedData={(e) => {
@@ -267,11 +267,11 @@ export default function AdminSignIn() {
           <div className="max-w-lg mx-auto text-center">
             {/* Logo - Always visible, not dependent on video */}
             <div className="mb-6">
-              <img 
-                src="/images/logo.png" 
-                alt="AccountzClub Logo" 
+              <img
+                src="/images/logo.png"
+                alt="AccountzClub Logo"
                 className="h-20 w-auto mx-auto"
-                style={{ 
+                style={{
                   opacity: 0.9,
                   position: 'relative',
                   zIndex: 10
@@ -316,7 +316,7 @@ export default function AdminSignIn() {
         {/* Mixed gradient overlay to match video aesthetic - red/purple and black shades */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-red-950/30 to-black/90 z-0"></div>
         <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/20 via-black/70 to-red-900/15 z-0"></div>
-        
+
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Admin Access</h2>
@@ -390,22 +390,22 @@ export default function AdminSignIn() {
 
                 <div className="space-y-2">
                   <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
-                <CloudflareTurnstile
-                  ref={turnstileRef}
-                  action="admin_login"
-                  theme="dark"
-                  size="flexible"
-                  retryKey={turnstileResetKey}
-                  onVerify={handleTurnstileVerify}
-                  onExpire={handleTurnstileExpire}
-                  onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
-                  className="mt-1"
-                />
+                  <CloudflareTurnstile
+                    ref={turnstileRef}
+                    action="admin_login"
+                    theme="dark"
+                    size="flexible"
+                    retryKey={turnstileResetKey}
+                    onVerify={handleTurnstileVerify}
+                    onExpire={handleTurnstileExpire}
+                    onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
+                    className="mt-1"
+                  />
                   {turnstileError && <p className="text-red-400 text-sm">{turnstileError}</p>}
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
                   style={{ backgroundColor: '#AD0539' }}
                   disabled={isLoading}
@@ -422,7 +422,6 @@ export default function AdminSignIn() {
 
           <div className="mt-6 text-center text-xs text-gray-500">
             <div className="flex items-center justify-center space-x-2">
-              <Shield className="w-4 h-4 text-red-400" />
             </div>
           </div>
         </div>

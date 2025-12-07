@@ -30,7 +30,7 @@ export default function VenderSignIn() {
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
-  
+
   // Reset CAPTCHA state on page load
   useEffect(() => {
     setCaptchaVerified(false);
@@ -42,7 +42,7 @@ export default function VenderSignIn() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Clear error when user starts typing
     if (errors[name as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
@@ -66,7 +66,7 @@ export default function VenderSignIn() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -99,13 +99,13 @@ export default function VenderSignIn() {
     // Only clear captcha error, keep other errors
     setErrors(prev => ({ ...prev, captcha: undefined }));
     console.log('🔍 Captcha token set to state:', token);
-    
+
     // Execute Cloudflare Turnstile after circle captcha is verified
     // This ensures user interaction is required
     setTimeout(() => {
       turnstileRef.current?.execute();
     }, 100);
-    
+
     // If there was a pending login attempt, proceed with login automatically
     if (pendingLoginAttempt) {
       setPendingLoginAttempt(false);
@@ -144,7 +144,7 @@ export default function VenderSignIn() {
         setIsLoading(false);
         return;
       }
-      
+
       console.log('🔍 Attempting login with data:', {
         username: formData.username,
         password: '***',
@@ -158,16 +158,16 @@ export default function VenderSignIn() {
         ...(finalToken && { captcha_token: finalToken }),  // Only include if token exists
         cloudflare_token: currentTurnstileToken
       };
-      
+
       console.log('🔍 Final login data being sent:', loginData);
       console.log('🔍 Current captchaToken state:', captchaToken);
       console.log('🔍 Current captchaVerified state:', captchaVerified);
       console.log('🔍 Final token being used:', finalToken);
 
       const response: any = await authService.login(loginData as any);
-      
+
       console.log('🔐 Login response:', response);
-      
+
       // Check if 2FA is required
       if (response.requires_2fa || response.error_code === '2FA_REQUIRED') {
         setRequires2FA(true);
@@ -176,7 +176,7 @@ export default function VenderSignIn() {
         setIsLoading(false);
         return;
       }
-      
+
       if (response.success) {
         // Check if user is vendor (only vendors can login from vender-sign-in page)
         const userType = response.data.user.user_type;
@@ -189,7 +189,7 @@ export default function VenderSignIn() {
         navigate('/vendor/');
       } else {
         console.error('❌ Login failed:', response);
-        
+
         // Check if captcha is required
         if (response.captcha_required || response.error_code === 'CAPTCHA_REQUIRED') {
           setShowCaptchaModal(true);
@@ -201,7 +201,7 @@ export default function VenderSignIn() {
     } catch (error: any) {
       console.error('❌ Login error:', error);
       console.error('❌ Error response:', error.response?.data);
-      
+
       // Check if 2FA is required in error response
       if (error.response?.data?.requires_2fa || error.response?.data?.error_code === '2FA_REQUIRED') {
         setRequires2FA(true);
@@ -210,14 +210,14 @@ export default function VenderSignIn() {
         setIsLoading(false);
         return;
       }
-      
+
       // Check if captcha is required in error response
       if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
         setShowCaptchaModal(true);
         setErrors({ captcha: 'incorrect username or password' });
       } else {
-        setErrors({ 
-          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
+        setErrors({
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.'
         });
       }
     } finally {
@@ -229,18 +229,18 @@ export default function VenderSignIn() {
 
   const handle2FASubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (twoFactorCode.length !== 6) {
       setErrors({ general: 'Please enter a valid 6-digit code' });
       return;
     }
-    
+
     setIsLoading(true);
     setErrors({});
-    
+
     try {
       const finalToken = captchaToken;
-      
+
       const loginData = {
         username: formData.username,
         password: formData.password,
@@ -248,9 +248,9 @@ export default function VenderSignIn() {
         session_token: sessionToken,
         ...(finalToken && { captcha_token: finalToken })
       };
-      
+
       const response = await authService.login(loginData as any);
-      
+
       if (response.success) {
         // Check if user is vendor (only vendors can login from vender-sign-in page)
         const userType = response.data.user.user_type;
@@ -285,8 +285,8 @@ export default function VenderSignIn() {
         setSessionToken(null);
         setTwoFactorCode("");
       } else {
-        setErrors({ 
-          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.' 
+        setErrors({
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.'
         });
       }
     } finally {
@@ -297,59 +297,63 @@ export default function VenderSignIn() {
   return (
     <div className="min-h-screen bg-black flex">
       {/* Left Side - Video */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <video 
-          autoPlay 
-          muted 
-          playsInline
-          className="w-full h-full object-cover"
-          style={{ 
-            objectFit: 'cover',
-            transition: 'opacity 0.5s ease-in-out'
-          }}
-          onLoadedData={(e) => {
-            // Ensure smooth rendering when video is loaded
-            e.currentTarget.style.opacity = '1';
-          }}
-          onTimeUpdate={(e) => {
-            const video = e.currentTarget;
-            // Stop video 1 second before it ends
-            if (video.duration && video.currentTime >= video.duration - 2.2) {
-              video.pause();
-              video.currentTime = video.duration - 2.2;
-            }
-          }}
-          onEnded={(e) => {
-            // Pause at the last frame when video ends
-            e.currentTarget.pause();
-          }}
-          onError={(e) => {
-            console.error('Video failed to load:', e);
-            // Fallback to a dark background if video fails
-            e.currentTarget.style.display = 'none';
-          }}
-        >
-          <source src="/venderlogin-sidebar.mp4" type="video/mp4" />
-        </video>
+      <div className="hidden xl:flex xl:w-1/2 relative overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <video
+            autoPlay
+            muted
+            playsInline
+            className="w-auto h-full"
+            style={{
+              minWidth: '100%',
+              minHeight: '100%',
+              objectFit: 'cover',
+              transition: 'opacity 0.5s ease-in-out'
+            }}
+            onLoadedData={(e) => {
+              // Ensure smooth rendering when video is loaded
+              e.currentTarget.style.opacity = '1';
+            }}
+            onTimeUpdate={(e) => {
+              const video = e.currentTarget;
+              // Stop video 1 second before it ends
+              if (video.duration && video.currentTime >= video.duration - 2.2) {
+                video.pause();
+                video.currentTime = video.duration - 2.2;
+              }
+            }}
+            onEnded={(e) => {
+              // Pause at the last frame when video ends
+              e.currentTarget.pause();
+            }}
+            onError={(e) => {
+              console.error('Video failed to load:', e);
+              // Fallback to a dark background if video fails
+              e.currentTarget.style.display = 'none';
+            }}
+          >
+            <source src="/venderlogin-sidebar.mp4" type="video/mp4" />
+          </video>
+        </div>
         {/* Fade gradient overlay on right edge to blend with right side */}
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-pink-950/60 pointer-events-none"></div>
       </div>
 
       {/* Right Side - Sign In Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative bg-black">
+      <div className="w-full xl:w-1/2 flex items-center justify-center p-8 relative bg-black">
         {/* Fade gradient overlay on left edge to blend with video */}
         <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-black/60 pointer-events-none z-0"></div>
         {/* Mixed gradient overlay to match video aesthetic - pink and black shades */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-pink-950/40 to-black/90 z-0"></div>
         <div className="absolute inset-0 bg-gradient-to-tr from-pink-950/30 via-black/70 to-rose-900/20 z-0"></div>
         {/* Subtle geometric pattern overlay */}
-        <div 
+        <div
           className="absolute inset-0 opacity-5"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}
         ></div>
-        
+
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
@@ -366,101 +370,101 @@ export default function VenderSignIn() {
             <CardContent>
               {!requires2FA ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-gray-300">Username</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <Input
-                      id="username"
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      placeholder="Enter your username"
-                      className="pl-10 bg-black/40 border-gray-700/50 text-white placeholder-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 transition-colors"
-                      required
-                      disabled={isLoading}
-                    />
-                    {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-gray-300">Username</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Input
+                        id="username"
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        placeholder="Enter your username"
+                        className="pl-10 bg-black/40 border-gray-700/50 text-white placeholder-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 transition-colors"
+                        required
+                        disabled={isLoading}
+                      />
+                      {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-300">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Enter your password"
-                      className="pl-10 pr-10 bg-black/40 border-gray-700/50 text-white placeholder-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 transition-colors"
-                      required
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                      disabled={isLoading}
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-gray-300">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder="Enter your password"
+                        className="pl-10 pr-10 bg-black/40 border-gray-700/50 text-white placeholder-gray-500 focus:border-pink-500/50 focus:ring-pink-500/20 transition-colors"
+                        required
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                        disabled={isLoading}
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                   </div>
-                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-gray-700/50 bg-black/40 text-pink-500 focus:ring-pink-500/50" />
-                    <span className="text-sm text-gray-300">Remember me</span>
-                  </label>
-                  <Link to="/forgot-password">
-                    <span className="text-sm transition-colors cursor-pointer" style={{ color: '#f2306d' }}>
-                      Forgot password?
-                    </span>
-                  </Link>
-                </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" className="rounded border-gray-700/50 bg-black/40 text-pink-500 focus:ring-pink-500/50" />
+                      <span className="text-sm text-gray-300">Remember me</span>
+                    </label>
+                    <Link to="/forgot-password">
+                      <span className="text-sm transition-colors cursor-pointer" style={{ color: '#f2306d' }}>
+                        Forgot password?
+                      </span>
+                    </Link>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
-                  <CloudflareTurnstile
-                    ref={turnstileRef}
-                    action="vendor_login"
-                    theme="dark"
-                    size="flexible"
-                    retryKey={turnstileResetKey}
-                    onVerify={handleTurnstileVerify}
-                    onExpire={handleTurnstileExpire}
-                    onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
-                    className="mt-1"
-                  />
-                  {turnstileError && <p className="text-red-500 text-xs">{turnstileError}</p>}
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
+                    <CloudflareTurnstile
+                      ref={turnstileRef}
+                      action="vendor_login"
+                      theme="dark"
+                      size="flexible"
+                      retryKey={turnstileResetKey}
+                      onVerify={handleTurnstileVerify}
+                      onExpire={handleTurnstileExpire}
+                      onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
+                      className="mt-1"
+                    />
+                    {turnstileError && <p className="text-red-500 text-xs">{turnstileError}</p>}
+                  </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
-                  style={{ backgroundColor: '#d61853' }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing In...' : 'Sign In'}
-                </Button>
+                  <Button
+                    type="submit"
+                    className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                    style={{ backgroundColor: '#d61853' }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Signing In...' : 'Sign In'}
+                  </Button>
 
-                {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
-                {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
+                  {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
+                  {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
 
-                <div className="text-center">
-                  <span className="text-gray-400">Don't have an account? </span>
-                  <Link to="/sign-up">
-                    <span className="transition-colors cursor-pointer font-semibold" style={{ color: '#f2306d' }}>
-                      Create Account
-                    </span>
-                  </Link>
-                </div>
-              </form>
+                  <div className="text-center">
+                    <span className="text-gray-400">Don't have an account? </span>
+                    <Link to="/sign-up">
+                      <span className="transition-colors cursor-pointer font-semibold" style={{ color: '#f2306d' }}>
+                        Create Account
+                      </span>
+                    </Link>
+                  </div>
+                </form>
               ) : (
                 <form onSubmit={handle2FASubmit} className="space-y-6">
                   <div className="text-center mb-4">
@@ -472,7 +476,7 @@ export default function VenderSignIn() {
                       Enter the 6-digit code to complete your login
                     </p>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <Label htmlFor="2fa-code" className="text-gray-300 text-center block">2FA Code</Label>
                     <div className="flex justify-center">
@@ -491,18 +495,18 @@ export default function VenderSignIn() {
                         </InputOTPGroup>
                       </InputOTP>
                     </div>
-                    
+
                     {errors.general && <p className="text-red-500 text-center text-sm">{errors.general}</p>}
-                    
-                    <Button 
-                      type="submit" 
+
+                    <Button
+                      type="submit"
                       className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 shadow-lg"
                       style={{ backgroundColor: '#AD0539' }}
                       disabled={isLoading || twoFactorCode.length !== 6}
                     >
                       {isLoading ? 'Verifying...' : 'Verify Code'}
                     </Button>
-                    
+
                     <Button
                       type="button"
                       variant="ghost"
@@ -525,7 +529,7 @@ export default function VenderSignIn() {
           <div className="mt-6 text-center text-xs text-gray-400">
             Protected by enterprise-grade encryption and security protocols
           </div>
-          
+
         </div>
       </div>
 

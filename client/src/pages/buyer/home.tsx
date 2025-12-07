@@ -1017,7 +1017,7 @@ function BuyerHomeContent() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Payment address copied (fallback).",
+            description: "Payment address copied.",
           });
         }
       } catch (err) {
@@ -1546,8 +1546,8 @@ function BuyerHomeContent() {
                             <Badge
                               variant="outline"
                               className={`text-xs border-gray-600 ${order.status === 'delivered' ? 'text-gray-300' :
-                                  order.status === 'processing' ? 'text-gray-300' :
-                                    order.status === 'shipped' ? 'text-gray-300' : 'text-gray-300'
+                                order.status === 'processing' ? 'text-gray-300' :
+                                  order.status === 'shipped' ? 'text-gray-300' : 'text-gray-300'
                                 }`}
                             >
                               {order.status === 'delivered' ? 'Delivered' :
@@ -1893,9 +1893,9 @@ function BuyerHomeContent() {
                       <CardContent className="p-4 sm:p-5">
                         <div className="flex items-start space-x-4">
                           <div className={`w-3 h-3 rounded-full mt-1.5 flex-shrink-0 ${activity.status === 'success' ? 'bg-green-400' :
-                              activity.status === 'info' ? 'bg-blue-400' :
-                                activity.status === 'warning' ? 'bg-yellow-400' :
-                                  activity.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
+                            activity.status === 'info' ? 'bg-blue-400' :
+                              activity.status === 'warning' ? 'bg-yellow-400' :
+                                activity.status === 'error' ? 'bg-red-400' : 'bg-gray-400'
                             }`}></div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-white text-sm mb-1">{activity.title}</h4>

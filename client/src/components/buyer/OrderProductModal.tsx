@@ -120,7 +120,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
         setVendorStats(response.data);
       } else if (response && response.data) {
         // Handle case where response.data is already the data object
-        console.log('Setting vendor stats (fallback):', response.data);
+        console.log('Setting vendor stats:', response.data);
         setVendorStats(response.data);
       } else {
         console.warn('Invalid vendor stats response:', response);
@@ -243,7 +243,6 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
   };
 
   const copyToClipboard = (text: string) => {
-    // Basic fallback for unsecure contexts (HTTP)
     if (!navigator.clipboard && document.execCommand) {
       const textArea = document.createElement("textarea");
       textArea.value = text;
@@ -256,7 +255,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Credentials copied (fallback)"
+            description: "Credentials copied!"
           });
         }
       } catch (err) {
@@ -870,8 +869,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                             <Star
                               key={star}
                               className={`w-4 h-4 ${star <= parseFloat(order.product.rating || '0') ?
-                                  'text-yellow-400 fill-current' :
-                                  'text-gray-400'
+                                'text-yellow-400 fill-current' :
+                                'text-gray-400'
                                 }`}
                             />
                           ))}

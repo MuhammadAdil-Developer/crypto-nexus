@@ -437,7 +437,7 @@ export default function VendorMessages() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Message copied (fallback)",
+            description: "Message copied",
             duration: 2000,
           });
         }
@@ -1122,8 +1122,8 @@ export default function VendorMessages() {
                     <div
                       key={conv.id}
                       className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${selectedConversation?.id === conv.id
-                          ? 'bg-blue-900/20 border-r-2 border-blue-500'
-                          : 'hover:bg-gray-800'
+                        ? 'bg-blue-900/20 border-r-2 border-blue-500'
+                        : 'hover:bg-gray-800'
                         }`}
                       onClick={() => handleConversationSelect(conv)}
                     >
@@ -1521,8 +1521,8 @@ export default function VendorMessages() {
                           className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                         >
                           <div className={`max-w-[75%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${isOwnMessage
-                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-8'
-                              : 'bg-gray-700 text-white mr-8'
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-8'
+                            : 'bg-gray-700 text-white mr-8'
                             }`}>
                             {renderMessageContent()}
                             <p className={`text-[10px] sm:text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-400'
@@ -2204,8 +2204,8 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'all'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
                 All
@@ -2213,8 +2213,8 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('image')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'image'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
                 Images
@@ -2222,8 +2222,8 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('video')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'video'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
                 Videos
@@ -2231,8 +2231,8 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('pdf')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'pdf'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
                 PDFs
@@ -2240,8 +2240,8 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('file')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'file'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
                 Files

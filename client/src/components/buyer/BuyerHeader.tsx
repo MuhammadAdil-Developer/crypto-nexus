@@ -351,7 +351,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
             <Button 
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="bg-pink-700 hover:bg-pink-800 text-white disabled:opacity-50"
+              className="bg-pink-800 hover:bg-pink-900 text-white disabled:opacity-50"
             >
               {isLoggingOut ? (
                 <>

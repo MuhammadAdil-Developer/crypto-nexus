@@ -516,7 +516,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                       if (successful) {
                                         toast({
                                           title: "Copied!",
-                                          description: "Payment address copied (fallback)",
+                                          description: "Payment address copied.",
                                         });
                                       }
                                     } catch (err) {
@@ -548,8 +548,8 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             <div className="mt-2 flex items-center space-x-2">
                               <Timer className="w-4 h-4 text-yellow-400" />
                               <span className={`text-sm font-semibold ${(timers[order.id.toString()] || 0) <= 300
-                                  ? 'text-red-400 animate-pulse'
-                                  : 'text-yellow-400'
+                                ? 'text-red-400 animate-pulse'
+                                : 'text-yellow-400'
                                 }`}>
                                 {formatTime(timers[order.id.toString()] || calculateTimeRemaining(order))}
                               </span>

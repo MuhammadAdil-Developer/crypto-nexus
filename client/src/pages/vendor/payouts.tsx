@@ -205,7 +205,7 @@ export default function VendorPayouts() {
         if (successful) {
           toast({
             title: "Copied!",
-            description: "Address copied (fallback)",
+            description: "Address copied",
           });
         }
       } catch (err) {
@@ -536,8 +536,8 @@ export default function VendorPayouts() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${transaction.type === 'payout' ? 'bg-green-500' :
-                          transaction.type === 'direct_payment' ? 'bg-blue-500' :
-                            'bg-orange-500'
+                        transaction.type === 'direct_payment' ? 'bg-blue-500' :
+                          'bg-orange-500'
                         }`}></div>
                       <div className="min-w-0 flex-1">
                         <h3 className="font-semibold text-white text-sm sm:text-base break-words">{transaction.description}</h3>
@@ -563,9 +563,9 @@ export default function VendorPayouts() {
                       <span className="text-gray-400">Status:</span>
                       <div className="mt-1">
                         <Badge className={`text-[10px] sm:text-xs ${transaction.status === 'completed' || transaction.status === 'confirmed' ? 'bg-green-500 text-white' :
-                            transaction.status === 'pending' ? 'bg-yellow-500 text-white' :
-                              transaction.status === 'failed' ? 'bg-red-500 text-white' :
-                                'bg-gray-500 text-white'
+                          transaction.status === 'pending' ? 'bg-yellow-500 text-white' :
+                            transaction.status === 'failed' ? 'bg-red-500 text-white' :
+                              'bg-gray-500 text-white'
                           }`}>
                           {transaction.status}
                         </Badge>
@@ -619,8 +619,8 @@ export default function VendorPayouts() {
                         onClick={() => fetchTransactionHistory(page)}
                         disabled={transactionsLoading}
                         className={`text-xs sm:text-sm ${page === currentPage
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
                           }`}
                       >
                         {page}

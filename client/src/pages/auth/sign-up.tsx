@@ -19,7 +19,7 @@ export default function SignUp() {
     username: "",
     password: "",
     confirm_password: "",
-    });
+  });
   const [errors, setErrors] = useState<{ username?: string; password?: string; confirm_password?: string; general?: string; captcha?: string }>({});
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaVerified, setCaptchaVerified] = useState(false);
@@ -28,16 +28,15 @@ export default function SignUp() {
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
-    // Auto-open rules modal on component mount
+
   useEffect(() => {
-    
-  }, []); // Empty dependency - run once on mount
+
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear error when user starts typing
+
     if (errors[name as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
@@ -72,7 +71,7 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -82,19 +81,15 @@ export default function SignUp() {
       return;
     }
 
-    // Show captcha modal instead of submitting directly
     setShowCaptchaModal(true);
   };
 
   const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
     setCaptchaVerified(true);
-    // Execute Cloudflare Turnstile after circle captcha is verified
-    // This ensures user interaction is required
     setTimeout(() => {
       turnstileRef.current?.execute();
     }, 100);
-    // Proceed with registration after captcha verification, passing the token directly
     performRegistration(token);
   };
 
@@ -120,7 +115,6 @@ export default function SignUp() {
     setTurnstileError(null);
 
     try {
-      // Use the passed token or fall back to state
       const finalToken = token || captchaToken;
       const currentTurnstileToken = turnstileToken;
 
@@ -129,13 +123,13 @@ export default function SignUp() {
         setIsLoading(false);
         return;
       }
-      
+
       const registrationData = {
         ...formData,
         captcha_token: finalToken,
         cloudflare_token: currentTurnstileToken,
-};
-      
+      };
+
       console.log('🔍 Registration data being sent:', {
         username: registrationData.username,
         password: '***',
@@ -143,11 +137,10 @@ export default function SignUp() {
         captcha_token: registrationData.captcha_token,
         passwords_match: registrationData.password === registrationData.confirm_password
       });
-      
+
       const response = await authService.register(registrationData as any);
-      
+
       if (response.success) {
-        // Redirect based on user type
         const userType = response.data.user.user_type;
         if (userType === 'admin') {
           navigate('/admin/dashboard');
@@ -160,8 +153,8 @@ export default function SignUp() {
         setErrors({ general: response.message || 'Registration failed' });
       }
     } catch (error: any) {
-      setErrors({ 
-        general: error.response?.data?.message || 'Registration failed. Please try again.' 
+      setErrors({
+        general: error.response?.data?.message || 'Registration failed. Please try again.'
       });
     } finally {
       setIsLoading(false);
@@ -172,133 +165,125 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-        {/* Header */}
-          <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 flex items-center justify-center mr-3">
-              <Link href="/" className="flex items-center flex-shrink-0 pr-8">
-              <img 
-                src="/images/logo.png" 
-                alt="AccountzClub Logo" 
-                className="h-16 w-auto"
-                style={{ 
-                  imageRendering: '-webkit-optimize-contrast',
-                  transformOrigin: 'left center'
-                }}
-              />
-            </Link>
-            </div>
-          </div>
-          <p className="text-gray-400">Create your secure account</p>
-              </div>
+      <div className="w-full max-w-md">
+        {/* Header with Logo */}
+        <div className="text-center mb-6">
+          <Link to="/" className="inline-block mb-3">
+            <img
+              src="/images/logo.png"
+              alt="AccountzClub Logo"
+              className="h-10 w-auto mx-auto"
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+              }}
+            />
+          </Link>
+          <p className="text-gray-400 text-sm">Create your secure account</p>
+        </div>
 
         {/* Sign Up Card */}
         <Card className="border border-gray-700 bg-gray-900/50 backdrop-blur-sm">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center pb-4">
             <CardTitle className="text-xl font-semibold text-white">Create Account</CardTitle>
             <p className="text-gray-400 text-sm">Join the secure crypto marketplace</p>
-            </CardHeader>
-            <CardContent>
+          </CardHeader>
+          <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Username Field */}
-                <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="username" className="text-gray-300">
                   Username
                 </Label>
-                  <div className="relative">
+                <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="username"
-                      name="username"
-                      type="text"
+                  <Input
+                    id="username"
+                    name="username"
+                    type="text"
                     placeholder="Choose a username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                    className={`pl-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 ${
-                        errors.username ? 'border-red-500' : ''
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    className={`pl-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 ${errors.username ? 'border-red-500' : ''
                       }`}
                     disabled={isLoading}
-                    />
-                  </div>
-                  {errors.username && (
-                    <p className="text-red-400 text-sm">{errors.username}</p>
-                  )}
+                  />
                 </div>
+                {errors.username && (
+                  <p className="text-red-400 text-sm">{errors.username}</p>
+                )}
+              </div>
 
               {/* Password Field */}
-                <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-300">
                   Password
                 </Label>
-                  <div className="relative">
+                <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Create a strong password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                    className={`pl-10 pr-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 ${
-                        errors.password ? 'border-red-500' : ''
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`pl-10 pr-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 ${errors.password ? 'border-red-500' : ''
                       }`}
                     disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
                     disabled={isLoading}
-                    >
+                  >
                     {showPassword ? (
                       <EyeOff className="w-4 h-4" />
                     ) : (
                       <Eye className="w-4 h-4" />
                     )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-red-400 text-sm">{errors.password}</p>
-                  )}
+                  </button>
                 </div>
+                {errors.password && (
+                  <p className="text-red-400 text-sm">{errors.password}</p>
+                )}
+              </div>
 
               {/* Confirm Password Field */}
-                <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="confirm_password" className="text-gray-300">
                   Confirm Password
                 </Label>
-                  <div className="relative">
+                <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="confirm_password"
-                      name="confirm_password"
-                      type={showConfirmPassword ? "text" : "password"}
+                  <Input
+                    id="confirm_password"
+                    name="confirm_password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
-                      value={formData.confirm_password}
-                      onChange={handleInputChange}
-                    className={`pl-10 pr-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 ${
-                        errors.confirm_password ? 'border-red-500' : ''
+                    value={formData.confirm_password}
+                    onChange={handleInputChange}
+                    className={`pl-10 pr-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 ${errors.confirm_password ? 'border-red-500' : ''
                       }`}
                     disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
                     disabled={isLoading}
-                    >
+                  >
                     {showConfirmPassword ? (
                       <EyeOff className="w-4 h-4" />
                     ) : (
                       <Eye className="w-4 h-4" />
                     )}
-                    </button>
-                  </div>
-                  {errors.confirm_password && (
-                    <p className="text-red-400 text-sm">{errors.confirm_password}</p>
-                  )}
+                  </button>
                 </div>
+                {errors.confirm_password && (
+                  <p className="text-red-400 text-sm">{errors.confirm_password}</p>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
@@ -324,58 +309,60 @@ export default function SignUp() {
               )}
 
               {/* Submit Button */}
-                <Button
-                  type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium py-2"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
+              <Button
+                type="submit"
+                className="w-full text-white font-medium py-2"
+                style={{ backgroundColor: '#c02053ff' }}
+                disabled={isLoading}
+              >
+                {isLoading ? (
                   <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Creating Account...
-                    </div>
-                  ) : (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating Account...
+                  </div>
+                ) : (
                   "Create Account"
-                  )}
-                </Button>
+                )}
+              </Button>
             </form>
 
             {/* Links */}
             <div className="mt-6 text-center">
-                  <p className="text-gray-400 text-sm">
-                    Already have an account?{" "}
+              <p className="text-gray-400 text-sm">
+                Already have an account?{" "}
                 <Link
                   to="/sign-in"
-                  className="text-blue-400 hover:text-blue-300 font-medium"
+                  className="text-pink-500 hover:text-pink-600 font-medium"
                 >
                   Sign in
-                    </Link>
-                  </p>
-                </div>
-            </CardContent>
-          </Card>
+                </Link>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Features */}
-        <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
           <div className="text-center">
             <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
               <Shield className="w-4 h-4 text-blue-400" />
             </div>
             <p className="text-gray-400 text-xs">Secure</p>
-              </div>
+          </div>
           <div className="text-center">
             <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
               <TrendingUp className="w-4 h-4 text-green-400" />
             </div>
             <p className="text-gray-400 text-xs">Fast</p>
-              </div>
+          </div>
           <div className="text-center">
             <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
               <Globe className="w-4 h-4 text-purple-400" />
             </div>
             <p className="text-gray-400 text-xs">Global</p>
           </div>
-        </div></div>
+        </div>
+      </div>
 
       {/* Captcha Modal */}
       <CircleCaptchaModal

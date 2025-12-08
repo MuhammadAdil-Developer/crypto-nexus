@@ -64,7 +64,7 @@ function BuyerListingsContent() {
   const [sortBy, setSortBy] = useState("server");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("grid");
   const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState<{id: string, name: string, count: number}[]>([]);
+  const [categories, setCategories] = useState<{ id: string, name: string, count: number }[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isBulkPurchaseOpen, setIsBulkPurchaseOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,69 +80,75 @@ function BuyerListingsContent() {
   const { toast } = useToast();
   const { getTotalItems } = useCart();
 
-  // Initialize search query from URL params
+  // Initialize search query and category from URL params
   useEffect(() => {
     const urlSearchQuery = searchParams.get('search');
+    const urlCategory = searchParams.get('category');
+
     if (urlSearchQuery) {
       setSearchQuery(urlSearchQuery);
+    }
+
+    if (urlCategory) {
+      setSelectedCategory(urlCategory);
     }
   }, [searchParams]);
 
   // Handle redirect actions - open modals or add to cart (after products are loaded)
   useEffect(() => {
     if (isLoading) return; // Wait for products to load
-    
+
     const openOrderId = searchParams.get('openOrder');
     const openViewId = searchParams.get('openView');
     const addToCartId = searchParams.get('addToCart');
-    
+
     if (openOrderId && filteredProducts.length > 0) {
       const productToOpen = filteredProducts.find(p => p.id.toString() === openOrderId);
       if (productToOpen) {
         // Trigger order modal opening via custom event
         setTimeout(() => {
-          const event = new CustomEvent('openProductOrder', { 
-            detail: { productId: openOrderId, product: productToOpen } 
+          const event = new CustomEvent('openProductOrder', {
+            detail: { productId: openOrderId, product: productToOpen }
           });
           window.dispatchEvent(event);
         }, 800);
-        
+
         // Clean URL
         const newSearchParams = new URLSearchParams(searchParams);
         newSearchParams.delete('openOrder');
         setSearchParams(newSearchParams, { replace: true });
       }
     }
-    
+
     if (openViewId && filteredProducts.length > 0) {
       const productToOpen = filteredProducts.find(p => p.id.toString() === openViewId);
       if (productToOpen) {
         // Trigger view modal opening via custom event
         setTimeout(() => {
-          const event = new CustomEvent('openProductView', { 
-            detail: { productId: openViewId, product: productToOpen } 
+          const event = new CustomEvent('openProductView', {
+            detail: { productId: openViewId, product: productToOpen }
           });
           window.dispatchEvent(event);
         }, 800);
-        
+
         // Clean URL
         const newSearchParams = new URLSearchParams(searchParams);
         newSearchParams.delete('openView');
         setSearchParams(newSearchParams, { replace: true });
       }
     }
-    
+
     if (addToCartId && filteredProducts.length > 0) {
       const productToAdd = filteredProducts.find(p => p.id.toString() === addToCartId);
       if (productToAdd) {
         // Trigger add to cart via custom event
         setTimeout(() => {
-          const event = new CustomEvent('addProductToCart', { 
-            detail: { productId: addToCartId, product: productToAdd } 
+          const event = new CustomEvent('addProductToCart', {
+            detail: { productId: addToCartId, product: productToAdd }
           });
           window.dispatchEvent(event);
         }, 800);
-        
+
         // Clean URL
         const newSearchParams = new URLSearchParams(searchParams);
         newSearchParams.delete('addToCart');
@@ -155,26 +161,26 @@ function BuyerListingsContent() {
   useEffect(() => {
     fetchProducts();
   }, [currentPage, pageSize]);
-  
+
   // Fetch all products when searching (for cross-page search)
   useEffect(() => {
     if (searchQuery) {
       fetchAllProducts();
     }
   }, [searchQuery]);
-  
+
   const fetchAllProducts = async () => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
-      
+
       // Fetch all products for search (use a large page size or fetch all)
       const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=1&page_size=1000`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         const productsArray = data.data || data.results || [];
@@ -201,14 +207,14 @@ function BuyerListingsContent() {
 
     // Apply search filter - search across all products, not just current page
     if (searchQuery) {
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         product.listing_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.vendor.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
-    
+
     // DO NOT filter by quantity_available - show all products even if out of stock
 
     // Apply client-side sorting only if user explicitly selected a sort option.
@@ -216,12 +222,12 @@ function BuyerListingsContent() {
     if (sortBy && sortBy !== 'server') {
       switch (sortBy) {
         case "newest":
-          filtered = [...filtered].sort((a, b) => 
+          filtered = [...filtered].sort((a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           );
           break;
         case "oldest":
-          filtered = [...filtered].sort((a, b) => 
+          filtered = [...filtered].sort((a, b) =>
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
           break;
@@ -256,17 +262,17 @@ function BuyerListingsContent() {
         });
         return;
       }
-  
+
       const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${currentPage}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-  
+
       if (response.ok) {
         const data = await response.json();
         console.log('📦 Buyer Listings Response:', data);
-        
+
         // Handle both data.data and data.results formats
         const productsArray = data.data || data.results || [];
         console.log('📦 Products array:', productsArray);
@@ -282,25 +288,25 @@ function BuyerListingsContent() {
             total_pages: data.pagination.total_pages || 1
           });
         }
-        
+
         // Extract categories from products
         const categoryMap = new Map();
         productsArray.forEach((product: Product) => {
           const catName = product.category?.name || 'Uncategorized';
           categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
         });
-        
+
         const categoryList = Array.from(categoryMap.entries()).map(([name, count]) => ({
           id: name.toLowerCase().replace(/\s+/g, '-'),
           name,
           count: count as number
         }));
-        
+
         setCategories([
           { id: "all", name: "All Categories", count: productsArray.length },
           ...categoryList
         ]);
-        
+
       } else {
         toast({
           title: "Error",
@@ -360,7 +366,7 @@ function BuyerListingsContent() {
     const maxPagesToShow = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     let endPage = Math.min(pagination.total_pages, startPage + maxPagesToShow - 1);
-    
+
     if (endPage - startPage < maxPagesToShow - 1) {
       startPage = Math.max(1, endPage - maxPagesToShow + 1);
     }
@@ -404,97 +410,97 @@ function BuyerListingsContent() {
         {/* Search, Sort, and View Toggle - Sticky */}
         <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm py-4 -mx-6 px-6 border-b border-gray-700">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
-          {/* Search Bar with Dark Background */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <Input
-                placeholder="Search products, vendors, or categories..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-              />
+            {/* Search Bar with Dark Background */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  placeholder="Search products, vendors, or categories..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Categories Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full lg:w-auto flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
-                {categories.find(cat => cat.id === selectedCategory)?.name || "All Categories"}
-                <ChevronDown className="w-4 h-4" />
+            {/* Categories Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full lg:w-auto flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
+                  {categories.find(cat => cat.id === selectedCategory)?.name || "All Categories"}
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {categories.map((category) => (
+                  <DropdownMenuItem
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className="flex items-center justify-between"
+                  >
+                    <span>{category.name}</span>
+                    <Badge variant="secondary" className="ml-2">
+                      {category.count}
+                    </Badge>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Sort Options */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full lg:w-auto flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
+                  Sort by: {sortBy === "newest" ? "Newest" :
+                    sortBy === "oldest" ? "Oldest" :
+                      sortBy === "price-low" ? "Price: Low to High" :
+                        sortBy === "price-high" ? "Price: High to Low" :
+                          sortBy === "rating" ? "Highest Rated" :
+                            sortBy === "popular" ? "Most Popular" : "Personalized"}
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setSortBy("server")}>Personalized (Recommended)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("newest")}>Newest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("oldest")}>Oldest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("price-low")}>Price: Low to High</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("price-high")}>Price: High to Low</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("rating")}>Highest Rated</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("popular")}>Most Popular</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* View Mode Toggle */}
+            <div className="flex border border-gray-600 rounded-lg overflow-hidden bg-gray-800 w-full lg:w-auto">
+              <Button
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className={`rounded-r-none ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                title="Grid View"
+              >
+                <Grid className="w-4 h-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {categories.map((category) => (
-                <DropdownMenuItem
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className="flex items-center justify-between"
-                >
-                  <span>{category.name}</span>
-                  <Badge variant="secondary" className="ml-2">
-                    {category.count}
-                  </Badge>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Sort Options */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full lg:w-auto flex items-center gap-2 bg-gray-800 border-gray-600 text-white hover:bg-gray-700">
-                Sort by: {sortBy === "newest" ? "Newest" : 
-                         sortBy === "oldest" ? "Oldest" :
-                         sortBy === "price-low" ? "Price: Low to High" :
-                         sortBy === "price-high" ? "Price: High to Low" :
-                         sortBy === "rating" ? "Highest Rated" :
-                         sortBy === "popular" ? "Most Popular" : "Personalized"}
-                <ChevronDown className="w-4 h-4" />
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className={`rounded-none border-x border-gray-600 ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                title="List View"
+              >
+                <ListIcon className="w-4 h-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setSortBy("server")}>Personalized (Recommended)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("newest")}>Newest First</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("oldest")}>Oldest First</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("price-low")}>Price: Low to High</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("price-high")}>Price: High to Low</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("rating")}>Highest Rated</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("popular")}>Most Popular</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* View Mode Toggle */}
-          <div className="flex border border-gray-600 rounded-lg overflow-hidden bg-gray-800 w-full lg:w-auto">
-            <Button
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-              className={`rounded-r-none ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
-              title="Grid View"
-            >
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className={`rounded-none border-x border-gray-600 ${viewMode === "list" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
-              title="List View"
-            >
-              <ListIcon className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "table" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("table")}
-              className={`rounded-l-none ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
-              title="Table View"
-            >
-              <Table className="w-4 h-4" />
-            </Button>
-          </div>
+              <Button
+                variant={viewMode === "table" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("table")}
+                className={`rounded-l-none ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}
+                title="Table View"
+              >
+                <Table className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -657,8 +663,8 @@ function BuyerListingsContent() {
               </CardContent>
             </Card>
           ) : (
-            <div className={viewMode === "grid" ? 
-              "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" : 
+            <div className={viewMode === "grid" ?
+              "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" :
               "space-y-4"
             }>
               {filteredProducts.map((product) => (
@@ -666,56 +672,55 @@ function BuyerListingsContent() {
               ))}
             </div>
           )}
-        
-        {/* Pagination Controls - Hide when searching with no results */}
-        {!searchQuery && pagination.total_pages > 1 && (
-          <div className="flex flex-col items-center gap-3 mt-8 mb-4">
-            <div className="inline-flex items-center gap-1 bg-gray-900 border border-gray-700 rounded-full px-3 py-1 shadow-lg">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="rounded-full text-gray-300 hover:text-white hover:bg-gray-700"
-              >
-                ‹
-              </Button>
-              {getPageNumbers().map((page, idx) => (
-                page === "..." ? (
-                  <span key={`dots-${idx}`} className="px-2 text-gray-500">...</span>
-                ) : (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "ghost"}
-                    size="icon"
-                    onClick={() => handlePageChange(page as number)}
-                    className={`rounded-full w-8 h-8 text-sm ${
-                      currentPage === page
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "text-gray-300 hover:text-white hover:bg-gray-700"
-                    }`}
-                  >
-                    {page}
-                  </Button>
-                )
-              ))}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === pagination.total_pages}
-                className="rounded-full text-gray-300 hover:text-white hover:bg-gray-700"
-              >
-                ›
-              </Button>
+
+          {/* Pagination Controls - Hide when searching with no results */}
+          {!searchQuery && pagination.total_pages > 1 && (
+            <div className="flex flex-col items-center gap-3 mt-8 mb-4">
+              <div className="inline-flex items-center gap-1 bg-gray-900 border border-gray-700 rounded-full px-3 py-1 shadow-lg">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="rounded-full text-gray-300 hover:text-white hover:bg-gray-700"
+                >
+                  ‹
+                </Button>
+                {getPageNumbers().map((page, idx) => (
+                  page === "..." ? (
+                    <span key={`dots-${idx}`} className="px-2 text-gray-500">...</span>
+                  ) : (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "ghost"}
+                      size="icon"
+                      onClick={() => handlePageChange(page as number)}
+                      className={`rounded-full w-8 h-8 text-sm ${currentPage === page
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`}
+                    >
+                      {page}
+                    </Button>
+                  )
+                ))}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === pagination.total_pages}
+                  className="rounded-full text-gray-300 hover:text-white hover:bg-gray-700"
+                >
+                  ›
+                </Button>
+              </div>
+              <div className="text-xs text-gray-500">
+                Page {currentPage} of {pagination.total_pages}
+              </div>
             </div>
-            <div className="text-xs text-gray-500">
-              Page {currentPage} of {pagination.total_pages}
-            </div>
-          </div>
-        )}
+          )}
         </div>
-        
+
         {/* Cart Sidebar */}
         <CartSidebar
           isOpen={isCartOpen}
@@ -725,7 +730,7 @@ function BuyerListingsContent() {
             setIsBulkPurchaseOpen(true);
           }}
         />
-        
+
         {/* Bulk Purchase Modal */}
         <BulkPurchaseModal
           isOpen={isBulkPurchaseOpen}

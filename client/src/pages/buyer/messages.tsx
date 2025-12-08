@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { MessagesPanel } from "@/components/buyer/MessagesPanel";
@@ -6,13 +6,6 @@ import { MessageSquare, Users, Clock } from "lucide-react";
 import { messagingService } from "@/services/messagingService";
 import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
-
-const messageStats = [
-  { label: "Total Conversations", value: "12", color: "from-blue-500 to-purple-600" },
-  { label: "Unread Messages", value: "5", color: "from-red-500 to-pink-600" },
-  { label: "Active Vendors", value: "8", color: "from-green-500 to-emerald-600" },
-  { label: "Avg Response Time", value: "2h", color: "from-yellow-500 to-orange-600" }
-];
 
 export default function BuyerMessages() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -22,6 +15,63 @@ export default function BuyerMessages() {
   const { toast } = useToast();
   const location = useLocation();
 
+  // Calculate dynamic message stats from conversations
+  const messageStats = useMemo(() => {
+    // Total conversations
+    const totalConversations = conversations.length;
+
+    // Unread messages count
+    const unreadMessages = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+
+    // Active vendors (unique vendors from conversations)
+    const uniqueVendors = new Set(
+      conversations
+        .map(conv => conv.other_user?.id || conv.vendor?.id)
+        .filter(Boolean)
+    );
+    const activeVendors = uniqueVendors.size;
+
+    // Average response time calculation
+    const calculateAvgResponseTime = () => {
+      const conversationsWithMessages = conversations.filter(conv =>
+        conv.last_message && conv.last_message.created_at
+      );
+
+      if (conversationsWithMessages.length === 0) return "N/A";
+
+      // Calculate average time difference between messages
+      let totalMinutes = 0;
+      let count = 0;
+
+      conversationsWithMessages.forEach(conv => {
+        if (conv.updated_at && conv.created_at) {
+          const diff = new Date(conv.updated_at).getTime() - new Date(conv.created_at).getTime();
+          totalMinutes += diff / (1000 * 60); // Convert to minutes
+          count++;
+        }
+      });
+
+      if (count === 0) return "N/A";
+
+      const avgMinutes = totalMinutes / count;
+
+      if (avgMinutes < 60) {
+        return `${Math.round(avgMinutes)}m`;
+      } else if (avgMinutes < 1440) {
+        return `${Math.round(avgMinutes / 60)}h`;
+      } else {
+        return `${Math.round(avgMinutes / 1440)}d`;
+      }
+    };
+
+    return [
+      { label: "Total Conversations", value: totalConversations.toString(), color: "from-blue-500 to-purple-600" },
+      { label: "Unread Messages", value: unreadMessages.toString(), color: "from-red-500 to-pink-600" },
+      { label: "Active Vendors", value: activeVendors.toString(), color: "from-green-500 to-emerald-600" },
+      { label: "Avg Response Time", value: calculateAvgResponseTime(), color: "from-yellow-500 to-orange-600" }
+    ];
+  }, [conversations]);
+
   useEffect(() => {
     // Check for product context from ProductDetailModal
     const context = messagingService.getProductContextFromStorage();
@@ -29,14 +79,14 @@ export default function BuyerMessages() {
       setProductContext(context);
       handleProductConversation(context);
     }
-    
+
     loadConversations();
-    
+
     // Listen for messages marked as read to update conversation unread counts
     const handleMessagesMarkedRead = () => {
       loadConversations();
     };
-    
+
     window.addEventListener('messages_marked_read', handleMessagesMarkedRead);
 
     // Listen for real-time conversation updates
@@ -50,25 +100,25 @@ export default function BuyerMessages() {
         });
       }
     };
-    
+
     // Listen for new messages to update conversation list
     const handleNewMessage = (data: any) => {
       if (data?.conversation_id) {
         // Update conversation in list without full refresh
         setConversations(prev => {
-          const updated = prev.map(conv => 
+          const updated = prev.map(conv =>
             conv.id === data.conversation_id
               ? { ...conv, updated_at: new Date().toISOString(), last_message: data }
               : conv
           );
           // Sort by updated_at descending
-          return updated.sort((a, b) => 
+          return updated.sort((a, b) =>
             new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
           );
         });
       }
     };
-    
+
     realtimeService.subscribe('new_message', handleNewMessage);
 
     realtimeService.subscribe('conversation_updated', handleConversationUpdate);
@@ -128,7 +178,7 @@ export default function BuyerMessages() {
           // Both IDs should be UUID strings - ensure they are strings
           const productId = String(context.id);
           const vendorId = String(context.vendorId);
-          
+
           conversation = await messagingService.createProductConversation(
             productId,
             vendorId
@@ -137,15 +187,15 @@ export default function BuyerMessages() {
           throw error; // Re-throw if it's a different error
         }
       }
-      
+
       // Update conversations list
       await loadConversations();
-      
+
       // Auto-select the conversation
       if (conversation && conversation.id) {
         setAutoSelectConversation(conversation.id);
       }
-      
+
       toast({
         title: "Conversation Started",
         description: `Chatting about ${context.title}`,
@@ -180,8 +230,8 @@ export default function BuyerMessages() {
           <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-3 sm:p-4 text-white">
             <div className="flex items-center space-x-2 sm:space-x-3">
               {productContext.image && (
-                <img 
-                  src={productContext.image} 
+                <img
+                  src={productContext.image}
                   alt={productContext.title}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0"
                 />
@@ -199,9 +249,9 @@ export default function BuyerMessages() {
           {messageStats.map((stat, index) => {
             const icons = [MessageSquare, MessageSquare, Users, Clock];
             const Icon = icons[index];
-            
+
             return (
-              <div 
+              <div
                 key={stat.label}
                 className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700 hover:shadow-xl transition-shadow"
               >
@@ -220,7 +270,7 @@ export default function BuyerMessages() {
         </div>
 
         {/* Messages Panel */}
-        <MessagesPanel 
+        <MessagesPanel
           conversations={conversations}
           loading={loading}
           onRefresh={loadConversations}
@@ -234,23 +284,23 @@ export default function BuyerMessages() {
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-700">
           <h3 className="font-semibold text-white mb-3 sm:mb-4 text-base sm:text-lg">Quick Actions</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            <button 
+            <button
               onClick={() => window.location.href = '/buyer/support'}
               className="p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
             >
               <h4 className="font-medium text-blue-400 mb-1 sm:mb-2 text-sm sm:text-base">Contact Support</h4>
               <p className="text-xs sm:text-sm text-gray-300">Get help with orders or account issues</p>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => window.location.href = '/buyer/support'}
               className="p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer"
             >
               <h4 className="font-medium text-green-400 mb-1 sm:mb-2 text-sm sm:text-base">Report Issue</h4>
               <p className="text-xs sm:text-sm text-gray-300">Report a problem with a vendor or order</p>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => window.location.href = '/buyer/settings'}
               className="p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left border border-gray-600 cursor-pointer sm:col-span-2 lg:col-span-1"
             >

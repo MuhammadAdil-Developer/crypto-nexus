@@ -163,7 +163,7 @@ def create_application(request):
                 'message': 'Application message is required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if len(application_message) < 1000:
+        if len(application_message) < 100:
             return Response({
                 'success': False,
                 'message': 'Application message must be at least 1,000 characters'

@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw, MoreVertical } from "lucide-react";
+import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw, MoreVertical, Menu } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,11 @@ import { api } from "@/services/authService";
 import notificationService from "@/services/notificationService";
 import { productService, Product } from "@/services/productService";
 
-export function VendorHeader() {
+interface VendorHeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
   const { notifications, allNotifications, unreadCount, refreshNotifications, isLoading: isLoadingNotifications, setUnreadCount, setAllNotifications, setNotifications } = useMessaging() as any;
   const [userData, setUserData] = useState({
     username: "",
@@ -42,7 +46,7 @@ export function VendorHeader() {
   const [notificationPage, setNotificationPage] = useState(1);
   const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
-  
+
   // Search suggestions state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSuggestions, setSearchSuggestions] = useState<Product[]>([]);
@@ -52,7 +56,7 @@ export function VendorHeader() {
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState(384); // Default max-h-96 (384px)
   const searchInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  
+
   // Use allNotifications from MessagingContext as the source of truth
   // Sort ALL notifications by time (latest first) - no grouping, just time-based sorting
   const sortedNotifications = [...allNotifications].sort((a, b) => {
@@ -60,14 +64,14 @@ export function VendorHeader() {
     const timeB = new Date(b.time || 0).getTime();
     return timeB - timeA; // Latest first
   });
-  
+
   // Show only 3 notifications by default, more on load more
   const displayedNotifications = sortedNotifications.slice(0, 3 * notificationPage);
-  
+
   // Calculate badge count outside JSX for better reactivity
   const badgeCount = unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : null;
-  
-  
+
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -76,33 +80,33 @@ export function VendorHeader() {
     try {
       const currentPageNum = notificationPage;
       const nextPageNum = currentPageNum + 1;
-      
+
       // Recalculate sorted notifications
       const reviewNotifs = allNotifications.filter((n: any) => n.type === 'review');
       const disputeNotifs = allNotifications.filter((n: any) => n.type === 'dispute' || n.type === 'dispute_message' || n.type === 'dispute_resolved');
       const listingNotifs = allNotifications.filter((n: any) => n.type === 'listing_approval' || n.type === 'listing_rejection');
       const messageNotifs = allNotifications.filter((n: any) => n.type === 'message');
       const otherNotifs = [...reviewNotifs, ...disputeNotifs, ...listingNotifs];
-      
+
       const sortedMsgs = [...messageNotifs].sort((a, b) => {
         const timeA = new Date(a.time || 0).getTime();
         const timeB = new Date(b.time || 0).getTime();
         return timeB - timeA;
       });
-      
+
       const sortedOthers = [...otherNotifs].sort((a, b) => {
         const timeA = new Date(a.time || 0).getTime();
         const timeB = new Date(b.time || 0).getTime();
         return timeB - timeA;
       });
-      
+
       const allSorted = [...sortedMsgs, ...sortedOthers];
-      
+
       // Calculate which notifications will be newly loaded (next batch of 3)
       const startIndex = 3 * currentPageNum;
       const endIndex = 3 * nextPageNum;
       const newNotifications = allSorted.slice(startIndex, endIndex);
-      
+
       // Mark only the newly loaded notifications as read
       for (const notification of newNotifications) {
         try {
@@ -111,10 +115,10 @@ export function VendorHeader() {
           console.error('Error marking notification as read:', error);
         }
       }
-      
+
       // Increment page after marking as read
       setNotificationPage(nextPageNum);
-      
+
       // Refresh to update the count
       if (refreshNotifications) {
         await refreshNotifications();
@@ -138,39 +142,39 @@ export function VendorHeader() {
         refreshNotifications(true);
       }
     }, 2000);
-    
+
     // Also refresh immediately when dropdown opens
     if (notificationDropdownOpen && refreshNotifications) {
       refreshNotifications(true);
     }
-    
+
     return () => clearInterval(interval);
   }, [notificationDropdownOpen, refreshNotifications]);
 
   const handleNotificationDropdownOpen = async (open: boolean) => {
     setNotificationDropdownOpen(open);
-    
+
     // When dropdown opens, mark as read and refresh
     if (open) {
       try {
         console.log('🔔 Vendor dropdown opened, marking notifications as read');
         console.log('🔔 Current unread count:', unreadCount);
         console.log('🔔 Current notifications:', allNotifications.length);
-        
+
         // Mark all as read in backend
         await notificationService.markAllAsRead();
-        
+
         // Refresh notifications to get latest
         if (refreshNotifications) {
           refreshNotifications(true);
         }
-        
+
         // Immediately set unread count to 0
         if (setUnreadCount) {
           setUnreadCount(0);
           console.log('🔔 Set unread count to 0');
         }
-        
+
         // Update all notifications to mark them as read in state (but keep them visible)
         if (setAllNotifications) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -217,7 +221,7 @@ export function VendorHeader() {
         const inputRect = searchInputRef.current.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
         const availableSpace = viewportHeight - inputRect.bottom - 100; // More margin to avoid buttons
-        
+
         // Reduced max height - ensure it doesn't touch buttons
         const calculatedHeight = Math.max(180, Math.min(280, availableSpace - 40));
         setDropdownMaxHeight(calculatedHeight);
@@ -266,19 +270,19 @@ export function VendorHeader() {
           suggestionsRef.current.style.zIndex = '999999';
         }
       };
-      
+
       updatePosition();
-      
+
       // Update position on scroll/resize
       const handleScroll = () => updatePosition();
       const handleResize = () => updatePosition();
-      
+
       window.addEventListener("scroll", handleScroll, true);
       window.addEventListener("resize", handleResize);
-      
+
       // Update on a small interval to catch any position changes
       const interval = setInterval(updatePosition, 100);
-      
+
       return () => {
         window.removeEventListener("scroll", handleScroll, true);
         window.removeEventListener("resize", handleResize);
@@ -286,7 +290,7 @@ export function VendorHeader() {
       };
     }
   }, [showSuggestions, searchQuery]);
-  
+
   // Prevent page scroll when dropdown is open and scrolling inside it
   useEffect(() => {
     if (showSuggestions && suggestionsRef.current) {
@@ -298,7 +302,7 @@ export function VendorHeader() {
             const { scrollTop, scrollHeight, clientHeight } = scrollableDiv;
             const isAtTop = scrollTop <= 0;
             const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
-            
+
             // Only prevent if at boundaries
             if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
               e.preventDefault();
@@ -310,18 +314,18 @@ export function VendorHeader() {
           }
         }
       };
-      
+
       const preventPageScrollTouch = (e: TouchEvent) => {
         if (suggestionsRef.current?.contains(e.target as Node)) {
           e.preventDefault();
           e.stopImmediatePropagation();
         }
       };
-      
+
       // Use capture phase to catch events early
       document.addEventListener("wheel", preventPageScrollWheel, { passive: false, capture: true });
       document.addEventListener("touchmove", preventPageScrollTouch, { passive: false, capture: true });
-      
+
       return () => {
         document.removeEventListener("wheel", preventPageScrollWheel, true);
         document.removeEventListener("touchmove", preventPageScrollTouch, true);
@@ -345,7 +349,7 @@ export function VendorHeader() {
 
     // Use capture phase to ensure we catch it early
     document.addEventListener("mousedown", handleClickOutside, true);
-    
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside, true);
     };
@@ -361,13 +365,13 @@ export function VendorHeader() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 50);
   };
-  
+
   // Render dropdown using portal to ensure it's above everything
   const renderDropdown = () => {
     if (!showSuggestions || searchQuery.trim().length === 0) return null;
-    
+
     if (!searchInputRef.current) return null;
-    
+
     const inputRect = searchInputRef.current.getBoundingClientRect();
     const dropdownContent = (
       <div
@@ -397,9 +401,9 @@ export function VendorHeader() {
             <div className="text-sm text-gray-400 mt-2">Searching...</div>
           </div>
         ) : searchSuggestions.length > 0 ? (
-          <div 
+          <div
             className="overflow-y-auto"
-            style={{ 
+            style={{
               maxHeight: `${dropdownMaxHeight}px`,
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgb(75 85 99) rgb(31 41 55)',
@@ -408,11 +412,11 @@ export function VendorHeader() {
               const element = e.currentTarget;
               const delta = e.deltaY;
               const { scrollTop, scrollHeight, clientHeight } = element;
-              
+
               // Calculate if we can scroll
               const canScrollUp = scrollTop > 0;
               const canScrollDown = scrollTop + clientHeight < scrollHeight;
-              
+
               // If we can scroll in the direction requested, prevent default and scroll
               if ((delta > 0 && canScrollDown) || (delta < 0 && canScrollUp)) {
                 e.preventDefault();
@@ -510,7 +514,7 @@ export function VendorHeader() {
         )}
       </div>
     );
-    
+
     return createPortal(dropdownContent, document.body);
   };
 
@@ -561,11 +565,11 @@ export function VendorHeader() {
       title: "Switching to Buyer Dashboard",
       description: "Redirecting you to the buyer interface...",
     });
-    
+
     // Temporarily store vendor flag and redirect to buyer dashboard
     localStorage.setItem('switchToBuyer', 'true');
     localStorage.setItem('fromVendor', 'true');
-    
+
     // Add a smooth transition effect and use window.location to bypass ProtectedRoute
     setTimeout(() => {
       window.location.href = '/buyer/dashboard';
@@ -575,6 +579,16 @@ export function VendorHeader() {
   return (
     <header className={`bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4 transition-all duration-500 ${isTransitioning ? 'opacity-50 scale-95' : 'opacity-100 scale-100'}`}>
       <div className="flex items-center justify-between">
+        {/* Mobile Menu Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="lg:hidden mr-2"
+          onClick={onMenuClick}
+        >
+          <Menu className="w-5 h-5 text-gray-300" />
+        </Button>
+
         {/* Search with Suggestions */}
         <div className="flex-1 max-w-xl relative">
           <div className="relative">
@@ -595,7 +609,7 @@ export function VendorHeader() {
               <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 animate-spin" />
             )}
           </div>
-          
+
           {/* Search Suggestions Dropdown - Rendered via Portal */}
           {renderDropdown()}
         </div>
@@ -631,14 +645,14 @@ export function VendorHeader() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       refreshNotifications(true);
                     }}
-                  disabled={isLoadingNotifications}
+                    disabled={isLoadingNotifications}
                     className="h-6 w-6 p-0 hover:bg-gray-800"
                     title="Refresh notifications"
                   >
@@ -656,10 +670,10 @@ export function VendorHeader() {
                     title="View all notifications"
                   >
                     <MoreVertical className="w-3 h-3 text-gray-400" />
-                </Button>
+                  </Button>
                 </div>
               </div>
-              
+
               {/* Notifications List */}
               <div className="max-h-[320px] overflow-y-auto">
                 {isLoadingNotifications && displayedNotifications.length === 0 ? (
@@ -682,53 +696,52 @@ export function VendorHeader() {
                       return timeB - timeA;
                     });
                     const displayList = sortedNotifications.slice(0, 10);
-                    
+
                     return (
                       <>
                         {displayList.map((n: any) => (
                           <div
-                      key={n.id} 
+                            key={n.id}
                             className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
-                      onClick={() => handleNotificationClick(n)}
-                    >
+                            onClick={() => handleNotificationClick(n)}
+                          >
                             <div className="flex items-start gap-3">
-                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                                n.unread 
-                                  ? n.type === 'review' 
-                                    ? 'bg-yellow-500' 
-                                    : n.type === 'dispute' || n.type === 'listing_rejection'
+                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.unread
+                                ? n.type === 'review'
+                                  ? 'bg-yellow-500'
+                                  : n.type === 'dispute' || n.type === 'listing_rejection'
                                     ? 'bg-red-500'
                                     : n.type === 'dispute_message'
-                                    ? 'bg-orange-500'
-                                    : n.type === 'dispute_resolved' || n.type === 'listing_approval'
-                                    ? 'bg-green-500'
-                                    : 'bg-blue-500'
-                                  : 'bg-gray-600'
-                              }`} />
+                                      ? 'bg-orange-500'
+                                      : n.type === 'dispute_resolved' || n.type === 'listing_approval'
+                                        ? 'bg-green-500'
+                                        : 'bg-blue-500'
+                                : 'bg-gray-600'
+                                }`} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <p className="font-medium text-sm text-white">{n.title}</p>
                                 </div>
                                 <p className="text-sm text-gray-400 line-clamp-2">{n.message}</p>
                                 <p className="text-xs text-gray-500 mt-1">{n.time}</p>
-                      </div>
-                      </div>
-                    </div>
+                              </div>
+                            </div>
+                          </div>
                         ))}
                         {sortedNotifications.length > 10 && (
                           <div className="px-4 py-3 border-t border-gray-700">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => {
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
                                 handleNotificationDropdownOpen(false);
-                      navigate('/vendor/notifications');
-                    }}
+                                navigate('/vendor/notifications');
+                              }}
                               className="w-full text-sm text-blue-400 hover:text-blue-300 hover:bg-gray-800"
-                  >
+                            >
                               View all ({sortedNotifications.length})
-                  </Button>
-                </div>
+                            </Button>
+                          </div>
                         )}
                       </>
                     );
@@ -764,7 +777,7 @@ export function VendorHeader() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleSwitchToBuyer}
                 className="text-blue-400 focus:text-blue-300 hover:bg-blue-900/20 transition-colors duration-200"
               >
@@ -772,7 +785,7 @@ export function VendorHeader() {
                 <span>Buyer Dashboard</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => setShowLogoutDialog(true)}
                 className="text-red-400 focus:text-red-300"
               >
@@ -797,14 +810,14 @@ export function VendorHeader() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowLogoutDialog(false)}
               className="border-gray-600 text-gray-300 hover:bg-gray-800"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleLogout}
               disabled={isLoggingOut}
               className="bg-pink-800 hover:bg-pink-900 text-white disabled:opacity-50"

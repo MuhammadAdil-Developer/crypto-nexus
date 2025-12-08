@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { 
-  Home, 
-  List, 
-  ShoppingCart, 
-  MessageSquare, 
-  Heart, 
-  Settings, 
+import {
+  Home,
+  List,
+  ShoppingCart,
+  MessageSquare,
+  Heart,
+  Settings,
   HelpCircle,
   User,
   Store,
@@ -143,7 +143,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
   };
 
   return (
-    <div 
+    <div
       className={cn(
         "buyer-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg relative z-10 h-full",
         expanded ? "w-64" : "w-16",
@@ -156,25 +156,25 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       <div className="px-3 py-2 border-b border-gray-800 relative z-[100] bg-transparent" style={{ isolation: 'isolate' }}>
         <div className="flex items-center relative z-[100]">
           <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer relative z-[100]" style={{ filter: 'none', backdropFilter: 'none', isolation: 'isolate' }}>
-              <img 
-                src="/images/logo.png" 
-                alt="AccountzClub Logo" 
-                className="h-10 w-auto relative z-[100]"
-                style={{ 
-                  imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.0) translateY(0px)',
-                  transformOrigin: 'left center',
-                  position: 'relative',
-                  zIndex: 100,
-                  filter: 'none !important',
-                  backdropFilter: 'none !important',
-                  WebkitBackdropFilter: 'none !important',
-                  isolation: 'isolate',
-                  willChange: 'auto'
-                }}
-              />
-            </Link>
-         
+            <img
+              src="/images/logo.png"
+              alt="AccountzClub Logo"
+              className="h-10 w-auto relative z-[100]"
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+                transform: 'scale(1.0) translateY(0px)',
+                transformOrigin: 'left center',
+                position: 'relative',
+                zIndex: 100,
+                filter: 'none !important',
+                backdropFilter: 'none !important',
+                WebkitBackdropFilter: 'none !important',
+                isolation: 'isolate',
+                willChange: 'auto'
+              }}
+            />
+          </Link>
+
         </div>
       </div>
 
@@ -185,25 +185,25 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
           const isActive = location.pathname === item.href || (item.href !== "/buyer" && location.pathname.startsWith(item.href));
           const count = getCount(item.countKey);
           const badgeColor = getBadgeColor(item.title, count);
-          
+
           return (
             <Link key={item.href} to={item.href}>
-              <div 
+              <div
                 className={cn(
                   "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
-                  isActive 
-                    ? "text-pink-600 bg-pink-600/10" 
+                  isActive
+                    ? "text-pink-600 bg-pink-600/10"
                     : "text-white hover:text-pink-600"
                 )}
                 data-testid={`buyer-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
-                
+
                 {expanded ? (
                   <div className="ml-3 flex items-center justify-between w-full">
                     <span className="font-medium">{item.title}</span>
                     {count !== null && count > 0 && (
-                      <Badge 
+                      <Badge
                         className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center transition-all duration-300 animate-in fade-in zoom-in"
                       >
                         {count > 99 ? '99+' : count}
@@ -215,7 +215,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
                     {count !== null && count > 0 && (
                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-600 rounded-full"></div>
                     )}
-                    
+
                     {/* Tooltip */}
                     <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                       <div className="text-sm font-medium whitespace-nowrap">{item.title}</div>
@@ -235,11 +235,11 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       {/* Apply as Vendor Section */}
       <div className="p-2 border-t border-gray-800">
         <Link to="/vendor/apply">
-          <div 
+          <div
             className="relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-white hover:bg-gray-800 hover:text-pink-600"
           >
             <Store className="w-5 h-5 flex-shrink-0" />
-            
+
             {expanded ? (
               <div className="ml-3 flex items-center justify-between w-full">
                 <span className="font-medium">Apply as Vendor</span>
@@ -265,7 +265,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
           {expanded && (
             <div className="ml-3 min-w-0">
               <p className="text-sm font-medium text-white truncate">{username}</p>
-              <p className="text-xs text-gray-400">Premium Member</p>
+              <p className="text-xs text-gray-400">Buyer Panel</p>
             </div>
           )}
         </div>

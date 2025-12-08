@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
-import { 
-  Home, 
-  Package, 
-  ShoppingCart, 
-  MessageSquare, 
-  BarChart3, 
-  Star, 
+import {
+  Home,
+  Package,
+  ShoppingCart,
+  MessageSquare,
+  BarChart3,
+  Star,
   Megaphone,
   AlertTriangle,
   Wallet,
-  Settings, 
+  Settings,
   HelpCircle,
   Store,
   ChevronDown,
@@ -130,8 +130,8 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
   }, []);
 
   const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => 
-      prev.includes(category) 
+    setExpandedCategories(prev =>
+      prev.includes(category)
         ? prev.filter(c => c !== category)
         : [...prev, category]
     );
@@ -148,7 +148,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
     if (!countKey) return null;
     const count = getCount(countKey);
     if (count === 0) return null;
-    
+
     // Use consistent badge type (same color for all)
     return "accent"; // Using accent (blue) for all counts as requested
   };
@@ -159,9 +159,9 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
   };
 
   return (
-    <div 
+    <div
       className={cn(
-        "vendor-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg",
+        "vendor-sidebar-background border-r border-gray-800 transition-all duration-300 ease-in-out flex flex-col shadow-lg h-full",
         expanded ? "w-64" : "w-16"
       )}
       onMouseEnter={() => onExpandedChange(true)}
@@ -171,18 +171,18 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
       <div className="p-3 border-b border-gray-800">
         <div className="flex items-center">
           <Link to="/" className="flex items-center flex-shrink-0 pr-8 cursor-pointer">
-              <img 
-                src="/images/logo.png" 
-                alt="AccountzClub Logo" 
-                className="h-10 w-auto"
-                style={{ 
-                  imageRendering: '-webkit-optimize-contrast',
-                  transform: 'scale(1.0) translateY(0px)',
-                  transformOrigin: 'left center'
-                }}
-              />
-            </Link>
-      
+            <img
+              src="/images/logo.png"
+              alt="AccountzClub Logo"
+              className="h-10 w-auto"
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+                transform: 'scale(1.0) translateY(0px)',
+                transformOrigin: 'left center'
+              }}
+            />
+          </Link>
+
         </div>
       </div>
 
@@ -214,14 +214,14 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                     const isActive = location.pathname === item.href || (item.href !== "/vendor/dashboard" && location.pathname.startsWith(item.href));
                     const count = getCount(item.countKey);
                     const badgeType = getBadgeType(item.countKey);
-                    
+
                     return (
                       <Link key={item.href} to={item.href}>
-                        <div 
+                        <div
                           className={cn(
                             "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
-                            isActive 
-                              ? "text-pink-600 bg-pink-600/10" 
+                            isActive
+                              ? "text-pink-600 bg-pink-600/10"
                               : "text-white hover:bg-gray-800 hover:text-pink-600"
                           )}
                           data-testid={`vendor-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
@@ -230,7 +230,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                           <div className="ml-3 flex items-center justify-between w-full">
                             <span className="font-medium">{item.title}</span>
                             {count > 0 && badgeType && (
-                              <Badge 
+                              <Badge
                                 className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center transition-all duration-300 animate-in fade-in zoom-in"
                               >
                                 {count > 99 ? "99+" : count}
@@ -249,23 +249,23 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href || (item.href !== "/vendor/dashboard" && location.pathname.startsWith(item.href));
                 const hasCount = hasCategoryCount(category);
-                
+
                 return (
                   <Link key={item.href} to={item.href}>
-                    <div 
+                    <div
                       className={cn(
                         "relative group flex items-center px-3 py-3 rounded-lg transition-all duration-200 cursor-pointer",
-                        isActive 
-                          ? "text-pink-600 bg-pink-600/10" 
+                        isActive
+                          ? "text-pink-600 bg-pink-600/10"
                           : "text-white hover:bg-gray-800 hover:text-pink-600"
                       )}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
-                      
+
                       {hasCount && (
                         <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-600 rounded-full"></div>
                       )}
-                      
+
                       {/* Tooltip */}
                       <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                         <div className="text-sm font-medium whitespace-nowrap">{category.title}</div>
@@ -294,7 +294,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
               <p className="text-sm font-medium text-white truncate">
                 {userData.business_name || userData.username || "Vendor"}
               </p>
-              <p className="text-xs text-gray-400">Verified Vendor</p>
+              <p className="text-xs text-gray-400">Vendor Panel</p>
             </div>
           )}
         </div>

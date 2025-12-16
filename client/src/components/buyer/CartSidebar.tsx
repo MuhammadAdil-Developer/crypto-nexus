@@ -2,12 +2,12 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ShoppingCart, 
-  X, 
-  Plus, 
-  Minus, 
-  Trash2, 
+import {
+  ShoppingCart,
+  X,
+  Plus,
+  Minus,
+  Trash2,
   CreditCard,
   Package,
   User
@@ -22,18 +22,25 @@ interface CartSidebarProps {
 }
 
 const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }) => {
-  const { 
-    cartItems, 
-    updateQuantity, 
-    removeFromCart, 
-    clearCart, 
-    getTotalPrice, 
-    getTotalItems 
+  const {
+    cartItems,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    getTotalPrice,
+    getTotalItems
   } = useCart();
   const { toast } = useToast();
 
-  const formatPrice = (price: string) => {
-    return parseFloat(price).toFixed(8);
+  // Format USD price with 2 decimal places
+  const formatUSD = (price: string) => {
+    return parseFloat(price).toFixed(2);
+  };
+
+  // Format BTC equivalent
+  const formatBTCEquivalent = (price: number | string) => {
+    const num = typeof price === 'string' ? parseFloat(price) : price;
+    return (num / 100000).toFixed(8);
   };
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {
@@ -79,11 +86,11 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Sidebar */}
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-gray-900 border-l border-gray-700/50 shadow-2xl">
         <div className="flex flex-col h-full">
@@ -145,7 +152,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
                           <p className="text-gray-400 text-xs mt-1 line-clamp-2">
                             {item.description}
                           </p>
-                          
+
                           {/* Vendor */}
                           <div className="flex items-center space-x-1 mt-2">
                             <User className="w-3 h-3 text-gray-400" />
@@ -155,12 +162,14 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
                           {/* Price and Quantity */}
                           <div className="flex items-center justify-between mt-3">
                             <div className="flex items-center space-x-2">
-                              <span className="text-sm font-bold text-white">
-                                {formatPrice(item.price)} BTC
+                              <span className="text-sm font-bold text-white font-mono">
+                                {formatBTCEquivalent(item.price)} BTC
                               </span>
-                              <span className="text-xs text-gray-400">each</span>
+                              <span className="text-xs text-gray-400 ml-1">
+                                ≈ ${formatUSD(item.price)}
+                              </span>
                             </div>
-                            
+
                             {/* Quantity Controls */}
                             <div className="flex items-center space-x-2">
                               <Button
@@ -188,8 +197,11 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
                           {/* Item Total */}
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-xs text-gray-400">Total:</span>
-                            <span className="text-sm font-bold text-blue-400">
-                              {(parseFloat(item.price) * item.quantity).toFixed(8)} BTC
+                            <span className="text-sm font-bold text-blue-400 font-mono">
+                              {formatBTCEquivalent(parseFloat(item.price) * item.quantity)} BTC
+                            </span>
+                            <span className="text-xs text-gray-400 ml-1">
+                              ≈ ${(parseFloat(item.price) * item.quantity).toFixed(2)}
                             </span>
                           </div>
 
@@ -218,9 +230,14 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
               {/* Total */}
               <div className="flex items-center justify-between">
                 <span className="text-lg font-semibold text-white">Total:</span>
-                <span className="text-xl font-bold text-blue-400">
-                  {getTotalPrice().toFixed(8)} BTC
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className="text-xl font-bold text-blue-400 font-mono">
+                    {formatBTCEquivalent(getTotalPrice())} BTC
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    ≈ ${getTotalPrice().toFixed(2)}
+                  </span>
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -232,7 +249,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
                   <CreditCard className="w-4 h-4 mr-2" />
                   Checkout ({getTotalItems()} items)
                 </Button>
-                
+
                 <Button
                   onClick={handleClearCart}
                   variant="outline"
@@ -246,7 +263,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
           )}
         </div>
       </div>
-    </div>                                  
+    </div>
   );
 };
 

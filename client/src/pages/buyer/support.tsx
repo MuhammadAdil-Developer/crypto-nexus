@@ -57,6 +57,10 @@ const faqData = [
   {
     question: "Is my personal information safe?",
     answer: "We prioritize privacy and use minimal data collection. Your transactions are anonymous and we don't store unnecessary personal information."
+  },
+  {
+    question: "What happens if my payment is delayed due to blockchain congestion?",
+    answer: "Our payment system continuously monitors the blockchain. If your payment is confirmed after the 30-minute window due to network congestion, your order will still be processed automatically once the confirmation is received. You do not need to worry."
   }
 ];
 
@@ -70,7 +74,7 @@ export default function BuyerSupport() {
     priority: "medium",
     description: ""
   });
-  
+
   // Ticket management state
   const [tickets, setTickets] = useState<any[]>([]);
   const [statistics, setStatistics] = useState<any>(null);
@@ -79,7 +83,7 @@ export default function BuyerSupport() {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
-  
+
   // Modal states for support resources
   const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isForumModalOpen, setIsForumModalOpen] = useState(false);
@@ -138,7 +142,7 @@ export default function BuyerSupport() {
 
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!ticketForm.subject || !ticketForm.description || !ticketForm.category) {
       toast({
         title: "Error",
@@ -250,7 +254,7 @@ export default function BuyerSupport() {
               <p className="text-sm text-gray-400 mb-4">
                 Get instant help from our support team
               </p>
-              <Button 
+              <Button
                 className="w-full bg-gray-700 cursor-pointer"
                 onClick={() => {
                   toast({
@@ -273,14 +277,14 @@ export default function BuyerSupport() {
               <p className="text-sm text-gray-400 mb-4">
                 Send us an email and we'll respond within 24h
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full cursor-pointer"
                 onClick={() => {
-                  window.location.href = 'mailto:support@cryptomarket.com';
+                  window.location.href = 'mailto:support@accountzclub.com';
                 }}
               >
-                support@cryptomarket.com
+                support@accountzclub.com
               </Button>
             </CardContent>
           </Card>
@@ -294,8 +298,8 @@ export default function BuyerSupport() {
               <p className="text-sm text-gray-400 mb-4">
                 Create a detailed support request
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full cursor-pointer"
                 onClick={() => {
                   // Scroll to ticket form
@@ -333,8 +337,8 @@ export default function BuyerSupport() {
               <CardContent>
                 <Accordion type="single" collapsible className="space-y-2">
                   {filteredFAQ.map((item, index) => (
-                    <AccordionItem 
-                      key={index} 
+                    <AccordionItem
+                      key={index}
                       value={`item-${index}`}
                       className="border border-gray-200 dark:border-gray-700 rounded-lg px-4"
                     >
@@ -368,7 +372,7 @@ export default function BuyerSupport() {
                       id="subject"
                       placeholder="Brief description of your issue"
                       value={ticketForm.subject}
-                      onChange={(e) => setTicketForm({...ticketForm, subject: e.target.value})}
+                      onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
                       required
                     />
                   </div>
@@ -376,7 +380,7 @@ export default function BuyerSupport() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="category">Category</Label>
-                      <Select value={ticketForm.category} onValueChange={(value) => setTicketForm({...ticketForm, category: value})}>
+                      <Select value={ticketForm.category} onValueChange={(value) => setTicketForm({ ...ticketForm, category: value })}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
@@ -392,7 +396,7 @@ export default function BuyerSupport() {
 
                     <div className="space-y-2">
                       <Label htmlFor="priority">Priority</Label>
-                      <Select value={ticketForm.priority} onValueChange={(value) => setTicketForm({...ticketForm, priority: value})}>
+                      <Select value={ticketForm.priority} onValueChange={(value) => setTicketForm({ ...ticketForm, priority: value })}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
@@ -413,12 +417,12 @@ export default function BuyerSupport() {
                       placeholder="Please provide detailed information about your issue..."
                       className="min-h-32"
                       value={ticketForm.description}
-                      onChange={(e) => setTicketForm({...ticketForm, description: e.target.value})}
+                      onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
                       required
                     />
                   </div>
 
-                  <Button type="submit" disabled={isSubmittingTicket} className="w-full bg-gray-700">
+                  <Button type="submit" disabled={isSubmittingTicket} className="w-full bg-blue-600 hover:bg-blue-700">
                     {isSubmittingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Submit Ticket
                   </Button>
@@ -450,10 +454,10 @@ export default function BuyerSupport() {
                     <SelectItem value="closed">Closed</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button 
+                <Button
                   onClick={() => setIsCreatingTicket(true)}
                   size="sm"
-                  className="bg-gray-700 w-full sm:w-auto"
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   New Ticket
@@ -482,7 +486,7 @@ export default function BuyerSupport() {
                         <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
                         <span className="text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
                       </div>
-                      
+
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-1">
                           <h3 className="font-semibold text-white">{ticket.ticket_id}</h3>
@@ -503,8 +507,8 @@ export default function BuyerSupport() {
                     </div>
 
                     <div className="flex items-center space-x-3 md:self-auto self-end">
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => {
                           setSelectedTicketId(ticket.id);
@@ -515,7 +519,7 @@ export default function BuyerSupport() {
                         <MessageSquare className="w-4 h-4 mr-2" />
                         View Conversation
                       </Button>
-                      
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
@@ -551,8 +555,8 @@ export default function BuyerSupport() {
                 <FileText className="w-8 h-8 text-blue-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">User Guide</h4>
                 <p className="text-sm text-gray-400 mb-3">Complete guide to using our platform</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="cursor-pointer"
                   onClick={() => setIsUserGuideModalOpen(true)}
@@ -565,8 +569,8 @@ export default function BuyerSupport() {
                 <MessageSquare className="w-8 h-8 text-green-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Community Forum</h4>
                 <p className="text-sm text-gray-400 mb-3">Connect with other users and get tips</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="cursor-pointer"
                   onClick={() => setIsForumModalOpen(true)}
@@ -579,8 +583,8 @@ export default function BuyerSupport() {
                 <HelpCircle className="w-8 h-8 text-purple-600 mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Video Tutorials</h4>
                 <p className="text-sm text-gray-400 mb-3">Step-by-step video guides</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="cursor-pointer"
                   onClick={() => setIsVideoModalOpen(true)}
@@ -680,7 +684,7 @@ export default function BuyerSupport() {
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold text-white">Join Our Community</h3>
                   <p className="text-gray-300">Connect with other users, share tips, and get help from experienced members of our community.</p>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                       <h4 className="font-semibold text-white mb-2">General Discussion</h4>
@@ -726,7 +730,7 @@ export default function BuyerSupport() {
                     </ul>
                   </div>
 
-                  <Button 
+                  <Button
                     className="w-full"
                     style={{ backgroundColor: '#AD0539' }}
                     onClick={() => {

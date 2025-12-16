@@ -17,7 +17,7 @@ export default function BuyerWishlist() {
   const { toast } = useToast();
 
   const [wishlistFetched, setWishlistFetched] = useState(false);
-  
+
   // Cache keys for localStorage
   const CACHE_KEYS = {
     WISHLIST_ITEMS: 'buyer_wishlist_items',
@@ -56,12 +56,12 @@ export default function BuyerWishlist() {
   const fetchWishlistData = useCallback(async (force = false) => {
     // Don't fetch if already fetched and not forcing
     if (wishlistFetched && !force) return;
-    
+
     // Try cache first if not forcing
     if (!force) {
       const cachedItems = getCachedData(CACHE_KEYS.WISHLIST_ITEMS);
       const cachedStats = getCachedData(CACHE_KEYS.WISHLIST_STATS);
-      
+
       if (cachedItems !== null && cachedStats !== null) {
         setWishlistItems(cachedItems);
         setStats(cachedStats);
@@ -70,7 +70,7 @@ export default function BuyerWishlist() {
         return;
       }
     }
-    
+
     try {
       setLoading(true);
       // Only fetch stats if not cached or forcing
@@ -80,7 +80,7 @@ export default function BuyerWishlist() {
       } else {
         promises.push(Promise.resolve({ success: true, data: getCachedData(CACHE_KEYS.WISHLIST_STATS) }));
       }
-      
+
       const [wishlistResponse, statsResponse] = await Promise.all(promises);
 
       if (wishlistResponse.success) {
@@ -111,8 +111,8 @@ export default function BuyerWishlist() {
   }, []);
 
   const toggleItemSelection = (itemId: number) => {
-    setSelectedItems(prev => 
-      prev.includes(itemId) 
+    setSelectedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
@@ -129,25 +129,25 @@ export default function BuyerWishlist() {
   const removeSelectedItems = async () => {
     try {
       setRemovingItems(selectedItems);
-      
-      const removePromises = selectedItems.map(itemId => 
+
+      const removePromises = selectedItems.map(itemId =>
         wishlistService.removeFromWishlist(itemId)
       );
-      
+
       await Promise.all(removePromises);
-      
+
       // Update wishlist items and cache
       const updatedItems = wishlistItems.filter(item => !selectedItems.includes(parseInt(item.id)));
       setWishlistItems(updatedItems);
       setCachedData(CACHE_KEYS.WISHLIST_ITEMS, updatedItems);
-      
+
       // Update stats cache
       const statsResponse = await wishlistService.getWishlistStats();
       if (statsResponse.success && statsResponse.data) {
         setStats(statsResponse.data);
         setCachedData(CACHE_KEYS.WISHLIST_STATS, statsResponse.data);
       }
-      
+
       setSelectedItems([]);
       toast({
         title: "Success",
@@ -232,11 +232,11 @@ export default function BuyerWishlist() {
               <div>
                 <p className="text-sm text-gray-400 mb-1">Total Value</p>
                 <p className="text-2xl font-bold text-white">
-                  {stats?.total_value ? `${Number(stats.total_value).toFixed(8)} BTC` : '0.00000000 BTC'}
+                  {stats?.total_value ? `$${Number(stats.total_value).toFixed(2)}` : '$0.00'}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">₿</span>
+                <span className="text-white font-bold text-sm">$</span>
               </div>
             </div>
           </div>
@@ -253,16 +253,16 @@ export default function BuyerWishlist() {
                 </Badge>
               )}
             </div>
-            
+
             <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={selectedItems.length === wishlistItems.length ? clearSelection : selectAllItems}
               >
                 {selectedItems.length === wishlistItems.length ? "Clear Selection" : "Select All"}
               </Button>
-              
+
               {selectedItems.length > 0 && (
                 <>
                   <Button variant="outline" size="sm">
@@ -333,59 +333,60 @@ export default function BuyerWishlist() {
                         <span className="text-gray-400 text-4xl">📦</span>
                       </div>
                     )}
-                    
+
                     {/* Price Badge */}
                     <div className="absolute top-3 right-3">
-                      <Badge className="bg-black/70 text-white border-gray-500">
-                        {parseFloat(item.product_data?.price || '0').toFixed(8)} BTC
+                      <Badge className="bg-black/70 text-white border-gray-500 flex flex-col items-end">
+                        <span className="font-bold">${parseFloat(item.product_data?.price || '0').toFixed(2)}</span>
+                        <span className="text-xs font-mono text-gray-300">≈ {(parseFloat(item.product_data?.price || '0') / 100000).toFixed(8)} BTC</span>
                       </Badge>
                     </div>
                   </div>
-                  
-                  <div className="p-4">
-                    <h3 className="text-white font-semibold mb-2 line-clamp-2">
-                      {item.product_data?.headline || item.product_data?.listing_title || 'Unknown Product'}
-                    </h3>
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-300 text-sm">{item.vendor_username}</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-gray-300 text-sm">4.5</span>
-                      </div>
+                </div>
+
+                <div className="p-4">
+                  <h3 className="text-white font-semibold mb-2 line-clamp-2">
+                    {item.product_data?.headline || item.product_data?.listing_title || 'Unknown Product'}
+                  </h3>
+
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-300 text-sm">{item.vendor_username}</span>
                     </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {item.product_data?.quantity_available > 0 ? (
-                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                            In Stock
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
-                            Out of Stock
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                        onClick={() => {
-                          // Navigate to product detail page
-                          const productId = item.product_data?.id || item.product;
-                          window.location.href = `/buyer/product/${productId}`;
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View Details
-                      </Button>
+
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="text-gray-300 text-sm">4.5</span>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      {item.product_data?.quantity_available > 0 ? (
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                          In Stock
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                          Out of Stock
+                        </Badge>
+                      )}
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                      onClick={() => {
+                        // Navigate to product detail page
+                        const productId = item.product_data?.id || item.product;
+                        window.location.href = `/buyer/product/${productId}`;
+                      }}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      View Details
+                    </Button>
                   </div>
                 </div>
 
@@ -413,7 +414,7 @@ export default function BuyerWishlist() {
             <p className="text-gray-400 mb-6">
               Start browsing and add items you'd like to purchase later
             </p>
-            <Button 
+            <Button
               className="bg-gray-700 cursor-pointer"
               onClick={() => window.location.href = '/buyer/listings'}
             >

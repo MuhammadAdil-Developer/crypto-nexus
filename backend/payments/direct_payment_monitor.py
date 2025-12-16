@@ -298,8 +298,8 @@ class DirectPaymentMonitor:
     def _get_blockchain_transactions(self, address):
         """Get transactions from BlockCypher API"""
         try:
-            # BlockCypher API (free tier: 200 requests/hour)
-            url = f"https://api.blockcypher.com/v1/btc/test3/addrs/{address}/txs"
+            # BlockCypher API (free tier: 200 requests/hour) - MAINNET
+            url = f"https://api.blockcypher.com/v1/btc/main/addrs/{address}/txs"
             
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
@@ -316,8 +316,8 @@ class DirectPaymentMonitor:
     def _get_blockstream_transactions(self, address):
         """Get transactions from Blockstream API (free, reliable)"""
         try:
-            # Blockstream API (free, no rate limits for basic usage)
-            url = f"https://blockstream.info/testnet/api/address/{address}/txs"
+            # Blockstream API (free, reliable) - MAINNET
+            url = f"https://blockstream.info/api/address/{address}/txs"
             
             response = requests.get(url, timeout=10)
             if response.status_code == 200:

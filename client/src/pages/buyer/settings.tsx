@@ -60,7 +60,7 @@ export default function BuyerSettings() {
   const [payoutSaving, setPayoutSaving] = useState(false);
   const { toast } = useToast();
   const [show2FAModal, setShow2FAModal] = useState(false);
-  const [twoFAData, setTwoFAData] = useState<{qr_code?: string; secret?: string; uri?: string} | null>(null);
+  const [twoFAData, setTwoFAData] = useState<{ qr_code?: string; secret?: string; uri?: string } | null>(null);
   const [payoutAddresses, setPayoutAddresses] = useState({
     btc_payout_address: "",
     xmr_payout_address: ""
@@ -74,7 +74,7 @@ export default function BuyerSettings() {
     try {
       setLoading(true);
       const response = await api.get('/profile/');
-      
+
       if (response.data && response.data.success) {
         setProfile({
           username: response.data.data.username || "",
@@ -84,7 +84,7 @@ export default function BuyerSettings() {
           btc_payout_address: response.data.data.btc_payout_address || "",
           xmr_payout_address: response.data.data.xmr_payout_address || ""
         });
-        
+
         // Set 2FA state from profile
         if (response.data.data.two_factor_enabled !== undefined) {
           setSecurity(prev => ({
@@ -108,10 +108,10 @@ export default function BuyerSettings() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
       // Check if 2FA is being enabled
       const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
-      
+
       // Update profile
       await api.put('/profile/update/', {
         username: profile.username,
@@ -214,14 +214,14 @@ export default function BuyerSettings() {
 
     try {
       setSaving(true);
-      
+
       const response = await api.post('/profile/change-password/', {
         current_password: passwordData.current_password,
         new_password: passwordData.new_password
       });
 
       console.log('Password change response:', response);
-      
+
       // Handle different response formats
       if (response.data) {
         // Check if success is true or if the response itself indicates success
@@ -248,10 +248,10 @@ export default function BuyerSettings() {
     } catch (error: any) {
       console.error('Error changing password:', error);
       console.error('Error response:', error.response);
-      
+
       // Extract error message from various possible locations
       let errorMessage = "Failed to change password";
-      
+
       if (error.response?.data) {
         if (error.response.data.message) {
           errorMessage = error.response.data.message;
@@ -265,7 +265,7 @@ export default function BuyerSettings() {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -338,7 +338,7 @@ export default function BuyerSettings() {
               <Button
                 onClick={handleSavePayoutAddresses}
                 disabled={payoutSaving}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {payoutSaving ? (
                   <>
@@ -368,12 +368,12 @@ export default function BuyerSettings() {
                 <Input
                   id="username"
                   value={profile.username}
-                  onChange={(e) => setProfile({...profile, username: e.target.value})}
+                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                   className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
 
-              <div>
+              {/* <div>
                 <Label htmlFor="phone" className="text-gray-300">Phone Number</Label>
                 <Input
                   id="phone"
@@ -381,7 +381,7 @@ export default function BuyerSettings() {
                   onChange={(e) => setProfile({...profile, phone: e.target.value})}
                   className="bg-gray-800 border-gray-600 text-white"
                 />
-              </div>
+              </div> */}
             </CardContent>
           </Card>
 
@@ -401,7 +401,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={notifications.order_updates}
-                  onCheckedChange={(checked) => setNotifications({...notifications, order_updates: checked})}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, order_updates: checked })}
                 />
               </div>
 
@@ -412,7 +412,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={notifications.price_alerts}
-                  onCheckedChange={(checked) => setNotifications({...notifications, price_alerts: checked})}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, price_alerts: checked })}
                 />
               </div>
 
@@ -423,7 +423,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={notifications.vendor_messages}
-                  onCheckedChange={(checked) => setNotifications({...notifications, vendor_messages: checked})}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, vendor_messages: checked })}
                 />
               </div>
 
@@ -434,7 +434,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={notifications.security_alerts}
-                  onCheckedChange={(checked) => setNotifications({...notifications, security_alerts: checked})}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, security_alerts: checked })}
                 />
               </div>
 
@@ -445,7 +445,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={notifications.marketing_emails}
-                  onCheckedChange={(checked) => setNotifications({...notifications, marketing_emails: checked})}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, marketing_emails: checked })}
                 />
               </div>
             </CardContent>
@@ -467,7 +467,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={security.two_factor_enabled}
-                  onCheckedChange={(checked) => setSecurity({...security, two_factor_enabled: checked})}
+                  onCheckedChange={(checked) => setSecurity({ ...security, two_factor_enabled: checked })}
                 />
               </div>
 
@@ -478,7 +478,7 @@ export default function BuyerSettings() {
                 </div>
                 <Switch
                   checked={security.login_alerts}
-                  onCheckedChange={(checked) => setSecurity({...security, login_alerts: checked})}
+                  onCheckedChange={(checked) => setSecurity({ ...security, login_alerts: checked })}
                 />
               </div>
             </CardContent>
@@ -499,7 +499,7 @@ export default function BuyerSettings() {
                   id="currentPassword"
                   type="password"
                   value={passwordData.current_password}
-                  onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+                  onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
                   className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
@@ -510,7 +510,7 @@ export default function BuyerSettings() {
                   id="newPassword"
                   type="password"
                   value={passwordData.new_password}
-                  onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                  onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
                   className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
@@ -521,15 +521,15 @@ export default function BuyerSettings() {
                   id="confirmPassword"
                   type="password"
                   value={passwordData.confirm_password}
-                  onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
                   className="bg-gray-800 border-gray-600 text-white"
                 />
               </div>
 
-              <Button 
-                onClick={handleChangePassword} 
+              <Button
+                onClick={handleChangePassword}
                 disabled={saving}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {saving ? (
                   <>
@@ -549,8 +549,8 @@ export default function BuyerSettings() {
           {/* Save Button */}
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-6">
-              <Button 
-                onClick={handleSave} 
+              <Button
+                onClick={handleSave}
                 disabled={saving}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
@@ -583,18 +583,18 @@ export default function BuyerSettings() {
               Scan this QR code with your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {twoFAData?.qr_code && (
               <div className="flex flex-col items-center space-y-4">
                 <div className="bg-white p-4 rounded-lg">
-                  <img 
-                    src={twoFAData.qr_code} 
-                    alt="2FA QR Code" 
+                  <img
+                    src={twoFAData.qr_code}
+                    alt="2FA QR Code"
                     className="w-64 h-64"
                   />
                 </div>
-                
+
                 {twoFAData.secret && (
                   <div className="w-full">
                     <Label className="text-gray-300 text-sm">Backup Secret Key (use if QR code doesn't work)</Label>
@@ -606,7 +606,7 @@ export default function BuyerSettings() {
                     </p>
                   </div>
                 )}
-                
+
                 <div className="w-full bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
                   <p className="text-sm text-blue-200">
                     <strong className="text-blue-300">Steps:</strong>
@@ -620,7 +620,7 @@ export default function BuyerSettings() {
                 </div>
               </div>
             )}
-            
+
             <Button
               onClick={() => setShow2FAModal(false)}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"

@@ -12,23 +12,23 @@ interface VendorOverviewCountsProps {
 	isLoading?: boolean;
 }
 
-export function VendorOverviewCards({ 
-	pendingOrders, 
-	activeListings, 
-	totalSales, 
-	totalRevenue, 
-	earnings, 
-	disputes, 
-	isLoading 
+export function VendorOverviewCards({
+	pendingOrders,
+	activeListings,
+	totalSales,
+	totalRevenue,
+	earnings,
+	disputes,
+	isLoading
 }: VendorOverviewCountsProps) {
 	const overviewData = [
 		{
 			title: "Total Sales",
-			value: totalSales || "0.00 BTC",
+			value: totalSales || "$0.00",
 			change: "+12.3%",
 			changeType: "positive" as const,
 			icon: TrendingUp,
-			description: totalRevenue ? `≈ $${(totalRevenue * 40000).toLocaleString()} USD` : "≈ $0 USD"
+			description: totalRevenue ? `≈ ${(totalRevenue / 100000).toFixed(8)} BTC` : "≈ 0.00000000 BTC"
 		},
 		{
 			title: "Active Listings",
@@ -48,8 +48,8 @@ export function VendorOverviewCards({
 		},
 		{
 			title: "Earnings",
-			value: earnings !== undefined ? `${earnings.toFixed(4)} BTC` : "0.0000 BTC",
-			change: "+0.12 BTC",
+			value: earnings !== undefined ? `$${earnings.toFixed(2)}` : "$0.00",
+			change: "+$50.00",
 			changeType: "positive" as const,
 			icon: Wallet,
 			description: "Available for withdrawal"

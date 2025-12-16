@@ -92,7 +92,7 @@ const transformApiOrderToUIOrder = (apiOrder: Order): UIOrder => {
   // Determine status badge type based on order status
   const getStatusType = (status: string): 'success' | 'warning' | 'danger' | 'accent' => {
     if (typeof status !== 'string') return 'warning';
-    
+
     switch (status.toLowerCase()) {
       case 'completed':
       case 'confirmed':
@@ -153,8 +153,8 @@ const transformApiOrderToUIOrder = (apiOrder: Order): UIOrder => {
   const productName = safeString(apiOrder.product);
 
   // Safe amount formatting
-  const totalAmount = typeof apiOrder.total_amount === 'number' ? apiOrder.total_amount : 
-                     typeof apiOrder.total_amount === 'string' ? parseFloat(apiOrder.total_amount) || 0 : 0;
+  const totalAmount = typeof apiOrder.total_amount === 'number' ? apiOrder.total_amount :
+    typeof apiOrder.total_amount === 'string' ? parseFloat(apiOrder.total_amount) || 0 : 0;
   const cryptoCurrency = typeof apiOrder.crypto_currency === 'string' ? apiOrder.crypto_currency : 'BTC';
   const amountString = `${totalAmount} ${cryptoCurrency}`;
 
@@ -187,10 +187,10 @@ export function Overview() {
   const [loading, setLoading] = useState(false);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
-  
+
   // Real-time notifications from MessagingContext
   const { notifications, unreadCount } = useMessaging();
-  
+
   // Get latest unread notification for banner
   const latestNotification = notifications.find(n => n.unread && !dismissedNotifications.has(n.id));
 
@@ -202,14 +202,14 @@ export function Overview() {
         console.error('❌ No authentication token found');
         return;
       }
-      
+
       const response = await fetch(getApiUrl('/users/'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data && data.data.users) {
@@ -228,14 +228,14 @@ export function Overview() {
         console.error('❌ No authentication token found');
         return;
       }
-      
+
       const response = await fetch(getApiUrl('/vendors/applications/'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.results) {
@@ -254,14 +254,14 @@ export function Overview() {
         console.error('❌ No authentication token found');
         return;
       }
-      
+
       const response = await fetch(getApiUrl('/products/admin/all/'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data && Array.isArray(data.data)) {
@@ -280,35 +280,35 @@ export function Overview() {
         console.error('❌ No authentication token found');
         return;
       }
-      
+
       // For now, we'll calculate stats from existing data
       // In a real implementation, you'd have a dedicated dashboard stats endpoint
       const today = new Date().toDateString();
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-      
-      const ordersToday = recentOrders.filter(order => 
+
+      const ordersToday = recentOrders.filter(order =>
         new Date(order.created).toDateString() === today
       ).length;
-      
-      const ordersYesterday = recentOrders.filter(order => 
+
+      const ordersYesterday = recentOrders.filter(order =>
         new Date(order.created).toDateString() === yesterday
       ).length;
-      
-      const liveListings = products.filter(product => 
+
+      const liveListings = products.filter(product =>
         product.status === 'approved'
       ).length;
-      
-      const pendingApplications = vendorApplications.filter(app => 
+
+      const pendingApplications = vendorApplications.filter(app =>
         app.status === 'pending'
       ).length;
-      
+
       // Calculate escrow amounts from orders
       const escrowOrders = recentOrders.filter(order => order.use_escrow);
       const totalEscrowBTC = escrowOrders.reduce((sum, order) => {
         const amount = parseFloat(order.amount.split(' ')[0]) || 0;
         return sum + amount;
       }, 0);
-      
+
       const stats: DashboardStats = {
         total_listings: products.length,
         live_listings: liveListings,
@@ -322,7 +322,7 @@ export function Overview() {
         auto_release_orders: 156, // Static for now
         disputed_orders: 3 // Static for now
       };
-      
+
       setDashboardStats(stats);
     } catch (error) {
       console.error('💥 Error calculating dashboard stats:', error);
@@ -333,12 +333,12 @@ export function Overview() {
     try {
       console.log('🔄 Fetching recent orders from admin dashboard...');
       const dashboardData = await orderService.getAdminDashboard();
-      
+
       if (dashboardData.recent_orders && Array.isArray(dashboardData.recent_orders)) {
         // Get only the last 4 orders and transform them
         const last4Orders = dashboardData.recent_orders.slice(0, 4);
         console.log('🔍 Raw orders data:', last4Orders);
-        
+
         const transformedOrders = last4Orders.map((order, index) => {
           try {
             console.log(`🔄 Transforming order ${index}:`, order);
@@ -360,7 +360,7 @@ export function Overview() {
             };
           }
         });
-        
+
         setRecentOrders(transformedOrders);
         console.log('✅ Successfully fetched and transformed recent orders:', transformedOrders);
       } else {
@@ -391,7 +391,7 @@ export function Overview() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetchUsers(), 
+      fetchUsers(),
       fetchVendorApplications(),
       fetchProducts(),
       fetchRecentOrders()
@@ -410,43 +410,43 @@ export function Overview() {
   // Generate smart alert message based on actual pending items
   const getAlertMessage = () => {
     if (loading) return "Loading...";
-    
+
     const pendingVendors = dashboardStats?.pending_vendor_applications || getPendingVendorApplicationsCount();
     const pendingDisputes = dashboardStats?.pending_disputes || 3;
     const pendingTickets = 0; // You can add ticket count logic here
     const pendingProducts = products.filter(p => p.status === 'pending_approval').length;
-    
+
     const alerts = [];
-    
+
     if (pendingVendors > 0) {
       alerts.push(`${pendingVendors} vendor application${pendingVendors > 1 ? 's' : ''} pending review`);
     }
-    
+
     if (pendingProducts > 0) {
       alerts.push(`${pendingProducts} product listing${pendingProducts > 1 ? 's' : ''} pending approval`);
     }
-    
+
     if (pendingDisputes > 0) {
       alerts.push(`${pendingDisputes} dispute${pendingDisputes > 1 ? 's' : ''} awaiting resolution`);
     }
-    
+
     if (pendingTickets > 0) {
       alerts.push(`${pendingTickets} support ticket${pendingTickets > 1 ? 's' : ''} pending response`);
     }
-    
+
     // Always show BTC node update requirement
     alerts.push('BTC node requires update');
-    
+
     return alerts.join(' • ');
   };
 
   const hasPendingItems = () => {
     if (loading) return false;
-    
+
     const pendingVendors = dashboardStats?.pending_vendor_applications || getPendingVendorApplicationsCount();
     const pendingDisputes = dashboardStats?.pending_disputes || 3;
     const pendingProducts = products.filter(p => p.status === 'pending_approval').length;
-    
+
     return pendingVendors > 0 || pendingDisputes > 0 || pendingProducts > 0;
   };
 
@@ -483,26 +483,10 @@ export function Overview() {
           </div>
         </div>
       )}
-      
+
       {/* Alert Banner - Only show if there are pending items */}
-      {hasPendingItems() && (
-        <div className="mb-6 bg-warning/10 border border-warning/20 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="w-5 h-5 text-warning" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-warning">Action Required</h3>
-              <div className="mt-2 text-sm text-warning/80">
-                <p>{getAlertMessage()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
+      {/* Alert Banner Removed as per user request */}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card className="crypto-card">
@@ -536,7 +520,7 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="crypto-card">
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -568,7 +552,7 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="crypto-card">
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -600,7 +584,7 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="crypto-card">
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -640,7 +624,7 @@ export function Overview() {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Charts and Activity Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Order Volume Chart */}
@@ -654,18 +638,18 @@ export function Overview() {
                 <button className="px-3 py-1 text-sm hover:bg-surface-2 rounded-md">90D</button>
               </div>
             </div>
-            
+
             <div className="h-64 bg-surface-2 rounded-xl flex items-center justify-center border border-border relative overflow-hidden">
-              <img 
-                src="https://images.unsplash.com/photo-1642790106117-e829e14a795f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400" 
-                alt="Trading chart visualization" 
-                className="w-full h-full object-cover rounded-xl opacity-60" 
+              <img
+                src="https://images.unsplash.com/photo-1642790106117-e829e14a795f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400"
+                alt="Trading chart visualization"
+                className="w-full h-full object-cover rounded-xl opacity-60"
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="flex items-center bg-surface/80 px-4 py-2 rounded-lg backdrop-blur-sm">
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
-                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
                   </svg>
                   <span>Chart: Order volume trends</span>
                 </div>
@@ -673,7 +657,7 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Recent Activity */}
         <Card className="crypto-card">
           <CardContent className="p-6">
@@ -686,21 +670,20 @@ export function Overview() {
               ) : recentOrders.length > 0 ? (
                 recentOrders.slice(0, 5).map((order, index) => (
                   <div key={order.id} className="flex items-start space-x-3">
-                    <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                      order.statusType === "success" ? "bg-success" :
-                      order.statusType === "warning" ? "bg-warning" :
-                      order.statusType === "accent" ? "bg-accent" :
-                      order.statusType === "danger" ? "bg-danger" :
-                      "bg-muted"
-                    }`} />
+                    <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${order.statusType === "success" ? "bg-success" :
+                        order.statusType === "warning" ? "bg-warning" :
+                          order.statusType === "accent" ? "bg-accent" :
+                            order.statusType === "danger" ? "bg-danger" :
+                              "bg-muted"
+                      }`} />
                     <div className="flex-1">
                       <p className="text-sm text-text">
                         {order.status === 'completed' ? 'Order completed' :
-                         order.status === 'paid' ? 'Payment received' :
-                         order.status === 'pending' ? 'New order placed' :
-                         order.status === 'cancelled' ? 'Order cancelled' :
-                         order.status === 'disputed' ? 'Dispute opened' :
-                         'Order updated'}
+                          order.status === 'paid' ? 'Payment received' :
+                            order.status === 'pending' ? 'New order placed' :
+                              order.status === 'cancelled' ? 'Order cancelled' :
+                                order.status === 'disputed' ? 'Dispute opened' :
+                                  'Order updated'}
                       </p>
                       <p className="text-xs text-gray-400">
                         {order.listing} • {order.amount} • {order.created}
@@ -717,14 +700,14 @@ export function Overview() {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Node Status and System Health */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Crypto Node Status */}
         <Card className="crypto-card">
           <CardContent className="p-4">
             <h3 className="text-lg font-semibold text-text mb-3">Crypto Nodes</h3>
-            
+
             {/* BTC Node */}
             <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3">
               <div className="flex items-center space-x-3">
@@ -738,13 +721,13 @@ export function Overview() {
               </div>
               <StatusBadge status="Connected" type="success" />
             </div>
-            
+
             {/* XMR Node */}
             <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
                   <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z"/>
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
                   </svg>
                 </div>
                 <div>
@@ -756,12 +739,12 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Escrow Overview */}
         <Card className="crypto-card">
           <CardContent className="p-4">
             <h3 className="text-lg font-semibold text-text mb-3">Escrow Overview</h3>
-            
+
             <div className="grid grid-cols-2 gap-3">
               <div className="text-center p-3 bg-surface-2 rounded-lg">
                 <p className="text-xl font-bold text-text font-mono">
@@ -778,7 +761,7 @@ export function Overview() {
                 <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_xmr || 0) * 170).toLocaleString()}</p>
               </div>
             </div>
-            
+
             <div className="mt-3 space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">Pending Releases</span>
@@ -795,7 +778,7 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Escrow Alerts */}
         <Card className="crypto-card">
           <CardContent className="p-4">
@@ -816,11 +799,11 @@ export function Overview() {
                       Escrow Order: {order.listing}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {order.order_status === 'paid' && !order.confirmed_at 
-                        ? 'Awaiting buyer approval' 
-                        : order.confirmed_at 
-                        ? 'Approved by buyer' 
-                        : 'Payment pending'}
+                      {order.order_status === 'paid' && !order.confirmed_at
+                        ? 'Awaiting buyer approval'
+                        : order.confirmed_at
+                          ? 'Approved by buyer'
+                          : 'Payment pending'}
                     </p>
                   </div>
                   <div className="text-xs text-gray-400">
@@ -838,21 +821,21 @@ export function Overview() {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Recent Orders Table */}
       <Card className="crypto-card">
         <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-text">Recent Orders</h3>
-            <Link 
-              to="/admin/orders" 
+            <Link
+              to="/admin/orders"
               className="text-sm text-accent hover:text-accent-2 transition-colors duration-200"
             >
               View all orders →
             </Link>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-border">
             <thead className="bg-surface-2">

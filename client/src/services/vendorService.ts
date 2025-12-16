@@ -111,6 +111,50 @@ class VendorService {
       };
     }
   }
+
+  async getBulkUploadTemplate() {
+    try {
+      const response = await api.get('/products/bulk-upload/template/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching bulk upload template:', error);
+      return { success: false, message: 'Failed to fetch template' };
+    }
+  }
+
+  async bulkUploadCSV(file: File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/products/bulk-upload/csv/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error uploading CSV:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to upload CSV',
+        errors: error.response?.data?.errors || []
+      };
+    }
+  }
+
+  async bulkUploadSimple(data: string) {
+    try {
+      const response = await api.post('/products/bulk-upload/simple/', { data });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error uploading simple data:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to upload data',
+        errors: error.response?.data?.errors || []
+      };
+    }
+  }
 }
 
 export default new VendorService();

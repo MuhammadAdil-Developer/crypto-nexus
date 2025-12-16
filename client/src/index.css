@@ -18,7 +18,7 @@
   --success: 142 76% 46%;
   --warning: 38 92% 50%;
   --danger: 0 85% 60%;
-  
+
   /* Override shadcn variables for dark theme - Moderately Lighter */
   --background: hsl(210, 47%, 6%);
   --foreground: hsl(215, 20%, 92%);
@@ -39,11 +39,11 @@
   --border: hsl(210, 29%, 18%);
   --input: hsl(210, 41%, 14%);
   --ring: hsl(186, 84%, 55%);
-  
+
   /* Fonts */
   --font-sans: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  
+
   /* Radius */
   --radius: 0.75rem;
 }
@@ -63,22 +63,22 @@
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: "opsz" 32;
   }
-  
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: hsl(var(--surface));
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 3px;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
   }
@@ -88,23 +88,23 @@
   .crypto-card {
     @apply bg-card border border-border rounded-2xl p-6 transition-all duration-200;
   }
-  
+
   .crypto-card:hover {
     border-color: hsl(186 84% 55% / 0.3);
   }
-  
+
   .nav-item {
     @apply flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors;
   }
-  
+
   .nav-item-active {
     @apply bg-secondary text-accent;
   }
-  
+
   .nav-item-inactive {
     @apply text-muted-foreground hover:text-foreground;
   }
-  
+
   .nav-item-inactive:hover {
     background-color: hsl(var(--secondary) / 0.5);
   }
@@ -145,7 +145,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: 
+    background-image:
       radial-gradient(circle at 20% 20%, rgba(255, 20, 147, 0.15) 0%, transparent 40%),
       radial-gradient(circle at 80% 80%, rgba(255, 0, 0, 0.15) 0%, transparent 40%),
       linear-gradient(30deg, transparent 30%, rgba(255, 20, 147, 0.08) 50%, transparent 70%),
@@ -162,7 +162,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: 
+    background-image:
       repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255, 20, 147, 0.05) 3px, rgba(255, 20, 147, 0.05) 6px),
       repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(255, 0, 0, 0.05) 3px, rgba(255, 0, 0, 0.05) 6px);
     background-size: 15px 15px;
@@ -180,7 +180,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: 
+    background-image:
       linear-gradient(90deg, rgba(255, 20, 147, 0.1) 1px, transparent 1px),
       linear-gradient(0deg, rgba(255, 0, 0, 0.1) 1px, transparent 1px),
       radial-gradient(circle at 10% 10%, rgba(255, 20, 147, 0.2) 1px, transparent 1px),
@@ -210,10 +210,40 @@
   }
 
   .buyer-sidebar-background {
-    background: url('/images/buyersidebar.png') center/cover no-repeat fixed;
+    background: linear-gradient(135deg, #1a0a0f 0%, #2d1b2e 25%, #1a0a0f 50%, #2d1b2e 75%, #1a0a0f 100%);
     position: relative;
   }
 
+  .buyer-sidebar-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255, 20, 147, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(255, 0, 0, 0.15) 0%, transparent 40%),
+      linear-gradient(30deg, transparent 30%, rgba(255, 20, 147, 0.08) 50%, transparent 70%),
+      linear-gradient(-30deg, transparent 30%, rgba(255, 0, 0, 0.08) 50%, transparent 70%);
+    background-size: 150px 150px, 200px 200px, 80px 80px, 80px 80px;
+    background-position: 0 0, 50px 50px, 0 0, 25px 25px;
+    pointer-events: none;
+  }
+
+  .buyer-sidebar-background::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+      repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255, 20, 147, 0.05) 3px, rgba(255, 20, 147, 0.05) 6px),
+      repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(255, 0, 0, 0.05) 3px, rgba(255, 0, 0, 0.05) 6px);
+    background-size: 15px 15px;
+    pointer-events: none;
+  }
 
 
 

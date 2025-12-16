@@ -128,15 +128,18 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
                             <Badge variant="secondary" className="text-xs">
                               Qty: {item.quantity}
                             </Badge>
-                            <span className="text-gray-400 text-xs">
-                              @ {parseFloat(item.price).toFixed(8)} BTC each
+                            <span className="text-gray-400 text-xs font-mono">
+                              @ {(parseFloat(item.price) / 100000).toFixed(8)} BTC each
+                            </span>
+                            <span className="text-gray-500 text-xs ml-1">
+                              (≈ ${parseFloat(item.price).toFixed(2)})
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
-                        <p className="text-white font-bold text-sm">{itemTotal.toFixed(8)}</p>
-                        <p className="text-gray-400 text-xs">BTC</p>
+                        <p className="text-white font-bold text-sm font-mono">{(itemTotal / 100000).toFixed(8)} BTC</p>
+                        <p className="text-gray-400 text-xs">≈ ${itemTotal.toFixed(2)}</p>
                       </div>
                     </div>
                   );
@@ -149,7 +152,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
           <div className="border-t border-gray-700 pt-4 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-gray-400">Subtotal:</span>
-              <span className="text-white font-medium">{calculatedTotal.toFixed(8)} BTC</span>
+              <span className="text-white font-medium">${calculatedTotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-400">Network Fees:</span>
@@ -157,7 +160,10 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
             </div>
             <div className="border-t border-gray-600 pt-2 mt-2 flex justify-between items-center">
               <span className="text-xl font-bold text-white">Total:</span>
-              <span className="text-2xl font-bold text-yellow-400">{calculatedTotal.toFixed(8)} BTC</span>
+              <div className="flex flex-col items-end">
+                <span className="text-2xl font-bold text-yellow-400 font-mono">{(calculatedTotal / 100000).toFixed(8)} BTC</span>
+                <span className="text-sm text-gray-400">≈ ${calculatedTotal.toFixed(2)}</span>
+              </div>
             </div>
           </div>
 
@@ -173,15 +179,15 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
-            <Button 
-              onClick={onClose} 
-              variant="outline" 
+            <Button
+              onClick={onClose}
+              variant="outline"
               className="flex-1 bg-gray-800 border-gray-700 hover:bg-gray-700"
             >
               Continue Shopping
             </Button>
-            <Button 
-              onClick={handlePayNow} 
+            <Button
+              onClick={handlePayNow}
               disabled={isCreatingOrders || cartItems.length === 0}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
             >
@@ -200,7 +206,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
           </div>
         </CardContent>
       </Card>
-      
+
       {/* Payment Modal */}
       {cartItems.length > 0 && (
         <PaymentModal

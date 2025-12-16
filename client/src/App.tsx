@@ -53,7 +53,7 @@ function RouteDebugger() {
 }
 
 function App() {
-  console.log('🚀 App component rendering with React Router...');
+  console.log('App component rendering with React Router...');
 
   return (
     <ToastProvider>

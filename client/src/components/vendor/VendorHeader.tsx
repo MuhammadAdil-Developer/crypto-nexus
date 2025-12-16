@@ -756,7 +756,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                  <AvatarFallback className="bg-gradient-to-br from-pink-600 text-white">
                     {loading ? "..." : (userData.business_name ? userData.business_name.substring(0, 2).toUpperCase() : userData.username.substring(0, 2).toUpperCase())}
                   </AvatarFallback>
                 </Avatar>
@@ -772,10 +772,6 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                 </div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/vendor/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleSwitchToBuyer}
@@ -785,6 +781,11 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                 <span>Buyer Dashboard</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/vendor/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+
               <DropdownMenuItem
                 onClick={() => setShowLogoutDialog(true)}
                 className="text-red-400 focus:text-red-300"

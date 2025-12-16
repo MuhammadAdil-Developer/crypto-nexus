@@ -86,7 +86,7 @@ export default function VendorSettings() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const [show2FAModal, setShow2FAModal] = useState(false);
-  const [twoFAData, setTwoFAData] = useState<{qr_code?: string; secret?: string; uri?: string} | null>(null);
+  const [twoFAData, setTwoFAData] = useState<{ qr_code?: string; secret?: string; uri?: string } | null>(null);
 
   useEffect(() => {
     fetchVendorData();
@@ -96,7 +96,7 @@ export default function VendorSettings() {
     try {
       setLoading(true);
       const response = await api.get('/profile/');
-      
+
       if (response.data && response.data.success) {
         setProfile({
           username: response.data.data.username || "",
@@ -107,7 +107,7 @@ export default function VendorSettings() {
           location: "",
           business_name: ""
         });
-        
+
         // Set 2FA state from profile
         if (response.data.data.two_factor_enabled !== undefined) {
           setSecurity(prev => ({
@@ -125,7 +125,7 @@ export default function VendorSettings() {
           const appResponse = await api.get(`/vendors/applications/`);
           const apps = appResponse.data.data || [];
           const myApp = apps.find((app: any) => app.vendor_username === response.data.data.username);
-          
+
           if (myApp) {
             setProfile(prev => ({
               ...prev,
@@ -136,7 +136,7 @@ export default function VendorSettings() {
               location: myApp.business_address || "",
               business_name: myApp.business_name || ""
             }));
-            
+
             setPayment(prev => ({
               ...prev,
               btc_address: myApp.btc_address || "",
@@ -163,10 +163,10 @@ export default function VendorSettings() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
       // Check if 2FA is being enabled
       const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
-      
+
       // Update 2FA in profile
       await api.put('/profile/update/', {
         two_factor_enabled: security.two_factor_enabled
@@ -185,7 +185,7 @@ export default function VendorSettings() {
         formData.append('business_address', profile.location || '');
         formData.append('btc_address', payment.btc_address || '');
         formData.append('xmr_address', payment.xmr_address || '');
-        
+
         await api.post('/vendors/applications/create/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -217,7 +217,7 @@ export default function VendorSettings() {
           });
         }
       }
-      
+
       // If 2FA is being disabled, call disable endpoint
       if (!security.two_factor_enabled && previous2FAState) {
         // Note: Disable endpoint requires password, so we'll just update the flag
@@ -261,7 +261,7 @@ export default function VendorSettings() {
 
     try {
       setSaving(true);
-      
+
       const response = await api.post('/profile/change-password/', {
         current_password: passwordData.current_password,
         new_password: passwordData.new_password
@@ -324,52 +324,52 @@ export default function VendorSettings() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
+            {/* <div>
               <Label htmlFor="businessName" className="text-gray-300">Business Name</Label>
               <Input
                 id="businessName"
                 value={profile.business_name || ""}
-                onChange={(e) => setProfile({...profile, business_name: e.target.value})}
+                onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
-            </div>
+            </div> */}
 
             <div>
               <Label htmlFor="username" className="text-gray-300">Username</Label>
               <Input
                 id="username"
                 value={profile.username}
-                onChange={(e) => setProfile({...profile, username: e.target.value})}
+                onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
             </div>
 
-            <div>
+            {/* <div>
               <Label htmlFor="contact" className="text-gray-300">Contact Number</Label>
               <Input
                 id="contact"
                 value={profile.contact || ""}
-                onChange={(e) => setProfile({...profile, contact: e.target.value})}
+                onChange={(e) => setProfile({ ...profile, contact: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
-            </div>
+            </div> */}
 
-            <div>
+            {/* <div>
               <Label htmlFor="website" className="text-gray-300">Website</Label>
               <Input
                 id="website"
                 value={profile.website || ""}
-                onChange={(e) => setProfile({...profile, website: e.target.value})}
+                onChange={(e) => setProfile({ ...profile, website: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
-            </div>
+            </div> */}
 
             <div>
               <Label htmlFor="description" className="text-gray-300">Business Description</Label>
               <Textarea
                 id="description"
                 value={profile.description || ""}
-                onChange={(e) => setProfile({...profile, description: e.target.value})}
+                onChange={(e) => setProfile({ ...profile, description: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
                 rows={3}
               />
@@ -391,7 +391,7 @@ export default function VendorSettings() {
               <Input
                 id="btcAddress"
                 value={payment.btc_address || ""}
-                onChange={(e) => setPayment({...payment, btc_address: e.target.value})}
+                onChange={(e) => setPayment({ ...payment, btc_address: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
                 placeholder="bc1q..."
               />
@@ -402,7 +402,7 @@ export default function VendorSettings() {
               <Input
                 id="xmrAddress"
                 value={payment.xmr_address || ""}
-                onChange={(e) => setPayment({...payment, xmr_address: e.target.value})}
+                onChange={(e) => setPayment({ ...payment, xmr_address: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
                 placeholder="4A1BvXRJ..."
               />
@@ -415,7 +415,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={payment.escrow_enabled}
-                onCheckedChange={(checked) => setPayment({...payment, escrow_enabled: checked})}
+                onCheckedChange={(checked) => setPayment({ ...payment, escrow_enabled: checked })}
               />
             </div>
 
@@ -452,7 +452,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={notifications.new_orders}
-                onCheckedChange={(checked) => setNotifications({...notifications, new_orders: checked})}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, new_orders: checked })}
               />
             </div>
 
@@ -463,7 +463,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={notifications.messages}
-                onCheckedChange={(checked) => setNotifications({...notifications, messages: checked})}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, messages: checked })}
               />
             </div>
 
@@ -474,7 +474,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={notifications.disputes}
-                onCheckedChange={(checked) => setNotifications({...notifications, disputes: checked})}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, disputes: checked })}
               />
             </div>
 
@@ -485,7 +485,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={notifications.reviews}
-                onCheckedChange={(checked) => setNotifications({...notifications, reviews: checked})}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, reviews: checked })}
               />
             </div>
 
@@ -496,7 +496,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={notifications.marketing}
-                onCheckedChange={(checked) => setNotifications({...notifications, marketing: checked})}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, marketing: checked })}
               />
             </div>
           </CardContent>
@@ -518,7 +518,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={security.two_factor_enabled}
-                onCheckedChange={(checked) => setSecurity({...security, two_factor_enabled: checked})}
+                onCheckedChange={(checked) => setSecurity({ ...security, two_factor_enabled: checked })}
               />
             </div>
 
@@ -529,7 +529,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={security.login_notifications}
-                onCheckedChange={(checked) => setSecurity({...security, login_notifications: checked})}
+                onCheckedChange={(checked) => setSecurity({ ...security, login_notifications: checked })}
               />
             </div>
 
@@ -540,7 +540,7 @@ export default function VendorSettings() {
               </div>
               <Switch
                 checked={security.suspicious_activity_alerts}
-                onCheckedChange={(checked) => setSecurity({...security, suspicious_activity_alerts: checked})}
+                onCheckedChange={(checked) => setSecurity({ ...security, suspicious_activity_alerts: checked })}
               />
             </div>
           </CardContent>
@@ -561,7 +561,7 @@ export default function VendorSettings() {
                 id="currentPassword"
                 type="password"
                 value={passwordData.current_password}
-                onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+                onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
             </div>
@@ -572,7 +572,7 @@ export default function VendorSettings() {
                 id="newPassword"
                 type="password"
                 value={passwordData.new_password}
-                onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
             </div>
@@ -583,15 +583,15 @@ export default function VendorSettings() {
                 id="confirmPassword"
                 type="password"
                 value={passwordData.confirm_password}
-                onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
               />
             </div>
 
-            <Button 
-              onClick={handleChangePassword} 
+            <Button
+              onClick={handleChangePassword}
               disabled={saving}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
               {saving ? (
                 <>
@@ -611,8 +611,8 @@ export default function VendorSettings() {
         {/* Save Button */}
         <Card className="bg-gray-900 border-gray-700 lg:col-span-2">
           <CardContent className="p-6">
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               disabled={saving}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -644,18 +644,18 @@ export default function VendorSettings() {
               Scan this QR code with your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {twoFAData?.qr_code && (
               <div className="flex flex-col items-center space-y-4">
                 <div className="bg-white p-4 rounded-lg">
-                  <img 
-                    src={twoFAData.qr_code} 
-                    alt="2FA QR Code" 
+                  <img
+                    src={twoFAData.qr_code}
+                    alt="2FA QR Code"
                     className="w-64 h-64"
                   />
                 </div>
-                
+
                 {twoFAData.secret && (
                   <div className="w-full">
                     <Label className="text-gray-300 text-sm">Backup Secret Key (use if QR code doesn't work)</Label>
@@ -667,7 +667,7 @@ export default function VendorSettings() {
                     </p>
                   </div>
                 )}
-                
+
                 <div className="w-full bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
                   <p className="text-sm text-blue-200">
                     <strong className="text-blue-300">Steps:</strong>
@@ -681,7 +681,7 @@ export default function VendorSettings() {
                 </div>
               </div>
             )}
-            
+
             <Button
               onClick={() => setShow2FAModal(false)}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"

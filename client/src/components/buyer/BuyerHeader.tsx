@@ -34,13 +34,13 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
   const [loading, setLoading] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  
+
   // Get real-time messaging data
   const { unreadCount, notifications, allNotifications, refreshNotifications, isLoading: isLoadingNotifications, setUnreadCount: setMessagingUnreadCount } = useMessaging();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Hide search bar on all buyer pages (home page has its own search)
   const shouldHideSearchBar = true; // Always hide header search bar
 
@@ -115,7 +115,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
 
   const handleNotificationDropdownOpen = async (open: boolean) => {
     setNotificationDropdownOpen(open);
-    
+
     // Simple: When dropdown opens, mark all as read and update state
     if (open) {
       try {
@@ -134,9 +134,9 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
     <header className={`bg-transparent border-b border-gray-800/50 backdrop-blur-[1px] px-6 py-4 relative z-10`} style={{ backdropFilter: 'blur(1px)' }}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="lg:hidden text-white"
             onClick={onMenuClick}
           >
@@ -160,23 +160,23 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
             <DropdownMenuContent align="end" className="w-[360px] p-0 bg-gray-900 border-gray-700">
               {/* Header */}
               <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-                  <div>
+                <div>
                   <h3 className="font-semibold text-white text-sm">Notifications</h3>
                   <p className="text-xs text-gray-400 mt-0.5">
-                      {isLoadingNotifications ? (
+                    {isLoadingNotifications ? (
                       <span className="flex items-center gap-1">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                          Loading...
-                        </span>
-                      ) : (
-                        `${unreadCount} unread`
-                      )}
-                    </p>
-                  </div>
+                        Loading...
+                      </span>
+                    ) : (
+                      `${unreadCount} unread`
+                    )}
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       refreshNotifications(true);
@@ -202,7 +202,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                   </Button>
                 </div>
               </div>
-              
+
               {/* Notifications List */}
               <div className="max-h-[320px] overflow-y-auto">
                 {isLoadingNotifications && allNotifications.length === 0 ? (
@@ -227,62 +227,61 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                     });
                     const displayedNotifications = sortedNotifications.slice(0, 3);
                     const hasMore = sortedNotifications.length > 3;
-                    
+
                     return (
                       <>
                         {displayedNotifications.map((notification) => (
-                    <DropdownMenuItem 
-                      key={notification.id} 
-                      className="p-3 border-b last:border-b-0 cursor-pointer"
-                      onClick={() => handleNotificationClick(notification)}
-                    >
-                      <div className="flex items-start space-x-3 w-full">
-                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                          notification.unread 
-                            ? notification.type === 'message' 
-                              ? 'bg-green-500' 
-                              : notification.type === 'order'
-                              ? 'bg-blue-500'
-                              : notification.type === 'review'
-                              ? 'bg-yellow-500'
-                              : notification.type === 'vendor_invitation'
-                              ? 'bg-purple-500'
-                              : 'bg-blue-500'
-                            : 'bg-gray-300'
-                        }`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm text-white truncate">{notification.title}</p>
-                            {notification.type === 'review' && (
-                              <Star className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                            )}
-                          </div>
-                          <p className={`text-xs text-gray-400 mt-1 ${notification.type === 'vendor_invitation' ? '' : notification.type === 'message' ? 'line-clamp-2' : 'line-clamp-2'}`}>
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                          {notification.type === 'review' && (
-                            <p className="text-xs text-yellow-400 mt-1">⭐ Click to leave review</p>
-                          )}
-                          {notification.type === 'vendor_invitation' && (
-                            <p className="text-xs text-purple-400 mt-1">👈 Click to apply as vendor</p>
-                          )}
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
+                          <DropdownMenuItem
+                            key={notification.id}
+                            className="p-3 border-b last:border-b-0 cursor-pointer"
+                            onClick={() => handleNotificationClick(notification)}
+                          >
+                            <div className="flex items-start space-x-3 w-full">
+                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${notification.unread
+                                ? notification.type === 'message'
+                                  ? 'bg-green-500'
+                                  : notification.type === 'order'
+                                    ? 'bg-blue-500'
+                                    : notification.type === 'review'
+                                      ? 'bg-yellow-500'
+                                      : notification.type === 'vendor_invitation'
+                                        ? 'bg-purple-500'
+                                        : 'bg-blue-500'
+                                : 'bg-gray-300'
+                                }`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm text-white truncate">{notification.title}</p>
+                                  {notification.type === 'review' && (
+                                    <Star className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                                  )}
+                                </div>
+                                <p className={`text-xs text-gray-400 mt-1 ${notification.type === 'vendor_invitation' ? '' : notification.type === 'message' ? 'line-clamp-2' : 'line-clamp-2'}`}>
+                                  {notification.message}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                                {notification.type === 'review' && (
+                                  <p className="text-xs text-yellow-400 mt-1">⭐ Click to leave review</p>
+                                )}
+                                {notification.type === 'vendor_invitation' && (
+                                  <p className="text-xs text-purple-400 mt-1">👈 Click to apply as vendor</p>
+                                )}
+                              </div>
+                            </div>
+                          </DropdownMenuItem>
                         ))}
                         {hasMore && (
                           <DropdownMenuSeparator />
                         )}
                         {hasMore && (
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="p-3 text-center justify-center cursor-pointer"
                             onClick={() => {
                               setNotificationDropdownOpen(false);
                               navigate('/buyer/notifications');
                             }}
                           >
-                            <span className="text-sm text-blue-400 hover:text-blue-300">View All ({sortedNotifications.length})</span>
+                            <span className="text-sm text-blue-400 hover:text-grey-200">View All ({sortedNotifications.length})</span>
                           </DropdownMenuItem>
                         )}
                       </>
@@ -297,10 +296,10 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 rounded-full flex items-center justify-center">
                   <User className="text-white w-4 h-4" />
                 </div>
-                <span className="hidden md:block font-medium text-gray-300">
+                <span className="hidden md:block font-medium hover:text-grey-200 text-gray-300">
                   {loading ? "Loading..." : userData.username}
                 </span>
                 <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -316,8 +315,8 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                className="text-red-400" 
+              <DropdownMenuItem
+                className="text-red-400"
                 onClick={() => setShowLogoutDialog(true)}
               >
                 <LogOut className="w-4 h-4 mr-2" />
@@ -341,14 +340,14 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowLogoutDialog(false)}
               className="border-gray-600 text-gray-300 hover:bg-gray-800"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleLogout}
               disabled={isLoggingOut}
               className="bg-pink-800 hover:bg-pink-900 text-white disabled:opacity-50"

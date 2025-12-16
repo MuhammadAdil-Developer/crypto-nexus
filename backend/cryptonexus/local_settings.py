@@ -1,24 +1,28 @@
-# Local Development Settings (No Docker)
+# Local Development Settings - MAINNET Configuration
+# WARNING: This is configured for MAINNET (real Bitcoin/Monero)
 
-# Use public testnet services for development
-BTCPAY_SERVER_URL = 'https://testnet.demo.btcpayserver.org'  # Public testnet
-BTCPAY_STORE_ID = 'demo'  # Demo store
-BTCPAY_API_KEY = 'demo_key'  # Demo API key
+# BTCPay Server - Production
+BTCPAY_SERVER_URL = 'http://88.99.143.151:23000'  # Your production BTCPay
+BTCPAY_STORE_ID = ''  # Set via environment variable
+BTCPAY_API_KEY = ''   # Set via environment variable
 
-# Monero testnet RPC (public)
-MONERO_RPC_URL = 'https://testnet-rpc.monero.com/json_rpc'
-MONERO_RPC_USER = ''
-MONERO_RPC_PASSWORD = ''
+# Monero RPC - Mainnet
+MONERO_RPC_URL = 'http://88.99.143.151:18081/json_rpc'
+MONERO_RPC_USER = ''  # Set via environment variable
+MONERO_RPC_PASSWORD = ''  # Set via environment variable
 
-# Bitcoin testnet (public)
-BITCOIN_RPC_URL = 'https://testnet.bitcoin.com/api'
-BITCOIN_RPC_USER = ''
-BITCOIN_RPC_PASSWORD = ''
+# Bitcoin RPC - Mainnet
+BITCOIN_RPC_URL = 'http://88.99.143.151:8332'  # Mainnet port
+BITCOIN_RPC_USER = ''  # Set via environment variable
+BITCOIN_RPC_PASSWORD = ''  # Set via environment variable
 
-# Testnet configuration
-BITCOIN_NETWORK = 'testnet'
-MONERO_NETWORK = 'testnet'
+# MAINNET configuration
+BITCOIN_NETWORK = 'mainnet'
+MONERO_NETWORK = 'mainnet'
 
-# For local testing, use mock services
-USE_MOCK_PAYMENTS = True
-MOCK_PAYMENT_DELAY = 5  # seconds 
+# For production, use real payment processing
+USE_MOCK_PAYMENTS = False
+
+# Confirmation requirements for mainnet security
+BTC_CONFIRMATIONS = 3
+XMR_CONFIRMATIONS = 10

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText, Download } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText, Download, Calculator } from "lucide-react";
 import vendorService, { VendorProduct } from "@/services/vendorService";
 import { productService } from "@/services/productService";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +18,19 @@ export default function VendorEditProduct() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [localBtcPrice, setLocalBtcPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<VendorProduct | null>(null);
-  
+
+  useEffect(() => {
+    if (product && product.price) {
+      // Initialize BTC price from USD price
+      // Rate: 100,000 USD/BTC
+      const btc = (parseFloat(product.price) / 100000).toFixed(8);
+      setLocalBtcPrice(btc);
+    }
+  }, [product]);
+
   const [formData, setFormData] = useState({
     // Client Required Fields
     headline: '',
@@ -33,7 +43,7 @@ export default function VendorEditProduct() {
     additional_info: '',
     delivery_time: '',
     credentials: '',
-    
+
     // Optional Fields
     account_age: '',
     access_method: '',
@@ -42,7 +52,7 @@ export default function VendorEditProduct() {
     gallery_images: [] as File[],
     documents: [] as File[],
     tags: [] as string[],
-    
+
     // Legacy fields for compatibility
     listing_title: '',
     category: '',
@@ -52,7 +62,7 @@ export default function VendorEditProduct() {
     special_features: [] as string[],
     auto_delivery_script: '',
     notes_for_buyer: '',
-    
+
     // Status
     status: 'pending_approval'
   });
@@ -67,85 +77,85 @@ export default function VendorEditProduct() {
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
-      
+
       try {
         setLoading(true);
         setError(null);
-        
+
         console.log('🔍 Fetching product for edit with ID:', id);
-        
+
         // Use dedicated product detail endpoint
         const response = await vendorService.getProductDetail(id);
-        
+
         console.log('🔍 Edit product response:', response);
-        
+
         if (response.success && response.data) {
           const foundProduct = response.data;
           console.log('✅ Setting product for edit:', foundProduct);
-          
-            setProduct(foundProduct);
-            setFormData({
+
+          setProduct(foundProduct);
+          setFormData({
             // Client Required Fields
             headline: foundProduct.headline || '',
             website: foundProduct.website || '',
             account_type: foundProduct.account_type || '',
             access_type: foundProduct.access_type || '',
             account_balance: foundProduct.account_balance?.toString() || '',
-              description: foundProduct.description || '',
-              price: foundProduct.price?.toString() || '',
+            description: foundProduct.description || '',
+            price: foundProduct.price?.toString() || '',
             additional_info: foundProduct.additional_info || '',
             delivery_time: foundProduct.delivery_time || '',
             credentials: foundProduct.credentials || '',
-            
+
             // Optional Fields
-              account_age: foundProduct.account_age || '',
-              access_method: foundProduct.access_method || '',
+            account_age: foundProduct.account_age || '',
+            access_method: foundProduct.access_method || '',
             quantity_available: foundProduct.quantity_available?.toString() || '',
             main_image: null, // Will be set by handleMainImageChange
             gallery_images: [] as File[], // Will be set by handleGalleryImageChange
             documents: [] as File[], // Assuming documents are not directly managed in this form
             tags: foundProduct.tags || [],
-            
+
             // Legacy fields for compatibility
             listing_title: foundProduct.listing_title || '',
             category: foundProduct.category || '',
             sub_category: foundProduct.sub_category || '',
             discount_percentage: foundProduct.discount_percentage?.toString() || '',
-              delivery_method: foundProduct.delivery_method || '',
+            delivery_method: foundProduct.delivery_method || '',
             special_features: foundProduct.special_features || [],
             auto_delivery_script: foundProduct.auto_delivery_script || '',
-              notes_for_buyer: foundProduct.notes_for_buyer || '',
-            
+            notes_for_buyer: foundProduct.notes_for_buyer || '',
+
             // Status
             status: foundProduct.status || 'pending_approval'
-            });
-            
-            // Set existing images
-            if (foundProduct.main_image) {
-              console.log('🔍 Setting main image preview:', foundProduct.main_image);
-              const mainImgUrl = foundProduct.main_image.startsWith('http') 
-                ? foundProduct.main_image 
-                : `http://localhost:8000${foundProduct.main_image}`;
-              setMainImagePreview(mainImgUrl);
-            } else if (foundProduct.main_images && foundProduct.main_images.length > 0) {
-              console.log('🔍 Setting main image from main_images array:', foundProduct.main_images[0]);
-              const mainImgUrl = foundProduct.main_images[0].startsWith('http')
-                ? foundProduct.main_images[0]
-                : `http://localhost:8000${foundProduct.main_images[0]}`;
-              setMainImagePreview(mainImgUrl);
-            }
-            if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
-              console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-              setGalleryImagePreviews(foundProduct.gallery_images.map((img: string) => 
-                img.startsWith('http') ? img : `http://localhost:8000${img}`
-              ));
-              setMainImagePreview(getImageUrl(foundProduct.main_image));
-            }
-            if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
-              console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-              setGalleryImagePreviews(foundProduct.gallery_images.map(img => getImageUrl(img)));
-            }
-          } else {
+          });
+
+          // Set existing images
+          if (foundProduct.main_image) {
+            console.log('🔍 Setting main image preview:', foundProduct.main_image);
+            const mainImgUrl = foundProduct.main_image.startsWith('http')
+              ? foundProduct.main_image
+              : `http://localhost:8000${foundProduct.main_image}`;
+            setMainImagePreview(mainImgUrl);
+          } else if (foundProduct.main_images && foundProduct.main_images.length > 0) {
+            console.log('🔍 Setting main image from main_images array:', foundProduct.main_images[0]);
+            const mainImgUrl = foundProduct.main_images[0].startsWith('http')
+              ? foundProduct.main_images[0]
+              : `http://localhost:8000${foundProduct.main_images[0]}`;
+            setMainImagePreview(mainImgUrl);
+          }
+          if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
+            console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
+            setGalleryImagePreviews(foundProduct.gallery_images.map((img: string) =>
+              img.startsWith('http') ? img : `http://localhost:8000${img}`
+            ));
+            setMainImagePreview(getImageUrl(foundProduct.main_image));
+          }
+          if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
+            console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
+            setGalleryImagePreviews(foundProduct.gallery_images.map(img => getImageUrl(img)));
+          }
+        } else {
           console.error('❌ Edit product error:', response);
           setError(response.message || 'Failed to fetch product');
         }
@@ -182,7 +192,7 @@ export default function VendorEditProduct() {
     const files = Array.from(e.target.files || []);
     const newGalleryImages = [...galleryImages, ...files];
     setGalleryImages(newGalleryImages);
-    
+
     // Generate previews for new images
     files.forEach(file => {
       const reader = new FileReader();
@@ -216,10 +226,10 @@ export default function VendorEditProduct() {
   const handleDrop = (e: React.DragEvent, type: 'main' | 'gallery') => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
+
     if (type === 'main' && imageFiles.length > 0) {
       const file = imageFiles[0];
       setMainImage(file);
@@ -231,7 +241,7 @@ export default function VendorEditProduct() {
     } else if (type === 'gallery') {
       const newGalleryImages = [...galleryImages, ...imageFiles];
       setGalleryImages(newGalleryImages);
-      
+
       imageFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -244,13 +254,13 @@ export default function VendorEditProduct() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!id) return;
-    
+
     try {
       setSaving(true);
       setError(null);
-      
+
       // Prepare form data for update
       const updateData: any = {
         headline: formData.headline,
@@ -274,14 +284,14 @@ export default function VendorEditProduct() {
         notes_for_buyer: formData.notes_for_buyer,
         status: formData.status
       };
-      
+
       // Remove undefined fields
       Object.keys(updateData).forEach(key => {
         if (updateData[key] === undefined || updateData[key] === '') {
           delete updateData[key];
         }
       });
-      
+
       // Create FormData for file uploads
       const formDataToSend = new FormData();
       Object.keys(updateData).forEach(key => {
@@ -293,7 +303,7 @@ export default function VendorEditProduct() {
           formDataToSend.append(key, updateData[key]);
         }
       });
-      
+
       // Add images if they exist
       if (mainImage) {
         formDataToSend.append('main_image', mainImage);
@@ -301,7 +311,7 @@ export default function VendorEditProduct() {
       galleryImages.forEach((img, index) => {
         formDataToSend.append(`gallery_images`, img);
       });
-      
+
       // Use direct API call for FormData
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products/update/${id}/`, {
@@ -312,9 +322,9 @@ export default function VendorEditProduct() {
         },
         body: formDataToSend
       });
-      
+
       const responseData = await response.json();
-      
+
       if (response.ok && responseData.success) {
         showToast({
           type: 'success',
@@ -346,11 +356,11 @@ export default function VendorEditProduct() {
 
   const handleResubmit = async () => {
     if (!id) return;
-    
+
     try {
       setSaving(true);
       setError(null);
-      
+
       const response = await fetch(getApiUrl(`/products/${id}/resubmit/`), {
         method: 'PUT',
         headers: {
@@ -358,7 +368,7 @@ export default function VendorEditProduct() {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (response.ok) {
         showToast({
           type: 'success',
@@ -457,7 +467,7 @@ export default function VendorEditProduct() {
                   placeholder="e.g., Premium Zoom Pro Account 2021"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="website" className="text-gray-300">Website *</Label>
                 <Input
@@ -469,7 +479,7 @@ export default function VendorEditProduct() {
                   placeholder="e.g., zoom.us"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-gray-300">Description *</Label>
                 <Textarea
@@ -484,19 +494,41 @@ export default function VendorEditProduct() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price" className="text-gray-300">Price ($) *</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="price" className="text-gray-300">Price (BTC) *</Label>
+                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Input BTC, we save as USD</span>
+                  </div>
                   <Input
                     id="price"
-                    name="price"
+                    name="price_btc"
                     type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="0.00"
+                    step="0.00000001"
+                    value={localBtcPrice}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalBtcPrice(val);
+                      const btc = parseFloat(val);
+                      if (!isNaN(btc)) {
+                        // Rate: 100,000 USD/BTC
+                        const usd = (btc * 100000).toFixed(2);
+                        setFormData(prev => ({ ...prev, price: usd }));
+                      } else {
+                        setFormData(prev => ({ ...prev, price: '' }));
+                      }
+                    }}
+                    className="bg-gray-800 border-gray-600 text-white font-mono"
+                    placeholder="0.0001"
                   />
+
+                  <div className="flex justify-between items-start mt-2">
+                    <div className="flex-1"></div>
+                    <div className="text-right bg-green-500/10 px-3 py-1.5 rounded border border-green-500/20">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Storage Value (USD)</p>
+                      <p className="text-green-400 font-bold font-mono text-lg">${formData.price || '0.00'}</p>
+                    </div>
+                  </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="quantity_available" className="text-gray-300">Stock Quantity</Label>
                   <Input
@@ -523,7 +555,7 @@ export default function VendorEditProduct() {
               {(mainImagePreview || (product?.main_image && !mainImage) || (product?.main_images && product.main_images.length > 0 && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview || getImageUrl(product?.main_image) || 
+                    src={mainImagePreview || getImageUrl(product?.main_image) ||
                       (product?.main_images && product.main_images.length > 0
                         ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
                         : '')}
@@ -544,12 +576,11 @@ export default function VendorEditProduct() {
                   </Button>
                 </div>
               )}
-              
+
               {/* Upload Area */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  isDragging ? 'border-blue-400 bg-blue-400/10' : 'border-gray-600'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-400/10' : 'border-gray-600'
+                  }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, 'main')}
@@ -607,12 +638,11 @@ export default function VendorEditProduct() {
                   ))}
                 </div>
               )}
-              
+
               {/* Upload Area */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  isDragging ? 'border-blue-400 bg-blue-400/10' : 'border-gray-600'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-400/10' : 'border-gray-600'
+                  }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, 'gallery')}
@@ -672,8 +702,8 @@ export default function VendorEditProduct() {
                     placeholder="e.g., access"
                   />
                 </div>
-                </div>
-                
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="account_balance" className="text-gray-300">Account Balance</Label>
@@ -699,14 +729,14 @@ export default function VendorEditProduct() {
                 </div>
               </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="account_age" className="text-gray-300">Account Age</Label>
-                  <Input
-                    id="account_age"
-                    name="account_age"
-                    value={formData.account_age}
-                    onChange={handleInputChange}
-                    className="bg-gray-800 border-gray-600 text-white"
+              <div className="space-y-2">
+                <Label htmlFor="account_age" className="text-gray-300">Account Age</Label>
+                <Input
+                  id="account_age"
+                  name="account_age"
+                  value={formData.account_age}
+                  onChange={handleInputChange}
+                  className="bg-gray-800 border-gray-600 text-white"
                   placeholder="e.g., N/A"
                 />
               </div>
@@ -807,9 +837,9 @@ export default function VendorEditProduct() {
                           <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
                           <p className="text-gray-400 text-xs truncate">{docName}</p>
                         </div>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
                           onClick={() => window.open(docUrl, '_blank')}
                         >
@@ -864,7 +894,7 @@ export default function VendorEditProduct() {
                 </>
               )}
             </Button>
-            
+
             {product?.status === 'rejected' && (
               <Button
                 type="button"
@@ -885,7 +915,7 @@ export default function VendorEditProduct() {
                 )}
               </Button>
             )}
-            
+
             <Button
               type="button"
               variant="outline"
@@ -905,12 +935,12 @@ export default function VendorEditProduct() {
           <CardContent className="space-y-4">
             <div>
               <img
-                src={mainImagePreview || 
-                  (product?.main_image 
+                src={mainImagePreview ||
+                  (product?.main_image
                     ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
                     : (product?.main_images && product.main_images.length > 0
-                        ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                        : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300"))}
+                      ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                      : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300"))}
                 alt={formData.listing_title || formData.headline}
                 className="w-full h-48 object-cover rounded-lg"
                 onError={(e) => {
@@ -968,5 +998,5 @@ const getStatusDisplayName = (status: string) => {
     default:
       return status;
   }
-}; 
+};
 

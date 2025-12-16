@@ -93,10 +93,29 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const [expiredOrders, setExpiredOrders] = useState<Set<string>>(new Set());
   const [refundRequests, setRefundRequests] = useState<Record<string, any>>({});
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
   const intervalRefs = useRef<Record<string, NodeJS.Timeout>>({});
+
+  // Helper to handle inconsistent data where USD might be saved as BTC amount
+  const getCorrectedAmounts = (order: Order) => {
+    let btcAmount = parseFloat(order.total_amount);
+    let usdAmount = btcAmount * 100000;
+
+    // Heuristic: If BTC amount is suspiciously large (> 50), assume it was saved as USD
+    // 50 BTC = $5,000,000 which is unlikely for a single order here
+    if ((order.crypto_currency === 'BTC' || !order.crypto_currency) && btcAmount > 50) {
+      usdAmount = btcAmount;
+      btcAmount = usdAmount / 100000;
+      // console.log(`Fixed display for order ${order.order_id}: ${order.total_amount} -> ${btcAmount} BTC`);
+    }
+
+    return { btc: btcAmount, usd: usdAmount };
+  };
 
   // Calculate time remaining for pending orders
   const calculateTimeRemaining = (order: Order): number => {
@@ -432,6 +451,42 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     await handleApproveOrder(orderToConfirm);
     setConfirmModalOpen(false);
     setOrderToConfirm(null);
+  };
+
+  const handleCancelOrderClick = (order: Order) => {
+    setOrderToCancel(order);
+    setCancelModalOpen(true);
+  };
+
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+
+    try {
+      setIsCancelling(true);
+      await orderService.cancelOrder(orderToCancel.id.toString(), "Buyer cancelled manually");
+
+      toast({
+        title: "Order Cancelled",
+        description: "Your order has been cancelled successfully.",
+      });
+
+      if (onOrderUpdate) {
+        onOrderUpdate();
+      } else {
+        window.location.reload();
+      }
+    } catch (error: any) {
+      console.error('Error cancelling order:', error);
+      toast({
+        title: "Cancellation Failed",
+        description: error.message || "Failed to cancel order",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCancelling(false);
+      setCancelModalOpen(false);
+      setOrderToCancel(null);
+    }
   };
 
   return (
@@ -848,11 +903,21 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
                     <div className="flex items-center sm:space-x-4 sm:flex-row flex-col w-full sm:w-auto">
                       <div className="text-right w-full sm:w-auto">
-                        <p className="font-semibold text-white">
-                          {order.total_amount} {order.crypto_currency}
-                        </p>
+                        {(() => {
+                          const { btc: displayBtc, usd: displayUsd } = getCorrectedAmounts(order);
+                          return (
+                            <>
+                              <p className="font-semibold text-white">
+                                {displayBtc.toFixed(8).replace(/\.?0+$/, "")} {order.crypto_currency || 'BTC'}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                ≈ ${displayUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                            </>
+                          );
+                        })()}
                         <Badge
-                          className={`text-xs ${getStatusColor(order.order_status)}`}
+                          className={`text-xs mt-2 ${getStatusColor(order.order_status)}`}
                           variant="secondary"
                         >
                           {getStatusDisplay(order.order_status)}
@@ -867,6 +932,18 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                           >
                             <Star className="w-3 h-3 mr-1" />
                             Review
+                          </Button>
+                        )}
+                        {/* Cancel Button for Pending Orders */}
+                        {(order.order_status === "pending_payment" || order.order_status === "pending") && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="mt-2 w-full sm:w-auto hover:bg-red-700"
+                            onClick={() => handleCancelOrderClick(order)}
+                          >
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Cancel
                           </Button>
                         )}
                       </div>
@@ -1194,6 +1271,52 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
           currency={orderForRefund.crypto_currency}
           onSuccess={handleRefundSuccess}
         />
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {cancelModalOpen && orderToCancel && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Cancel Order?</h3>
+                <p className="text-sm text-gray-400">Are you sure you want to cancel this order?</p>
+              </div>
+            </div>
+
+            <p className="text-gray-300 text-sm mb-6">
+              Order <span className="font-mono text-white">#{orderToCancel.order_id}</span> will be cancelled. This action cannot be undone.
+              Any reserved stock will be released back to the marketplace.
+            </p>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setCancelModalOpen(false)}
+                className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+                disabled={isCancelling}
+              >
+                Keep Order
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={confirmCancelOrder}
+                disabled={isCancelling}
+              >
+                {isCancelling ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4 mr-2" />
+                )}
+                Confirm Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

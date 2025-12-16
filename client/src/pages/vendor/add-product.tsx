@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, ArrowLeftCircle, ArrowRightCircle, Upload, Plus, X, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowLeftCircle, ArrowRightCircle, Upload, Plus, X, CheckCircle, Loader2, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import authService from "@/services/authService";
 
@@ -23,7 +23,7 @@ interface ProductFormData {
   category: string;
   sub_category: string;
   description: string;
-  
+
   // Step 2: Account/Product Details
   account_type: string;
   verification_level: string;
@@ -31,18 +31,18 @@ interface ProductFormData {
   access_method: string;
   special_features: string[];
   region_restrictions: string;
-  
+
   // Step 3: Pricing & Availability
   price: string;
   discount_percentage: string;
   quantity_available: string;
   delivery_method: string;
-  
+
   // Step 4: Media & Proof
   main_images: File[];
   gallery_images: File[];
   documents: File[];
-  
+
   // Step 5: Additional Metadata
   tags: string[];
   auto_delivery_script: string;
@@ -57,6 +57,7 @@ export default function VendorAddProduct() {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [localBtcPrice, setLocalBtcPrice] = useState("");
 
   const [formData, setFormData] = useState({
     // Client Required Fields
@@ -70,7 +71,7 @@ export default function VendorAddProduct() {
     additional_info: "",
     delivery_time: "",
     credentials: "",
-    
+
     // Optional Fields
     account_age: "",
     access_method: "",
@@ -79,10 +80,10 @@ export default function VendorAddProduct() {
     gallery_images: [] as File[],
     documents: [] as File[],
     tags: [] as string[],
-    
+
     // Escrow Settings
     escrow_enabled: false,
-    
+
     // Legacy fields for compatibility
     listing_title: "",
     category: "",
@@ -172,7 +173,7 @@ export default function VendorAddProduct() {
   const verificationLevels = ["unverified", "email_verified", "kyc_verified", "2fa_enabled", "phone_verified"];
   const accessMethods = ["username_password", "api_keys", "seed_phrase", "software_license", "access_token"];
   const specialFeaturesOptions = [
-    "Trading Limits", "Balances Included", "Bonuses", "Referral Rewards", 
+    "Trading Limits", "Balances Included", "Bonuses", "Referral Rewards",
     "Bot Attached", "Premium Features", "No Restrictions", "24/7 Support"
   ];
   const deliveryMethods = ["instant_auto", "manual_approval"];
@@ -296,17 +297,17 @@ export default function VendorAddProduct() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     try {
-    setIsSubmitting(true);
+      setIsSubmitting(true);
 
       // Prepare form data with client required fields
       const submitData = new FormData();
-      
+
       // Client Required Fields
       submitData.append('headline', formData.headline);
       submitData.append('website', formData.website);
@@ -318,41 +319,41 @@ export default function VendorAddProduct() {
       submitData.append('additional_info', formData.additional_info);
       submitData.append('delivery_time', formData.delivery_time);
       submitData.append('credentials', formData.credentials);
-      
+
       // Optional Fields
       if (formData.account_age) submitData.append('account_age', formData.account_age);
       if (formData.access_method) submitData.append('access_method', formData.access_method);
       if (formData.quantity_available) submitData.append('quantity_available', formData.quantity_available);
-      
+
       // Escrow Settings
       submitData.append('escrow_enabled', formData.escrow_enabled.toString());
-      
+
       // Media files
       if (formData.main_image) {
         submitData.append('main_image', formData.main_image);
       }
-      
+
       // Handle gallery images - only append if files exist
       if (formData.gallery_images.length > 0) {
         formData.gallery_images.forEach((file) => {
           submitData.append('gallery_images', file);
         });
       }
-      
+
       // Handle documents - only append if files exist
       if (formData.documents.length > 0) {
         formData.documents.forEach((file) => {
           submitData.append('documents', file);
         });
       }
-      
+
       // JSON fields - send as JSON strings
       if (formData.tags.length > 0) {
         submitData.append('tags', JSON.stringify(formData.tags));
       } else {
         submitData.append('tags', JSON.stringify([]));
       }
-      
+
       // Get JWT token from localStorage
       const token = localStorage.getItem('accessToken');
       if (!token) {
@@ -374,8 +375,8 @@ export default function VendorAddProduct() {
         body: submitData
       });
 
-        const result = await response.json();
-      
+      const result = await response.json();
+
       if (result.success) {
         toast({
           title: "Success!",
@@ -388,7 +389,7 @@ export default function VendorAddProduct() {
           description: result.message || "Failed to create product",
           variant: "destructive",
         });
-        
+
         // Set backend validation errors
         if (result.errors) {
           setErrors(result.errors);
@@ -410,17 +411,15 @@ export default function VendorAddProduct() {
     <div className="flex items-center justify-center mb-8">
       {[1, 2, 3, 4, 5].map((step) => (
         <div key={step} className="flex items-center">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-            step <= currentStep 
-              ? "bg-blue-600 border-blue-600 text-white" 
-              : "border-gray-600 text-gray-400"
-          }`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${step <= currentStep
+            ? "bg-blue-600 border-blue-600 text-white"
+            : "border-gray-600 text-gray-400"
+            }`}>
             {step < currentStep ? <CheckCircle className="w-5 h-5" /> : step}
           </div>
           {step < 5 && (
-            <div className={`w-16 h-1 mx-2 ${
-              step < currentStep ? "bg-blue-600" : "bg-gray-600"
-            }`} />
+            <div className={`w-16 h-1 mx-2 ${step < currentStep ? "bg-blue-600" : "bg-gray-600"
+              }`} />
           )}
         </div>
       ))}
@@ -431,34 +430,34 @@ export default function VendorAddProduct() {
     switch (currentStep) {
       case 1:
         return (
-    <Card className="border border-gray-700 bg-[#1a1f2e]">
-      <CardHeader>
+          <Card className="border border-gray-700 bg-[#1a1f2e]">
+            <CardHeader>
               <CardTitle className="text-white">Basic Information</CardTitle>
               <CardDescription className="text-gray-400">
                 Enter the basic details of your account listing
               </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                <div>
                   <Label htmlFor="headline" className="text-white">Headline *</Label>
-          <Input
+                  <Input
                     id="headline"
                     placeholder="e.g., Zoom Account, PIC"
                     value={formData.headline}
-                    onChange={(e) => setFormData({...formData, headline: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
                     className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.headline ? 'border-red-500' : ''}`}
                   />
                   {errors.headline && <p className="text-red-500 text-sm mt-1">{errors.headline}</p>}
-        </div>
+                </div>
 
-        <div>
+                <div>
                   <Label htmlFor="website" className="text-white">Website *</Label>
                   <Input
                     id="website"
                     placeholder="e.g., Zoom.com"
                     value={formData.website}
-                    onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                     className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.website ? 'border-red-500' : ''}`}
                   />
                   {errors.website && <p className="text-red-500 text-sm mt-1">{errors.website}</p>}
@@ -468,14 +467,14 @@ export default function VendorAddProduct() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="account_type" className="text-white">Account Type *</Label>
-          <Select 
-                    value={formData.account_type} 
-                    onValueChange={(value) => setFormData({...formData, account_type: value})}
+                  <Select
+                    value={formData.account_type}
+                    onValueChange={(value) => setFormData({ ...formData, account_type: value })}
                   >
                     <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.account_type ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select account type" />
-            </SelectTrigger>
-            <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                       <SelectItem value="messengers">Messengers</SelectItem>
                       <SelectItem value="streaming">Streaming</SelectItem>
                       <SelectItem value="gaming">Gaming</SelectItem>
@@ -483,195 +482,218 @@ export default function VendorAddProduct() {
                       <SelectItem value="trading">Trading/Exchange</SelectItem>
                       <SelectItem value="software">Software</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
+                    </SelectContent>
+                  </Select>
                   {errors.account_type && <p className="text-red-500 text-sm mt-1">{errors.account_type}</p>}
-        </div>
+                </div>
 
-        <div>
+                <div>
                   <Label htmlFor="access_type" className="text-white">Access Type *</Label>
-          <Select 
-                    value={formData.access_type} 
-                    onValueChange={(value) => setFormData({...formData, access_type: value})}
-          >
+                  <Select
+                    value={formData.access_type}
+                    onValueChange={(value) => setFormData({ ...formData, access_type: value })}
+                  >
                     <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.access_type ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select access type" />
-            </SelectTrigger>
-            <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                       <SelectItem value="full_ownership">Full Ownership</SelectItem>
                       <SelectItem value="access">Access</SelectItem>
                       <SelectItem value="shared">Shared</SelectItem>
-            </SelectContent>
-          </Select>
+                    </SelectContent>
+                  </Select>
                   {errors.access_type && <p className="text-red-500 text-sm mt-1">{errors.access_type}</p>}
                 </div>
-        </div>
+              </div>
 
-        <div>
+              <div>
                 <Label htmlFor="account_balance" className="text-white">Account Balance</Label>
                 <Input
                   id="account_balance"
                   placeholder="e.g., $15 welcome credit"
                   value={formData.account_balance}
-                  onChange={(e) => setFormData({...formData, account_balance: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, account_balance: e.target.value })}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
               </div>
 
               <div>
                 <Label htmlFor="description" className="text-white">Description *</Label>
-          <Textarea
-            id="description"
+                <Textarea
+                  id="description"
                   placeholder="e.g., Aged Zoom Account from 2021 USA IP Female blabla..."
-            value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.description ? 'border-red-500' : ''}`}
                   rows={4}
                 />
                 {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
-        </div>
-      </CardContent>
-    </Card>
-  );
+              </div>
+            </CardContent>
+          </Card>
+        );
 
       case 2:
         return (
-    <Card className="border border-gray-700 bg-[#1a1f2e]">
-      <CardHeader>
+          <Card className="border border-gray-700 bg-[#1a1f2e]">
+            <CardHeader>
               <CardTitle className="text-white">Pricing & Delivery</CardTitle>
               <CardDescription className="text-gray-400">
                 Set your price and delivery options
               </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-                  <Label htmlFor="price" className="text-white">Price *</Label>
-          <Input
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="price" className="text-white">Price (BTC) *</Label>
+                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Input BTC, we save as USD</span>
+                  </div>
+                  <Input
                     id="price"
                     type="number"
-                    step="0.01"
-                    placeholder="e.g., 7.00"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.price ? 'border-red-500' : ''}`}
+                    step="0.00000001"
+                    placeholder="e.g., 0.0001"
+                    value={localBtcPrice}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalBtcPrice(val);
+                      const btc = parseFloat(val);
+                      if (!isNaN(btc)) {
+                        // Rate: 100,000 USD/BTC
+                        const usd = (btc * 100000).toFixed(2);
+                        setFormData(prev => ({ ...prev, price: usd }));
+                      } else {
+                        setFormData(prev => ({ ...prev, price: '' }));
+                      }
+                    }}
+                    className={`bg-[#1a1f2e] border-gray-600 text-white font-mono ${errors.price ? 'border-red-500' : ''}`}
                   />
-                  {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
-        </div>
 
-        <div>
-                  <Label htmlFor="delivery_time" className="text-white">Delivery Time *</Label>
-                  <Select 
-                    value={formData.delivery_time} 
-                    onValueChange={(value) => setFormData({...formData, delivery_time: value})}
+                  <div className="flex justify-between items-start mt-2">
+                    <div className="flex-1">
+                      {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
+                    </div>
+                    <div className="text-right bg-green-500/10 px-3 py-1.5 rounded border border-green-500/20">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Storage Value (USD)</p>
+                      <p className="text-green-400 font-bold font-mono text-lg">${formData.price || '0.00'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="delivery_time" className="text-white">Delivery Time*</Label>
+                  <Select
+                    value={formData.delivery_time}
+                    onValueChange={(value) => setFormData({ ...formData, delivery_time: value })}
                   >
                     <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.delivery_time ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select delivery time" />
-            </SelectTrigger>
-            <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                       <SelectItem value="instant_auto">Instant Auto-delivery</SelectItem>
                       <SelectItem value="manual_24h">Manual delivery within 24hrs</SelectItem>
-            </SelectContent>
-          </Select>
+                    </SelectContent>
+                  </Select>
                   {errors.delivery_time && <p className="text-red-500 text-sm mt-1">{errors.delivery_time}</p>}
                 </div>
-        </div>
+              </div>
 
-        <div>
+              <div>
                 <Label htmlFor="additional_info" className="text-white bg-[#1a1f2e] border-gray-600">Additional Info</Label>
                 <Textarea
                   id="additional_info"
                   placeholder="e.g., Account is Shadowflagged by this and that"
                   value={formData.additional_info}
-                  onChange={(e) => setFormData({...formData, additional_info: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, additional_info: e.target.value })}
                   rows={3}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
-        </div>
+              </div>
 
-        <div>
+              <div>
                 <Label htmlFor="credentials" className="text-white">Credentials</Label>
                 <Textarea
                   id="credentials"
                   placeholder="e.g., testemail@test.com:testuser66:testpassword"
                   value={formData.credentials}
-                  onChange={(e) => setFormData({...formData, credentials: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, credentials: e.target.value })}
                   rows={3}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
                 <p className="text-gray-400 text-sm mt-1">
                   Credentials will be hidden until payment is confirmed
                 </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
+              </div>
+            </CardContent>
+          </Card >
+        );
 
       case 3:
         return (
-    <Card className="border border-gray-700 bg-[#1a1f2e]">
-      <CardHeader>
+          <Card className="border border-gray-700 bg-[#1a1f2e]">
+            <CardHeader>
               <CardTitle className="text-white">Optional Details</CardTitle>
               <CardDescription className="text-gray-400">
                 Additional information (optional)
               </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                <div>
                   <Label htmlFor="account_age" className="text-white">Account Age / Creation Date</Label>
-            <Input
+                  <Input
                     id="account_age"
                     placeholder="e.g., 2021, 2 years old"
                     value={formData.account_age}
-                    onChange={(e) => setFormData({...formData, account_age: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, account_age: e.target.value })}
                   />
-        </div>
+                </div>
 
-        <div>
+                <div>
                   <Label htmlFor="access_method" className="text-white">Access Method</Label>
-          <Input
+                  <Input
                     id="access_method"
                     placeholder="e.g., Email/Password, 2FA"
                     value={formData.access_method}
-                    onChange={(e) => setFormData({...formData, access_method: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, access_method: e.target.value })}
                   />
                 </div>
-        </div>
+              </div>
 
-        <div>
+              <div>
                 <Label htmlFor="quantity_available" className="text-white">Quantity Available</Label>
-          <Input
+                <Input
                   id="quantity_available"
-            type="number"
+                  type="number"
                   placeholder="e.g., 1, 5, 10"
-            value={formData.quantity_available}
-                  onChange={(e) => setFormData({...formData, quantity_available: e.target.value})}
+                  value={formData.quantity_available}
+                  onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
 
                 />
-        </div>
-      </CardContent>
-    </Card>
-  );
+              </div>
+            </CardContent>
+          </Card>
+        );
 
       case 4:
         return (
-    <Card className="border border-gray-700 bg-[#1a1f2e]">
-      <CardHeader>
+          <Card className="border border-gray-700 bg-[#1a1f2e]">
+            <CardHeader>
               <CardTitle className="text-white">Media & Documents</CardTitle>
               <CardDescription className="text-gray-400">
                 Upload images and documents (optional)
               </CardDescription>
-      </CardHeader>
+            </CardHeader>
             <CardContent className="space-y-4">
-        <div>
+              <div>
                 <Label htmlFor="main_image" className="text-white">Account Image</Label>
                 <Input
                   id="main_image"
-              type="file"
-              accept="image/*"
-                  onChange={(e) => setFormData({...formData, main_image: e.target.files?.[0] || null})}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setFormData({ ...formData, main_image: e.target.files?.[0] || null })}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
               </div>
@@ -683,24 +705,24 @@ export default function VendorAddProduct() {
                   type="file"
                   accept="image/*"
                   multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                    setFormData({...formData, gallery_images: files});
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setFormData({ ...formData, gallery_images: files });
                   }}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
-          </div>
-          
-        <div>
+              </div>
+
+              <div>
                 <Label htmlFor="documents" className="text-white">Documents</Label>
                 <Input
                   id="documents"
-              type="file"
+                  type="file"
                   accept=".pdf,.doc,.docx"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                    setFormData({...formData, documents: files});
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setFormData({ ...formData, documents: files });
                   }}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
@@ -740,8 +762,8 @@ export default function VendorAddProduct() {
                       }
                     }}
                     className="bg-[#1a1f2e] border-gray-600 text-white"
-            />
-            <Button 
+                  />
+                  <Button
                     type="button"
                     onClick={() => {
                       if (newTag.trim()) {
@@ -755,17 +777,17 @@ export default function VendorAddProduct() {
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     Add
-            </Button>
+                  </Button>
                 </div>
-          </div>
-          
+              </div>
+
               {formData.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {formData.tags.map((tag, index) => (
                     <Badge key={index} variant="secondary" className="bg-gray-700 text-white">
                       {tag}
-                    <button
-                      onClick={() => {
+                      <button
+                        onClick={() => {
                           setFormData({
                             ...formData,
                             tags: formData.tags.filter((_, i) => i !== index)
@@ -774,11 +796,11 @@ export default function VendorAddProduct() {
                         className="ml-2 text-gray-400 hover:text-white"
                       >
                         ×
-                    </button>
+                      </button>
                     </Badge>
-                ))}
-            </div>
-          )}
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         );
@@ -829,37 +851,37 @@ export default function VendorAddProduct() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                <div>
                   <Label htmlFor="headline" className="text-white ">Headline *</Label>
                   <Input
                     id="headline"
                     placeholder="e.g., Zoom Account, PIC"
                     value={formData.headline}
-                    onChange={(e) => setFormData({...formData, headline: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
                     className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.headline ? 'border-red-500' : ''}`}
                   />
                   {errors.headline && <p className="text-red-500 text-sm mt-1">{errors.headline}</p>}
-          </div>
-          
+                </div>
+
                 <div>
                   <Label htmlFor="website" className="text-white">Website *</Label>
                   <Input
                     id="website"
                     placeholder="e.g., Zoom.com"
                     value={formData.website}
-                    onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                     className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.website ? 'border-red-500' : ''}`}
                   />
                   {errors.website && <p className="text-red-500 text-sm mt-1">{errors.website}</p>}
-                    </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="account_type" className="text-white">Account Type *</Label>
-                  <Select 
-                    value={formData.account_type} 
-                    onValueChange={(value) => setFormData({...formData, account_type: value})}
+                  <Select
+                    value={formData.account_type}
+                    onValueChange={(value) => setFormData({ ...formData, account_type: value })}
                   >
                     <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.account_type ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select account type" />
@@ -875,13 +897,13 @@ export default function VendorAddProduct() {
                     </SelectContent>
                   </Select>
                   {errors.account_type && <p className="text-red-500 text-sm mt-1">{errors.account_type}</p>}
-                  </div>
+                </div>
 
                 <div>
                   <Label htmlFor="access_type" className="text-white">Access Type *</Label>
-                  <Select 
-                    value={formData.access_type} 
-                    onValueChange={(value) => setFormData({...formData, access_type: value})}
+                  <Select
+                    value={formData.access_type}
+                    onValueChange={(value) => setFormData({ ...formData, access_type: value })}
                   >
                     <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.access_type ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select access type" />
@@ -893,8 +915,8 @@ export default function VendorAddProduct() {
                     </SelectContent>
                   </Select>
                   {errors.access_type && <p className="text-red-500 text-sm mt-1">{errors.access_type}</p>}
+                </div>
               </div>
-            </div>
 
               <div>
                 <Label htmlFor="account_balance" className="text-white">Account Balance</Label>
@@ -902,7 +924,7 @@ export default function VendorAddProduct() {
                   id="account_balance"
                   placeholder="e.g., $15 welcome credit"
                   value={formData.account_balance}
-                  onChange={(e) => setFormData({...formData, account_balance: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, account_balance: e.target.value })}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
               </div>
@@ -913,44 +935,44 @@ export default function VendorAddProduct() {
                   id="description"
                   placeholder="e.g., Aged Zoom Account from 2021 USA IP Female blabla..."
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.description ? 'border-red-500' : ''}`}
                   rows={4}
                 />
                 {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
-        </div>
-      </CardContent>
-    </Card>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Pricing & Delivery Card */}
-    <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
-      <CardHeader>
+          <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
+            <CardHeader>
               <CardTitle className="text-pink-600">Pricing & Delivery</CardTitle>
               <CardDescription className="text-gray-400">
                 Set your price and delivery options
               </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                <div>
                   <Label htmlFor="price" className="text-white">Price *</Label>
-            <Input
+                  <Input
                     id="price"
                     type="number"
                     step="0.01"
                     placeholder="e.g., 7.00"
                     value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.price ? 'border-red-500' : ''}`}
                   />
                   {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
-          </div>
+                </div>
 
                 <div>
                   <Label htmlFor="delivery_time" className="text-white">Delivery Time *</Label>
-                  <Select 
-                    value={formData.delivery_time} 
-                    onValueChange={(value) => setFormData({...formData, delivery_time: value})}
+                  <Select
+                    value={formData.delivery_time}
+                    onValueChange={(value) => setFormData({ ...formData, delivery_time: value })}
                   >
                     <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.delivery_time ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select delivery time" />
@@ -961,73 +983,73 @@ export default function VendorAddProduct() {
                     </SelectContent>
                   </Select>
                   {errors.delivery_time && <p className="text-red-500 text-sm mt-1">{errors.delivery_time}</p>}
-          </div>
-        </div>
+                </div>
+              </div>
 
-        <div>
+              <div>
                 <Label htmlFor="additional_info" className="text-white">Additional Info</Label>
-          <Textarea
+                <Textarea
                   id="additional_info"
                   placeholder="e.g., Account is Shadowflagged by this and that"
                   value={formData.additional_info}
-                  onChange={(e) => setFormData({...formData, additional_info: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, additional_info: e.target.value })}
                   rows={3}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
-        </div>
+              </div>
 
-        <div>
+              <div>
                 <Label htmlFor="credentials" className="text-white">Credentials</Label>
-          <Textarea
+                <Textarea
                   id="credentials"
                   placeholder="e.g., testemail@test.com:testuser66:testpassword"
                   value={formData.credentials}
-                  onChange={(e) => setFormData({...formData, credentials: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, credentials: e.target.value })}
                   rows={3}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
                 />
                 <p className="text-gray-400 text-sm mt-1">
                   Credentials will be hidden until payment is confirmed
                 </p>
-        </div>
-
-        {/* Escrow Settings */}
-        <div className={`flex items-center justify-between p-4 rounded-lg ${isVendorBlocked ? 'bg-red-900/20 border border-red-500/30' : 'bg-gray-800'}`}>
-          <div>
-            <h4 className="font-medium text-white">Enable Escrow Protection</h4>
-            {isVendorBlocked ? (
-              <div className="mt-2">
-                <p className="text-sm text-red-400 font-semibold">
-                  ⚠️ Only Escrow Enabled Listings Available
-                </p>
-                <p className="text-xs text-red-300 mt-1">
-                  Your account is restricted to escrow-only listings. Escrow is automatically enabled and cannot be disabled.
-                </p>
               </div>
-            ) : (
-              <p className="text-sm text-gray-400">
-                Payment will be held until buyer approves the order. Disabled by default.
-              </p>
-            )}
-          </div>
-          <Switch
-            checked={formData.escrow_enabled}
-            disabled={isVendorBlocked}
-            onCheckedChange={(checked) => {
-              if (isVendorBlocked) {
-                toast({
-                  title: "Escrow Required",
-                  description: "Your account is restricted to escrow-only listings. Escrow cannot be disabled.",
-                  variant: "destructive",
-                });
-                return;
-              }
-              setFormData({...formData, escrow_enabled: checked});
-            }}
-          />
-        </div>
-      </CardContent>
-    </Card>
+
+              {/* Escrow Settings */}
+              <div className={`flex items-center justify-between p-4 rounded-lg ${isVendorBlocked ? 'bg-red-900/20 border border-red-500/30' : 'bg-gray-800'}`}>
+                <div>
+                  <h4 className="font-medium text-white">Enable Escrow Protection</h4>
+                  {isVendorBlocked ? (
+                    <div className="mt-2">
+                      <p className="text-sm text-red-400 font-semibold">
+                        ⚠️ Only Escrow Enabled Listings Available
+                      </p>
+                      <p className="text-xs text-red-300 mt-1">
+                        Your account is restricted to escrow-only listings. Escrow is automatically enabled and cannot be disabled.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">
+                      Payment will be held until buyer approves the order. Disabled by default.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  checked={formData.escrow_enabled}
+                  disabled={isVendorBlocked}
+                  onCheckedChange={(checked) => {
+                    if (isVendorBlocked) {
+                      toast({
+                        title: "Escrow Required",
+                        description: "Your account is restricted to escrow-only listings. Escrow cannot be disabled.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setFormData({ ...formData, escrow_enabled: checked });
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Optional Details Card */}
           <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
@@ -1045,22 +1067,22 @@ export default function VendorAddProduct() {
                     id="account_age"
                     placeholder="e.g., 2021, 2 years old"
                     value={formData.account_age}
-                    onChange={(e) => setFormData({...formData, account_age: e.target.value})}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"   
+                    onChange={(e) => setFormData({ ...formData, account_age: e.target.value })}
+                    className="bg-[#1a1f2e] border-gray-600 text-white"
                   />
                 </div>
 
-          <div>
+                <div>
                   <Label htmlFor="access_method" className="text-white">Access Method</Label>
                   <Input
                     id="access_method"
                     placeholder="e.g., Email/Password, 2FA"
                     value={formData.access_method}
-                    onChange={(e) => setFormData({...formData, access_method: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, access_method: e.target.value })}
                     className="bg-[#1a1f2e] border-gray-600 text-white"
 
                   />
-          </div>
+                </div>
 
                 <div>
                   <Label htmlFor="quantity_available" className="text-white">Quantity Available</Label>
@@ -1069,12 +1091,12 @@ export default function VendorAddProduct() {
                     type="number"
                     placeholder="e.g., 1, 5, 10"
                     value={formData.quantity_available}
-                    onChange={(e) => setFormData({...formData, quantity_available: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
                     className="bg-[#1a1f2e] border-gray-600 text-white"
 
                   />
-        </div>
-      </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -1094,9 +1116,9 @@ export default function VendorAddProduct() {
                     id="main_image"
                     type="file"
                     accept="image/*"
-                    onChange={(e) => setFormData({...formData, main_image: e.target.files?.[0] || null})}
+                    onChange={(e) => setFormData({ ...formData, main_image: e.target.files?.[0] || null })}
                     className="bg-[#1a1f2e] border-gray-600 text-white"
-                />
+                  />
                 </div>
 
                 <div>
@@ -1108,12 +1130,12 @@ export default function VendorAddProduct() {
                     multiple
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
-                      setFormData({...formData, gallery_images: files});
+                      setFormData({ ...formData, gallery_images: files });
                     }}
                     className="bg-[#1a1f2e] border-gray-600 text-white"
                   />
                 </div>
-      </div>
+              </div>
 
               <div>
                 <Label htmlFor="documents" className="text-white">Documents</Label>
@@ -1124,7 +1146,7 @@ export default function VendorAddProduct() {
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
-                    setFormData({...formData, documents: files});
+                    setFormData({ ...formData, documents: files });
                   }}
                   className="bg-[#1a1f2e] border-gray-600 text-white"
 
@@ -1164,7 +1186,7 @@ export default function VendorAddProduct() {
                     }}
                     className="bg-[#1a1f2e] border-gray-600 text-white"
                   />
-        <Button
+                  <Button
                     type="button"
                     onClick={() => {
                       if (newTag.trim()) {
@@ -1178,7 +1200,7 @@ export default function VendorAddProduct() {
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     Add
-        </Button>
+                  </Button>
                 </div>
               </div>
 
@@ -1232,7 +1254,7 @@ export default function VendorAddProduct() {
                 </>
               )}
             </Button>
-        </div>
+          </div>
         </form>
       </div>
     </div>

@@ -45,7 +45,7 @@ export default function BuyerOrders() {
   // Show toast if navigated with state and auto-open order details
   useEffect(() => {
     const navState: any = location.state as any;
-    
+
     if (navState?.toast) {
       toast({
         title: navState.toast.title,
@@ -55,25 +55,25 @@ export default function BuyerOrders() {
       // Clean the state so it doesn't show again on refresh
       window.history.replaceState({}, document.title);
     }
-    
+
     // Auto-open order details if orderId is provided
     if (navState?.openOrderId && orders.length > 0) {
-      const orderToOpen = orders.find(o => 
+      const orderToOpen = orders.find(o =>
         (o.order_id && o.order_id.toString() === navState.openOrderId.toString()) ||
         (o.id && o.id.toString() === navState.openOrderId.toString())
       );
-      
+
       if (orderToOpen) {
         // Trigger order details modal opening
         // This will be handled by OrdersTable component
         setTimeout(() => {
-          const event = new CustomEvent('openOrderDetails', { 
-            detail: { orderId: navState.openOrderId } 
+          const event = new CustomEvent('openOrderDetails', {
+            detail: { orderId: navState.openOrderId }
           });
           window.dispatchEvent(event);
         }, 500);
       }
-      
+
       // Clean the state
       window.history.replaceState({}, document.title);
     }
@@ -145,8 +145,8 @@ export default function BuyerOrders() {
           description: "Orders exported as CSV",
         });
       } else if (format === 'excel') {
-        // For Excel, we'll create a CSV with .xlsx extension (simplified approach)
-        // In production, you might want to use a library like xlsx
+        // For Excel, we'll create a CSV with .csv extension (since .xlsx requires binary format)
+        // This opens correctly in Excel without errors
         const csvContent = [
           headers.join(','),
           ...rows.map(row => row.map(cell => {
@@ -158,15 +158,15 @@ export default function BuyerOrders() {
           }).join(','))
         ].join('\n');
 
-        const blob = new Blob([csvContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const filename = `orders_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const filename = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = filename;
         link.click();
         toast({
           title: "Export Successful",
-          description: "Orders exported as Excel",
+          description: "Orders exported as CSV (Excel compatible)",
         });
       }
     } catch (error) {
@@ -185,7 +185,7 @@ export default function BuyerOrders() {
       // Use getBuyerOrders to fetch all orders
       const ordersArray = await orderService.getBuyerOrders();
       setOrders(ordersArray);
-      
+
       // Calculate stats
       const statsData = {
         totalOrders: ordersArray.length,
@@ -229,7 +229,7 @@ export default function BuyerOrders() {
     if (dateFilter !== "all") {
       const now = new Date();
       const filterDate = new Date();
-      
+
       switch (dateFilter) {
         case "Last 7 days":
           filterDate.setDate(now.getDate() - 7);
@@ -241,7 +241,7 @@ export default function BuyerOrders() {
           filterDate.setMonth(now.getMonth() - 3);
           break;
       }
-      
+
       filtered = filtered.filter(order => new Date(order.created_at) >= filterDate);
     }
 
@@ -287,7 +287,7 @@ export default function BuyerOrders() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {orderStats.map((stat, index) => (
-            <div 
+            <div
               key={stat.label}
               className="bg-gray-900 rounded-xl p-6 border border-gray-700 hover:shadow-xl transition-shadow"
             >
@@ -308,7 +308,7 @@ export default function BuyerOrders() {
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <h3 className="font-semibold text-white">Filter Orders</h3>
-            
+
             <div className="flex flex-wrap gap-3">
               {/* Status Filter */}
               <DropdownMenu>
@@ -388,7 +388,7 @@ export default function BuyerOrders() {
         ) : (
           <>
             <OrdersTable orders={currentOrders} onOrderUpdate={fetchOrders} />
-            
+
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -510,33 +510,32 @@ export default function BuyerOrders() {
               {orders.slice(0, 3).map((order) => {
                 const orderDate = new Date(order.created_at);
                 const timeAgo = getTimeAgo(orderDate);
-                
+
                 return (
                   <div key={order.order_id} className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">
-                    <div className={`w-2 h-2 rounded-full ${
-                      order.order_status === 'completed' ? 'bg-green-500' :
-                      order.order_status === 'processing' ? 'bg-blue-500' :
-                      order.order_status === 'pending' ? 'bg-yellow-500' :
-                      'bg-gray-500'
-                    }`}></div>
-              <div className="flex-1">
+                    <div className={`w-2 h-2 rounded-full ${order.order_status === 'completed' ? 'bg-green-500' :
+                        order.order_status === 'processing' ? 'bg-blue-500' :
+                          order.order_status === 'pending' ? 'bg-yellow-500' :
+                            'bg-gray-500'
+                      }`}></div>
+                    <div className="flex-1">
                       <p className="font-medium text-white">
                         {order.order_status === 'completed' ? 'Order delivered' :
-                         order.order_status === 'processing' ? 'Order confirmed' :
-                         order.order_status === 'pending' ? 'Payment verified' :
-                         'Order updated'}
+                          order.order_status === 'processing' ? 'Order confirmed' :
+                            order.order_status === 'pending' ? 'Payment verified' :
+                              'Order updated'}
                       </p>
                       <p className="text-sm text-gray-400">{order.product.headline} • {timeAgo}</p>
                     </div>
                     <Badge className={
                       order.order_status === 'completed' ? 'bg-green-100 text-green-800' :
-                      order.order_status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                      order.order_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
+                        order.order_status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                          order.order_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
                     }>
                       {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
                     </Badge>
-              </div>
+                  </div>
                 );
               })}
             </div>

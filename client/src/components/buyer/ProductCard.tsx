@@ -25,7 +25,7 @@ interface Product {
   sub_category: {
     id: number;
     name: string;
-    
+
   };
   price: string;
   account_type?: string | null;
@@ -63,8 +63,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     checkWishlistStatus();
   }, [product.id]); // Only run when product.id changes
 
-  const formatPrice = (price: string) => {
-    return parseFloat(price).toFixed(8);
+  // Format USD price with 2 decimal places
+  const formatUSD = (price: string) => {
+    return parseFloat(price).toFixed(2);
+  };
+
+  // Format BTC equivalent (assuming price is in USD)
+  const formatBTCEquivalent = (price: string) => {
+    return (parseFloat(price) / 100000).toFixed(8);
   };
 
   const getProductImage = () => {
@@ -83,7 +89,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const getAccountTypeColor = (type: string | null | undefined) => {
     if (!type) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'social': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       'gaming': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -100,7 +106,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const getVerificationColor = (level: string | null | undefined) => {
     if (!level) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'verified': 'bg-green-500/20 text-green-400 border-green-500/30',
       'premium': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -112,7 +118,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const getDeliveryMethodColor = (method: string | null | undefined) => {
     if (!method) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'instant': 'bg-green-500/20 text-green-400 border-green-500/30',
       'manual': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -156,13 +162,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         setIsPaymentModalOpen(true);
       }
     };
-    
+
     const handleOpenProductView = (event: CustomEvent) => {
       if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
         setIsModalOpen(true);
       }
     };
-    
+
     const handleAddProductToCart = (event: CustomEvent) => {
       if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
         if (product.quantity_available > 0) {
@@ -174,11 +180,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         }
       }
     };
-    
+
     window.addEventListener('openProductOrder', handleOpenProductOrder as EventListener);
     window.addEventListener('openProductView', handleOpenProductView as EventListener);
     window.addEventListener('addProductToCart', handleAddProductToCart as EventListener);
-    
+
     return () => {
       window.removeEventListener('openProductOrder', handleOpenProductOrder as EventListener);
       window.removeEventListener('openProductView', handleOpenProductView as EventListener);
@@ -188,7 +194,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const checkWishlistStatus = async () => {
     if (wishlistLoading) return; // Prevent multiple simultaneous calls
-    
+
     try {
       setWishlistLoading(true);
       const inWishlist = await wishlistService.isInWishlist(product.id);
@@ -337,8 +343,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             )}
           </div>
           <div>
-            <p className="font-semibold text-blue-200">{formatPrice(product.price)} BTC</p>
-            <p className="text-xs text-gray-500">{product.quantity_available} in stock</p>
+            <p className="font-bold text-white text-lg font-mono">{formatBTCEquivalent(product.price)} BTC</p>
+            <p className="text-xs text-gray-500">≈ ${formatUSD(product.price)}</p>
           </div>
           <div className="flex items-center gap-1 text-sm text-gray-200">
             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
@@ -406,7 +412,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           <div className="flex items-center justify-between text-sm">
             <div>
               <p className="text-gray-400">Price</p>
-              <p className="font-semibold text-blue-200">{formatPrice(product.price)} BTC</p>
+              <p className="font-bold text-white font-mono">{formatBTCEquivalent(product.price)} BTC</p>
+              <p className="text-xs text-gray-500">≈ ${formatUSD(product.price)}</p>
             </div>
             <div className="text-right">
               <p className="text-gray-400">Stock</p>
@@ -449,7 +456,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <span className="text-gray-500 text-6xl">📦</span>
             </div>
           )}
-          
+
           {/* Status Badges - Smaller */}
           <div className="absolute top-1 left-1 flex flex-col space-y-0.5">
             {/* Stock Status Badge */}
@@ -462,7 +469,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 Out of Stock
               </Badge>
             )}
-            
+
             {product.account_type && (
               <Badge className={`${getAccountTypeColor(product.account_type)} text-xs px-1 py-0.5`}>
                 {product.account_type.replace('_', ' ').toUpperCase()}
@@ -516,8 +523,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           {/* Price and Rating */}
           <div className="flex items-center justify-between mt-3 mb-3">
             <div>
-              <p className="text-base font-semibold text-blue-200">
-                {formatPrice(product.price)} BTC
+              <p className="text-lg font-bold text-white font-mono">
+                {formatBTCEquivalent(product.price)} BTC
+              </p>
+              <p className="text-gray-500 text-xs">
+                ≈ ${formatUSD(product.price)}
               </p>
               <p className="text-gray-500 text-xs">
                 {product.quantity_available || 0} available
@@ -542,21 +552,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <Eye className="w-3 h-3 mr-1" />
               <span className="text-[10px]">View</span>
             </Button>
-            
+
             <Button
               onClick={handleBuyNow}
               size="sm"
               disabled={product.quantity_available <= 0}
-              className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${
-                product.quantity_available > 0 
-                  ? 'bg-gradient-to-r from-pink-700 to-pink-800 hover:from-pink-800 hover:to-pink-800 text-white shadow-lg' 
-                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              }`}
+              className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${product.quantity_available > 0
+                ? 'bg-gradient-to-r from-pink-700 to-pink-800 hover:from-pink-800 hover:to-pink-800 text-white shadow-lg'
+                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }`}
             >
               <ShoppingCart className="w-3 h-3 mr-1" />
               <span className="text-[10px]">Buy</span>
             </Button>
-            
+
             {isInCart(product.id) ? (
               <Button
                 onClick={handleRemoveFromCart}
@@ -571,11 +580,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 onClick={handleAddToCart}
                 size="sm"
                 disabled={product.quantity_available <= 0}
-                className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${
-                  product.quantity_available > 0 
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white' 
-                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${product.quantity_available > 0
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white'
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  }`}
               >
                 <Plus className="w-3 h-3 mr-1" />
                 <span className="text-[10px]">Add</span>
@@ -584,7 +592,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           </div>
         </div>
       </CardContent>
-    </Card>
+    </Card >
   );
 
   const renderedCard = viewMode === 'list' ? listViewCard : gridViewCard;

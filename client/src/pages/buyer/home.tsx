@@ -1765,7 +1765,6 @@ function BuyerHomeContent() {
                     <div className="flex items-center justify-center space-x-1 mb-3">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
                       <span className="text-sm text-white">{vendor.rating.toFixed(1)}</span>
-                      <span className="text-xs text-gray-400">({vendor.totalSales || 0} sales)</span>
                     </div>
                     <div className="flex items-center justify-center space-x-2 mb-4">
                       <Clock className="w-3 h-3 text-green-400" />

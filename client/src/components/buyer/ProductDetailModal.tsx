@@ -89,13 +89,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     if (isOpen && product?.id) {
       // Track product view
       productService.trackProductView(Number(product.id));
-      
+
       // Fetch vendor statistics
       fetchVendorStats();
-      
+
       // Fetch product reviews
       fetchProductReviews();
-      
+
       // Check wishlist status
       checkWishlistStatus();
     }
@@ -103,7 +103,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const fetchVendorStats = async () => {
     if (!product?.vendor_username) return;
-    
+
     setLoadingVendorStats(true);
     try {
       const response = await vendorService.getVendorStatistics(product.vendor_username);
@@ -128,7 +128,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const fetchProductReviews = async () => {
     if (!product?.id) return;
-    
+
     setLoadingReviews(true);
     try {
       const response = await productService.getProductReviewsModal(product.id, { page_size: 5 });
@@ -144,7 +144,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const checkWishlistStatus = async () => {
     if (!product?.id) return;
-    
+
     try {
       const inWishlist = await wishlistService.isInWishlist(product.id);
       setIsInWishlist(inWishlist);
@@ -155,7 +155,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const handleWishlistToggle = async () => {
     if (!product?.id) return;
-    
+
     setWishlistLoading(true);
     try {
       if (isInWishlist) {
@@ -208,8 +208,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     return getImageUrl(url);
   };
 
-  const formatPrice = (price: string) => {
-    return parseFloat(price).toFixed(8);
+  // Format USD price with 2 decimal places
+  const formatUSD = (price: string) => {
+    return parseFloat(price).toFixed(2);
+  };
+
+  // Format BTC equivalent (assuming price is in USD)
+  const formatBTCEquivalent = (price: string) => {
+    return (parseFloat(price) / 100000).toFixed(8);
   };
 
   const truncateText = (text: string, maxLength: number) => {
@@ -219,7 +225,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const getAccountTypeColor = (type: string | null) => {
     if (!type) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'social': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       'gaming': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
@@ -236,7 +242,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const getAccessTypeColor = (type: string | null) => {
     if (!type) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'full_ownership': 'bg-green-500/20 text-green-400 border-green-500/30',
       'shared': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -252,7 +258,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   const getDeliveryTimeColor = (time: string | null) => {
     if (!time) return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-    
+
     const colors: { [key: string]: string } = {
       'instant_auto': 'bg-green-500/20 text-green-400 border-green-500/30',
       'instant': 'bg-green-500/20 text-green-400 border-green-500/30',
@@ -337,8 +343,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                         product.main_image
                           ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
                           : (product.main_images && product.main_images.length > 0
-                              ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                              : '')
+                            ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                            : '')
                       }
                       alt={product.headline || 'Product'}
                       className="w-full h-full object-cover"
@@ -364,13 +370,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                           <div key={`img-${index}`} className="aspect-square w-28 h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
                             <img
                               src={imageUrl}
-                          alt={`${product.headline || 'Product'} ${index + 1}`}
-                          className="w-full h-full object-cover"
+                              alt={`${product.headline || 'Product'} ${index + 1}`}
+                              className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
                               }}
-                        />
-                      </div>
+                            />
+                          </div>
                         );
                       })}
                       {product.documents && product.documents.map((doc: string, index: number) => {
@@ -382,8 +388,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                             <div className="flex-1 min-w-0">
                               <p className="text-white text-sm font-medium truncate max-w-[120px]">{docName}</p>
                             </div>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="ghost"
                               className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-1.5 h-auto"
                               onClick={() => window.open(docUrl, '_blank')}
@@ -450,13 +456,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   <div>
                     <p className="text-gray-400 text-sm">Price</p>
                     <p className="text-2xl font-bold text-white">
-                      {formatPrice(product.price)} BTC
+                      ${formatUSD(product.price)}
                     </p>
-                    {product.discount_percentage && parseFloat(product.discount_percentage) > 0 && (
-                      <p className="text-green-400 text-sm">
-                        {product.discount_percentage}% OFF
-                      </p>
-                    )}
+                    <p className="text-sm text-gray-400 font-mono">
+                      ≈ {formatBTCEquivalent(product.price)} BTC
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-gray-400 text-sm">Available</p>
@@ -538,7 +542,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <h3 className="text-lg font-semibold text-green-300">Escrow Protection Enabled</h3>
-                          <button 
+                          <button
                             className="text-green-400 hover:text-green-300 transition-colors"
                             title="Payment held until you approve the order • Automatic refund if order is not approved • Secure transaction with buyer protection"
                           >
@@ -783,13 +787,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
                 {/* Credentials Display */}
                 {product.credentials_display && (
-                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                  <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                     <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
                       <Truck className="w-5 h-5 mr-2 text-orange-400" />
                       Delivery Information
                     </h3>
                     <p className="text-gray-300">{product.credentials_display}</p>
-                </div>
+                  </div>
                 )}
 
                 {/* Reviews Section */}
@@ -811,7 +815,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       </Button>
                     )}
                   </div>
-                  
+
                   {loadingReviews ? (
                     <div className="text-center py-8">
                       <DotLoader size="lg" color="text-yellow-400" />
@@ -836,7 +840,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                           </span>
                         </div>
                       </div>
-                      
+
                       {/* Reviews List */}
                       {showReviews && (
                         <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -848,9 +852,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                                     {[...Array(5)].map((_, i) => (
                                       <Star
                                         key={i}
-                                        className={`w-4 h-4 ${
-                                          i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
-                                        }`}
+                                        className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
+                                          }`}
                                       />
                                     ))}
                                   </div>

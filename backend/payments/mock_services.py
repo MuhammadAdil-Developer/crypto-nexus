@@ -20,7 +20,7 @@ class MockBTCPayService:
             'id': f'mock_invoice_{order_id}',
             'checkoutLink': f'http://88.99.143.151:3000/mock-payment/{order_id}',
             'addresses': {
-                'BTC': f'tb1q{random.randint(1000000000000000000, 9999999999999999999)}'
+                'BTC': f'bc1q{random.randint(1000000000000000000, 9999999999999999999)}'  # Mainnet format
             },
             'status': 'New',
             'amount': str(amount),
@@ -92,7 +92,7 @@ class MockPaymentService:
         
         # Generate mock address based on cryptocurrency
         if crypto_currency == 'BTC':
-            payment_address = f'tb1q{random.randint(1000000000000000000, 9999999999999999999)}'
+            payment_address = f'bc1q{random.randint(1000000000000000000, 9999999999999999999)}'  # Mainnet format
         elif crypto_currency == 'XMR':
             payment_address = f'9{random.randint(1000000000000000000, 9999999999999999999)}'
         else:

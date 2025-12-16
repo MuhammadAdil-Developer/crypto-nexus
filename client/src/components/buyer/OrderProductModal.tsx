@@ -501,9 +501,26 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-400 text-sm">Amount Paid</p>
-                  <p className="text-3xl font-bold text-white">
-                    {formatPrice(order.total_amount)} {order.crypto_currency}
-                  </p>
+                  <div>
+                    {(() => {
+                      let btcAmt = parseFloat(order.total_amount);
+                      let usdAmt = btcAmt * 100000;
+                      if ((!order.crypto_currency || order.crypto_currency === 'BTC') && btcAmt > 50) {
+                        usdAmt = btcAmt;
+                        btcAmt = usdAmt / 100000;
+                      }
+                      return (
+                        <>
+                          <p className="text-3xl font-bold text-white">
+                            {btcAmt.toFixed(8)} {order.crypto_currency || 'BTC'}
+                          </p>
+                          <p className="text-sm text-gray-400 mt-1">
+                            ≈ ${usdAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-gray-400 text-sm">Order Date</p>

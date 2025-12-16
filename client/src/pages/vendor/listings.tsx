@@ -161,18 +161,18 @@ export default function VendorListings() {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('🔍 fetchVendorData called');
-      
+
       const [productsResponse, vendorStats, wishlistStatsResponse] = await Promise.all([
         vendorService.getMyProducts(),
         vendorService.getVendorStats(),
         wishlistService.getVendorWishlistStats()
       ]);
-      
+
       console.log('🔍 Products response:', productsResponse);
       console.log('🔍 Vendor stats:', vendorStats);
-      
+
       // FIXED: productsResponse.data is directly the array, not productsResponse.data.products
       if (productsResponse.success && productsResponse.data) {
         console.log('🔍 Setting products:', productsResponse.data);
@@ -181,9 +181,9 @@ export default function VendorListings() {
         console.log('❌ Products response not successful:', productsResponse);
         setError('Failed to fetch products');
       }
-      
+
       setStats(vendorStats);
-      
+
       // Process wishlist counts
       if (wishlistStatsResponse.success && wishlistStatsResponse.data) {
         const counts: Record<number, number> = {};
@@ -235,12 +235,12 @@ export default function VendorListings() {
   // Filter products based on search and filters
   const getFilteredProducts = () => {
     return products.filter(product => {
-      const matchesSearch = searchTerm === "" || 
+      const matchesSearch = searchTerm === "" ||
         product.headline.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.description.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesStatus = statusFilter === "all" || product.status === statusFilter;
-      
+
       return matchesSearch && matchesStatus;
     });
   };
@@ -286,7 +286,7 @@ export default function VendorListings() {
           <div className="text-center">
             <div className="text-red-400 text-xl font-semibold mb-2">Error loading products</div>
             <div className="text-gray-400 mb-4">{error}</div>
-            <Button 
+            <Button
               onClick={fetchVendorData}
               className="bg-accent text-bg hover:bg-accent-2"
             >
@@ -347,7 +347,7 @@ export default function VendorListings() {
             </CardContent>
           </Card>
         )}
-        
+
         {/* Selling Fee Display - Shows Custom or Default */}
         {sellingFee !== null && (
           <Card className="bg-blue-900/20 border-blue-500/30">
@@ -418,7 +418,7 @@ export default function VendorListings() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
@@ -432,7 +432,7 @@ export default function VendorListings() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
@@ -446,7 +446,7 @@ export default function VendorListings() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
@@ -527,7 +527,7 @@ export default function VendorListings() {
                         <p className="text-gray-400 text-xs sm:text-sm truncate">{product.website}</p>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 mb-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <TooltipProvider>
@@ -566,11 +566,12 @@ export default function VendorListings() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 mb-3 text-xs sm:text-sm">
                       <div>
                         <span className="text-gray-400">Price:</span>
-                        <p className="text-white font-mono break-words">{parseFloat(product.price).toFixed(8)} BTC</p>
+                        <p className="text-white font-bold text-lg">${parseFloat(product.price).toFixed(2)}</p>
+                        <p className="text-gray-400 text-xs font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</p>
                       </div>
                       <div>
                         <span className="text-gray-400">Views:</span>
@@ -590,11 +591,11 @@ export default function VendorListings() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="text-xs sm:text-sm text-gray-400 mb-3">
                       Created: {new Date(product.created_at).toLocaleDateString()}
                     </div>
-                    
+
                     <div className="flex items-center space-x-2 pt-3 border-t border-gray-700">
                       <Button
                         variant="ghost"
@@ -666,14 +667,14 @@ export default function VendorListings() {
                     </div>
                   </div>
                 ))}
-                
+
                 {filteredProducts.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-gray-400 text-sm sm:text-base">No products found</p>
                   </div>
                 )}
               </div>
-              
+
               {/* Desktop Table View */}
               <table className="w-full hidden lg:table">
                 <thead className="bg-gray-800/50">
@@ -751,7 +752,8 @@ export default function VendorListings() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="text-white font-mono">{parseFloat(product.price).toFixed(8)} BTC</span>
+                        <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                        <span className="text-gray-400 text-xs font-mono ml-2">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>
@@ -845,7 +847,7 @@ export default function VendorListings() {
                   ))}
                 </tbody>
               </table>
-              
+
               {filteredProducts.length === 0 && (
                 <div className="text-center py-8 hidden lg:block">
                   <p className="text-gray-400">No products found</p>
@@ -953,7 +955,7 @@ export default function VendorListings() {
             <div className="mt-4 text-xs sm:text-sm text-gray-400">
               <p className="break-words"><strong>Product:</strong> {selectedRejectionProduct?.headline}</p>
               <p className="break-words"><strong>Website:</strong> {selectedRejectionProduct?.website}</p>
-              <p><strong>Price:</strong> {selectedRejectionProduct?.price} BTC</p>
+              <p><strong>Price:</strong> ${parseFloat(selectedRejectionProduct?.price || '0').toFixed(2)}</p>
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">

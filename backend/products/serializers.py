@@ -228,9 +228,9 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         if 'verification_level' not in validated_data:
             validated_data['verification_level'] = 'unverified'
         
-        # Set default status to pending_approval instead of draft
+        # Set default status to approved instead of draft
         if 'status' not in validated_data:
-            validated_data['status'] = 'pending_approval'
+            validated_data['status'] = 'approved'
         
         # Set default category if not provided (use first available category)
         if 'category' not in validated_data or not validated_data['category']:

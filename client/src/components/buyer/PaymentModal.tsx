@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +64,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [timeRemaining, setTimeRemaining] = useState(1800); // 30 minutes
   const [addressVisible, setAddressVisible] = useState(false);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   // Real API integration states
   const [realPaymentAddress, setRealPaymentAddress] = useState<PaymentAddress | null>(null);
@@ -135,7 +137,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           createdOrders.push(order);
 
           const oid = order.order_id || order.id || order.order_id || order.id;
-          const amount = (parseFloat(itn.price || '0') * itn.quantity).toString();
+          // Convert USD price to BTC (Mock Rate: 100,000)
+          const amount = ((parseFloat(itn.price || '0') * itn.quantity) / 100000).toFixed(8);
 
           const pay = await paymentService.createPaymentAddress({
             order_id: oid,
@@ -209,7 +212,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       const paymentData = await paymentService.createPaymentAddress({
         order_id: orderIdGenerated,
         crypto_currency: selectedCrypto,
-        amount: totalPrice.toString(),
+        // Convert USD total to BTC (Mock Rate: 100,000)
+        amount: (totalPrice / 100000).toFixed(8),
         payment_type: paymentType as "wallet" | "buy" | "exchange",
         use_escrow: useEscrow
       });
@@ -461,6 +465,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       title: "Payment Submitted",
       description: "We're monitoring the blockchain for your payment",
     });
+    // Auto-close modal as requested
+    if (onClose) onClose();
   };
 
   const handleCreditCardPayment = () => {
@@ -549,10 +555,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 <div
                   key={stepNum}
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${stepNum === step
-                      ? 'bg-blue-600 text-white'
-                      : stepNum < step
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-700 text-gray-400'
+                    ? 'bg-blue-600 text-white'
+                    : stepNum < step
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-700 text-gray-400'
                     }`}
                 >
                   {stepNum < step ? <CheckCircle className="w-4 h-4" /> : stepNum}
@@ -607,7 +613,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-300">Subtotal</span>
-                      <span className="text-white">${pricing.subtotal.toFixed(2)}</span>
+                      <div className="text-right">
+                        <span className="text-white block font-mono">{(pricing.subtotal / 100000).toFixed(8)} BTC</span>
+                        <span className="text-gray-400 text-xs">≈ ${pricing.subtotal.toFixed(2)}</span>
+                      </div>
                     </div>
                     {pricing.escrowFee > 0 && (
                       <div className="flex justify-between">
@@ -617,7 +626,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                     )}
                     <div className="flex justify-between font-bold">
                       <span className="text-white">Total</span>
-                      <span className="text-white">${pricing.total.toFixed(2)}</span>
+                      <div className="text-right">
+                        <span className="text-white block font-mono">{(pricing.total / 100000).toFixed(8)} BTC</span>
+                        <span className="text-gray-400 text-xs">≈ ${pricing.total.toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -945,8 +957,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               {/* Real Payment Status */}
               {realPaymentStatus && (
                 <Card className={`${realPaymentStatus.status === 'paid' ? 'bg-green-900/20 border-green-700' :
-                    realPaymentStatus.status === 'pending' ? 'bg-yellow-900/20 border-yellow-700' :
-                      'bg-red-900/20 border-red-700'
+                  realPaymentStatus.status === 'pending' ? 'bg-yellow-900/20 border-yellow-700' :
+                    'bg-red-900/20 border-red-700'
                   }`}>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3">
@@ -1030,11 +1042,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                     <div>
                       <Label className="text-gray-300">Send exactly this amount</Label>
                       <div className="flex items-center gap-2 mt-1">
-                        <Input
-                          value={`${paymentAmount} ${selectedCrypto}`}
-                          readOnly
-                          className="bg-gray-700 border-gray-600 text-white font-mono"
-                        />
+                        <div className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 flex flex-col justify-center">
+                          <span className="text-white font-mono text-lg font-bold">≈ {paymentAmount} {selectedCrypto}</span>
+                          <span className="text-gray-400 text-xs">${pricing.total.toFixed(2)}</span>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1076,11 +1087,33 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => toast({ title: "QR Code", description: "QR code feature coming soon!" })}
+                      onClick={() => setShowQRCode(!showQRCode)}
                     >
                       <QrCode className="w-4 h-4 mr-2" />
-                      Show QR Code
+                      {showQRCode ? "Hide QR Code" : "Show QR Code"}
                     </Button>
+
+                    {showQRCode && (
+                      <div className="flex flex-col items-center justify-center p-4 bg-white rounded-lg mx-auto w-fit mt-4 animate-in fade-in zoom-in-50 duration-300">
+                        <QRCodeCanvas
+                          value={(() => {
+                            const cleanAmount = parseFloat(paymentAmount) || 0;
+                            if (selectedCrypto === 'BTC') {
+                              return `bitcoin:${paymentAddress}?amount=${cleanAmount}`;
+                            } else if (selectedCrypto === 'XMR') {
+                              return `monero:${paymentAddress}?tx_amount=${cleanAmount}`;
+                            }
+                            return paymentAddress;
+                          })()}
+                          size={180}
+                          level={"H"}
+                          includeMargin={true}
+                        />
+                        <p className="text-black text-xs mt-2 font-mono break-all max-w-[200px] text-center font-bold">
+                          Scan to Pay
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -1310,7 +1343,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   onClick={() => toast({ title: "Order Tracking", description: "Redirecting to order tracking..." })}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
-                  Track Order
+                  We are tracking your blockchain
                 </Button>
               </div>
             </div>

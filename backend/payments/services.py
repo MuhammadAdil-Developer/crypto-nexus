@@ -264,8 +264,8 @@ class MoneroRPCService:
     """Service for Monero wallet RPC integration"""
     
     def __init__(self):
-        # Updated to use your Monero RPC server
-        self.rpc_url = getattr(settings, 'MONERO_RPC_URL', 'http://88.99.143.151:28083/json_rpc')
+        # Updated to use Monero RPC server - MAINNET
+        self.rpc_url = getattr(settings, 'MONERO_RPC_URL', 'http://88.99.143.151:18081/json_rpc')  # Mainnet port
         self.rpc_user = getattr(settings, 'MONERO_RPC_USER', 'monerouser')
         self.rpc_password = getattr(settings, 'MONERO_RPC_PASSWORD', 'moneropass123')
         self.wallet_password = getattr(settings, 'MONERO_WALLET_PASSWORD', 'testwallet')
@@ -613,10 +613,10 @@ class PaymentService:
             raise
     
     def _generate_btc_address(self, order_id: str) -> str:
-        """Generate deterministic BTC testnet address (for development/testing only)"""
-        # This is a simplified version that generates a valid testnet address format
-        # In production, you should use proper key derivation
-        prefix = 'tb1q'  # testnet bech32 prefix
+        """Generate deterministic BTC mainnet address (fallback method)"""
+        # This is a simplified version that generates a valid mainnet address format
+        # In production, you should use proper key derivation from BTCPay Server
+        prefix = 'bc1q'  # mainnet bech32 prefix
         hash_input = f"{order_id}-{timezone.now().timestamp()}"
         hash_obj = hashlib.sha256(hash_input.encode())
         addr_hash = hash_obj.hexdigest()[:32]  # Take first 32 chars

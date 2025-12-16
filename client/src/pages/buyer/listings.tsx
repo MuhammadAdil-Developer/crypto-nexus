@@ -622,7 +622,10 @@ function BuyerListingsContent() {
                             <span className="text-white">{product.vendor?.username || "N/A"}</span>
                           </td>
                           <td className="p-4">
-                            <span className="text-white font-mono">{product.price}</span>
+                            <div>
+                              <span className="text-white font-bold block">${parseFloat(product.price).toFixed(2)}</span>
+                              <span className="text-gray-400 text-xs font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                            </div>
                           </td>
                           <td className="p-4">
                             <div className="flex items-center space-x-1">
@@ -696,8 +699,8 @@ function BuyerListingsContent() {
                       size="icon"
                       onClick={() => handlePageChange(page as number)}
                       className={`rounded-full w-8 h-8 text-sm ${currentPage === page
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "text-gray-300 hover:text-white hover:bg-gray-700"
                         }`}
                     >
                       {page}

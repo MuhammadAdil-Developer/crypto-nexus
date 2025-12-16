@@ -23,16 +23,16 @@ import { RefundModal } from "@/components/vendor/RefundModal";
 const transformOrderData = (apiOrder: Order) => {
   const orderDate = new Date(apiOrder.created_at);
   const date = orderDate.toISOString().split('T')[0];
-  const time = orderDate.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
+  const time = orderDate.toLocaleTimeString('en-US', {
+    hour: '2-digit',
     minute: '2-digit',
-    hour12: true 
+    hour12: true
   });
 
   const getStatusDisplay = (apiOrder: Order) => {
     const paymentStatus = apiOrder.payment_status?.toLowerCase();
     const orderStatus = apiOrder.order_status?.toLowerCase();
-    
+
     if (paymentStatus === 'paid') {
       if (orderStatus === 'completed') {
         return 'Completed';
@@ -44,7 +44,7 @@ const transformOrderData = (apiOrder: Order) => {
         return 'Completed';
       }
     }
-    
+
     if (paymentStatus === 'pending') {
       if (orderStatus === 'pending_payment') {
         return 'Pending';
@@ -52,7 +52,7 @@ const transformOrderData = (apiOrder: Order) => {
         return 'Cancelled';
       }
     }
-    
+
     switch (orderStatus) {
       case 'pending':
         return 'Pending';
@@ -77,7 +77,7 @@ const transformOrderData = (apiOrder: Order) => {
     buyer: apiOrder.buyer.username,
     product: apiOrder.product.headline,
     amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
-    usdAmount: `$${(parseFloat(apiOrder.total_amount) * 40000).toFixed(2)}`,
+    usdAmount: `$${(parseFloat(apiOrder.total_amount) * 100000).toFixed(2)}`,
     status: getStatusDisplay(apiOrder),
     priority: "normal",
     date: date,
@@ -86,7 +86,7 @@ const transformOrderData = (apiOrder: Order) => {
     escrow: apiOrder.use_escrow || false,
     rawPaymentStatus: apiOrder.payment_status,
     rawOrderStatus: apiOrder.order_status,
-    
+
     order_id: apiOrder.order_id,
     order_status: apiOrder.order_status,
     payment_status: apiOrder.payment_status,
@@ -205,9 +205,9 @@ export default function VendorOrders() {
       setIsLoading(true);
       const ordersData = await orderService.getOrders();
       const ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any).results || [];
-      
+
       const transformedOrders = ordersArray.map((order: any) => transformOrderData(order));
-      
+
       setOrders(transformedOrders);
     } catch (error: any) {
       console.error('Error fetching orders:', error);
@@ -286,27 +286,27 @@ export default function VendorOrders() {
     try {
       const statusMapping: { [key: string]: string } = {
         'Pending': 'pending_payment',
-        'Processing': 'payment_received', 
+        'Processing': 'payment_received',
         'Shipped': 'paid',
         'Completed': 'delivered',
         'Cancelled': 'cancelled'
       };
 
       const backendStatus = statusMapping[newStatus] || newStatus.toLowerCase();
-      
+
       console.log('🔄 Attempting to update order status:', {
         orderId: orderToUpdate.numericId,
         currentStatus: orderToUpdate.rawOrderStatus,
         newStatus: backendStatus
       });
-      
+
       await orderService.updateOrderStatus(orderToUpdate.numericId, {
         order_status: backendStatus
       });
 
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderToUpdate.id 
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderToUpdate.id
             ? { ...order, status: newStatus, rawOrderStatus: backendStatus }
             : order
         )
@@ -323,19 +323,19 @@ export default function VendorOrders() {
       console.error('❌ Status update error:', error);
       console.error('❌ Error response:', error.response);
       console.error('❌ Error response data:', error.response?.data);
-      
+
       let errorMessage = "Failed to update order status";
-      
+
       // Check if error.response and error.response.data exist
       if (error.response && error.response.data) {
         const responseData = error.response.data;
-        
+
         console.log('🔍 Full response.data:', JSON.stringify(responseData, null, 2));
-        
+
         // PRIORITY 1: Check order_status field (API sends error here)
         if (responseData.order_status) {
           console.log('🎯 Found order_status field:', responseData.order_status);
-          
+
           if (Array.isArray(responseData.order_status)) {
             errorMessage = responseData.order_status.join('. ');
             console.log('✅ Extracted from array:', errorMessage);
@@ -347,22 +347,22 @@ export default function VendorOrders() {
         // PRIORITY 2: Check non_field_errors
         else if (responseData.non_field_errors) {
           console.log('🔍 Found non_field_errors:', responseData.non_field_errors);
-          errorMessage = Array.isArray(responseData.non_field_errors) 
-            ? responseData.non_field_errors.join('. ') 
+          errorMessage = Array.isArray(responseData.non_field_errors)
+            ? responseData.non_field_errors.join('. ')
             : String(responseData.non_field_errors);
         }
         // PRIORITY 3: Check error field
         else if (responseData.error) {
           console.log('🔍 Found error field:', responseData.error);
-          errorMessage = Array.isArray(responseData.error) 
-            ? responseData.error.join('. ') 
+          errorMessage = Array.isArray(responseData.error)
+            ? responseData.error.join('. ')
             : String(responseData.error);
         }
         // PRIORITY 4: Check detail field
         else if (responseData.detail) {
           console.log('🔍 Found detail field:', responseData.detail);
-          errorMessage = Array.isArray(responseData.detail) 
-            ? responseData.detail.join('. ') 
+          errorMessage = Array.isArray(responseData.detail)
+            ? responseData.detail.join('. ')
             : String(responseData.detail);
         }
         // PRIORITY 5: Check message field
@@ -382,7 +382,7 @@ export default function VendorOrders() {
             const firstKey = keys[0];
             const firstValue = responseData[firstKey];
             console.log(`🔍 Using first key "${firstKey}":`, firstValue);
-            
+
             if (Array.isArray(firstValue)) {
               errorMessage = firstValue.join('. ');
             } else {
@@ -396,9 +396,9 @@ export default function VendorOrders() {
         console.log('🔍 Using error.message:', error.message);
         errorMessage = error.message;
       }
-      
+
       console.log('🔔 Final error message for toast:', errorMessage);
-      
+
       showToast({
         title: "Status Update Failed",
         message: errorMessage,
@@ -440,39 +440,39 @@ export default function VendorOrders() {
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
+    const matchesSearch =
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.buyer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.product.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    
+
     const matchesDate = (() => {
       if (dateFilter === "all") return true;
-      
+
       const orderDate = new Date(order.created_at);
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       switch (dateFilter) {
         case "today":
           const orderToday = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
           return orderToday.getTime() === today.getTime();
-        
+
         case "week":
           const weekAgo = new Date(today);
           weekAgo.setDate(weekAgo.getDate() - 7);
           return orderDate >= weekAgo;
-        
+
         case "month":
           const monthAgo = new Date(today);
           monthAgo.setMonth(monthAgo.getMonth() - 1);
           return orderDate >= monthAgo;
-        
+
         default:
           return true;
       }
     })();
-    
+
     return matchesSearch && matchesStatus && matchesDate;
   });
 
@@ -606,141 +606,141 @@ export default function VendorOrders() {
                 </div>
               ) : (
                 currentOrders.map((order) => (
-                <div key={order.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors overflow-hidden">
-                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                    <div className="flex flex-col items-center flex-shrink-0">
-                      <div className={`w-3 h-3 rounded-full ${getPriorityColor(order.priority)} mb-1`}></div>
-                      <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{order.priority}</span>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
-                        <h3 className="font-semibold text-white text-sm sm:text-base truncate">{order.id}</h3>
-                        {order.escrow && (
+                  <div key={order.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors overflow-hidden">
+                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(order.priority)} mb-1`}></div>
+                        <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{order.priority}</span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
+                          <h3 className="font-semibold text-white text-sm sm:text-base truncate">{order.id}</h3>
+                          {order.escrow && (
+                            <Badge variant="outline" className="text-[10px] sm:text-xs">
+                              Escrow
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="text-[10px] sm:text-xs">
-                            Escrow
+                            {order.paymentMethod}
                           </Badge>
-                        )}
-                        <Badge variant="outline" className="text-[10px] sm:text-xs">
-                          {order.paymentMethod}
-                        </Badge>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{order.product}</p>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0">
-                        <span className="text-xs sm:text-sm text-gray-400">by {order.buyer}</span>
-                        <span className="text-xs sm:text-sm text-gray-400">{order.date} at {order.time}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
-                    <div className="text-left sm:text-right lg:text-right">
-                      <div className="font-semibold text-blue-600 text-sm sm:text-base">{order.amount}</div>
-                      <div className="text-xs sm:text-sm text-gray-400">{order.usdAmount}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </Badge>
-                      {order.use_escrow && (
-                        <div className="flex items-center gap-1 mt-1 flex-wrap">
-                          <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4">
-                            <Lock className="w-2 h-2 mr-0.5" />
-                            ESCROW
-                          </Badge>
-                          {order.order_status === 'paid' && !order.confirmed_at && (
-                            <Badge className="bg-orange-500/20 text-orange-300 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
-                              Awaiting
-                            </Badge>
-                          )}
-                          {order.confirmed_at && (
-                            <Badge className="bg-green-500/20 text-green-300 text-[9px] sm:text-[10px] px-1 py-0 h-4">
-                              <CheckCircle className="w-2 h-2 mr-0.5" />
-                              Approved
-                            </Badge>
-                          )}
                         </div>
-                      )}
+                        <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{order.product}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0">
+                          <span className="text-xs sm:text-sm text-gray-400">by {order.buyer}</span>
+                          <span className="text-xs sm:text-sm text-gray-400">{order.date} at {order.time}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                      {order.status === "Processing" && (
-                        <>
-                          <Button size="sm" variant="outline" className="text-green-600 border-green-300 h-8 w-8 p-0">
-                            <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-red-600 border-red-300 h-8 w-8 p-0">
-                            <X className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </Button>
-                        </>
-                      )}
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
-                          <DropdownMenuItem onClick={() => handleViewDetails(order)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            const buyerUsername = order.buyer_details?.username || order.buyer || order.buyer_username;
-                            if (buyerUsername) {
-                              navigate('/vendor/messages', {
-                                state: {
-                                  autoOpenBuyerUsername: buyerUsername,
-                                  autoOpenChat: true
-                                }
-                              });
-                            } else {
-                              showToast({
-                                title: 'Error',
-                                message: 'Buyer information not available. Please try again later.',
-                                type: 'error',
-                                duration: 4000
-                              });
-                            }
-                          }}>
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Message Buyer
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(order)}>
-                            <Package className="w-4 h-4 mr-2" />
-                            Update Status
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)}>
-                            <Star className="w-4 h-4 mr-2" />
-                            View Reviews
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleRequestRefund(order)}
-                            className={order.status === "Completed" || order.status === "Processing" ? "text-orange-600" : "text-gray-400 cursor-not-allowed"}
-                            disabled={order.status !== "Completed" && order.status !== "Processing"}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Request Refund
-                          </DropdownMenuItem>
-                          {order.status === "Processing" && (
-                            <>
-                              <DropdownMenuItem className="text-green-600">
-                                <Check className="w-4 h-4 mr-2" />
-                                Mark as Shipped
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
-                                <X className="w-4 h-4 mr-2" />
-                                Cancel Order
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
+                      <div className="text-left sm:text-right lg:text-right">
+                        <div className="font-semibold text-blue-600 text-sm sm:text-base">{order.amount}</div>
+                        <div className="text-xs sm:text-sm text-gray-400">{order.usdAmount}</div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </Badge>
+                        {order.use_escrow && (
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4">
+                              <Lock className="w-2 h-2 mr-0.5" />
+                              ESCROW
+                            </Badge>
+                            {order.order_status === 'paid' && !order.confirmed_at && (
+                              <Badge className="bg-orange-500/20 text-orange-300 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                Awaiting
+                              </Badge>
+                            )}
+                            {order.confirmed_at && (
+                              <Badge className="bg-green-500/20 text-green-300 text-[9px] sm:text-[10px] px-1 py-0 h-4">
+                                <CheckCircle className="w-2 h-2 mr-0.5" />
+                                Approved
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {order.status === "Processing" && (
+                          <>
+                            <Button size="sm" variant="outline" className="text-green-600 border-green-300 h-8 w-8 p-0">
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-red-600 border-red-300 h-8 w-8 p-0">
+                              <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </Button>
+                          </>
+                        )}
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
+                            <DropdownMenuItem onClick={() => handleViewDetails(order)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              const buyerUsername = order.buyer_details?.username || order.buyer || order.buyer_username;
+                              if (buyerUsername) {
+                                navigate('/vendor/messages', {
+                                  state: {
+                                    autoOpenBuyerUsername: buyerUsername,
+                                    autoOpenChat: true
+                                  }
+                                });
+                              } else {
+                                showToast({
+                                  title: 'Error',
+                                  message: 'Buyer information not available. Please try again later.',
+                                  type: 'error',
+                                  duration: 4000
+                                });
+                              }
+                            }}>
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Message Buyer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(order)}>
+                              <Package className="w-4 h-4 mr-2" />
+                              Update Status
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)}>
+                              <Star className="w-4 h-4 mr-2" />
+                              View Reviews
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRequestRefund(order)}
+                              className={order.status === "Completed" || order.status === "Processing" ? "text-orange-600" : "text-gray-400 cursor-not-allowed"}
+                              disabled={order.status !== "Completed" && order.status !== "Processing"}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Request Refund
+                            </DropdownMenuItem>
+                            {order.status === "Processing" && (
+                              <>
+                                <DropdownMenuItem className="text-green-600">
+                                  <Check className="w-4 h-4 mr-2" />
+                                  Mark as Shipped
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600">
+                                  <X className="w-4 h-4 mr-2" />
+                                  Cancel Order
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
-                </div>
                 ))
               )}
             </div>
@@ -809,11 +809,10 @@ export default function VendorOrders() {
                           variant={currentPage === pageNum ? "default" : "outline"}
                           size="sm"
                           onClick={() => goToPage(pageNum)}
-                          className={`text-xs sm:text-sm h-8 ${
-                            currentPage === pageNum
+                          className={`text-xs sm:text-sm h-8 ${currentPage === pageNum
                               ? "bg-blue-600 text-white hover:bg-blue-700"
                               : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </Button>
@@ -845,7 +844,7 @@ export default function VendorOrders() {
           </CardContent>
         </Card>
       </div>
-    
+
       {selectedOrder && (
         <OrderProductModal
           order={selectedOrder}
@@ -866,14 +865,14 @@ export default function VendorOrders() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="text-xs sm:text-sm text-gray-400">
                 <p className="break-words">Order ID: <span className="text-white font-mono">{orderToUpdate.id}</span></p>
                 <p className="break-words">Product: <span className="text-white">{orderToUpdate.product}</span></p>
                 <p>Current Status: <span className="text-white font-medium">{orderToUpdate.status}</span></p>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-xs sm:text-sm text-gray-400">Select New Status:</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -976,7 +975,7 @@ export default function VendorOrders() {
                 <div key={r.id} className="p-4 bg-gray-800 rounded-lg border border-gray-700">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      {[1,2,3,4,5].map(i => (
+                      {[1, 2, 3, 4, 5].map(i => (
                         <Star key={i} className={`w-4 h-4 ${i <= r.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} />
                       ))}
                     </div>

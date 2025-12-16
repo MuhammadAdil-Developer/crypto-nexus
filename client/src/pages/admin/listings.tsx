@@ -149,10 +149,10 @@ export default function AdminListings() {
         createForm.reset();
         fetchAllProducts();
       } else {
-        toast({ 
-          title: 'Error', 
-          description: result.message || 'Failed to create product', 
-          variant: 'destructive' 
+        toast({
+          title: 'Error',
+          description: result.message || 'Failed to create product',
+          variant: 'destructive'
         });
         if (result.errors) {
           console.error('Validation errors:', result.errors);
@@ -234,21 +234,21 @@ export default function AdminListings() {
   const [isApproveConfirmOpen, setIsApproveConfirmOpen] = useState(false);
   const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
   const [actionProduct, setActionProduct] = useState<Product | null>(null);
-  
+
   // Pagination state - Changed default to 10
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   // Selection state for bulk operations
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
-  
+
   const { toast } = useToast();
-  
+
   const editForm = useForm({
     defaultValues: {
       title: "",
@@ -432,12 +432,12 @@ export default function AdminListings() {
         const data = await response.json();
         console.log('🔍 Backend Response (All Products):', data);
         console.log('📊 Products data:', data.data);
-        
+
         // FIXED: data.data is directly the array, not data.data.products
         const products = data.data || [];
         console.log('📊 Products array:', products);
         console.log('📊 Products with statuses:', products.map(p => ({ id: p.id, status: p.status, headline: p.headline })));
-        
+
         setAllProducts(products);
         setPendingProducts(products);
       } else {
@@ -585,7 +585,7 @@ export default function AdminListings() {
 
   const handleUpdateProduct = async (data: any) => {
     if (!selectedListing) return;
-    
+
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
@@ -605,7 +605,7 @@ export default function AdminListings() {
         delivery_time: data.delivery,
         account_type: data.category,
       };
-      
+
       // Add website if provided
       if (data.website) {
         updateData.website = data.website;
@@ -691,7 +691,7 @@ export default function AdminListings() {
   // Bulk selection functions
   const handleSelectAll = () => {
     const pendingProducts = allProducts.filter(product => product.status === 'pending_approval');
-    
+
     if (isSelectAll) {
       // Deselect all
       setSelectedProducts([]);
@@ -711,7 +711,7 @@ export default function AdminListings() {
     } else {
       const newSelected = [...selectedProducts, productId];
       setSelectedProducts(newSelected);
-      
+
       // Check if all pending products are now selected
       const pendingProducts = allProducts.filter(product => product.status === 'pending_approval');
       setIsSelectAll(newSelected.length === pendingProducts.length);
@@ -720,10 +720,10 @@ export default function AdminListings() {
 
   const handleApproveAllSelected = async () => {
     if (selectedProducts.length === 0) return;
-    
+
     try {
       setIsApprovingAll(true);
-      
+
       const token = localStorage.getItem('accessToken');
       if (!token) {
         toast({
@@ -786,7 +786,7 @@ export default function AdminListings() {
   // Filter products based on current filter, category, and search
   const getFilteredProducts = () => {
     let filtered = allProducts;
-    
+
     // Apply status filter
     if (currentFilter === 'pending') {
       filtered = filtered.filter(product => product.status === 'pending_approval');
@@ -795,7 +795,7 @@ export default function AdminListings() {
     } else if (currentFilter === 'rejected') {
       filtered = filtered.filter(product => product.status === 'rejected');
     }
-    
+
     // Apply category filter
     if (selectedCategoryFilter && selectedCategoryFilter !== 'all') {
       filtered = filtered.filter(product => {
@@ -803,18 +803,18 @@ export default function AdminListings() {
         return productCategoryId === selectedCategoryFilter || productCategoryId?.toString() === selectedCategoryFilter;
       });
     }
-    
+
     // Apply search filter
     if (searchTerm && searchTerm.trim().length > 0) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         product.headline?.toLowerCase().includes(searchLower) ||
         product.description?.toLowerCase().includes(searchLower) ||
         product.vendor_username?.toLowerCase().includes(searchLower) ||
         product.account_type?.toLowerCase().includes(searchLower)
       );
     }
-    
+
     return filtered;
   };
 
@@ -946,7 +946,7 @@ export default function AdminListings() {
                   {/* Main Product Info */}
                   <div className="space-y-3 border-t border-gray-600/30 pt-4">
                     <h3 className="text-sm font-semibold text-gray-300">Product Information</h3>
-                    
+
                     <div>
                       <Label className="text-sm">Title *</Label>
                       <Input {...createForm.register('title', { required: true })} placeholder="e.g., Premium Zoom Account" className="text-sm mt-1" />
@@ -964,8 +964,8 @@ export default function AdminListings() {
 
                     <div>
                       <Label className="text-sm">Category *</Label>
-                      <Select 
-                        value={createForm.watch('category')} 
+                      <Select
+                        value={createForm.watch('category')}
                         onValueChange={(v) => createForm.setValue('category', v)}
                       >
                         <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
@@ -1048,7 +1048,7 @@ export default function AdminListings() {
                   {/* Pricing & Account Info */}
                   <div className="space-y-3 border-t border-gray-600/30 pt-4">
                     <h3 className="text-sm font-semibold text-gray-300">Pricing & Account Details</h3>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label className="text-sm">Price (USD) *</Label>
@@ -1080,7 +1080,7 @@ export default function AdminListings() {
                   {/* Credentials & Notes */}
                   <div className="space-y-3 border-t border-gray-600/30 pt-4">
                     <h3 className="text-sm font-semibold text-gray-300">Credentials & Additional Info</h3>
-                    
+
                     <div>
                       <Label className="text-sm">Credentials</Label>
                       <Textarea {...createForm.register('credentials')} placeholder="Username:password or other access details" rows={2} className="text-sm mt-1" />
@@ -1099,16 +1099,16 @@ export default function AdminListings() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row justify-end gap-2 border-t border-gray-600/30 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
+                    <Button
+                      type="button"
+                      variant="ghost"
                       onClick={() => setCreateListingModalOpen(false)}
                       className="text-sm w-full sm:w-auto"
                     >
                       Cancel
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       disabled={creatingListing}
                       className="text-sm w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
                     >
@@ -1146,7 +1146,7 @@ export default function AdminListings() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="crypto-card">
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -1162,7 +1162,7 @@ export default function AdminListings() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="crypto-card">
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -1178,7 +1178,7 @@ export default function AdminListings() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="crypto-card">
             <CardContent className="p-4">
               <div className="flex items-center">
@@ -1308,7 +1308,7 @@ export default function AdminListings() {
                               onCheckedChange={() => handleSelectProduct(product.id)}
                             />
                           )}
-                            <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
+                          <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
                             {product.main_image ? (
                               <img
                                 src={product.main_image}
@@ -1347,7 +1347,8 @@ export default function AdminListings() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="text-white font-mono">{parseFloat(product.price).toFixed(8)} BTC</span>
+                        <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                        <span className="text-gray-400 text-xs font-mono ml-1">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>
@@ -1418,7 +1419,7 @@ export default function AdminListings() {
                   ))}
                 </tbody>
               </table>
-              
+
               {filteredProducts.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-gray-400">No products found</p>
@@ -1455,8 +1456,8 @@ export default function AdminListings() {
                     <FormItem>
                       <FormLabel className="text-gray-300">Product Title</FormLabel>
                       <FormControl>
-                        <Input 
-                          {...field} 
+                        <Input
+                          {...field}
                           className="bg-gray-800 border-gray-600 text-white"
                           placeholder="Enter product title"
                         />
@@ -1471,8 +1472,8 @@ export default function AdminListings() {
                     <FormItem>
                       <FormLabel className="text-gray-300">Website</FormLabel>
                       <FormControl>
-                        <Input 
-                          {...field} 
+                        <Input
+                          {...field}
                           className="bg-gray-800 border-gray-600 text-white"
                           placeholder="Enter website URL"
                         />
@@ -1487,8 +1488,8 @@ export default function AdminListings() {
                     <FormItem>
                       <FormLabel className="text-gray-300">Description</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          {...field} 
+                        <Textarea
+                          {...field}
                           className="bg-gray-800 border-gray-600 text-white"
                           placeholder="Enter product description"
                           rows={4}
@@ -1503,14 +1504,14 @@ export default function AdminListings() {
                     name="btcPrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-300">Price (BTC)</FormLabel>
+                        <FormLabel className="text-gray-300">Price ($)</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field} 
+                          <Input
+                            {...field}
                             type="number"
                             step="0.00000001"
                             className="bg-gray-800 border-gray-600 text-white"
-                            placeholder="0.00000000"
+                            placeholder="0.00"
                           />
                         </FormControl>
                       </FormItem>
@@ -1523,8 +1524,8 @@ export default function AdminListings() {
                       <FormItem>
                         <FormLabel className="text-gray-300">Delivery Time</FormLabel>
                         <FormControl>
-                          <Input 
-                            {...field} 
+                          <Input
+                            {...field}
                             className="bg-gray-800 border-gray-600 text-white"
                             placeholder="e.g., instant_auto"
                           />
@@ -1556,15 +1557,15 @@ export default function AdminListings() {
                   )}
                 />
                 <div className="flex justify-end space-x-3 pt-4">
-                  <Button 
+                  <Button
                     type="button"
-                    variant="outline" 
+                    variant="outline"
                     onClick={() => setEditListingModalOpen(false)}
                     className="border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     type="submit"
                     className="bg-accent text-bg hover:bg-accent-2"
                   >
@@ -1582,7 +1583,7 @@ export default function AdminListings() {
             <DialogHeader className="px-6 py-4 border-b border-gray-600/20 bg-card">
               <DialogTitle className="text-xl font-bold text-white">Product Details</DialogTitle>
             </DialogHeader>
-            
+
             {selectedListing && (
               <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
                 <div className="p-6 space-y-6">
@@ -1623,8 +1624,8 @@ export default function AdminListings() {
                           selectedListing.main_image
                             ? (selectedListing.main_image.startsWith('http') ? selectedListing.main_image : `http://localhost:8000${selectedListing.main_image}`)
                             : (selectedListing.main_images && selectedListing.main_images.length > 0
-                                ? (selectedListing.main_images[0].startsWith('http') ? selectedListing.main_images[0] : `http://localhost:8000${selectedListing.main_images[0]}`)
-                                : '')
+                              ? (selectedListing.main_images[0].startsWith('http') ? selectedListing.main_images[0] : `http://localhost:8000${selectedListing.main_images[0]}`)
+                              : '')
                         }
                         alt={selectedListing.headline || 'Product'}
                         className="w-full h-64 object-cover rounded-lg"
@@ -1658,9 +1659,8 @@ export default function AdminListings() {
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Price</Label>
-                          <p className="text-white font-mono font-semibold text-lg">
-                            {parseFloat(selectedListing.price).toFixed(8)} BTC
-                          </p>
+                          <span className="text-white font-bold text-lg">${parseFloat(selectedListing.price).toFixed(2)}</span>
+                          <span className="text-gray-400 text-sm font-mono ml-2">≈ {(parseFloat(selectedListing.price) / 100000).toFixed(8)} BTC</span>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Vendor</Label>
@@ -1679,7 +1679,7 @@ export default function AdminListings() {
                           </div>
                         )}
                       </div>
-                      
+
                       <div>
                         <Label className="text-sm font-medium text-gray-400">Description</Label>
                         <p className="text-white mt-1 leading-relaxed">{selectedListing.description}</p>
@@ -1841,9 +1841,9 @@ export default function AdminListings() {
                                 <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
                                 <p className="text-gray-400 text-xs truncate">{docName}</p>
                               </div>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
                                 onClick={() => window.open(docUrl, '_blank')}
                               >
@@ -1884,11 +1884,11 @@ export default function AdminListings() {
                 </div>
               </div>
             )}
-            
+
             <div className="px-6 py-4 border-t border-gray-600/20 bg-card">
               <div className="flex justify-end space-x-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setViewListingModalOpen(false)}
                   className="border-gray-600/30 text-gray-300 hover:bg-gray-700/50 px-4 py-2"
                 >

@@ -1,8 +1,13 @@
 import os
 from pathlib import Path
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
@@ -285,31 +290,31 @@ os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'static'), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True) 
 
-# Payment System Configuration - REAL INTEGRATION
-# BTCPay Server (Real Bitcoin)
-BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'http://88.99.143.151:23000')
-BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio')  # Correct Store ID from BTCPay dashboard
+# Payment System Configuration - INTEGRATION
+# BTCPay Server (Bitcoin)
+BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'https://pay.accountzclub.com')
+BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7')  # Correct Store ID from BTCPay dashboard
 BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'ce9980b1b464d82c984779858b38a8f0cef1a3a1')    # Working Greenfield API key
 BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '2E8LrToLhNwHmZUwGCkKGzg8tSXx')
 
-# Monero RPC (Real Monero)
-MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://88.99.143.151:28083/json_rpc')
+# Monero RPC (Monero)
+MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://88.99.143.151:18081/json_rpc')  # Mainnet port
 MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', 'monerouser')
 MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'moneropass123')
 MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'testwallet')
 
 # Admin Wallet Addresses (for direct payments)
-ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'tb1qsnjnw7z29gg45jhv3g4sjk6rkxdp4mnkmv2c9h')
+ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'bc1qp6s2rj9krysak7raq92ufcwysn8lkmxp05csdh')  # Set mainnet BTC address via environment variable
 ADMIN_XMR_ADDRESS = os.environ.get('ADMIN_XMR_ADDRESS', '4AdUndXHHZ6cFd8VZJ3x4L9eDz3r7gHhKkLmNnPpQqRrSsTtUuVvWwXxYyZz')
 
 # Bitcoin Core RPC (for direct Bitcoin operations)
-BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://88.99.143.151:18332')
+BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://88.99.143.151:8332')  # Mainnet port
 BITCOIN_RPC_USER = os.environ.get('BITCOIN_RPC_USER', 'bitcoinuser')
 BITCOIN_RPC_PASSWORD = os.environ.get('BITCOIN_RPC_PASSWORD', 'bitcoinpass123')
 
-# Network Configuration
-BITCOIN_NETWORK = os.environ.get('BITCOIN_NETWORK', 'testnet')  # testnet for development
-MONERO_NETWORK = os.environ.get('MONERO_NETWORK', 'testnet')    # testnet for development
+# Network Configuration - MAINNET (Production)
+BITCOIN_NETWORK = os.environ.get('BITCOIN_NETWORK', 'mainnet')  # mainnet for production
+MONERO_NETWORK = os.environ.get('MONERO_NETWORK', 'mainnet')    # mainnet for production
 
 SITE_URL = os.environ.get('SITE_URL', 'http://88.99.143.151:8000')
 PAYMENT_EXPIRY_HOURS = int(os.environ.get('PAYMENT_EXPIRY_HOURS', '2'))
@@ -317,8 +322,8 @@ DEFAULT_ESCROW_FEE_PERCENTAGE = float(os.environ.get('DEFAULT_ESCROW_FEE_PERCENT
 
 # Blockchain Monitoring
 BLOCK_CONFIRMATION_REQUIREMENTS = {
-    'BTC': int(os.environ.get('BTC_CONFIRMATIONS', '1')),  # 1 for testnet, 3+ for mainnet
-    'XMR': int(os.environ.get('XMR_CONFIRMATIONS', '1')),  # 1 for testnet, 10+ for mainnet
+    'BTC': int(os.environ.get('BTC_CONFIRMATIONS', '3')),  # 3 confirmations for mainnet security
+    'XMR': int(os.environ.get('XMR_CONFIRMATIONS', '10')), # 10 confirmations for mainnet security
 }
 
 # Required confirmations per cryptocurrency

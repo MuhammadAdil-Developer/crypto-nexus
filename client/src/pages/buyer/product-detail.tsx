@@ -68,9 +68,9 @@ const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   console.log('🔍 ProductDetailPage rendered with ID:', id);
-  
+
   const [product, setProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
@@ -90,33 +90,33 @@ const ProductDetailPage: React.FC = () => {
 
   const fetchProductDetails = async () => {
     if (!id) return;
-    
+
     try {
       setIsLoading(true);
       console.log('🔍 Fetching product details for ID:', id);
-      
+
       const response = await vendorService.getProductDetail(id);
-      
+
       console.log('🔍 Product detail response:', response);
-      
+
       if (response.success && response.data) {
         console.log('✅ Setting product state:', response.data);
         const productData = response.data as any;
         setProduct(productData);
-        
+
         // Set selected image
         if (productData.main_images && Array.isArray(productData.main_images) && productData.main_images.length > 0) {
           setSelectedImage(productData.main_images[0]);
         } else if (productData.main_image) {
           setSelectedImage(productData.main_image);
         }
-        
+
         // Fetch vendor statistics
         const vendorUsername = productData.vendor?.username || productData.vendor_username;
         if (vendorUsername) {
           fetchVendorStatistics(vendorUsername);
         }
-        
+
         // Check wishlist status
         checkWishlistStatus();
       } else {
@@ -152,19 +152,19 @@ const ProductDetailPage: React.FC = () => {
 
   const fetchProductReviews = async () => {
     if (!id) return;
-    
+
     try {
       console.log('🔍 Fetching reviews for product ID:', id);
-      
+
       // Try multiple endpoints
       const endpoints = [
         `${API_BASE_URL}/products/${id}/reviews/`,
         `${API_BASE_URL}/products/${id}/reviews/modal/`,
         `${API_BASE_URL}/reviews/product/${id}/`
       ];
-      
+
       let reviewsData: Review[] = [];
-      
+
       for (const endpoint of endpoints) {
         try {
           const response = await fetch(`${endpoint}?page_size=100`, {
@@ -173,11 +173,11 @@ const ProductDetailPage: React.FC = () => {
               'Content-Type': 'application/json',
             },
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             console.log('🔍 Reviews response from', endpoint, ':', data);
-            
+
             // Handle different possible response structures
             if (data.results && Array.isArray(data.results)) {
               reviewsData = data.results;
@@ -195,7 +195,7 @@ const ProductDetailPage: React.FC = () => {
           continue;
         }
       }
-      
+
       setReviews(reviewsData);
       console.log('📝 Final reviews count:', reviewsData.length);
     } catch (error) {
@@ -206,7 +206,7 @@ const ProductDetailPage: React.FC = () => {
 
   const checkWishlistStatus = async () => {
     if (!id) return;
-    
+
     try {
       const inWishlist = await wishlistService.isInWishlist(parseInt(id));
       setIsInWishlist(inWishlist);
@@ -224,7 +224,7 @@ const ProductDetailPage: React.FC = () => {
       });
       return;
     }
-    
+
     // Navigate to listings page with product name in search and open order modal
     const productName = product?.headline || product?.listing_title || '';
     navigate(`/buyer/listings?search=${encodeURIComponent(productName)}&openOrder=${id}`, {
@@ -254,15 +254,15 @@ const ProductDetailPage: React.FC = () => {
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -304,8 +304,8 @@ const ProductDetailPage: React.FC = () => {
       <div className="max-w-[1600px] mx-auto">
         {/* Breadcrumb */}
         <div className="mb-6">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate('/buyer/listings')}
             className="text-gray-400 hover:text-white"
           >
@@ -353,9 +353,9 @@ const ProductDetailPage: React.FC = () => {
               {/* Price */}
               <div className="mt-4 bg-blue-500/10 rounded-lg p-4 border border-blue-500/30">
                 <div className="text-4xl font-bold text-blue-400">
-                  {product.price} BTC
+                  ${parseFloat(product.price).toFixed(2)}
                 </div>
-                <span className="text-gray-400 text-lg">≈ $45.60 USD</span>
+                <span className="text-gray-400 text-lg font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
               </div>
             </div>
 
@@ -380,8 +380,8 @@ const ProductDetailPage: React.FC = () => {
                   <div className="bg-gray-800/50 p-3 rounded-lg">
                     <span className="text-gray-400 text-sm">Verification Level</span>
                     <p className="text-white font-semibold mt-1">
-                      {product.verification_level && product.verification_level !== 'none' && product.verification_level !== 'None' 
-                        ? product.verification_level 
+                      {product.verification_level && product.verification_level !== 'none' && product.verification_level !== 'None'
+                        ? product.verification_level
                         : (product.verification_level || 'N/A')}
                     </p>
                   </div>
@@ -390,9 +390,9 @@ const ProductDetailPage: React.FC = () => {
                     <p className="text-white font-semibold mt-1">{formatDate(product.created_at)}</p>
                   </div>
                 </div>
-                
+
                 <Separator className="bg-gray-700" />
-                
+
                 <div className="bg-gray-800/30 p-4 rounded-lg">
                   <span className="text-gray-400 font-medium">Description</span>
                   <p className="text-gray-300 mt-2 leading-relaxed">{product.description}</p>
@@ -463,13 +463,12 @@ const ProductDetailPage: React.FC = () => {
             {/* Action Buttons */}
             <div className="sticky bottom-4 bg-gray-900/95 backdrop-blur-sm rounded-xl p-4 border border-gray-700 shadow-2xl">
               <div className="flex gap-4">
-                <Button 
-                  size="lg" 
-                  className={`flex-1 font-semibold text-lg h-14 ${
-                    isOutOfStock 
-                      ? 'bg-gray-600 hover:bg-gray-500 cursor-not-allowed opacity-60 text-white' 
+                <Button
+                  size="lg"
+                  className={`flex-1 font-semibold text-lg h-14 ${isOutOfStock
+                      ? 'bg-gray-600 hover:bg-gray-500 cursor-not-allowed opacity-60 text-white'
                       : 'bg-pink-800 hover:bg-pink-700 text-white shadow-lg hover:shadow-xl transition-all'
-                  }`}
+                    }`}
                   onClick={handleOrder}
                   disabled={isOutOfStock}
                   title={isOutOfStock ? "This product is currently out of stock" : "Order this product"}
@@ -477,9 +476,9 @@ const ProductDetailPage: React.FC = () => {
                   <ShoppingCart className="w-6 h-6 mr-2" />
                   {isOutOfStock ? 'Out of Stock' : 'Order Now'}
                 </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
+                <Button
+                  size="lg"
+                  variant="outline"
                   className="border-2 border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500 h-14 px-6 transition-all"
                   onClick={handleAddToWishlist}
                 >
@@ -510,24 +509,23 @@ const ProductDetailPage: React.FC = () => {
             {/* Gallery Images */}
             {((product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) ||
               (product.main_images && Array.isArray(product.main_images) && product.main_images.length > 1)) && (
-              <div className="grid grid-cols-4 gap-3">
-                {(product.gallery_images || product.main_images || []).slice(0, 4).map((image, index) => (
-                  <div
-                    key={index}
-                    className={`w-full aspect-square bg-gray-800 rounded-lg cursor-pointer overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all ${
-                      selectedImage === image ? 'ring-2 ring-blue-400' : ''
-                    }`}
-                    onClick={() => setSelectedImage(image)}
-                  >
-                    <img
-                      src={getFullUrl(image)}
-                      alt={`Gallery ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+                <div className="grid grid-cols-4 gap-3">
+                  {(product.gallery_images || product.main_images || []).slice(0, 4).map((image, index) => (
+                    <div
+                      key={index}
+                      className={`w-full aspect-square bg-gray-800 rounded-lg cursor-pointer overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all ${selectedImage === image ? 'ring-2 ring-blue-400' : ''
+                        }`}
+                      onClick={() => setSelectedImage(image)}
+                    >
+                      <img
+                        src={getFullUrl(image)}
+                        alt={`Gallery ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
             {/* Stock Status Badge */}
             <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
@@ -586,9 +584,9 @@ const ProductDetailPage: React.FC = () => {
                             <span className="text-white font-semibold">{review.user}</span>
                             <div className="flex items-center gap-1 mt-1">
                               {[...Array(5)].map((_, i) => (
-                                <Star 
-                                  key={i} 
-                                  className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} 
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`}
                                 />
                               ))}
                             </div>

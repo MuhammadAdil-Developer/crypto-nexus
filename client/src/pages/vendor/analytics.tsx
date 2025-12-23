@@ -27,7 +27,7 @@ export default function VendorAnalytics() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      
+
       try {
         // Fetch orders - this is the primary data source
         let allOrders: any[] = [];
@@ -55,11 +55,11 @@ export default function VendorAnalytics() {
 
         // Calculate date range based on selected period
         const now = new Date();
-        const from = period === "7days" ? new Date(now.getTime() - 7*24*3600*1000)
-                    : period === "30days" ? new Date(now.getTime() - 30*24*3600*1000)
-                    : period === "90days" ? new Date(now.getTime() - 90*24*3600*1000)
-                    : new Date(now.getTime() - 365*24*3600*1000);
-        
+        const from = period === "7days" ? new Date(now.getTime() - 7 * 24 * 3600 * 1000)
+          : period === "30days" ? new Date(now.getTime() - 30 * 24 * 3600 * 1000)
+            : period === "90days" ? new Date(now.getTime() - 90 * 24 * 3600 * 1000)
+              : new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+
         // Filter orders by date range
         const filteredOrders = allOrders.filter((o: any) => {
           if (!o.created_at) return false;
@@ -84,7 +84,7 @@ export default function VendorAnalytics() {
           // Calculate revenue
           const amount = parseFloat(order.total_amount || "0");
           const currency = (order.crypto_currency || "").toUpperCase();
-          
+
           if (currency === "BTC" && !isNaN(amount)) {
             totalRevenueBTC += amount;
           } else if (currency === "XMR" && !isNaN(amount)) {
@@ -99,38 +99,38 @@ export default function VendorAnalytics() {
           uniqueBuyers: uniqueBuyerIds.size,
           storeViews: Number(dashboard?.data?.statistics?.total_views || 0),
         };
-        
+
         setMetrics(calculatedMetrics);
         console.log("Calculated metrics:", calculatedMetrics);
 
         // Generate monthly sales data (always show 6 months of bars)
-        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         const monthsToShow = 6;
         const monthBuckets: Array<{ key: string; label: string; btc: number; xmr: number }> = [];
-        
+
         for (let i = monthsToShow - 1; i >= 0; i--) {
           const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          monthBuckets.push({ 
-            key, 
-            label: monthNames[date.getMonth()], 
+          monthBuckets.push({
+            key,
+            label: monthNames[date.getMonth()],
             btc: 0,
             xmr: 0
           });
         }
-        
+
         // Fill buckets with order data
         filteredOrders.forEach((order: any) => {
           if (!order.created_at) return;
-          
+
           const orderDate = new Date(order.created_at);
           const orderKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`;
           const bucket = monthBuckets.find(b => b.key === orderKey);
-          
+
           if (bucket) {
             const amount = parseFloat(order.total_amount || "0");
             const currency = (order.crypto_currency || "").toUpperCase();
-            
+
             if (currency === "BTC" && !isNaN(amount)) {
               bucket.btc += amount;
             } else if (currency === "XMR" && !isNaN(amount)) {
@@ -138,45 +138,45 @@ export default function VendorAnalytics() {
             }
           }
         });
-        
-        setSalesData(monthBuckets.map(b => ({ 
-          month: b.label, 
-          btc: b.btc, 
-          xmr: b.xmr, 
-          usd: 0 
+
+        setSalesData(monthBuckets.map(b => ({
+          month: b.label,
+          btc: b.btc,
+          xmr: b.xmr,
+          usd: 0
         })));
         console.log("Sales data:", monthBuckets);
 
         // Calculate top products from orders
         const productMap: Record<string, { name: string; sales: number; revenue: number }> = {};
-        
+
         filteredOrders.forEach((order: any) => {
           const productId = order.product?.id || order.listing?.id;
-          const productName = order.product?.headline || 
-                            order.product?.listing_title || 
-                            order.listing?.headline ||
-                            order.listing?.listing_title ||
-                            "Unknown Product";
-          
+          const productName = order.product?.headline ||
+            order.product?.listing_title ||
+            order.listing?.headline ||
+            order.listing?.listing_title ||
+            "Unknown Product";
+
           if (!productId) return;
-          
+
           const key = String(productId);
-          
+
           if (!productMap[key]) {
             productMap[key] = { name: productName, sales: 0, revenue: 0 };
           }
-          
+
           productMap[key].sales += 1;
-          
+
           // Add revenue (convert to BTC equivalent for display)
           const amount = parseFloat(order.total_amount || "0");
           const currency = (order.crypto_currency || "").toUpperCase();
-          
+
           if (currency === "BTC" && !isNaN(amount)) {
             productMap[key].revenue += amount;
           }
         });
-        
+
         const topProductsList = Object.values(productMap)
           .sort((a, b) => b.sales - a.sales)
           .slice(0, 5)
@@ -186,18 +186,18 @@ export default function VendorAnalytics() {
             revenue: `${p.revenue.toFixed(4)} BTC`,
             growth: 0
           }));
-        
+
         setTopProducts(topProductsList);
         console.log("Top products:", topProductsList);
 
         // Calculate payment performance
-        const btcOrders = filteredOrders.filter((o: any) => 
+        const btcOrders = filteredOrders.filter((o: any) =>
           (o.crypto_currency || "").toUpperCase() === "BTC"
         );
-        const xmrOrders = filteredOrders.filter((o: any) => 
+        const xmrOrders = filteredOrders.filter((o: any) =>
           (o.crypto_currency || "").toUpperCase() === "XMR"
         );
-        
+
         const calculateAverage = (orders: any[]) => {
           if (orders.length === 0) return 0;
           const total = orders.reduce((sum, order) => {
@@ -206,10 +206,10 @@ export default function VendorAnalytics() {
           }, 0);
           return total / orders.length;
         };
-        
+
         const avgBtc = calculateAverage(btcOrders);
         const avgXmr = calculateAverage(xmrOrders);
-        
+
         // Calculate most popular payment method
         const paymentCounts: Record<string, number> = {};
         filteredOrders.forEach((order: any) => {
@@ -218,11 +218,11 @@ export default function VendorAnalytics() {
             paymentCounts[currency] = (paymentCounts[currency] || 0) + 1;
           }
         });
-        
+
         const totalOrders = Object.values(paymentCounts).reduce((a, b) => a + b, 0);
         const sortedPayments = Object.entries(paymentCounts).sort((a, b) => b[1] - a[1]);
         const [popularCurrency, popularCount] = sortedPayments[0] || ["-", 0];
-        
+
         setPaymentPerf({
           avgBtc,
           avgXmr,
@@ -238,28 +238,28 @@ export default function VendorAnalytics() {
           const amount = parseFloat(order.total_amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-        
+
         const xmrRevenue = xmrOrders.reduce((sum, order) => {
           const amount = parseFloat(order.total_amount || "0");
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-        
+
         const totalRevenue = btcRevenue + xmrRevenue;
-        const calculatePercentage = (value: number) => 
+        const calculatePercentage = (value: number) =>
           totalRevenue > 0 ? Math.round((value / totalRevenue) * 100) : 0;
-        
+
         setRevenueBreakdown([
           {
             source: "BTC",
             amount: `${btcRevenue.toFixed(4)} BTC`,
             percentage: calculatePercentage(btcRevenue),
-            color: "bg-orange-500"
+            color: "bg-theme-cyan"
           },
           {
             source: "XMR",
             amount: `${xmrRevenue.toFixed(4)} XMR`,
             percentage: calculatePercentage(xmrRevenue),
-            color: "bg-gray-600"
+            color: "bg-theme-red"
           }
         ]);
         console.log("Revenue breakdown:", { btcRevenue, xmrRevenue });
@@ -270,7 +270,7 @@ export default function VendorAnalytics() {
         setLoading(false);
       }
     };
-    
+
     load();
   }, [period]);
 
@@ -333,14 +333,14 @@ export default function VendorAnalytics() {
                   </>
                 )}
               </div>
-              <div className="bg-green-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
-                <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 text-green-600" />
+              <div className="bg-theme-cyan/20 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 text-theme-cyan" />
               </div>
             </div>
             {!loading && (
               <div className="flex items-center mt-3 sm:mt-4">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
-                <span className="text-xs sm:text-sm text-green-600">+12.5% from last month</span>
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-theme-cyan mr-1" />
+                <span className="text-xs sm:text-sm text-theme-cyan">+12.5% from last month</span>
               </div>
             )}
           </CardContent>
@@ -363,14 +363,14 @@ export default function VendorAnalytics() {
                   </>
                 )}
               </div>
-              <div className="bg-blue-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
-                <Package className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
+              <div className="bg-theme-cyan/20 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <Package className="w-4 h-4 sm:w-6 sm:h-6 text-theme-cyan" />
               </div>
             </div>
             {!loading && (
               <div className="flex items-center mt-3 sm:mt-4">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
-                <span className="text-xs sm:text-sm text-green-600">+8.3% from last month</span>
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-theme-cyan mr-1" />
+                <span className="text-xs sm:text-sm text-theme-cyan">+8.3% from last month</span>
               </div>
             )}
           </CardContent>
@@ -393,14 +393,14 @@ export default function VendorAnalytics() {
                   </>
                 )}
               </div>
-              <div className="bg-purple-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
-                <Users className="w-4 h-4 sm:w-6 sm:h-6 text-purple-600" />
+              <div className="bg-theme-red/20 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <Users className="w-4 h-4 sm:w-6 sm:h-6 text-theme-red" />
               </div>
             </div>
             {!loading && metrics.uniqueBuyers > 0 && (
               <div className="flex items-center mt-3 sm:mt-4">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
-                <span className="text-xs sm:text-sm text-green-600">Active customer base</span>
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-theme-cyan mr-1" />
+                <span className="text-xs sm:text-sm text-theme-cyan">Active customer base</span>
               </div>
             )}
           </CardContent>
@@ -423,14 +423,14 @@ export default function VendorAnalytics() {
                   </>
                 )}
               </div>
-              <div className="bg-yellow-100 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
-                <Eye className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-600" />
+              <div className="bg-theme-cyan/20 p-2 sm:p-3 rounded-full flex-shrink-0 ml-2">
+                <Eye className="w-4 h-4 sm:w-6 sm:h-6 text-theme-cyan" />
               </div>
             </div>
             {!loading && (
               <div className="flex items-center mt-3 sm:mt-4">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
-                <span className="text-xs sm:text-sm text-green-600">+18.7% from last month</span>
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-theme-cyan mr-1" />
+                <span className="text-xs sm:text-sm text-theme-cyan">+18.7% from last month</span>
               </div>
             )}
           </CardContent>
@@ -441,7 +441,7 @@ export default function VendorAnalytics() {
         {/* Sales Chart - Always show bars */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Sales Over Time</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">Sales Over Time</CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             {loading ? (
@@ -455,12 +455,12 @@ export default function VendorAnalytics() {
                 {salesData.map((data, index) => {
                   const maxValue = Math.max(...salesData.map(s => s.btc), 0.001);
                   const heightPercent = data.btc > 0 ? Math.max(5, (data.btc / maxValue) * 100) : 0;
-                  
+
                   return (
                     <div key={index} className="flex flex-col items-center space-y-1 sm:space-y-2 flex-1 min-w-[50px]">
                       <div className="bg-gray-700 w-full rounded-lg overflow-hidden h-48 sm:h-64 flex flex-col justify-end">
-                        <div 
-                          className={`${data.btc > 0 ? 'bg-blue-500' : 'bg-gray-600'} transition-all duration-500 ease-out`}
+                        <div
+                          className={`${data.btc > 0 ? 'bg-theme-cyan' : 'bg-gray-600'} transition-all duration-500 ease-out`}
                           style={{ height: `${heightPercent}%` }}
                         ></div>
                       </div>
@@ -476,7 +476,7 @@ export default function VendorAnalytics() {
                 <span>Revenue trend for selected period</span>
                 <div className="flex items-center space-x-2 sm:space-x-4">
                   <div className="flex items-center">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded mr-1 sm:mr-2"></div>
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-theme-cyan rounded mr-1 sm:mr-2"></div>
                     <span>BTC Revenue</span>
                   </div>
                 </div>
@@ -488,7 +488,7 @@ export default function VendorAnalytics() {
         {/* Revenue Breakdown */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Revenue Breakdown</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">Revenue Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             {loading ? (
@@ -507,7 +507,7 @@ export default function VendorAnalytics() {
                       <span className="font-semibold text-white text-sm sm:text-base break-words">{item.amount}</span>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2 sm:h-3">
-                      <div 
+                      <div
                         className={`${item.color} h-2 sm:h-3 rounded-full transition-all duration-500`}
                         style={{ width: `${Math.max(item.percentage, 0)}%` }}
                       ></div>
@@ -515,7 +515,7 @@ export default function VendorAnalytics() {
                     <div className="text-xs sm:text-sm text-gray-400">{item.percentage}% of total revenue</div>
                   </div>
                 ))}
-                
+
                 <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-700">
                   <h4 className="font-semibold text-white mb-3 sm:mb-4 text-sm sm:text-base">Payment Method Performance</h4>
                   <div className="space-y-2 sm:space-y-3">
@@ -542,7 +542,7 @@ export default function VendorAnalytics() {
       {/* Top Products */}
       <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
         <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Top Performing Products</CardTitle>
+          <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">Top Performing Products</CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           {loading ? (
@@ -559,18 +559,18 @@ export default function VendorAnalytics() {
               {topProducts.map((product, index) => (
                 <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
                   <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-blue-600 font-semibold text-xs sm:text-sm">#{index + 1}</span>
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-cyan/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-theme-cyan font-semibold text-xs sm:text-sm">#{index + 1}</span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="font-medium text-white text-sm sm:text-base break-words">{product.name}</h4>
                       <p className="text-xs sm:text-sm text-gray-400">{product.sales} {product.sales === 1 ? 'sale' : 'sales'}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-4 sm:space-x-6 flex-shrink-0">
                     <div className="text-left sm:text-right">
-                      <div className="font-semibold text-blue-400 text-sm sm:text-base">{product.revenue}</div>
+                      <div className="font-semibold text-theme-cyan text-sm sm:text-base">{product.revenue}</div>
                       <div className="text-[10px] sm:text-xs text-gray-400">Revenue</div>
                     </div>
                   </div>

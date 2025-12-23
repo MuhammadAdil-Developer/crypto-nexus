@@ -390,9 +390,11 @@ def vendor_approve_refund(request, refund_id):
                             }, status=status.HTTP_400_BAD_REQUEST)
                         real_tx_hash = payout_result.get('transactionHash')
                     elif order.crypto_currency == 'XMR':
+                        # Convert to atomic units (pico-monero)
+                        amount_atomic = int(float(total_refund_amount) * 1e12)
                         destinations = [{
                             'address': buyer_payout_address,
-                            'amount': float(total_refund_amount),
+                            'amount': amount_atomic,
                         }]
                         monero_result = payment_service.monero.send_transaction(destinations)
                         if not monero_result or not monero_result.get('tx_hash'):
@@ -930,9 +932,11 @@ def process_refund_to_wallet(refund, order, payment_source='platform', buyer_pay
                 return False
             real_tx_hash = payout_result.get('transactionHash')
         elif currency == 'XMR':
+            # Convert to atomic units (pico-monero)
+            amount_atomic = int(float(refund_amount) * 1e12)
             destinations = [{
                 'address': buyer_payout_address,
-                'amount': float(refund_amount),
+                'amount': amount_atomic,
             }]
             monero_result = payment_service.monero.send_transaction(destinations)
             if not monero_result or not monero_result.get('tx_hash'):

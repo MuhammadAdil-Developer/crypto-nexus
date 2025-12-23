@@ -98,8 +98,9 @@ export default function VendorSettings() {
       const response = await api.get('/profile/');
 
       if (response.data && response.data.success) {
+        const userData = response.data.data;
         setProfile({
-          username: response.data.data.username || "",
+          username: userData.username || "",
           contact: "",
           description: "",
           category: "",
@@ -108,11 +109,18 @@ export default function VendorSettings() {
           business_name: ""
         });
 
+        // Set payout addresses from profile
+        setPayment(prev => ({
+          ...prev,
+          btc_address: userData.btc_payout_address || "",
+          xmr_address: userData.xmr_payout_address || ""
+        }));
+
         // Set 2FA state from profile
-        if (response.data.data.two_factor_enabled !== undefined) {
+        if (userData.two_factor_enabled !== undefined) {
           setSecurity(prev => ({
             ...prev,
-            two_factor_enabled: response.data.data.two_factor_enabled || false
+            two_factor_enabled: userData.two_factor_enabled || false
           }));
         }
       }
@@ -167,9 +175,11 @@ export default function VendorSettings() {
       // Check if 2FA is being enabled
       const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
 
-      // Update 2FA in profile
+      // Update profile fields including payout addresses
       await api.put('/profile/update/', {
-        two_factor_enabled: security.two_factor_enabled
+        two_factor_enabled: security.two_factor_enabled,
+        btc_payout_address: payment.btc_address,
+        xmr_payout_address: payment.xmr_address
       });
 
       // Update vendor application with profile fields
@@ -296,7 +306,7 @@ export default function VendorSettings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-theme-cyan" />
       </div>
     );
   }
@@ -304,9 +314,9 @@ export default function VendorSettings() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
+      <div className="bg-gradient-to-r from-theme-red/20 to-theme-cyan/20 rounded-xl p-6 text-white border border-theme-red/30 shadow-lg shadow-theme-red/10">
         <div className="flex items-center space-x-3">
-          <SettingsIcon className="w-8 h-8" />
+          <SettingsIcon className="w-8 h-8 text-theme-cyan" />
           <div>
             <h1 className="text-2xl font-bold">Vendor Settings</h1>
             <p className="text-gray-300">Manage your vendor account and business preferences</p>
@@ -319,7 +329,7 @@ export default function VendorSettings() {
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Store className="w-5 h-5 text-blue-400" />
+              <Store className="w-5 h-5 text-theme-cyan" />
               Business Profile
             </CardTitle>
           </CardHeader>
@@ -381,7 +391,7 @@ export default function VendorSettings() {
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-blue-400" />
+              <CreditCard className="w-5 h-5 text-theme-cyan" />
               Payment Settings
             </CardTitle>
           </CardHeader>
@@ -416,6 +426,7 @@ export default function VendorSettings() {
               <Switch
                 checked={payment.escrow_enabled}
                 onCheckedChange={(checked) => setPayment({ ...payment, escrow_enabled: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -440,7 +451,7 @@ export default function VendorSettings() {
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Bell className="w-5 h-5 text-blue-400" />
+              <Bell className="w-5 h-5 text-theme-cyan" />
               Notifications
             </CardTitle>
           </CardHeader>
@@ -453,6 +464,7 @@ export default function VendorSettings() {
               <Switch
                 checked={notifications.new_orders}
                 onCheckedChange={(checked) => setNotifications({ ...notifications, new_orders: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -464,6 +476,7 @@ export default function VendorSettings() {
               <Switch
                 checked={notifications.messages}
                 onCheckedChange={(checked) => setNotifications({ ...notifications, messages: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -475,6 +488,7 @@ export default function VendorSettings() {
               <Switch
                 checked={notifications.disputes}
                 onCheckedChange={(checked) => setNotifications({ ...notifications, disputes: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -486,6 +500,7 @@ export default function VendorSettings() {
               <Switch
                 checked={notifications.reviews}
                 onCheckedChange={(checked) => setNotifications({ ...notifications, reviews: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -497,6 +512,7 @@ export default function VendorSettings() {
               <Switch
                 checked={notifications.marketing}
                 onCheckedChange={(checked) => setNotifications({ ...notifications, marketing: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
           </CardContent>
@@ -506,7 +522,7 @@ export default function VendorSettings() {
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-400" />
+              <Shield className="w-5 h-5 text-theme-cyan" />
               Security
             </CardTitle>
           </CardHeader>
@@ -519,6 +535,7 @@ export default function VendorSettings() {
               <Switch
                 checked={security.two_factor_enabled}
                 onCheckedChange={(checked) => setSecurity({ ...security, two_factor_enabled: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -530,6 +547,7 @@ export default function VendorSettings() {
               <Switch
                 checked={security.login_notifications}
                 onCheckedChange={(checked) => setSecurity({ ...security, login_notifications: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
 
@@ -541,6 +559,7 @@ export default function VendorSettings() {
               <Switch
                 checked={security.suspicious_activity_alerts}
                 onCheckedChange={(checked) => setSecurity({ ...security, suspicious_activity_alerts: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
               />
             </div>
           </CardContent>
@@ -550,7 +569,7 @@ export default function VendorSettings() {
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-400" />
+              <Shield className="w-5 h-5 text-theme-red" />
               Change Password
             </CardTitle>
           </CardHeader>
@@ -591,7 +610,7 @@ export default function VendorSettings() {
             <Button
               onClick={handleChangePassword}
               disabled={saving}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full bg-theme-red hover:bg-theme-red-dark text-white"
             >
               {saving ? (
                 <>
@@ -614,7 +633,7 @@ export default function VendorSettings() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
             >
               {saving ? (
                 <>
@@ -637,7 +656,7 @@ export default function VendorSettings() {
         <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-400" />
+              <Shield className="w-5 h-5 text-theme-cyan" />
               Set Up Two-Factor Authentication
             </DialogTitle>
             <DialogDescription className="text-gray-400">
@@ -668,11 +687,11 @@ export default function VendorSettings() {
                   </div>
                 )}
 
-                <div className="w-full bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                  <p className="text-sm text-blue-200">
-                    <strong className="text-blue-300">Steps:</strong>
+                <div className="w-full bg-theme-cyan/10 border border-theme-cyan/30 rounded-lg p-4">
+                  <p className="text-sm text-theme-cyan">
+                    <strong className="text-white">Steps:</strong>
                   </p>
-                  <ol className="list-decimal list-inside space-y-1 text-xs text-blue-200 mt-2">
+                  <ol className="list-decimal list-inside space-y-1 text-xs text-gray-300 mt-2">
                     <li>Install Google Authenticator, Authy, or Microsoft Authenticator on your phone</li>
                     <li>Open the app and tap "Add account" or "+"</li>
                     <li>Scan the QR code above or enter the secret key manually</li>
@@ -684,7 +703,7 @@ export default function VendorSettings() {
 
             <Button
               onClick={() => setShow2FAModal(false)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
             >
               I've Scanned the QR Code
             </Button>

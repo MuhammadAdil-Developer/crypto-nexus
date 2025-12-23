@@ -1732,7 +1732,7 @@ export function MessagesPanel({
                   />
                   <Button
                     size="sm"
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-9 sm:h-10 px-3 sm:px-4 flex-shrink-0"
+                    className="bg-theme-cyan text-black hover:bg-theme-cyan/90 h-9 sm:h-10 px-3 sm:px-4 flex-shrink-0"
                     disabled={(!newMessage.trim() && !selectedFile) || isConversationLocked}
                     onClick={handleSendMessage}
                   >

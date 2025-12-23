@@ -47,7 +47,7 @@ api.interceptors.response.use(
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       localStorage.removeItem('userId');
-      
+
       // Trigger token expiration modal instead of direct redirect
       window.dispatchEvent(
         new CustomEvent('token_expired', {
@@ -115,7 +115,7 @@ const extractErrorMessage = (error: any, defaultMessage: string): string => {
     if (keys.length > 0) {
       const firstKey = keys[0];
       const firstValue = data[firstKey];
-      
+
       if (Array.isArray(firstValue)) {
         return firstValue.join('. ');
       }
@@ -185,8 +185,12 @@ class OrderService {
 
   async getOrders(): Promise<Order[]> {
     try {
-      const response = await api.get('/orders/');
-      return response.data;
+      const response = await api.get(`/orders/?page_size=10000&_t=${Date.now()}`);
+      // Handle both paginated and non-paginated responses
+      if (response.data.results) {
+        return response.data.results;
+      }
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch orders'));
     }
@@ -205,28 +209,28 @@ class OrderService {
     try {
       // Backwards-compatible: allow passing a string for statusData
       const payload = typeof statusData === 'string' ? { order_status: statusData } : statusData;
-      
+
       console.log('📤 Sending order status update:', {
         orderId,
         payload
       });
-      
+
       const response = await api.patch(`/orders/${orderId}/`, payload);
-      
+
       console.log('✅ Order status updated successfully:', response.data);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Order status update failed:', {
         orderId,
         error: error.response?.data
       });
-      
+
       // Extract the specific error message from the API response
       const errorMessage = extractErrorMessage(error, 'Failed to update order status');
-      
+
       console.log('🔔 Extracted error message:', errorMessage);
-      
+
       throw new Error(errorMessage);
     }
   }
@@ -312,8 +316,12 @@ class OrderService {
 
   async getOrderHistory(): Promise<Order[]> {
     try {
-      const response = await api.get('/orders/history/');
-      return response.data;
+      const response = await api.get(`/orders/history/?page_size=10000&_t=${Date.now()}`);
+      // Handle both paginated and non-paginated responses
+      if (response.data.results) {
+        return response.data.results;
+      }
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch order history'));
     }
@@ -321,9 +329,13 @@ class OrderService {
 
   async getVendorOrders(): Promise<Order[]> {
     try {
-      // Backend automatically filters by user type, so use /orders/ endpoint
-      const response = await api.get('/orders/');
-      return response.data.results || response.data || [];
+      // Backend automatically filters by user type, so use /orders/ endpoint with large page size
+      const response = await api.get(`/orders/?page_size=10000&_t=${Date.now()}`);
+      // Handle both paginated and non-paginated responses
+      if (response.data.results) {
+        return response.data.results;
+      }
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch vendor orders'));
     }
@@ -332,7 +344,7 @@ class OrderService {
   async getBuyerOrders(): Promise<Order[]> {
     try {
       // Fetch all orders without pagination - OrderViewSet automatically filters by buyer
-      const response = await api.get('/orders/?page_size=10000');
+      const response = await api.get(`/orders/?page_size=10000&_t=${Date.now()}`);
       // Handle both paginated and non-paginated responses
       if (response.data.results) {
         return response.data.results;

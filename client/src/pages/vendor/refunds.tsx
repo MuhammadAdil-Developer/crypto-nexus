@@ -6,14 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { 
-  Search, 
-  Loader2, 
-  MoreVertical, 
-  Eye, 
-  X, 
-  CheckCircle, 
-  Clock, 
+import {
+  Search,
+  Loader2,
+  MoreVertical,
+  Eye,
+  X,
+  CheckCircle,
+  Clock,
   AlertCircle,
   RefreshCw,
   AlertTriangle,
@@ -38,17 +38,17 @@ import { messagingService } from "@/services/messagingService";
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
     case "pending_vendor":
-      return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "vendor_approved":
-      return "bg-green-500/20 text-green-400 border-green-500/30";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "vendor_rejected":
-      return "bg-red-500/20 text-red-400 border-red-500/30";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "disputed":
-      return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "admin_approved":
-      return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "completed":
-      return "bg-green-500/20 text-green-400 border-green-500/30";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     default:
       return "bg-gray-500/20 text-gray-400 border-gray-500/30";
   }
@@ -186,7 +186,7 @@ export default function VendorRefunds() {
       if (result.success) {
         toast({
           title: "Success",
-          description: isEscrowRefundNow 
+          description: isEscrowRefundNow
             ? "Refund approved and processed automatically. Amount sent to buyer's wallet from platform escrow."
             : "Refund approved successfully",
         });
@@ -329,7 +329,7 @@ export default function VendorRefunds() {
   };
 
   const filteredRefunds = refunds.filter(refund => {
-    const matchesSearch = 
+    const matchesSearch =
       refund.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (refund.buyer || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       refund.reason.toLowerCase().includes(searchTerm.toLowerCase());
@@ -349,9 +349,9 @@ export default function VendorRefunds() {
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Refund Management</h1>
             <p className="text-gray-400 text-sm sm:text-base">Manage buyer refund requests and process refunds</p>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="w-full sm:w-auto text-xs sm:text-sm border-gray-600 text-gray-300 hover:bg-gray-700"
             onClick={() => {
               fetchRefunds();
@@ -374,7 +374,7 @@ export default function VendorRefunds() {
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="w-5 h-5 text-yellow-400" />
                       <div>
-                        <p className="text-yellow-400 font-semibold">
+                        <p className="text-theme-red font-semibold">
                           {totalPendingDecision} Refund Request{totalPendingDecision > 1 ? 's' : ''} Pending Your Decision
                         </p>
                         <p className="text-yellow-300/70 text-sm">
@@ -386,7 +386,7 @@ export default function VendorRefunds() {
                       variant="outline"
                       size="sm"
                       onClick={() => setStatusFilter('pending_vendor')}
-                      className="border-yellow-400 text-yellow-400 hover:bg-yellow-400/20"
+                      className="border-theme-red text-theme-red hover:bg-theme-red/20"
                     >
                       View All
                     </Button>
@@ -402,7 +402,7 @@ export default function VendorRefunds() {
                     <div className="flex items-center gap-3">
                       <AlertCircle className="w-5 h-5 text-red-400" />
                       <div>
-                        <p className="text-red-400 font-semibold">
+                        <p className="text-theme-red font-semibold">
                           {totalPendingRefund} Refund{totalPendingRefund > 1 ? 's' : ''} Requiring Processing
                         </p>
                         <p className="text-red-300/70 text-sm">
@@ -418,7 +418,7 @@ export default function VendorRefunds() {
                         const pending = refunds.filter(r => r.vendor_refund_required && !r.vendor_refund_completed);
                         setRefunds(pending);
                       }}
-                      className="border-red-400 text-red-400 hover:bg-red-400/20"
+                      className="border-theme-red text-theme-red hover:bg-theme-red/20"
                     >
                       View All
                     </Button>
@@ -465,7 +465,7 @@ export default function VendorRefunds() {
         {/* Refunds List */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">
+            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">
               Refund Requests ({filteredRefunds.length})
             </CardTitle>
           </CardHeader>
@@ -473,7 +473,7 @@ export default function VendorRefunds() {
             <div className="space-y-3 sm:space-y-4">
               {isLoading ? (
                 <div className="text-center py-8 sm:py-12">
-                  <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 text-blue-600 animate-spin mx-auto" />
+                  <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 text-theme-cyan animate-spin mx-auto" />
                   <p className="text-gray-400 mt-4 text-sm sm:text-base">Loading refunds...</p>
                 </div>
               ) : filteredRefunds.length === 0 ? (
@@ -484,15 +484,15 @@ export default function VendorRefunds() {
                 </div>
               ) : (
                 filteredRefunds.map((refund) => (
-                  <div 
-                    key={refund.id} 
+                  <div
+                    key={refund.id}
                     className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-theme-cyan/20 rounded-full flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-theme-cyan" />
                       </div>
-                      
+
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
                           <h3 className="font-semibold text-white text-sm sm:text-base truncate">Order: {refund.order_id}</h3>
@@ -500,10 +500,10 @@ export default function VendorRefunds() {
                             <span className="mr-1">
                               {getStatusIcon(refund.status)}
                             </span>
-                            {refund.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            {refund.status.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                           </Badge>
                           {refund.vendor_refund_required && !refund.vendor_refund_completed && (
-                            <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px] sm:text-xs">
+                            <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 text-[10px] sm:text-xs">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               Action Required
                             </Badge>
@@ -521,7 +521,7 @@ export default function VendorRefunds() {
 
                     <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
                       <div className="text-left sm:text-right lg:text-right">
-                        <div className="font-semibold text-blue-400 text-sm sm:text-base">{refund.amount}</div>
+                        <div className="font-semibold text-theme-cyan text-sm sm:text-base">{refund.amount}</div>
                         <div className="text-xs sm:text-sm text-gray-400">{refund.crypto_currency}</div>
                       </div>
 
@@ -537,7 +537,7 @@ export default function VendorRefunds() {
                                 setExternalWalletAddress("");
                                 setIsApproveOpen(true);
                               }}
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                              className="bg-theme-cyan hover:bg-theme-cyan/80 text-black text-xs"
                             >
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Approve
@@ -568,7 +568,7 @@ export default function VendorRefunds() {
                               setProcessNotes("");
                               setIsProcessOpen(true);
                             }}
-                            className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                            className="bg-theme-red hover:bg-theme-red-dark text-white text-xs"
                           >
                             <RefreshCw className="w-3 h-3 mr-1" />
                             Process Refund
@@ -576,9 +576,9 @@ export default function VendorRefunds() {
                         )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-8 w-8 p-0"
                               disabled={openingChat === refund.id}
                             >
@@ -603,7 +603,7 @@ export default function VendorRefunds() {
                                 // Use product_id and buyer_id from refund data (already included in API response)
                                 const productId = refund.product_id;
                                 const buyerId = refund.buyer_id;
-                                
+
                                 if (!productId || !buyerId) {
                                   toast({
                                     title: "Error",
@@ -613,7 +613,7 @@ export default function VendorRefunds() {
                                   setOpeningChat(null);
                                   return;
                                 }
-                                
+
                                 // Set context for messaging page - this will create conversation and auto-select it
                                 messagingService.setProductContextInStorage({
                                   id: productId,
@@ -623,7 +623,7 @@ export default function VendorRefunds() {
                                   refundId: refund.id,
                                   buyerUsername: refund.buyer
                                 });
-                                
+
                                 navigate('/vendor/messages');
                               } catch (error) {
                                 console.error('Error opening chat:', error);
@@ -656,7 +656,7 @@ export default function VendorRefunds() {
           <DialogHeader>
             <DialogTitle className="text-white">Refund Request Details</DialogTitle>
           </DialogHeader>
-          
+
           {selectedRefund && (
             <div className="space-y-4 sm:space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -675,14 +675,14 @@ export default function VendorRefunds() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Type:</span>
-                      <Badge className={`text-[10px] sm:text-xs border ${selectedRefund.refund_type === 'full' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                      <Badge className={`text-[10px] sm:text-xs border ${selectedRefund.refund_type === 'full' ? 'bg-theme-red/20 text-theme-red' : 'bg-orange-500/20 text-orange-400'}`}>
                         {selectedRefund.refund_type === 'full' ? 'Full' : 'Partial'}
                       </Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Status:</span>
                       <Badge className={`text-[10px] sm:text-xs border ${getStatusColor(selectedRefund.status)}`}>
-                        {selectedRefund.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {selectedRefund.status.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                       </Badge>
                     </div>
                   </CardContent>
@@ -695,7 +695,7 @@ export default function VendorRefunds() {
                   <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4">
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Amount:</span>
-                      <span className="font-semibold text-blue-400 text-xs sm:text-sm break-words">{selectedRefund.amount}</span>
+                      <span className="font-semibold text-theme-cyan text-xs sm:text-sm break-words">{selectedRefund.amount}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400 text-xs sm:text-sm">Currency:</span>
@@ -782,7 +782,7 @@ export default function VendorRefunds() {
           <DialogHeader>
             <DialogTitle className="text-white">Approve Refund</DialogTitle>
             <DialogDescription className="text-gray-400">
-              {selectedRefund?.use_escrow 
+              {selectedRefund?.use_escrow
                 ? "For escrow orders, you can process the refund automatically from the platform wallet, or send manually from your wallet."
                 : "Follow these steps to complete the refund process. You must send the coins manually from your wallet."}
             </DialogDescription>
@@ -802,7 +802,7 @@ export default function VendorRefunds() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -827,11 +827,10 @@ export default function VendorRefunds() {
                         onClick={() => {
                           setPaymentSource('platform');
                         }}
-                        className={`p-3 rounded-lg border-2 transition-all ${
-                          paymentSource === 'platform'
+                        className={`p-3 rounded-lg border-2 transition-all ${paymentSource === 'platform'
                             ? 'border-green-500 bg-green-500/10 text-green-400'
                             : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                        }`}
+                          }`}
                       >
                         <div className="font-medium text-sm">Your Payout Wallet Address</div>
                         <p className="text-xs text-gray-400 mt-1">
@@ -843,11 +842,10 @@ export default function VendorRefunds() {
                         onClick={() => {
                           setPaymentSource('external');
                         }}
-                        className={`p-3 rounded-lg border-2 transition-all ${
-                          paymentSource === 'external'
+                        className={`p-3 rounded-lg border-2 transition-all ${paymentSource === 'external'
                             ? 'border-blue-500 bg-blue-500/10 text-blue-400'
                             : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                        }`}
+                          }`}
                       >
                         <div className="font-medium text-sm">External Wallet</div>
                         <p className="text-xs text-gray-400 mt-1">
@@ -1044,11 +1042,10 @@ export default function VendorRefunds() {
                   <button
                     type="button"
                     onClick={() => setPaymentSource('platform')}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      paymentSource === 'platform'
+                    className={`p-3 rounded-lg border-2 transition-all ${paymentSource === 'platform'
                         ? 'border-green-500 bg-green-500/10 text-green-400'
                         : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                    }`}
+                      }`}
                   >
                     <div className="font-medium text-sm">Your Payout Wallet Address</div>
                     <p className="text-xs text-gray-400 mt-1">
@@ -1058,11 +1055,10 @@ export default function VendorRefunds() {
                   <button
                     type="button"
                     onClick={() => setPaymentSource('external')}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      paymentSource === 'external'
+                    className={`p-3 rounded-lg border-2 transition-all ${paymentSource === 'external'
                         ? 'border-blue-500 bg-blue-500/10 text-blue-400'
                         : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                    }`}
+                      }`}
                   >
                     <div className="font-medium text-sm">External Wallet</div>
                     <p className="text-xs text-gray-400 mt-1">
@@ -1097,7 +1093,7 @@ export default function VendorRefunds() {
                   <div className="bg-gray-800 rounded p-3 border border-gray-700">
                     <p className="text-xs text-gray-400 mb-1">Buyer's {selectedRefund.crypto_currency} Payout Address:</p>
                     <p className="text-xs font-mono text-white break-all">
-                      {selectedRefund?.crypto_currency === 'BTC' 
+                      {selectedRefund?.crypto_currency === 'BTC'
                         ? (selectedRefund?.buyer_btc_payout_address || 'Not provided')
                         : (selectedRefund?.buyer_xmr_payout_address || 'Not provided')}
                     </p>
@@ -1135,7 +1131,7 @@ export default function VendorRefunds() {
                   <div className="bg-gray-800 rounded p-3 border border-gray-700">
                     <p className="text-xs text-gray-400 mb-1">Buyer's {selectedRefund.crypto_currency} Payout Address:</p>
                     <p className="text-xs font-mono text-white break-all">
-                      {selectedRefund?.crypto_currency === 'BTC' 
+                      {selectedRefund?.crypto_currency === 'BTC'
                         ? (selectedRefund?.buyer_btc_payout_address || 'Not provided')
                         : (selectedRefund?.buyer_xmr_payout_address || 'Not provided')}
                     </p>

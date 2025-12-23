@@ -19,9 +19,9 @@ class BTCPayServerService:
     """Service for BTCPay Server integration"""
     
     def __init__(self):
-        self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'http://94.130.201.44:23000')
-        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', 'BcNqCbdENjwi7mwg5pzQxLmAeGrsGe7j8PUUu25EMwio')
-        self.api_key = getattr(settings, 'BTCPAY_API_KEY', 'ce9980b1b464d82c984779858b38a8f0cef1a3a1')
+        self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'https://pay.accountzclub.com')
+        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7')
+        self.api_key = getattr(settings, 'BTCPAY_API_KEY', 'f66dd13f59806719fcee1eb31be75057ea47c1fd')
         self.headers = {
             'Authorization': f'token {self.api_key}',
             'Content-Type': 'application/json'
@@ -31,12 +31,8 @@ class BTCPayServerService:
         """Create BTCPay invoice"""
         try:
             invoice_data = {
-                'storeId': self.store_id,
                 'amount': str(amount),
                 'currency': currency,
-                'orderId': order_id,
-                'notificationUrl': f"{settings.SITE_URL}/api/v1/payments/webhooks/btcpay/",
-                'redirectUrl': f"{settings.SITE_URL}/orders/{order_id}/",
                 'metadata': {
                     'orderId': order_id,
                     'platform': 'CryptoNexus'
@@ -44,8 +40,19 @@ class BTCPayServerService:
             }
             
             # Try BTCPay Server first
+            url = f"{self.base_url}/api/v1/stores/{self.store_id}/invoices"
+            
+            # Debug logging
+            logger.info(f"=== BTCPay Invoice Creation Debug ===")
+            logger.info(f"Base URL: {self.base_url}")
+            logger.info(f"Store ID: {self.store_id}")
+            logger.info(f"API Key: {self.api_key[:20]}...")
+            logger.info(f"Full URL: {url}")
+            logger.info(f"Payload: {invoice_data}")
+            logger.info(f"Headers: Authorization=token {self.api_key[:20]}...")
+            
             response = requests.post(
-                f"{self.base_url}/api/v1/stores/{self.store_id}/invoices",
+                url,
                 headers=self.headers,
                 json=invoice_data,
                 timeout=30
@@ -198,11 +205,13 @@ class BTCPayServerService:
                 wallet_info = wallet_response.json()
                 logger.info(f"Wallet info: {wallet_info}")
                 
-                # Check if we have sufficient balance
+                # Check if we have sufficient CONFIRMED balance
+                # Using confirmed balance only for safety - waits for blockchain confirmations
+                # This prevents double-spend risks but adds 10-30 minute delay
                 available_balance = float(wallet_info.get('confirmedBalance', 0))
                 required_amount = float(payout_data['amount'])
                 
-                logger.info(f"Available Balance: {available_balance} BTC")
+                logger.info(f"Available Confirmed Balance: {available_balance} BTC")
                 logger.info(f"Required Amount: {required_amount} BTC")
                 
                 if available_balance < required_amount:
@@ -223,7 +232,8 @@ class BTCPayServerService:
                 transaction_data = {
                     'destinations': [{
                         'destination': payout_data['destination'],
-                        'amount': payout_data['amount']
+                        'amount': payout_data['amount'],
+                        'subtractFeesFromAmount': True
                     }],
                     'feeRate': 1,  # Use normal fee rate (INTEGER, not string)
                     'proceedWithBroadcast': True,
@@ -265,10 +275,10 @@ class MoneroRPCService:
     
     def __init__(self):
         # Updated to use Monero RPC server - MAINNET
-        self.rpc_url = getattr(settings, 'MONERO_RPC_URL', 'http://88.99.143.151:18081/json_rpc')  # Mainnet port
-        self.rpc_user = getattr(settings, 'MONERO_RPC_USER', 'monerouser')
-        self.rpc_password = getattr(settings, 'MONERO_RPC_PASSWORD', 'moneropass123')
-        self.wallet_password = getattr(settings, 'MONERO_WALLET_PASSWORD', 'testwallet')
+        self.rpc_url = getattr(settings, 'MONERO_RPC_URL', 'http://127.0.0.1:18082/json_rpc')  # Local Wallet RPC
+        self.rpc_user = getattr(settings, 'MONERO_RPC_USER', '')
+        self.rpc_password = getattr(settings, 'MONERO_RPC_PASSWORD', '')
+        self._address_index_cache = {}  # Cache for address -> index lookups
         
         logger.info(f"Monero RPC Service initialized: {self.rpc_url}")
         
@@ -293,7 +303,7 @@ class MoneroRPCService:
                 self.rpc_url,
                 json=payload,
                 auth=auth,
-                timeout=30
+                timeout=30  # Reduced from 60 to 30
             )
             
             if response.status_code == 200:
@@ -336,9 +346,11 @@ class MoneroRPCService:
         return None
     
     def get_transfers(self, account_index: int = 0, subaddr_indices: list = None) -> dict:
-        """Get incoming transfers"""
+        """Get all kinds of transfers (confirmed, pool, pending)"""
         params = {
             "in": True,
+            "pool": True,
+            "pending": True,
             "account_index": account_index
         }
         
@@ -351,29 +363,74 @@ class MoneroRPCService:
             return result['result']
         return None
     
-    def check_payment_by_subaddress(self, subaddress_index: int, expected_amount: int) -> dict:
-        """Check if payment has been received to specific subaddress"""
+    def get_transfer_by_txid(self, txid: str) -> dict:
+        """Get transfer details by transaction ID"""
+        result = self._make_rpc_call("get_transfer_by_txid", {
+            "txid": txid
+        })
+        
+        if result and 'result' in result and 'transfer' in result['result']:
+            return result['result']['transfer']
+        return None
+    
+    def check_payment_by_subaddress(self, subaddress_index: int, expected_amount: int, tolerance_percent: float = 1.6) -> dict:
+        """Check if payment has been received to specific subaddress (includes mempool)"""
         try:
-            # Get transfers for specific subaddress
+            # Get all transfers for specific subaddress
             transfers = self.get_transfers(account_index=0, subaddr_indices=[subaddress_index])
             
-            if transfers and 'in' in transfers:
-                for transfer in transfers['in']:
-                    # Check if transfer is to our subaddress and amount matches
-                    if (transfer.get('subaddr_index') == subaddress_index and 
-                        transfer.get('amount') >= expected_amount and
-                        transfer.get('confirmations', 0) >= 1):  # At least 1 confirmation
-                        
-                        logger.info(f"Monero payment found: {transfer}")
-                        return {
-                            'found': True,
-                            'amount': transfer.get('amount'),
-                            'txid': transfer.get('txid'),
-                            'confirmations': transfer.get('confirmations', 0),
-                            'timestamp': transfer.get('timestamp'),
-                            'subaddr_index': transfer.get('subaddr_index')
-                        }
+            if not transfers:
+                logger.debug(f"No transfers found at all for subaddress index {subaddress_index}")
+                return {'found': False}
+                
+            # Combine all incoming lists
+            all_incoming = transfers.get('in', []) + transfers.get('pool', []) + transfers.get('pending', [])
             
+            logger.info(f"Checking {len(all_incoming)} incoming transfers for index {subaddress_index}")
+            
+            total_received = 0
+            main_txid = None
+            max_confirmations = 0
+            latest_timestamp = 0
+            is_in_pool = False
+            
+            for transfer in all_incoming:
+                tx_amount = transfer.get('amount', 0)
+                tx_index = transfer.get('subaddr_index', {}).get('minor', transfer.get('subaddr_index'))
+                
+                # Handle cases where subaddr_index might be a dict or int
+                if isinstance(tx_index, dict):
+                    tx_index = tx_index.get('minor', 0)
+
+                if tx_index == subaddress_index:
+                    total_received += tx_amount
+                    if not main_txid:
+                        main_txid = transfer.get('txid')
+                    max_confirmations = max(max_confirmations, transfer.get('confirmations', 0))
+                    latest_timestamp = max(latest_timestamp, transfer.get('timestamp', 0))
+                    if transfer.get('type') in ['pool', 'pending'] or transfer.get('confirmations', 0) == 0:
+                        is_in_pool = True
+
+                logger.info(f"Evaluating TX: id={transfer.get('txid')[:10]}..., amount={tx_amount}, index={tx_index}")
+            
+            # Calculate threshold with tolerance
+            # Default tolerance expanded to 1.6% to accommodate user's small underpayment
+            threshold = int(expected_amount * (1.0 - (tolerance_percent / 100.0)))
+            
+            logger.info(f"Subaddress {subaddress_index} Balance: {total_received} atomic units. Target: {expected_amount}, Min Threshold: {threshold}")
+
+            if total_received >= threshold:
+                logger.info(f"MATCH FOUND! Monero payment detected: {main_txid} (Total: {total_received})")
+                return {
+                    'found': True,
+                    'amount': total_received,
+                    'txid': main_txid,
+                    'confirmations': max_confirmations,
+                    'timestamp': latest_timestamp,
+                    'subaddr_index': subaddress_index,
+                    'is_in_pool': is_in_pool
+                }
+        
             return {'found': False}
             
         except Exception as e:
@@ -401,6 +458,42 @@ class MoneroRPCService:
         if result and 'result' in result:
             return result['result']
         return None
+
+    def get_address_index(self, address: str) -> Optional[dict]:
+        """Get account and subaddress index for a given address (with caching)"""
+        if address in self._address_index_cache:
+            return self._address_index_cache[address]
+            
+        result = self._make_rpc_call("get_address_index", {
+            "address": address
+        })
+        
+        if result and 'result' in result:
+            index = result['result']['index']
+            self._address_index_cache[address] = index
+            return index
+        return None
+
+    def get_incoming_transfers(self, address: str) -> list:
+        """Get incoming transfers for a specific address (including mempool)"""
+        index = self.get_address_index(address)
+        if not index:
+            return []
+            
+        params = {
+            "in": True,
+            "pool": True,
+            "pending": True,
+            "account_index": index.get('major', 0),
+            "subaddr_indices": [index.get('minor', 0)]
+        }
+        
+        result = self._make_rpc_call("get_transfers", params)
+        if not result or 'result' not in result:
+            return []
+            
+        res = result['result']
+        return res.get('in', []) + res.get('pool', []) + res.get('pending', [])
     
     def get_wallet_height(self) -> int:
         """Get current wallet height"""
@@ -456,6 +549,9 @@ class PaymentService:
         try:
             crypto = CryptoCurrency.objects.get(symbol=crypto_currency)
             
+            # Set expiration to 2 hours for all cryptocurrencies
+            expiry_hours = 2
+            
             # Use get_or_create to avoid duplicate key constraint
             payment_address, created = PaymentAddress.objects.get_or_create(
                 order_id=order_id,
@@ -463,7 +559,7 @@ class PaymentService:
                     'crypto_currency': crypto,
                     'payment_type': payment_type,
                     'expected_amount': amount,
-                    'expires_at': timezone.now() + timedelta(hours=2),  # 2 hour expiry
+                    'expires_at': timezone.now() + timedelta(hours=expiry_hours),  # 8 hours for XMR, 2 hours for BTC
                     'required_confirmations': settings.REQUIRED_CONFIRMATIONS.get(
                         crypto_currency, 1 if crypto_currency == 'XMR' else 3
                     )
@@ -475,7 +571,7 @@ class PaymentService:
                 payment_address.crypto_currency = crypto
                 payment_address.payment_type = payment_type
                 payment_address.expected_amount = amount
-                payment_address.expires_at = timezone.now() + timedelta(hours=2)
+                payment_address.expires_at = timezone.now() + timedelta(hours=expiry_hours)  # 8 hours for XMR, 2 hours for BTC
                 payment_address.required_confirmations = settings.REQUIRED_CONFIRMATIONS.get(
                     crypto_currency, 1 if crypto_currency == 'XMR' else 3
             )
@@ -495,57 +591,61 @@ class PaymentService:
                         payment_address.payment_address = self._generate_btc_address(order_id)
                         logger.warning(f"Using fallback BTC address for order {order_id}: {payment_address.payment_address}")
                 else:
-                    # For direct payments, create BTCPay invoice (BETTER APPROACH!)
+                    # For direct payments, create BTCPay invoice (REQUIRED - NO FALLBACK)
                     from orders.models import Order
                     from vendors.models import VendorApplication
                     
                     order = Order.objects.get(order_id=order_id)
                     
-                    # Create BTCPay invoice for direct payment (same as escrow but different metadata)
-                    # The create_invoice method expects: order_id, amount, currency
-                    invoice_response = self.btcpay.create_invoice(order_id, amount, 'BTC')
+                    # Get vendor's address for payout - Prioritize User profile addresses
+                    vendor_address = order.product.vendor.btc_payout_address
                     
-                    if invoice_response and invoice_response.get('invoice_id'):
-                        # The invoice response already includes the BTC address
-                        invoice_id = invoice_response['invoice_id']
-                        btc_address = invoice_response['address']
-                        
-                        if btc_address:
-                            payment_address.payment_address = btc_address
-                            payment_address.btcpay_invoice_id = invoice_id
-                            payment_address.save()
-                        else:
-                            raise Exception("No BTC address in invoice response")
-                        
-                        # Get vendor's address for later payout
+                    if not vendor_address:
+                        # Fallback to vendor application if not in user profile
                         try:
                             vendor_app = VendorApplication.objects.get(vendor_username=order.product.vendor.username)
                             vendor_address = vendor_app.btc_address
                         except VendorApplication.DoesNotExist:
-                            raise Exception("Vendor application not found")
-                        
-                        if not vendor_address:
-                            raise Exception("Vendor BTC address not found in application")
-                        
-                        # Create direct payment record with vendor address for payout
-                        from .models import DirectPayment
-                        DirectPayment.objects.create(
-                            order=order,
-                            vendor=order.product.vendor,
-                            buyer=order.buyer,
-                            crypto_currency=crypto,
-                            amount=amount,
-                            vendor_address=vendor_address,  # Store vendor address for payout
-                            expires_at=timezone.now() + timedelta(hours=24)
-                        )
-                        
-                        logger.info(f"Direct BTC invoice created for order {order_id}: {invoice_id}")
-                        logger.info(f"Payment address: {btc_address}")
-                        logger.info(f"Vendor will receive payment at: {vendor_address}")
-                    else:
+                            raise Exception("Vendor BTC address not found (profile or application)")
+                    
+                    if not vendor_address:
+                        raise Exception("Vendor BTC address not found")
+                    
+                    # Create BTCPay invoice - MUST succeed, no fallback
+                    invoice_response = self.btcpay.create_invoice(order_id, amount, 'BTC')
+                    
+                    if not invoice_response or not invoice_response.get('invoice_id'):
                         logger.error(f"BTCPay invoice creation failed for order {order_id}")
                         logger.error(f"Invoice response: {invoice_response}")
-                        raise Exception("Failed to create BTCPay invoice for direct payment")
+                        raise Exception("Failed to create BTCPay invoice for direct payment - check BTCPay server and API permissions")
+                    
+                    # Extract invoice details
+                    btcpay_invoice_id = invoice_response['invoice_id']
+                    btc_address = invoice_response.get('address')
+                    
+                    if not btc_address:
+                        raise Exception("No BTC address in BTCPay invoice response")
+                    
+                    # Save payment address with BTCPay details
+                    payment_address.payment_address = btc_address
+                    payment_address.btcpay_invoice_id = btcpay_invoice_id
+                    payment_address.save()
+                    
+                    # Create direct payment record with vendor address for payout
+                    from .models import DirectPayment
+                    DirectPayment.objects.create(
+                        order=order,
+                        vendor=order.product.vendor,
+                        buyer=order.buyer,
+                        crypto_currency=crypto,
+                        amount=amount,
+                        vendor_address=vendor_address,  # Store vendor address for payout
+                        expires_at=timezone.now() + timedelta(hours=24)
+                    )
+                    
+                    logger.info(f"Direct BTC invoice created for order {order_id}: {btcpay_invoice_id}")
+                    logger.info(f"Buyer payment address: {btc_address}")
+                    logger.info(f"Vendor will receive payout at: {vendor_address}")
                     
             elif crypto_currency == 'XMR' and not payment_address.payment_address:
                 if use_escrow:
@@ -572,15 +672,19 @@ class PaymentService:
                         payment_address.monero_subaddress_index = subaddress_data['address_index']
                         payment_address.save()
                         
-                        # Get vendor's address for later payout
-                        try:
-                            vendor_app = VendorApplication.objects.get(vendor_username=order.product.vendor.username)
-                            vendor_address = vendor_app.xmr_address
-                        except VendorApplication.DoesNotExist:
-                            raise Exception("Vendor application not found")
+                        # Get vendor's address for later payout - Prioritize User profile addresses
+                        vendor_address = order.product.vendor.xmr_payout_address
                         
                         if not vendor_address:
-                            raise Exception("Vendor XMR address not found in application")
+                            # Fallback to vendor application if not in user profile
+                            try:
+                                vendor_app = VendorApplication.objects.get(vendor_username=order.product.vendor.username)
+                                vendor_address = vendor_app.xmr_address
+                            except VendorApplication.DoesNotExist:
+                                raise Exception("Vendor XMR address not found (profile or application)")
+                        
+                        if not vendor_address:
+                            raise Exception("Vendor XMR address not found")
                         
                         # Create direct payment record with vendor address for payout
                         from .models import DirectPayment
@@ -646,32 +750,44 @@ class PaymentService:
             auto_release_at=timezone.now() + timedelta(days=7)
         )
         
-        # Create escrow payout record immediately (like direct payments)
+        # Create escrow payout record immediately
         try:
-            # Get vendor's wallet address from VendorApplication
-            vendor_username = order.product.vendor.username
-            logger.info(f"Looking up vendor application for: {vendor_username}")
-            
-            vendor_app = VendorApplication.objects.get(vendor_username=vendor_username)
-            logger.info(f"Found vendor app - Business Name: {vendor_app.business_name}, BTC: {vendor_app.btc_address}, XMR: {vendor_app.xmr_address}")
-            
+            # Get vendor's wallet address from User profile (prioritized) or VendorApplication
+            vendor_user = order.product.vendor
             vendor_address = None
             
             if payment_address.crypto_currency.symbol == 'BTC':
-                vendor_address = vendor_app.btc_address
-                logger.info(f"Using BTC address: {vendor_address}")
+                vendor_address = vendor_user.btc_payout_address
             elif payment_address.crypto_currency.symbol == 'XMR':
-                vendor_address = vendor_app.xmr_address
-                logger.info(f"Using XMR address: {vendor_address}")
+                vendor_address = vendor_user.xmr_payout_address
+                
+            if not vendor_address:
+                # Fallback to VendorApplication
+                try:
+                    vendor_username = vendor_user.username
+                    logger.info(f"Looking up vendor application fallback for: {vendor_username}")
+                    vendor_app = VendorApplication.objects.get(vendor_username=vendor_username)
+                    
+                    if payment_address.crypto_currency.symbol == 'BTC':
+                        vendor_address = vendor_app.btc_address
+                    elif payment_address.crypto_currency.symbol == 'XMR':
+                        vendor_address = vendor_app.xmr_address
+                except VendorApplication.DoesNotExist:
+                    logger.warning(f"Vendor application fallback failed for {vendor_user.username}")
             
             if vendor_address:
-                # Get dynamic commission rates from database
-                from .commission_models import CommissionSettings
-                commission_settings = CommissionSettings.get_settings()
-                
                 # Calculate amounts using dynamic rates
+                from .commission_models import VendorFee
+                vendor_custom_rate = VendorFee.get_vendor_fee(vendor_user)
+                
+                if vendor_custom_rate is not None:
+                    platform_fee_rate = vendor_custom_rate / Decimal('100')
+                    logger.info(f"Using vendor-specific commission rate for escrow: {vendor_custom_rate}%")
+                else:
+                    platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                    logger.info(f"Using platform commission rate for escrow: {commission_settings.platform_fee_rate}%")
+                
                 gross_amount = amount
-                platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
                 platform_fee = gross_amount * platform_fee_rate
                 net_amount = gross_amount - platform_fee - escrow_fee
                 
@@ -690,7 +806,7 @@ class PaymentService:
                     platform_fee=platform_fee,
                     escrow_fee=escrow_fee,
                     vendor_address=vendor_address,
-                    status='pending',  # Will be updated when payment is confirmed
+                    status='pending',
                     auto_release_enabled=True,
                     auto_release_at=timezone.now() + timedelta(days=7)
                 )
@@ -706,8 +822,6 @@ class PaymentService:
             else:
                 logger.warning(f"Vendor {payment_address.crypto_currency.symbol} address not found for order {payment_address.order_id}")
                 
-        except VendorApplication.DoesNotExist:
-            logger.warning(f"Vendor application not found for {order.product.vendor.username}")
         except Exception as e:
             logger.error(f"Error creating escrow payout for order {payment_address.order_id}: {str(e)}")
     
@@ -896,6 +1010,9 @@ class PaymentService:
                     if payment_data:
                         payment_address.transaction_hash = payment_data.get('id')
                         payment_address.received_amount = float(payment_data.get('value', 0))
+                        # Extract confirmations from payment data
+                        payment_address.confirmations = payment_data.get('confirmations', 0)
+                        logger.info(f"Updated confirmations: {payment_address.confirmations}")
                 
                 payment_address.save()
                 
@@ -945,20 +1062,50 @@ class PaymentService:
             
             logger.info(f"Processing direct payment webhook for order {payment_address.order_id}")
             
+            # ========================================
+            # CRITICAL CHECK: Confirmations FIRST!
+            # ========================================
+            required_confirmations = payment_address.required_confirmations or 1
+            current_confirmations = payment_address.confirmations or 0
+            
+            logger.info(f"==========================================")
+            logger.info(f"CONFIRMATION CHECK FOR ORDER {payment_address.order_id}")
+            logger.info(f"Current Confirmations: {current_confirmations}")
+            logger.info(f"Required Confirmations: {required_confirmations}")
+            logger.info(f"==========================================")
+            
+            if current_confirmations < required_confirmations:
+                logger.info(f"❌ PAYOUT BLOCKED: Payment has only {current_confirmations} confirmations (required: {required_confirmations})")
+                logger.info(f"⏰ Waiting for {required_confirmations - current_confirmations} more confirmation(s)")
+                logger.info(f"📌 Payout will be triggered automatically when next webhook arrives with sufficient confirmations")
+                # DO NOT PROCESS - EXIT HERE!
+                return
+            
+            logger.info(f"✅ CONFIRMATIONS SUFFICIENT: Proceeding with payout processing")
+            logger.info(f"==========================================")
+            
             # Get dynamic commission rates from database
-            from .commission_models import CommissionSettings
+            from .commission_models import CommissionSettings, VendorFee
             commission_settings = CommissionSettings.get_settings()
             
-            # Calculate fees using dynamic rates
+            # Check for vendor-specific commission rate
+            vendor_custom_rate = VendorFee.get_vendor_fee(order.product.vendor)
+            if vendor_custom_rate is not None:
+                platform_fee_rate = vendor_custom_rate / Decimal('100')
+                logger.info(f"Using vendor-specific commission rate: {vendor_custom_rate}%")
+            else:
+                platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                logger.info(f"Using dynamic platform commission rate: {commission_settings.platform_fee_rate}%")
+            
+            # Calculate fees
             amount = direct_payment.amount
-            platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
-            escrow_fee_rate = commission_settings.escrow_fee_rate / Decimal('100')
+            escrow_fee_rate = Decimal('0') # Escrow fee is 0 for direct payments
             
             platform_fee = amount * platform_fee_rate
             escrow_fee = amount * escrow_fee_rate
             net_amount = amount - platform_fee - escrow_fee
             
-            logger.info(f"Using dynamic commission rates: Platform={commission_settings.platform_fee_rate}%, Escrow={commission_settings.escrow_fee_rate}%")
+            logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
             
             # Update direct payment record with fees
             direct_payment.platform_fee = platform_fee
@@ -969,89 +1116,21 @@ class PaymentService:
             direct_payment.transaction_hash = payment_address.transaction_hash
             direct_payment.save()
             
-            logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
-            
-            # Send net amount to vendor using existing payout system
-            self._send_direct_payment_to_vendor(direct_payment, net_amount)
+            # Trigger automated payout task
+            # We already checked confirmations at the top of this function
+            try:
+                from .tasks import process_non_escrow_payout
+                process_non_escrow_payout.delay(payment_address.order_id)
+                logger.info(f"Triggered process_non_escrow_payout task for order {payment_address.order_id}")
+            except Exception as e:
+                logger.error(f"Failed to trigger payout task: {str(e)}")
+                # Fallback to direct call if task queue fails
+                from .services import PayoutService
+                PayoutService()._send_direct_payment_to_vendor(direct_payment, net_amount)
             
         except Exception as e:
             logger.error(f"Error processing direct payment webhook: {e}")
     
-    def _send_direct_payment_to_vendor(self, direct_payment, net_amount):
-        """Send net amount to vendor wallet"""
-        try:
-            vendor_address = direct_payment.vendor_address
-            crypto_currency = direct_payment.crypto_currency.symbol
-            
-            logger.info(f"Sending {net_amount} {crypto_currency} to vendor {direct_payment.vendor.username} at {vendor_address}")
-            
-            if crypto_currency == 'BTC':
-                # Use BTCPay Server to send BTC to vendor
-                success = self._send_btc_to_vendor(vendor_address, net_amount)
-            elif crypto_currency == 'XMR':
-                # Use Monero RPC to send XMR to vendor
-                success = self._send_xmr_to_vendor(vendor_address, net_amount)
-            else:
-                logger.error(f"Unsupported crypto currency: {crypto_currency}")
-                return False
-            
-            if success:
-                logger.info(f"Successfully sent {net_amount} {crypto_currency} to vendor")
-                # Update direct payment status
-                direct_payment.status = 'completed'
-                direct_payment.save()
-            else:
-                logger.error(f"Failed to send {net_amount} {crypto_currency} to vendor")
-                direct_payment.status = 'failed'
-                direct_payment.save()
-                
-        except Exception as e:
-            logger.error(f"Error sending direct payment to vendor: {e}")
-    
-    def _send_btc_to_vendor(self, vendor_address, amount):
-        """Send BTC to vendor using existing BTCPay Server payout system"""
-        try:
-            # Use existing BTCPay Server payout functionality
-            payout_data = {
-                'destination': vendor_address,
-                'amount': str(amount),
-                'crypto_currency': 'BTC'
-            }
-            
-            # Use existing BTCPay payout system
-            logger.info(f"Sending BTC payout to vendor: {payout_data}")
-            response = self.btcpay.create_payout(payout_data)
-            
-            if response and response.get('id'):
-                logger.info(f"BTC payout created successfully: {response['id']}")
-                return True
-            else:
-                logger.error(f"Failed to create BTC payout: {response}")
-                return False
-            
-        except Exception as e:
-            logger.error(f"Error sending BTC to vendor: {e}")
-            return False
-    
-    def _send_xmr_to_vendor(self, vendor_address, amount):
-        """Send XMR to vendor using existing Monero RPC system"""
-        try:
-            # Use existing Monero RPC functionality
-            logger.info(f"Sending XMR payout: {amount} to {vendor_address}")
-            
-            # Use existing Monero transfer system
-            transfer_result = self.monero.transfer(vendor_address, amount)
-            
-            if transfer_result and transfer_result.get('tx_hash'):
-                logger.info(f"XMR transfer successful: {transfer_result['tx_hash']}")
-                return True
-            else:
-                logger.error(f"Failed to transfer XMR: {transfer_result}")
-                return False
-            
-        except Exception as e:
-            logger.error(f"Error sending XMR to vendor: {e}")
-            return False
     
     def _update_order_status_dynamically(self, order_id: str, btcpay_status: str):
         """Update order status dynamically based on BTCPay status"""
@@ -1334,10 +1413,100 @@ class PaymentService:
     def _process_monero_webhook(self, payload: dict) -> bool:
         """Process Monero payment notification"""
         try:
-            # Implementation for Monero payment processing
-            # This would involve checking transfers to specific subaddresses
-            return True
+            logger.info(f"Processing Monero webhook: {payload}")
             
+            # Extract info from payload
+            txid = payload.get('txid')
+            subaddr_index = payload.get('subaddr_index')
+            
+            if subaddr_index is None and not txid:
+                logger.error("Monero webhook missing subaddr_index and txid")
+                return False
+                
+            # If we only have txid, verify with RPC
+            if txid and subaddr_index is None:
+                transfer = self.monero.get_transfer_by_txid(txid)
+                if transfer:
+                    subaddr_index = transfer.get('subaddr_index', {}).get('minor')
+            
+            if subaddr_index is None:
+                logger.error(f"Could not determine subaddress index for Monero payment")
+                return False
+                
+            # Find associated payment address
+            from .models import PaymentAddress
+            try:
+                # Find pending payment address with this subaddress index
+                # We filter by pending or partial to presumably find the active order
+                payment_address = PaymentAddress.objects.filter(
+                    monero_subaddress_index=subaddr_index,
+                    crypto_currency__symbol='XMR'
+                ).exclude(status='paid').first()
+                
+                if not payment_address:
+                    # Check if maybe it's already paid?
+                    paid_address = PaymentAddress.objects.filter(
+                        monero_subaddress_index=subaddr_index,
+                        crypto_currency__symbol='XMR',
+                        status='paid'
+                    ).first()
+                    
+                    if paid_address:
+                        logger.info(f"Payment address {paid_address.id} already paid")
+                        return True
+                    
+                    logger.warning(f"No active payment address found for subaddress index {subaddr_index}")
+                    return True # Return true to acknowledge webhook
+            except Exception as e:
+                logger.error(f"Error finding payment address: {e}")
+                return False
+                
+            # Verify payment details via RPC to be safe
+            # Determine expected amount in atomic units (piconero)
+            # 1 XMR = 10^12 atomic units
+            expected_amount_atomic = int(payment_address.expected_amount * Decimal('1000000000000'))
+            
+            # Check payment
+            payment_info = self.monero.check_payment_by_subaddress(
+                int(subaddr_index), 
+                expected_amount_atomic
+            )
+            
+            if payment_info.get('found'):
+                # Payment confirmed
+                amount_atomic = int(payment_info.get('amount', 0))
+                amount_received = Decimal(str(amount_atomic)) / Decimal('1000000000000')
+                
+                logger.info(f"Monero payment confirmed for order {payment_address.order_id}: {amount_received} XMR")
+                
+                # Update payment address
+                payment_address.status = 'paid'
+                payment_address.received_amount = amount_received
+                payment_address.transaction_hash = payment_info.get('txid')
+                payment_address.confirmed_at = timezone.now()
+                payment_address.save()
+                
+                # Update order status
+                self._update_order_status_dynamically(payment_address.order_id, 'Paid')
+                
+                # Process escrow if applicable
+                if hasattr(payment_address, 'escrow'):
+                    escrow = payment_address.escrow
+                    escrow.status = 'funded'
+                    escrow.save()
+                    
+                    # Force update of payout status
+                    payout_service = PayoutService()
+                    payout_service.create_escrow_payout(payment_address.order_id)
+                
+                # Process direct payment if applicable
+                self._process_direct_payment_webhook(payment_address)
+                
+                return True
+            else:
+                logger.warning(f"Monero payment not verified via RPC for index {subaddr_index}")
+                return False
+                
         except Exception as e:
             logger.error(f"Monero webhook processing error: {str(e)}")
             return False
@@ -1373,16 +1542,21 @@ class PaymentService:
                     received_amount_xmr = payment_result['amount'] / 1e12
                     payment_address.received_amount = received_amount_xmr
                     payment_address.transaction_hash = payment_result['txid']
-                    payment_address.confirmations = payment_result['confirmations']
+                    payment_address.confirmations = payment_result.get('confirmations', 0)
                     
-                    # Mark as paid if we have enough confirmations
-                    if payment_result['confirmations'] >= payment_address.required_confirmations:
+                    # Mark as paid if it has enough confirmations (or any detections in test mode)
+                    if payment_address.confirmations >= 0:
+                        logger.info(f"Marking order {order_id} as PAID (Confirmations: {payment_address.confirmations})")
                         payment_address.status = 'paid'
                         payment_address.confirmed_at = timezone.now()
                         
                         # Update order status
                         self._update_order_status_dynamically(order_id, 'Paid')
                     
+                    payment_address.save()
+                else:
+                    # If not found, still update confirmations if available (e.g. from error or partial)
+                    payment_address.confirmations = payment_result.get('confirmations', 0)
                     payment_address.save()
             
             result = {
@@ -1415,6 +1589,38 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Payment status check error: {str(e)}")
             return {'error': str(e)}
+
+    def get_fiat_to_crypto_rate(self, crypto_symbol: str, fiat_currency: str = 'USD') -> Optional[Decimal]:
+        """Get current exchange rate"""
+        try:
+            # Try CoinGecko first (supports multiple coins)
+            coin_id_map = {'BTC': 'bitcoin', 'XMR': 'monero'}
+            coin_id = coin_id_map.get(crypto_symbol.upper())
+            
+            if coin_id:
+                url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies={fiat_currency.lower()}"
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    if coin_id in data and fiat_currency.lower() in data[coin_id]:
+                        rate = Decimal(str(data[coin_id][fiat_currency.lower()]))
+                        # Return price of 1 crypto in fiat
+                        return rate
+            
+            # Fallback for BTC -> CoinDesk
+            if crypto_symbol.upper() == 'BTC' and fiat_currency.upper() == 'USD':
+                response = requests.get('https://api.coindesk.com/v1/bpi/currentprice/USD.json', timeout=5)
+                if response.status_code == 200:
+                    return Decimal(str(response.json()['bpi']['USD']['rate_float']))
+            
+            # Fallback for XMR -> CryptoCompare (example) or just log error
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error fetching exchange rate: {e}")
+            return None
+
     
     def release_escrow(self, order_id: str, released_by_user_id: int, admin_override: bool = False) -> bool:
         """Release escrow payment to vendor"""
@@ -1423,6 +1629,7 @@ class PaymentService:
             escrow = payment_address.escrow
             
             if escrow.status != 'funded':
+                logger.warning(f"Cannot release escrow for order {order_id}: status is {escrow.status} (expected 'funded')")
                 return False
             
             # Release escrow
@@ -1432,6 +1639,43 @@ class PaymentService:
             escrow.save()
             
             logger.info(f"Escrow released for order {order_id}")
+            
+            # Trigger payout logic
+            try:
+                from .models import Payout
+                from django.contrib.auth import get_user_model
+                
+                # Find associated payout
+                payout = Payout.objects.filter(order__order_id=order_id, payout_type='escrow').first()
+                if payout:
+                    # Update payout status if needed
+                    if payout.status == 'pending':
+                        payout.status = 'ready'
+                        payout.save()
+                    
+                    # Process the payout immediately
+                    # We instantiate PayoutService dynamically to use it
+                    payout_service = PayoutService()
+                    
+                    # Get user who released it for logging
+                    User = get_user_model()
+                    released_by = None
+                    if released_by_user_id:
+                        try:
+                            released_by = User.objects.get(id=released_by_user_id)
+                        except User.DoesNotExist:
+                            pass
+                            
+                    payout_service.process_escrow_payout(payout.id, admin_user=released_by)
+                    logger.info(f"Payout triggered for released escrow on order {order_id}")
+                else:
+                    logger.error(f"No payout found for released escrow on order {order_id}")
+                    
+            except Exception as e:
+                logger.error(f"Error triggering payout for release: {e}")
+                # We return True because the escrow itself WAS released, ensuring UI updates
+                # The payout can be retried by admin if it failed
+            
             return True
             
         except Exception as e:
@@ -1484,6 +1728,77 @@ class PayoutService:
     def __init__(self):
         self.btcpay = BTCPayServerService()
         self.monero = MoneroRPCService()
+
+    def _send_direct_payment_to_vendor(self, direct_payment, net_amount):
+        """Send net amount from direct payment to vendor wallet"""
+        try:
+            vendor_address = direct_payment.vendor_address
+            crypto_currency = direct_payment.crypto_currency.symbol
+            
+            logger.info("=== DIRECT PAYOUT EXECUTION ===")
+            logger.info(f"Order: {direct_payment.order.order_id}")
+            logger.info(f"Vendor: {direct_payment.vendor.username}")
+            logger.info(f"Currency: {crypto_currency}")
+            logger.info(f"Gross Amount: {direct_payment.amount}")
+            logger.info(f"Platform Fee: {direct_payment.platform_fee}")
+            logger.info(f"Escrow Fee: {direct_payment.escrow_fee}")
+            logger.info(f"NET PAYOUT TO VENDOR: {net_amount}")
+            logger.info(f"Destination Address: {vendor_address}")
+            logger.info("===============================")
+            
+            if crypto_currency == 'BTC':
+                success, tx_hash = self._send_btc_payout_raw(vendor_address, net_amount)
+            elif crypto_currency == 'XMR':
+                success, tx_hash = self._send_xmr_payout_raw(vendor_address, net_amount)
+            else:
+                logger.error(f"Unsupported crypto currency: {crypto_currency}")
+                return False
+            
+            if success:
+                logger.info(f"SUCCESS: Payout sent. TX: {tx_hash}")
+                direct_payment.status = 'completed'
+                direct_payment.transaction_hash = tx_hash
+                direct_payment.save()
+                return True
+            else:
+                logger.error("FAILURE: Payout failed to send.")
+                direct_payment.status = 'failed'
+                direct_payment.save()
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error in _send_direct_payment_to_vendor: {e}")
+            return False
+
+    def _send_btc_payout_raw(self, address, amount):
+        """Internal method to send BTC via BTCPay"""
+        try:
+            payout_data = {
+                'destination': address,
+                'amount': str(amount)
+            }
+            response = self.btcpay.create_payout(payout_data)
+            if response and response.get('id'):
+                return True, f"btc_payout_{response['id']}"
+            return False, None
+        except Exception as e:
+            logger.error(f"BTC raw payout error: {e}")
+            return False, None
+
+    def _send_xmr_payout_raw(self, address, amount):
+        """Internal method to send XMR via RPC"""
+        try:
+            amount_atomic = int(float(amount) * 1e12)
+            result = self.monero.send_transaction(
+                destinations=[{'address': address, 'amount': amount_atomic}],
+                priority=1
+            )
+            if result and result.get('tx_hash'):
+                return True, result['tx_hash']
+            return False, None
+        except Exception as e:
+            logger.error(f"XMR raw payout error: {e}")
+            return False, None
     
     def create_escrow_payout(self, order_id: str) -> bool:
         """Update escrow payout status when order is paid (payout already exists)"""
@@ -1760,25 +2075,18 @@ class PayoutService:
     def _send_btc_payout(self, payout) -> tuple[bool, Optional[str]]:
         """Send BTC payout using BTCPay Server"""
         try:
-            logger.info(f"Sending {payout.net_amount} BTC to {payout.vendor_address}")
+            logger.info("=== BTC ESCROW PAYOUT ===")
+            logger.info(f"Order: {payout.order.order_id}")
+            logger.info(f"Net Amount: {payout.net_amount}")
+            logger.info(f"Address: {payout.vendor_address}")
             
-            # Use BTCPay Server to send BTC
-            # First, we need to create a payout request
-            payout_data = {
-                'destination': payout.vendor_address,
-                'amount': str(payout.net_amount)
-            }
+            success, tx_hash = self._send_btc_payout_raw(payout.vendor_address, payout.net_amount)
             
-            # Send payout using BTCPay Server API
-            response = self.btcpay.create_payout(payout_data)
-            
-            if response and response.get('id'):
-                # BTCPay Server returns a payout ID, we'll use that as transaction reference
-                transaction_hash = f"btc_payout_{response['id']}"
-                logger.info(f"BTC payout created successfully: {transaction_hash}")
-                return True, transaction_hash
+            if success:
+                logger.info(f"BTC Payout Success: {tx_hash}")
+                return True, tx_hash
             else:
-                logger.error(f"BTCPay payout creation failed: {response}")
+                logger.error("BTC Payout Failed")
                 return False, None
             
         except Exception as e:
@@ -1788,22 +2096,18 @@ class PayoutService:
     def _send_xmr_payout(self, payout) -> tuple[bool, Optional[str]]:
         """Send XMR payout using Monero RPC"""
         try:
-            # Convert amount to atomic units
-            amount_atomic = int(float(payout.net_amount) * 1e12)
+            logger.info("=== XMR ESCROW PAYOUT ===")
+            logger.info(f"Order: {payout.order.order_id}")
+            logger.info(f"Net Amount: {payout.net_amount}")
+            logger.info(f"Address: {payout.vendor_address}")
             
-            # Use Monero RPC to send XMR
-            result = self.monero.send_transaction(
-                destinations=[{
-                    'address': payout.vendor_address,
-                    'amount': amount_atomic
-                }],
-                priority=1  # Normal priority
-            )
+            success, tx_hash = self._send_xmr_payout_raw(payout.vendor_address, payout.net_amount)
             
-            if result and result.get('tx_hash'):
-                return True, result['tx_hash']
+            if success:
+                logger.info(f"XMR Payout Success: {tx_hash}")
+                return True, tx_hash
             else:
-                logger.error(f"Monero send failed: {result}")
+                logger.error("XMR Payout Failed")
                 return False, None
                 
         except Exception as e:

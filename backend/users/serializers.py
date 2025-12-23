@@ -82,7 +82,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['two_factor_enabled']
+        fields = ['two_factor_enabled', 'btc_payout_address', 'xmr_payout_address']
         read_only_fields = ['id', 'username', 'date_joined', 'user_type', 'is_verified']
 
 

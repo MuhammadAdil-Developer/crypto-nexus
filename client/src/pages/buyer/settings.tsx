@@ -280,7 +280,7 @@ export default function BuyerSettings() {
     return (
       <BuyerLayout>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-theme-cyan" />
         </div>
       </BuyerLayout>
     );
@@ -305,7 +305,7 @@ export default function BuyerSettings() {
           <Card className="bg-gray-900 border-gray-700 lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-blue-400" />
+                <Wallet className="w-5 h-5 text-theme-cyan" />
                 Withdrawal Wallets
               </CardTitle>
             </CardHeader>
@@ -338,7 +338,7 @@ export default function BuyerSettings() {
               <Button
                 onClick={handleSavePayoutAddresses}
                 disabled={payoutSaving}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-theme-cyan hover:bg-theme-cyan/90 text-black border border-theme-cyan"
               >
                 {payoutSaving ? (
                   <>
@@ -358,7 +358,7 @@ export default function BuyerSettings() {
           <Card className="bg-gray-900 border-gray-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-400" />
+                <User className="w-5 h-5 text-theme-cyan" />
                 Profile Information
               </CardTitle>
             </CardHeader>
@@ -389,7 +389,7 @@ export default function BuyerSettings() {
           <Card className="bg-gray-900 border-gray-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Bell className="w-5 h-5 text-blue-400" />
+                <Bell className="w-5 h-5 text-theme-cyan" />
                 Notifications
               </CardTitle>
             </CardHeader>
@@ -455,7 +455,7 @@ export default function BuyerSettings() {
           <Card className="bg-gray-900 border-gray-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Lock className="w-5 h-5 text-blue-400" />
+                <Lock className="w-5 h-5 text-theme-cyan" />
                 Security
               </CardTitle>
             </CardHeader>
@@ -488,7 +488,7 @@ export default function BuyerSettings() {
           <Card className="bg-gray-900 border-gray-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Lock className="w-5 h-5 text-blue-400" />
+                <Lock className="w-5 h-5 text-theme-cyan" />
                 Change Password
               </CardTitle>
             </CardHeader>
@@ -529,7 +529,7 @@ export default function BuyerSettings() {
               <Button
                 onClick={handleChangePassword}
                 disabled={saving}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-theme-red hover:bg-theme-red-dark text-white border border-theme-red"
               >
                 {saving ? (
                   <>
@@ -552,7 +552,7 @@ export default function BuyerSettings() {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-theme-cyan hover:bg-theme-cyan/90 text-black border border-theme-cyan"
               >
                 {saving ? (
                   <>
@@ -576,7 +576,7 @@ export default function BuyerSettings() {
         <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <Lock className="w-5 h-5 text-blue-400" />
+              <Lock className="w-5 h-5 text-theme-cyan" />
               Set Up Two-Factor Authentication
             </DialogTitle>
             <DialogDescription className="text-gray-400">
@@ -607,9 +607,9 @@ export default function BuyerSettings() {
                   </div>
                 )}
 
-                <div className="w-full bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                  <p className="text-sm text-blue-200">
-                    <strong className="text-blue-300">Steps:</strong>
+                <div className="w-full bg-theme-cyan-dim border border-theme-cyan/30 rounded-lg p-4">
+                  <p className="text-sm text-theme-cyan">
+                    <strong className="text-theme-cyan">Steps:</strong>
                   </p>
                   <ol className="list-decimal list-inside space-y-1 text-xs text-blue-200 mt-2">
                     <li>Install Google Authenticator, Authy, or Microsoft Authenticator on your phone</li>
@@ -623,7 +623,7 @@ export default function BuyerSettings() {
 
             <Button
               onClick={() => setShow2FAModal(false)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full bg-theme-cyan hover:bg-theme-cyan/90 text-black border border-theme-cyan"
             >
               I've Scanned the QR Code
             </Button>

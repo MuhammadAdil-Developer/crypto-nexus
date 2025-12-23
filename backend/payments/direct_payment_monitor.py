@@ -59,6 +59,31 @@ class DirectPaymentMonitor:
             
         except Exception as e:
             logger.error(f"Error in monitor_pending_direct_payments: {e}")
+
+    def monitor_pending_payment_addresses(self):
+        """Monitor all pending PaymentAddress records (Escrow orders, etc.)"""
+        try:
+            from .models import PaymentAddress
+            from .services import PaymentService
+            
+            pending_addresses = PaymentAddress.objects.filter(
+                status='pending',
+                expires_at__gt=timezone.now()
+            )
+            
+            logger.info(f"Monitoring {pending_addresses.count()} general payment addresses")
+            
+            payment_service = PaymentService()
+            for addr in pending_addresses:
+                try:
+                    # check_payment_status performs RPC check and updates Order
+                    payment_service.check_payment_status(addr.order_id)
+                except Exception as e:
+                    logger.error(f"Error checking address {addr.id}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error in monitor_pending_payment_addresses: {e}")
     
     def _check_payment_status(self, payment: DirectPayment):
         """Check if a specific direct payment has been received"""
@@ -116,7 +141,11 @@ class DirectPaymentMonitor:
     def _check_xmr_payment(self, payment: DirectPayment):
         """Check XMR payment using real Monero RPC"""
         try:
-            logger.info(f"Checking REAL XMR payment for {payment.vendor_address}, amount: {payment.amount}")
+            # For XMR, we monitor the subaddress we generated (stored in order.payment_address)
+            # NOT the vendor's private payout address (which we don't have view keys for)
+            monitor_address = payment.order.payment_address or payment.vendor_address
+            
+            logger.info(f"Checking REAL XMR payment for {monitor_address}, amount: {payment.amount}")
             
             if not self.monero_service:
                 logger.warning("Monero service not available")
@@ -125,7 +154,7 @@ class DirectPaymentMonitor:
             # Use Monero RPC to check for incoming transactions
             try:
                 # Get incoming transfers for the address
-                incoming_transfers = self.monero_service.get_incoming_transfers(payment.vendor_address)
+                incoming_transfers = self.monero_service.get_incoming_transfers(monitor_address)
                 
                 if self._match_xmr_transaction(incoming_transfers, payment):
                     self._confirm_payment(payment, "monero_rpc")
@@ -154,11 +183,12 @@ class DirectPaymentMonitor:
                     if transfer_time < cutoff_time:
                         continue
                     
-                    # Check if amount matches
+                    # Check if amount matches (with 1.6% tolerance for fees/fluctuations)
                     transfer_amount = transfer.get('amount', 0) / 1000000000000  # Convert atomic units to XMR
                     
-                    if abs(transfer_amount - target_amount) < 0.000000000001:  # Small tolerance
-                        logger.info(f"Found matching XMR transfer: {transfer.get('tx_hash')} for {transfer_amount} XMR")
+                    tolerance = target_amount * 0.016
+                    if (target_amount - transfer_amount) <= tolerance:
+                        logger.info(f"Found matching XMR transfer: {transfer.get('txid')} for {transfer_amount} XMR (Target: {target_amount})")
                         return transfer
                         
                 except Exception as e:
@@ -383,8 +413,13 @@ class DirectPaymentMonitor:
                 order.payment_status = 'paid'
                 order.save()
                 
-                # Calculate fees
-                self._calculate_and_track_fees(payment)
+                # Trigger automated payout task
+                try:
+                    from .tasks import process_non_escrow_payout
+                    process_non_escrow_payout.delay(order.order_id)
+                    logger.info(f"Triggered automated payout task for order {order.order_id}")
+                except Exception as e:
+                    logger.error(f"Failed to trigger payout task for order {order.order_id}: {e}")
                 
                 logger.info(f"Payment {payment.id} confirmed via {source}")
                 return True

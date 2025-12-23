@@ -21,7 +21,7 @@ interface BulkProduct {
   vendor: {
     username: string;
   };
-  accepted_cryptocurrencies?: string[];
+  accepted_crypto?: string[];
   escrow_available?: boolean;
 }
 
@@ -161,15 +161,15 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
             <div className="border-t border-gray-600 pt-2 mt-2 flex justify-between items-center">
               <span className="text-xl font-bold text-white">Total:</span>
               <div className="flex flex-col items-end">
-                <span className="text-2xl font-bold text-yellow-400 font-mono">{(calculatedTotal / 100000).toFixed(8)} BTC</span>
+                <span className="text-2xl font-bold text-theme-cyan font-mono">{(calculatedTotal / 100000).toFixed(8)} BTC</span>
                 <span className="text-sm text-gray-400">≈ ${calculatedTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
           {/* Payment Method Info */}
-          <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-3">
-            <p className="text-blue-300 text-sm flex items-start">
+          <div className="bg-theme-cyan-dim border border-theme-cyan/50 rounded-lg p-3">
+            <p className="text-theme-cyan text-sm flex items-start">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
               <span>
                 Payment will be divided among vendors based on their portions. Click "Proceed to Payment" to continue.
@@ -189,7 +189,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
             <Button
               onClick={handlePayNow}
               disabled={isCreatingOrders || cartItems.length === 0}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
+              className="flex-1 bg-theme-red hover:bg-theme-red-dark disabled:opacity-50 text-white"
             >
               {isCreatingOrders ? (
                 <>

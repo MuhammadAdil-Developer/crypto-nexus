@@ -112,6 +112,20 @@ class VendorService {
     }
   }
 
+  async checkApplicationStatus(username: string) {
+    try {
+      const response = await api.get(`/vendors/status/${username}/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error checking application status:', error);
+      return {
+        success: false,
+        message: 'Failed to check application status',
+        data: null
+      };
+    }
+  }
+
   async getBulkUploadTemplate() {
     try {
       const response = await api.get('/products/bulk-upload/template/');

@@ -280,7 +280,7 @@ export default function SignIn() {
   return (
     <div className="h-screen overflow-hidden bg-black flex">
       {/* Left Side - Video */}
-      <div className="hidden xl:flex xl:w-1/2 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 flex items-center justify-center bg-black">
           <video
             autoPlay
@@ -318,15 +318,15 @@ export default function SignIn() {
       </div>
 
       {/* Right Side - Sign In Form */}
-      <div className="w-full xl:w-1/2 flex items-center justify-center p-4 sm:p-6 relative bg-gray-950 overflow-y-auto">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 relative bg-gray-950 overflow-y-auto">
         {/* Fixed background layers */}
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-l from-transparent via-transparent to-gray-950/50 pointer-events-none z-0"></div>
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-r from-blue-800/30 via-blue-900/15 to-transparent pointer-events-none z-0"></div>
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-br from-blue-700/25 via-blue-800/10 to-gray-950/90 pointer-events-none z-0"></div>
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-tr from-blue-900/20 via-transparent to-gray-950/95 pointer-events-none z-0"></div>
-        <div className="fixed inset-0 xl:left-1/2 bg-gray-950/60 z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-l from-transparent via-transparent to-gray-950/50 pointer-events-none z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-r from-blue-800/30 via-blue-900/15 to-transparent pointer-events-none z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-br from-blue-700/25 via-blue-800/10 to-gray-950/90 pointer-events-none z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-tr from-blue-900/20 via-transparent to-gray-950/95 pointer-events-none z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gray-950/60 z-0"></div>
         <div
-          className="fixed inset-0 xl:left-1/2 opacity-5 z-0"
+          className="fixed inset-0 lg:left-1/2 opacity-5 z-0"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}
@@ -335,7 +335,6 @@ export default function SignIn() {
         <div className="w-full max-w-md relative z-10 my-auto">
           <div className="text-center mb-4">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-1">Sign In</h2>
-            <p className="text-gray-300 text-sm">Welcome back to AccountZ Club</p>
           </div>
 
           <Card className="border border-blue-800/20 backdrop-blur-md shadow-2xl shadow-blue-900/10" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>

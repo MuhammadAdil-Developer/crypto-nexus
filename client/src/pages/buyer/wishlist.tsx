@@ -6,6 +6,24 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import wishlistService, { WishlistItem, WishlistStats } from "@/services/wishlistService";
 
+// Helper functions for price formatting
+const formatUSD = (price: string) => {
+  return parseFloat(price).toFixed(2);
+};
+
+const formatCryptoPrice = (price: string, currency: 'BTC' | 'XMR') => {
+  const usdPrice = parseFloat(price);
+  let cryptoAmount = 0;
+
+  if (currency === 'BTC') {
+    cryptoAmount = usdPrice / 100000;
+    return parseFloat(cryptoAmount.toFixed(8)).toString();
+  } else {
+    cryptoAmount = usdPrice / 170;
+    return parseFloat(cryptoAmount.toFixed(8)).toString();
+  }
+};
+
 // Remove static data - we'll use dynamic data from API
 
 export default function BuyerWishlist() {
@@ -172,7 +190,7 @@ export default function BuyerWishlist() {
         <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Heart className="w-8 h-8" />
+              <Heart className="w-8 h-8 text-theme-red" />
               <div>
                 <h1 className="text-2xl font-bold">Your Wishlist</h1>
                 <p className="text-gray-300">{wishlistItems.length} items saved for later</p>
@@ -194,7 +212,7 @@ export default function BuyerWishlist() {
                 <p className="text-2xl font-bold text-white">{stats?.total_items || wishlistItems.length}</p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
-                <Heart className="w-6 h-6 text-white" />
+                <Heart className="w-6 h-6 text-theme-red" />
               </div>
             </div>
           </div>
@@ -208,7 +226,7 @@ export default function BuyerWishlist() {
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
-                <ShoppingCart className="w-6 h-6 text-white" />
+                <ShoppingCart className="w-6 h-6 text-theme-cyan" />
               </div>
             </div>
           </div>
@@ -222,7 +240,7 @@ export default function BuyerWishlist() {
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">↓</span>
+                <span className="text-theme-cyan font-bold text-sm">↓</span>
               </div>
             </div>
           </div>
@@ -236,7 +254,7 @@ export default function BuyerWishlist() {
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">$</span>
+                <span className="text-theme-cyan font-bold text-sm">$</span>
               </div>
             </div>
           </div>
@@ -248,7 +266,7 @@ export default function BuyerWishlist() {
             <div className="flex items-center space-x-4">
               <h3 className="font-semibold text-white">Manage Wishlist</h3>
               {selectedItems.length > 0 && (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                <Badge variant="secondary" className="bg-theme-cyan text-black">
                   {selectedItems.length} selected
                 </Badge>
               )}
@@ -265,11 +283,11 @@ export default function BuyerWishlist() {
 
               {selectedItems.length > 0 && (
                 <>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="bg-theme-cyan text-black hover:bg-theme-cyan/90 border-theme-cyan">
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Add to Cart
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={removeSelectedItems}>
+                  <Button size="sm" className="bg-theme-red hover:bg-theme-red-dark text-white" onClick={removeSelectedItems}>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Remove
                   </Button>
@@ -290,114 +308,112 @@ export default function BuyerWishlist() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {wishlistItems.map((item) => (
-              <div key={item.id} className="relative">
+              <div key={item.id} className="relative bg-gray-900 rounded-xl border border-gray-700 overflow-hidden group hover:border-gray-500 hover:shadow-lg transition-all duration-300">
                 {/* Selection Checkbox */}
                 <div className="absolute top-3 left-3 z-10">
                   <input
                     type="checkbox"
                     checked={selectedItems.includes(parseInt(item.id))}
                     onChange={() => toggleItemSelection(parseInt(item.id))}
-                    className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-theme-cyan bg-gray-800 border-gray-600 rounded focus:ring-theme-cyan focus:ring-offset-0"
                   />
                 </div>
 
                 {/* Loading indicator for removing items */}
                 {removingItems.includes(parseInt(item.id)) && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20 rounded-lg">
-                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20 rounded-xl backdrop-blur-sm">
+                    <Loader2 className="w-8 h-8 animate-spin text-theme-cyan" />
                   </div>
                 )}
 
-                <div className="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
-                  <div className="relative">
-                    {item.product_data?.main_image ? (
-                      <img
-                        src={item.product_data.main_image}
-                        alt={item.product_data?.headline || 'Product'}
-                        className="w-full h-48 object-cover"
-                        onError={(e) => {
-                          // Hide the broken image and show default icon instead
-                          e.currentTarget.style.display = 'none';
-                          const parent = e.currentTarget.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div class="w-full h-48 bg-gray-800 flex items-center justify-center">
-                                <span class="text-gray-400 text-4xl">📦</span>
+                {/* Image Section */}
+                <div className="relative aspect-[4/3] bg-gray-800">
+                  {item.product_data?.main_image ? (
+                    <img
+                      src={item.product_data.main_image}
+                      alt={item.product_data?.headline || 'Product'}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                              <div class="w-full h-full flex items-center justify-center text-gray-600">
+                                <span class="text-4xl">📦</span>
                               </div>
                             `;
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-48 bg-gray-800 flex items-center justify-center">
-                        <span className="text-gray-400 text-4xl">📦</span>
-                      </div>
-                    )}
-
-                    {/* Price Badge */}
-                    <div className="absolute top-3 right-3">
-                      <Badge className="bg-black/70 text-white border-gray-500 flex flex-col items-end">
-                        <span className="font-bold">${parseFloat(item.product_data?.price || '0').toFixed(2)}</span>
-                        <span className="text-xs font-mono text-gray-300">≈ {(parseFloat(item.product_data?.price || '0') / 100000).toFixed(8)} BTC</span>
-                      </Badge>
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-600">
+                      <span className="text-4xl">📦</span>
                     </div>
+                  )}
+
+                  {/* Price Badge */}
+                  <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                    <Badge className="bg-black/80 backdrop-blur-md text-white border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] px-3 py-1.5 underline-offset-4">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="font-bold text-lg text-theme-cyan font-mono leading-none">
+                          {formatCryptoPrice(item.product_data?.price || '0', 'BTC')} BTC
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-medium leading-none">
+                          ≈ ${formatUSD(item.product_data?.price || '0')}
+                        </span>
+                      </div>
+                    </Badge>
                   </div>
+
+                  {/* Overlay Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-60" />
                 </div>
 
-                <div className="p-4">
-                  <h3 className="text-white font-semibold mb-2 line-clamp-2">
-                    {item.product_data?.headline || item.product_data?.listing_title || 'Unknown Product'}
-                  </h3>
+                {/* Content Section */}
+                <div className="p-5 flex flex-col h-[180px]">
+                  <div className="flex-1">
+                    <h3 className="text-white font-bold text-lg mb-2 line-clamp-2 group-hover:text-theme-cyan transition-colors">
+                      {item.product_data?.headline || item.product_data?.listing_title || 'Unknown Product'}
+                    </h3>
 
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-300 text-sm">{item.vendor_username}</span>
-                    </div>
-
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-gray-300 text-sm">4.5</span>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2 text-sm">
+                        <User className="w-4 h-4 text-theme-cyan" />
+                        <span className="text-gray-300 font-medium">{item.vendor_username}</span>
+                      </div>
+                      <div className="flex items-center space-x-1 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">
+                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                        <span className="text-yellow-400 text-xs font-bold">4.5</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-800">
                     <div className="flex items-center space-x-2">
                       {item.product_data?.quantity_available > 0 ? (
-                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                        <span className="flex items-center text-xs font-medium text-theme-cyan">
+                          <div className="w-1.5 h-1.5 rounded-full bg-theme-cyan mr-1.5 animate-pulse" />
                           In Stock
-                        </Badge>
+                        </span>
                       ) : (
-                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                        <span className="flex items-center text-xs font-medium text-theme-red">
+                          <div className="w-1.5 h-1.5 rounded-full bg-theme-red mr-1.5" />
                           Out of Stock
-                        </Badge>
+                        </span>
                       )}
                     </div>
 
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
                       onClick={() => {
-                        // Navigate to product detail page
                         const productId = item.product_data?.id || item.product;
                         window.location.href = `/buyer/product/${productId}`;
                       }}
+                      className="bg-gray-800 hover:bg-theme-cyan hover:text-black text-white border border-gray-700 hover:border-theme-cyan transition-all"
                     >
-                      <Eye className="w-4 h-4 mr-1" />
                       View Details
                     </Button>
                   </div>
-                </div>
-
-                {/* Added Date */}
-                <div className="mt-2 text-center">
-                  <p className="text-xs text-gray-400">
-                    Added on {item.added_at || item.created_at ? (() => {
-                      const date = new Date(item.added_at || item.created_at);
-                      return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
-                    })() : 'Unknown Date'}
-                  </p>
                 </div>
               </div>
             ))}
@@ -415,7 +431,7 @@ export default function BuyerWishlist() {
               Start browsing and add items you'd like to purchase later
             </p>
             <Button
-              className="bg-gray-700 cursor-pointer"
+              className="bg-theme-red hover:bg-theme-red-dark text-white cursor-pointer"
               onClick={() => window.location.href = '/buyer/listings'}
             >
               Browse Products

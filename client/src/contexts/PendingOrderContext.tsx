@@ -23,25 +23,25 @@ export function PendingOrderProvider({ children }: { children: ReactNode }) {
       const response = await orderService.getOrders();
       if (response && Array.isArray(response)) {
         const orders = response;
-        const pendingOrders = orders.filter((order: Order) => 
-          (order.payment_status === 'pending' || order.payment_status === 'pending_payment') && 
+        const pendingOrders = orders.filter((order: Order) =>
+          (order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
           (order.order_status === 'pending_payment' || order.order_status === 'pending')
         );
 
         if (pendingOrders.length > 0) {
-          const sortedPending = pendingOrders.sort((a: Order, b: Order) => 
+          const sortedPending = pendingOrders.sort((a: Order, b: Order) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           );
           const lastOrder = sortedPending[0];
 
           setActiveOrder(lastOrder);
           setPendingOrdersCount(pendingOrders.length);
-          
+
           const orderCreatedAt = new Date(lastOrder.created_at).getTime();
-          const expiresAt = orderCreatedAt + (30 * 60 * 1000);
+          const expiresAt = orderCreatedAt + (120 * 60 * 1000); // 2 hours
           const now = Date.now();
           const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-          
+
           setTimeRemaining(remainingSeconds);
 
           // Start global expiration monitoring
@@ -95,7 +95,7 @@ export function PendingOrderProvider({ children }: { children: ReactNode }) {
 
     // Refresh every 10 seconds to check for new orders or status changes (more frequent for real-time updates)
     const interval = setInterval(refreshPendingOrders, 10000);
-    
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('payment_confirmed', handlePaymentConfirmed);
@@ -115,7 +115,7 @@ export function PendingOrderProvider({ children }: { children: ReactNode }) {
           return prev - 1;
         });
       }, 1000);
-      
+
       return () => clearInterval(timer);
     }
   }, [activeOrder, timeRemaining]);

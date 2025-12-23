@@ -41,20 +41,26 @@ import { useToast } from "@/components/ui/ToastContainer";
 import vendorService, { VendorProduct, VendorStats } from "@/services/vendorService";
 import wishlistService from "@/services/wishlistService";
 
+// Banner Assets
+import bannerPattern from "@/assets/banner/vendor/pattern.png";
+import bannerLogo from "@/assets/banner/vendor/logo.png";
+import bannerLeftArrow from "@/assets/banner/arrow_left.png";
+import bannerRightArrow from "@/assets/banner/arrow_right.png";
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case "approved":
-      return "bg-green-500/10 text-green-300 border-green-500/20";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "pending_approval":
-      return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "rejected":
-      return "bg-red-500/10 text-red-300 border-red-500/20";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "draft":
       return "bg-gray-500/10 text-gray-300 border-gray-500/20";
     case "reserved":
-      return "bg-purple-500/10 text-purple-300 border-purple-500/20";
+      return "bg-theme-cyan/5 text-theme-cyan/70 border-theme-cyan/10";
     default:
-      return "bg-blue-500/10 text-blue-300 border-blue-500/20";
+      return "bg-gray-500/20 text-gray-400 border-gray-500/30";
   }
 };
 
@@ -271,7 +277,7 @@ export default function VendorListings() {
       <div className="space-y-6">
         <div className="flex items-center justify-center h-64">
           <div className="flex items-center space-x-2">
-            <Loader2 className="w-6 h-6 animate-spin text-accent" />
+            <Loader2 className="w-6 h-6 animate-spin text-theme-cyan" />
             <span className="text-white">Loading listings...</span>
           </div>
         </div>
@@ -288,7 +294,7 @@ export default function VendorListings() {
             <div className="text-gray-400 mb-4">{error}</div>
             <Button
               onClick={fetchVendorData}
-              className="bg-accent text-bg hover:bg-accent-2"
+              className="bg-theme-red text-white hover:bg-theme-red-dark"
             >
               Try Again
             </Button>
@@ -321,95 +327,106 @@ export default function VendorListings() {
           </Card>
         )}
 
-        {/* Selling Fee Display - Shows Custom or Default */}
-        {sellingFee !== null && (
-          <Card className="bg-surface-2 border border-gray-700 mb-6">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Info className="w-5 h-5 text-blue-400" />
-                  <div>
-                    <p className="text-sm text-gray-400">Your Commission Rate</p>
-                    <p className="text-lg font-bold text-white">
-                      {usesDefaultFee ? (
-                        <>
-                          {sellingFee}% <span className="text-sm text-gray-400 font-normal">(Default Platform Rate)</span>
-                        </>
-                      ) : (
-                        <>
-                          {customFee}% <span className="text-sm text-green-400 font-normal">(Custom Rate)</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-4 mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border text-gray-300 hover:bg-surface-2 text-xs sm:text-base w-full sm:w-auto"
+            onClick={() => navigate('/vendor/listings/bulk-upload')}
+          >
+            <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <span className="sm:inline">Bulk Upload</span>
+            <span className="sm:hidden">Bulk</span>
+          </Button>
+          <Button
+            className="bg-theme-red text-white hover:bg-theme-red-dark text-xs sm:text-base w-full sm:w-auto shadow-lg shadow-theme-red/20"
+            onClick={() => navigate('/vendor/listings/add')}
+          >
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            Add Product
+          </Button>
+        </div>
 
-        {/* Selling Fee Display - Shows Custom or Default */}
-        {sellingFee !== null && (
-          <Card className="bg-blue-900/20 border-blue-500/30">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Info className="w-5 h-5 text-blue-400 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-blue-300 font-semibold text-sm mb-1">Your Commission Rate</h4>
-                    <p className="text-blue-200 text-xs">
-                      {usesDefaultFee ? (
-                        <>
-                          Current rate: <span className="font-bold">{sellingFee}%</span> per sale <span className="text-gray-400">(Default Platform Rate)</span>
-                        </>
-                      ) : (
-                        <>
-                          Current rate: <span className="font-bold text-green-300">{customFee}%</span> per sale <span className="text-green-400">(Custom Rate)</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Full Width Banner at the Top */}
+        <div className="relative w-full h-[120px] md:h-[150px] overflow-hidden rounded-xl bg-black mb-6 border border-gray-800 shadow-2xl">
+          {/* Pattern Background */}
+          <div
+            className="absolute inset-0 w-full h-full"
+            style={{
+              backgroundImage: `url(${bannerPattern})`,
+              backgroundRepeat: 'repeat-x',
+              backgroundSize: 'auto 100%'
+            }}
+          />
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">My Listings</h1>
-            <p className="text-gray-300 mt-1 text-sm sm:text-base">Manage your product listings</p>
+          {/* Left Arrow (Pinned Left) */}
+          <img
+            src={bannerLeftArrow}
+            alt=""
+            className="absolute left-0 top-0 h-full z-10 select-none pointer-events-none object-cover sm:object-fill"
+            style={{ maxWidth: '30%' }}
+          />
+
+          {/* Right Arrow (Pinned Right) */}
+          <img
+            src={bannerRightArrow}
+            alt=""
+            className="absolute right-0 top-0 h-full z-10 select-none pointer-events-none object-cover sm:object-fill"
+            style={{ maxWidth: '30%' }}
+          />
+
+          {/* Center Logo (Always Centered) */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 h-[80%] md:h-[90%] aspect-square flex items-center justify-center">
+            <img
+              src={bannerLogo}
+              alt="Logo"
+              className="h-full w-auto object-contain drop-shadow-[0_0_15px_rgba(0,0,0,0.8)] scale-110"
+            />
           </div>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border text-gray-300 hover:bg-surface-2 text-xs sm:text-base w-full sm:w-auto"
-              onClick={() => navigate('/vendor/listings/bulk-upload')}
+
+          {/* Brand Text (Left Half) */}
+          <div className="absolute left-[8%] md:left-[12%] top-1/2 transform -translate-y-1/2 z-20 hidden sm:block" style={{ maxWidth: '40%' }}>
+            <h1
+              className="text-2xl md:text-4xl lg:text-5xl font-black tracking-tighter uppercase"
+              style={{
+                fontFamily: "'Orbitron', sans-serif",
+                filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
+              }}
             >
-              <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-              <span className="sm:inline">Bulk Upload</span>
-              <span className="sm:hidden">Bulk</span>
-            </Button>
-            <Button
-              size="sm"
-              className="bg-accent text-bg hover:bg-accent-2 text-xs sm:text-base w-full sm:w-auto"
-              onClick={() => navigate('/vendor/listings/add')}
-            >
-              <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-              Add Product
-            </Button>
+              <span className="text-white">Accountz</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-theme-red to-theme-cyan ml-1">Club</span>
+            </h1>
+            <p className="text-gray-400 text-[10px] md:text-xs tracking-[0.3em] mt-1 ml-1 uppercase font-bold" style={{ fontFamily: "'Space Age', 'Orbitron', sans-serif" }}>
+              Vendor Panel
+            </p>
           </div>
         </div>
+
+        {/* Small Fee Info */}
+        {sellingFee !== null && (
+          <div className="flex justify-end mb-4 -mt-2">
+            <div className="inline-flex items-center gap-2 bg-gray-900/80 border border-gray-700 rounded-full px-3 py-1.5 text-xs text-gray-400">
+              <Info className="w-3.5 h-3.5 text-theme-cyan" />
+              <span>
+                Commission: <span className={usesDefaultFee ? "text-white font-medium" : "text-theme-cyan font-medium"}>
+                  {sellingFee}%
+                </span>
+                {!usesDefaultFee && " (Custom)"}
+              </span>
+            </div>
+          </div>
+        )}
+
+
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-accent text-xs sm:text-sm font-semibold">T</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-cyan/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-theme-cyan text-xs sm:text-sm font-semibold">T</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs text-gray-400 truncate">Total Products</p>
@@ -422,8 +439,8 @@ export default function VendorListings() {
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-500/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-green-400 text-xs sm:text-sm font-semibold">A</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-cyan/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-theme-cyan text-xs sm:text-sm font-semibold">A</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs text-gray-400 truncate">Active Listings</p>
@@ -436,8 +453,8 @@ export default function VendorListings() {
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-yellow-400 text-xs sm:text-sm font-semibold">R</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-red/10 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-theme-red text-xs sm:text-sm font-semibold">R</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs text-gray-400 truncate">Under Review</p>
@@ -450,8 +467,8 @@ export default function VendorListings() {
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-500/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-red-400 text-xs sm:text-sm font-semibold">O</span>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-red/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+                  <span className="text-theme-red text-xs sm:text-sm font-semibold">O</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs text-gray-400 truncate">Out of Stock</p>
@@ -473,7 +490,7 @@ export default function VendorListings() {
                     placeholder="Search listings..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 text-sm sm:text-base"
+                    className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-theme-cyan focus:ring-theme-cyan text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -502,7 +519,7 @@ export default function VendorListings() {
         {/* Products Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">Products ({filteredProducts.length})</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">Products ({filteredProducts.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -553,7 +570,7 @@ export default function VendorListings() {
                               setSelectedRejectionProduct(product);
                               setRejectionDialogOpen(true);
                             }}
-                            className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            className="h-6 w-6 p-0 text-theme-red hover:text-theme-red-light hover:bg-theme-red/10"
                           >
                             <Info className="w-3 h-3" />
                           </Button>
@@ -571,7 +588,13 @@ export default function VendorListings() {
                       <div>
                         <span className="text-gray-400">Price:</span>
                         <p className="text-white font-bold text-lg">${parseFloat(product.price).toFixed(2)}</p>
-                        <p className="text-gray-400 text-xs font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</p>
+                        <p className="text-gray-400 text-xs font-mono">
+                          {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
+                            <>≈ {(parseFloat(product.price) / 170).toFixed(4)} XMR</>
+                          ) : (
+                            <>≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <span className="text-gray-400">Views:</span>
@@ -580,13 +603,13 @@ export default function VendorListings() {
                       <div>
                         <span className="text-gray-400">Wishlist:</span>
                         <div className="flex items-center space-x-1">
-                          <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
+                          <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-theme-red" />
                           <span className="text-white">{wishlistCounts[product.id] || 0}</span>
                         </div>
                       </div>
                       <div>
                         <span className="text-gray-400">Stock:</span>
-                        <p className={product.quantity_available > 0 ? 'text-green-400' : 'text-red-400'}>
+                        <p className={product.quantity_available > 0 ? 'text-theme-cyan' : 'text-theme-red'}>
                           {product.quantity_available || 0}
                         </p>
                       </div>
@@ -638,7 +661,7 @@ export default function VendorListings() {
                           </DropdownMenuItem>
                           {product.status === 'rejected' && (
                             <DropdownMenuItem
-                              className="text-blue-400 hover:bg-blue-500/10"
+                              className="text-theme-cyan hover:bg-theme-cyan/10"
                               onClick={() => {
                                 showToast({
                                   type: 'info',
@@ -737,7 +760,7 @@ export default function VendorListings() {
                                   setSelectedRejectionProduct(product);
                                   setRejectionDialogOpen(true);
                                 }}
-                                className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                className="h-6 w-6 p-0 text-theme-red hover:text-theme-red-light hover:bg-theme-red/10"
                               >
                                 <Info className="w-3 h-3" />
                               </Button>
@@ -753,19 +776,25 @@ export default function VendorListings() {
                       </td>
                       <td className="p-4">
                         <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
-                        <span className="text-gray-400 text-xs font-mono ml-2">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                        <span className="text-gray-400 text-xs font-mono ml-2">
+                          {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
+                            <>≈ {(parseFloat(product.price) / 170).toFixed(4)} XMR</>
+                          ) : (
+                            <>≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</>
+                          )}
+                        </span>
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center space-x-1">
-                          <Heart className="w-4 h-4 text-red-400" />
+                          <Heart className="w-4 h-4 text-theme-red" />
                           <span className="text-white">{wishlistCounts[product.id] || 0}</span>
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className={`${product.quantity_available > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        <span className={`${product.quantity_available > 0 ? 'text-theme-cyan' : 'text-theme-red'}`}>
                           {product.quantity_available || 0}
                         </span>
                       </td>
@@ -815,7 +844,7 @@ export default function VendorListings() {
                               </DropdownMenuItem>
                               {product.status === 'rejected' && (
                                 <DropdownMenuItem
-                                  className="text-blue-400 hover:bg-blue-500/10"
+                                  className="text-theme-cyan hover:bg-theme-cyan/10"
                                   onClick={() => {
                                     showToast({
                                       type: 'info',

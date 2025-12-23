@@ -37,11 +37,11 @@ interface Ticket {
   assigned_to_username?: string;
 }
 
-export function TicketDetailModal({ 
-  isOpen, 
-  onClose, 
-  ticketId, 
-  isAdmin = false, 
+export function TicketDetailModal({
+  isOpen,
+  onClose,
+  ticketId,
+  isAdmin = false,
   onTicketUpdated,
   templateText
 }: TicketDetailModalProps) {
@@ -58,12 +58,12 @@ export function TicketDetailModal({
 
   const fetchTicketDetails = async () => {
     if (!ticketId) return;
-    
+
     try {
       setLoading(true);
       const response = await ticketService.getTicket(ticketId);
       if (response.success) {
-        setTicket(response.data);
+        setTicket(response.data || null);
       } else {
         toast({
           title: "Error",
@@ -87,7 +87,7 @@ export function TicketDetailModal({
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!ticketId) return;
-    
+
     try {
       setUpdatingStatus(true);
       const response = await ticketService.updateTicketStatus(ticketId, newStatus);
@@ -96,10 +96,10 @@ export function TicketDetailModal({
           title: "Success",
           description: "Ticket status updated successfully"
         });
-        
+
         // Update local ticket data
         setTicket(prev => prev ? { ...prev, status: newStatus } : null);
-        
+
         // Notify parent component
         if (onTicketUpdated) {
           onTicketUpdated();
@@ -125,7 +125,7 @@ export function TicketDetailModal({
 
   const handleAssignTicket = async (assignedTo: string) => {
     if (!ticketId) return;
-    
+
     try {
       const response = await ticketService.assignTicket(ticketId, assignedTo);
       if (response.success) {
@@ -133,10 +133,10 @@ export function TicketDetailModal({
           title: "Success",
           description: "Ticket assigned successfully"
         });
-        
+
         // Update local ticket data
         setTicket(prev => prev ? { ...prev, assigned_to: assignedTo } : null);
-        
+
         // Notify parent component
         if (onTicketUpdated) {
           onTicketUpdated();
@@ -160,7 +160,7 @@ export function TicketDetailModal({
 
   const handleCloseTicket = async () => {
     if (!ticketId) return;
-    
+
     try {
       const response = await ticketService.closeTicket(ticketId);
       if (response.success) {
@@ -168,10 +168,10 @@ export function TicketDetailModal({
           title: "Success",
           description: "Ticket closed successfully"
         });
-        
+
         // Update local ticket data
         setTicket(prev => prev ? { ...prev, status: 'closed' } : null);
-        
+
         // Notify parent component
         if (onTicketUpdated) {
           onTicketUpdated();
@@ -195,7 +195,7 @@ export function TicketDetailModal({
 
   const handleReopenTicket = async () => {
     if (!ticketId) return;
-    
+
     try {
       const response = await ticketService.reopenTicket(ticketId);
       if (response.success) {
@@ -203,10 +203,10 @@ export function TicketDetailModal({
           title: "Success",
           description: "Ticket reopened successfully"
         });
-        
+
         // Update local ticket data
         setTicket(prev => prev ? { ...prev, status: 'open', closed_at: null } : null);
-        
+
         // Notify parent component
         if (onTicketUpdated) {
           onTicketUpdated();
@@ -251,21 +251,21 @@ export function TicketDetailModal({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'bg-blue-500';
-      case 'in_progress': return 'bg-yellow-500';
-      case 'waiting_response': return 'bg-orange-500';
-      case 'resolved': return 'bg-green-500';
-      case 'closed': return 'bg-gray-500';
+      case 'open': return 'bg-theme-cyan-dim text-theme-cyan border-theme-cyan/30';
+      case 'in_progress': return 'bg-theme-cyan/20 text-theme-cyan';
+      case 'waiting_response': return 'bg-yellow-500/20 text-yellow-500';
+      case 'resolved': return 'bg-theme-cyan/10 text-theme-cyan';
+      case 'closed': return 'bg-theme-red/20 text-theme-red border-theme-red/30';
       default: return 'bg-gray-500';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-500';
+      case 'urgent': return 'bg-theme-red';
       case 'high': return 'bg-orange-500';
       case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
+      case 'low': return 'bg-theme-cyan';
       default: return 'bg-gray-500';
     }
   };
@@ -273,7 +273,7 @@ export function TicketDetailModal({
   const handleMessageSent = () => {
     // Refresh ticket details when a message is sent
     fetchTicketDetails();
-    
+
     // Notify parent component
     if (onTicketUpdated) {
       onTicketUpdated();
@@ -298,7 +298,7 @@ export function TicketDetailModal({
 
         {loading ? (
           <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-theme-cyan" />
             <p className="text-gray-400">Loading ticket details...</p>
           </div>
         ) : ticket ? (
@@ -327,7 +327,7 @@ export function TicketDetailModal({
                 </Card>
 
                 {/* Conversation */}
-                <TicketConversation 
+                <TicketConversation
                   ticketId={ticketId}
                   isAdmin={isAdmin}
                   onMessageSent={handleMessageSent}
@@ -403,8 +403,8 @@ export function TicketDetailModal({
                       <div className="space-y-3">
                         <div>
                           <label className="text-sm text-gray-400 mb-2 block">Status</label>
-                          <Select 
-                            value={ticket.status} 
+                          <Select
+                            value={ticket.status}
                             onValueChange={handleStatusUpdate}
                             disabled={updatingStatus}
                           >
@@ -424,8 +424,7 @@ export function TicketDetailModal({
                         {ticket.status !== "closed" && (
                           <Button
                             onClick={handleCloseTicket}
-                            variant="destructive"
-                            className="w-full"
+                            className="w-full bg-theme-red hover:bg-theme-red-dark text-white"
                           >
                             Close Ticket
                           </Button>
@@ -435,7 +434,7 @@ export function TicketDetailModal({
                           <Button
                             onClick={handleReopenTicket}
                             variant="default"
-                            className="w-full bg-accent text-bg hover:bg-accent-2"
+                            className="w-full bg-theme-cyan hover:bg-theme-cyan/90 text-black"
                           >
                             Reopen Ticket
                           </Button>

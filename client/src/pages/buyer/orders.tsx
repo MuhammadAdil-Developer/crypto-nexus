@@ -249,7 +249,7 @@ export default function BuyerOrders() {
   };
 
   const orderStats = [
-    { label: "Total Orders", value: stats.totalOrders.toString(), color: "from-blue-500 to-purple-600" },
+    { label: "Total Orders", value: stats.totalOrders.toString(), color: "from-[#A6033E] to-[#70022a]" },
     { label: "Delivered", value: stats.delivered.toString(), color: "from-green-500 to-emerald-600" },
     { label: "In Progress", value: stats.inProgress.toString(), color: "from-yellow-500 to-orange-600" },
     { label: "Cancelled", value: stats.cancelled.toString(), color: "from-red-500 to-pink-600" }
@@ -382,7 +382,7 @@ export default function BuyerOrders() {
         {/* Orders Table */}
         {isLoading ? (
           <div className="bg-gray-900 rounded-xl p-12 border border-gray-700 text-center">
-            <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto" />
+            <Loader2 className="w-12 h-12 text-theme-cyan animate-spin mx-auto" />
             <p className="text-gray-400 mt-4">Loading your orders...</p>
           </div>
         ) : (
@@ -458,7 +458,7 @@ export default function BuyerOrders() {
                           onClick={() => goToPage(pageNum)}
                           className={
                             currentPage === pageNum
-                              ? "bg-blue-600 text-white"
+                              ? "bg-theme-red text-white"
                               : "border-gray-600 text-gray-300 hover:bg-gray-700"
                           }
                         >
@@ -497,7 +497,7 @@ export default function BuyerOrders() {
           <h3 className="font-semibold text-white mb-4">Recent Activity</h3>
           {isLoading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+              <Loader2 className="w-8 h-8 text-theme-cyan animate-spin mx-auto" />
               <p className="text-gray-400 mt-2">Loading recent activity...</p>
             </div>
           ) : orders.length === 0 ? (
@@ -514,9 +514,9 @@ export default function BuyerOrders() {
                 return (
                   <div key={order.order_id} className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">
                     <div className={`w-2 h-2 rounded-full ${order.order_status === 'completed' ? 'bg-green-500' :
-                        order.order_status === 'processing' ? 'bg-blue-500' :
-                          order.order_status === 'pending' ? 'bg-yellow-500' :
-                            'bg-gray-500'
+                      order.order_status === 'processing' ? 'bg-theme-cyan' :
+                        order.order_status === 'pending' ? 'bg-yellow-500' :
+                          'bg-gray-500'
                       }`}></div>
                     <div className="flex-1">
                       <p className="font-medium text-white">
@@ -529,7 +529,7 @@ export default function BuyerOrders() {
                     </div>
                     <Badge className={
                       order.order_status === 'completed' ? 'bg-green-100 text-green-800' :
-                        order.order_status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                        order.order_status === 'processing' ? 'bg-theme-cyan-dim text-theme-cyan border border-theme-cyan/30' :
                           order.order_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-gray-100 text-gray-800'
                     }>

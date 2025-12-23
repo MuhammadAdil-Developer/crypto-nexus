@@ -97,26 +97,26 @@ export default function BuyerTransactionHistory() {
     switch (status.toLowerCase()) {
       case "completed":
       case "confirmed":
-        return "bg-green-600 text-white border-green-600";
+        return "bg-theme-cyan-dim text-theme-cyan border-theme-cyan/30";
       case "pending":
-        return "bg-yellow-600 text-white border-yellow-600";
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
       case "failed":
-        return "bg-red-600 text-white border-red-600";
+        return "bg-theme-red/20 text-theme-red border-theme-red/30";
       case "processing":
-        return "bg-blue-600 text-white border-blue-600";
+        return "bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30";
       default:
-        return "bg-gray-600 text-white border-gray-600";
+        return "bg-gray-600/20 text-gray-400 border-gray-600/30";
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case "payment":
-        return "bg-green-500";
+        return "bg-theme-red";
       case "escrow_release":
-        return "bg-blue-500";
+        return "bg-theme-cyan text-black";
       case "direct_payment":
-        return "bg-orange-500";
+        return "bg-theme-red";
       default:
         return "bg-gray-500";
     }
@@ -175,7 +175,7 @@ export default function BuyerTransactionHistory() {
             </Link>
             <div className="min-w-0 flex-1">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white flex items-center">
-                <Bitcoin className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 mr-2 sm:mr-3 text-orange-400 flex-shrink-0" />
+                <Bitcoin className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 mr-2 sm:mr-3 text-theme-red flex-shrink-0" />
                 <span className="truncate">Transaction History</span>
               </h1>
               <p className="text-gray-400 text-sm sm:text-base">Track all your payment activities and transactions</p>
@@ -241,14 +241,14 @@ export default function BuyerTransactionHistory() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-green-600">{transactions.length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-white">{transactions.length}</div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Total Transactions</p>
             </CardContent>
           </Card>
 
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-blue-600">
+              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
                 {transactions.filter(t => t.status === 'completed' || t.status === 'confirmed').length}
               </div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Completed</p>
@@ -257,7 +257,7 @@ export default function BuyerTransactionHistory() {
 
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-yellow-600">
+              <div className="text-xl sm:text-2xl font-bold text-yellow-500">
                 {transactions.filter(t => t.status === 'pending').length}
               </div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Pending</p>
@@ -266,7 +266,7 @@ export default function BuyerTransactionHistory() {
 
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-red-600">
+              <div className="text-xl sm:text-2xl font-bold text-theme-red">
                 {transactions.filter(t => t.status === 'failed').length}
               </div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Failed</p>
@@ -428,7 +428,7 @@ export default function BuyerTransactionHistory() {
                           onClick={() => fetchTransactionHistory(page)}
                           disabled={loading}
                           className={`text-xs sm:text-sm ${page === currentPage
-                            ? "bg-blue-600 text-white border-blue-600"
+                            ? "bg-theme-cyan text-black border-theme-cyan"
                             : "border-gray-600 text-gray-300 hover:bg-gray-700"
                             }`}
                         >

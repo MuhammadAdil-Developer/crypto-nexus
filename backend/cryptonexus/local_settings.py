@@ -2,14 +2,14 @@
 # WARNING: This is configured for MAINNET (real Bitcoin/Monero)
 
 # BTCPay Server - Production
-BTCPAY_SERVER_URL = 'http://88.99.143.151:23000'  # Your production BTCPay
-BTCPAY_STORE_ID = ''  # Set via environment variable
-BTCPAY_API_KEY = ''   # Set via environment variable
+BTCPAY_SERVER_URL = 'https://pay.accountzclub.com'
+BTCPAY_STORE_ID = '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7'
+BTCPAY_API_KEY = 'f66dd13f59806719fcee1eb31be75057ea47c1fd'
 
 # Monero RPC - Mainnet
-MONERO_RPC_URL = 'http://88.99.143.151:18081/json_rpc'
-MONERO_RPC_USER = ''  # Set via environment variable
-MONERO_RPC_PASSWORD = ''  # Set via environment variable
+MONERO_RPC_URL = 'http://127.0.0.1:18082/json_rpc'
+MONERO_RPC_USER = 'monerouser'
+MONERO_RPC_PASSWORD = 'moneropass123'
 
 # Bitcoin RPC - Mainnet
 BITCOIN_RPC_URL = 'http://88.99.143.151:8332'  # Mainnet port

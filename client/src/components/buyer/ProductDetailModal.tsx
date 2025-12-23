@@ -62,6 +62,7 @@ interface Product {
   auto_delivery_script?: string | null;
   notes_for_buyer?: string | null;
   discount_percentage?: string | null;
+  accepted_crypto?: string[];
 }
 
 interface ProductDetailModalProps {
@@ -213,9 +214,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     return parseFloat(price).toFixed(2);
   };
 
-  // Format BTC equivalent (assuming price is in USD)
-  const formatBTCEquivalent = (price: string) => {
-    return (parseFloat(price) / 100000).toFixed(8);
+  // Format Crypto equivalent
+  const getCryptoEstimate = (price: string, crypto: string) => {
+    const usdPrice = parseFloat(price);
+    if (crypto === 'BTC') {
+      const btcPrice = usdPrice / 100000;
+      return parseFloat(btcPrice.toFixed(8)).toString();
+    }
+    if (crypto === 'XMR') {
+      const xmrPrice = usdPrice / 170;
+      return parseFloat(xmrPrice.toFixed(8)).toString();
+    }
+    return '0';
   };
 
   const truncateText = (text: string, maxLength: number) => {
@@ -292,24 +302,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-card border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+        <div className="bg-card border border-gray-600/30 rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-600/20 bg-card">
-            <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 sm:p-6 border-b border-gray-600/20 bg-card">
+            {/* Left Section - Back Button + Title */}
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto min-w-0">
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-700/50 rounded-lg transition-colors flex-shrink-0"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-400" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               </button>
-              <div>
-                <h2 className="text-xl font-bold text-white">{product.headline || 'Untitled Product'}</h2>
-                <p className="text-gray-400 text-sm">{product.website || 'No website'}</p>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm sm:text-lg md:text-xl font-extrabold text-white uppercase tracking-wider sm:tracking-widest truncate" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                  {product.headline || 'Untitled Product'}
+                </h2>
+                <p className="text-theme-cyan/70 text-[10px] sm:text-xs font-bold uppercase tracking-tighter truncate">
+                  {product.website || 'No website'}
+                </p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              {/* Always-visible link to vendor public listings */}
+
+            {/* Right Section - Actions */}
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
+              {/* Vendor Link - Hidden on mobile, shown on tablet+ */}
               <button
                 onClick={() => {
                   const vendorUsername = (product.vendor && product.vendor.username) || product.vendor_username;
@@ -317,26 +334,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     navigate(`/vendor/public/${vendorUsername}`);
                   }
                 }}
-                className="flex items-center text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                className="hidden md:flex items-center text-theme-cyan hover:text-white text-xs sm:text-sm transition-colors whitespace-nowrap"
                 title="View all products of this vendor"
               >
-                <ExternalLink className="w-4 h-4 mr-1" /> View vendor listings
+                <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                <span className="hidden lg:inline">View vendor listings</span>
+                <span className="lg:hidden">Vendor</span>
               </button>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               </button>
             </div>
           </div>
 
           {/* Content */}
-          <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
-            <div className="p-6 space-y-6">
-              {/* Product Images - Reduced height */}
-              <div className="space-y-4">
-                <div className="h-48 bg-gray-800/30 rounded-xl overflow-hidden border border-gray-600/20">
+          <div className="overflow-y-auto max-h-[calc(95vh-100px)] sm:max-h-[calc(90vh-120px)]">
+            <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+              {/* Product Images - Responsive height */}
+              <div className="space-y-3 sm:space-y-4">
+                <div className="h-40 sm:h-48 md:h-56 bg-gray-800/30 rounded-lg sm:rounded-xl overflow-hidden border border-gray-600/20">
                   {product.main_image || (product.main_images && product.main_images.length > 0) ? (
                     <img
                       src={
@@ -354,20 +373,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-gray-400 text-4xl">📦</span>
+                      <span className="text-gray-400 text-2xl sm:text-4xl">📦</span>
                     </div>
                   )}
                 </div>
 
-                {/* Gallery Images & Documents - Single Line */}
+                {/* Gallery Images & Documents - Responsive grid */}
                 {(product.gallery_images && product.gallery_images.length > 0) || (product.documents && product.documents.length > 0) ? (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-400 mb-3">Gallery Images & Documents</h4>
-                    <div className="flex flex-wrap gap-3">
+                    <h4 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">Gallery Images & Documents</h4>
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                       {product.gallery_images && product.gallery_images.map((image, index) => {
                         const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
                         return (
-                          <div key={`img-${index}`} className="aspect-square w-28 h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
+                          <div key={`img-${index}`} className="aspect-square w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
                             <img
                               src={imageUrl}
                               alt={`${product.headline || 'Product'} ${index + 1}`}
@@ -383,19 +402,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                         const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
                         const docName = doc.split('/').pop() || `Document ${index + 1}`;
                         return (
-                          <div key={`doc-${index}`} className="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-colors min-w-[140px]">
-                            <FileText className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                          <div key={`doc-${index}`} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-colors min-w-[120px] sm:min-w-[140px]">
+                            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-white text-sm font-medium truncate max-w-[120px]">{docName}</p>
+                              <p className="text-white text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-[120px]">{docName}</p>
                             </div>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-1.5 h-auto"
+                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 p-1 sm:p-1.5 h-auto"
                               onClick={() => window.open(docUrl, '_blank')}
                               title="Download document"
                             >
-                              <Download className="w-4 h-4" />
+                              <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                             </Button>
                           </div>
                         );
@@ -405,44 +424,42 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 ) : null}
               </div>
 
-              {/* Product Info */}
-              <div className="space-y-4">
-                <div className="flex gap-2 overflow-x-auto">
+              {/* Product Info - Responsive badges */}
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1">
                   {product.account_type && (
-                    <Badge className={`${getAccountTypeColor(product.account_type)} flex-shrink-0`}>
+                    <Badge className={`${getAccountTypeColor(product.account_type)} flex-shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1`}>
                       {product.account_type.replace('_', ' ').toUpperCase()}
                     </Badge>
                   )}
                   {product.access_type && (
-                    <Badge className={`${getAccessTypeColor(product.access_type)} flex-shrink-0`}>
+                    <Badge className={`${getAccessTypeColor(product.access_type)} flex-shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1`}>
                       {product.access_type.replace('_', ' ').toUpperCase()}
                     </Badge>
                   )}
                   {product.is_featured && (
-                    <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 flex-shrink-0">
+                    <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 flex-shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1">
                       FEATURED
                     </Badge>
                   )}
                   {product.escrow_enabled && (
-                    <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 hover:from-yellow-500 hover:to-amber-500 transition-all duration-200 shadow-lg flex-shrink-0">
-                      <Lock className="w-3 h-3 mr-1" />
-                      ESCROW PROTECTED
+                    <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 hover:from-yellow-500 hover:to-amber-500 transition-all duration-200 shadow-lg flex-shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1">
+                      <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                      ESCROW
                     </Badge>
                   )}
                 </div>
 
-                {/* Fixed layout - Headings on top line, values on bottom line with better spacing */}
-                <div className="text-sm">
-                  {/* Headings line */}
-                  <div className="flex justify-between mb-1">
+                {/* Account info - Responsive layout */}
+                <div className="text-xs sm:text-sm">
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0 mb-1 sm:mb-1">
                     <span className="text-gray-400">Account Balance:</span>
-                    <span className="text-gray-400 text-center flex-1">Delivery Time:</span>
+                    <span className="text-gray-400 sm:text-center sm:flex-1">Delivery Time:</span>
                   </div>
-                  {/* Values line */}
-                  <div className="flex justify-between">
-                    <span className="text-white">{product.account_balance || 'N/A'}</span>
-                    <div className="flex-1 flex justify-center">
-                      <Badge className={getDeliveryTimeColor(product.delivery_time)}>
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0">
+                    <span className="text-white font-medium">{product.account_balance || 'N/A'}</span>
+                    <div className="sm:flex-1 flex sm:justify-center">
+                      <Badge className={`${getDeliveryTimeColor(product.delivery_time)} text-[10px] sm:text-xs`}>
                         {getDeliveryTimeDisplay(product.delivery_time)}
                       </Badge>
                     </div>
@@ -450,34 +467,40 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 </div>
               </div>
 
-              {/* Price Section */}
-              <div className="bg-gradient-to-r from-accent/10 to-accent-2/10 rounded-xl p-6 border border-accent/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm">Price</p>
-                    <p className="text-2xl font-bold text-white">
+              {/* Price Section - Responsive */}
+              <div className="bg-gradient-to-br from-[#1c2e3f] to-[#0E1A26] rounded-lg sm:rounded-xl p-4 sm:p-6 border-2 border-theme-cyan/20 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-theme-cyan/5 blur-3xl rounded-full -mr-12 sm:-mr-16 -mt-12 sm:-mt-16 group-hover:bg-theme-cyan/10 transition-colors"></div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                  <div className="w-full sm:w-auto">
+                    <p className="text-gray-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-1">Asset Price</p>
+                    <p className="text-2xl sm:text-3xl font-black text-theme-cyan font-mono">
                       ${formatUSD(product.price)}
                     </p>
-                    <p className="text-sm text-gray-400 font-mono">
-                      ≈ {formatBTCEquivalent(product.price)} BTC
+                    <p className="text-xs sm:text-sm text-gray-400 font-mono flex flex-wrap gap-1.5 sm:gap-2 mt-1">
+                      {(!product.accepted_crypto || product.accepted_crypto.includes('BTC')) && (
+                        <span className="text-[10px] sm:text-xs">≈ {getCryptoEstimate(product.price, 'BTC')} BTC</span>
+                      )}
+                      {product.accepted_crypto?.includes('XMR') && (
+                        <span className="text-[10px] sm:text-xs">≈ {getCryptoEstimate(product.price, 'XMR')} XMR</span>
+                      )}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-gray-400 text-sm">Available</p>
-                    <p className="text-xl font-semibold text-white">
-                      {product.quantity_available || 0} accounts
+                  <div className="text-left sm:text-right w-full sm:w-auto">
+                    <p className="text-gray-400 text-xs sm:text-sm">Available</p>
+                    <p className="text-lg sm:text-xl font-semibold text-white">
+                      {product.quantity_available || 0} <span className="text-sm sm:text-base">accounts</span>
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons - Improved Buy Now button */}
-              <div className="flex space-x-3">
+              {/* Action Buttons - Responsive */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   onClick={handleBuyNow}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 shadow-lg"
+                  className="flex-1 bg-theme-red hover:bg-theme-red-dark text-white font-semibold py-2.5 sm:py-3 text-sm sm:text-base shadow-lg"
                 >
-                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
                   Buy Now
                 </Button>
                 <Button
@@ -493,21 +516,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     localStorage.setItem('productContext', JSON.stringify(productData));
                     window.location.href = '/buyer/messages';
                   }}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 shadow-lg"
+                  className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-bold uppercase tracking-wider sm:tracking-widest text-[10px] sm:text-xs border-none shadow-lg shadow-cyan-500/20 px-3 sm:px-6 py-2.5 sm:py-3"
                 >
-                  <MessageSquare className="w-5 h-5 mr-2" />
-                  Chat with Vendor
+                  <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden xs:inline">Chat with Vendor</span>
+                  <span className="xs:hidden">Chat</span>
                 </Button>
                 <Button
                   onClick={handleWishlistToggle}
                   variant="outline"
-                  className="border-border text-gray-300 hover:bg-surface-2 py-3"
+                  className="border-white/10 text-gray-300 hover:bg-white/5 py-2.5 sm:py-3 transition-colors px-3 sm:px-4"
                   disabled={wishlistLoading}
                 >
                   {wishlistLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                   ) : (
-                    <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
+                    <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : ''}`} />
                   )}
                 </Button>
               </div>
@@ -515,9 +539,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
               {/* Product Details */}
               <div className="space-y-6">
                 {/* Description */}
-                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                <div className="bg-[#111C20] rounded-xl p-4 border border-white/5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-white">Description</h3>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif" }}>Description</h3>
                     <button
                       onClick={() => setShowFullDescription(!showFullDescription)}
                       className="text-accent hover:text-accent-2 text-sm"
@@ -576,11 +600,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 )}
 
                 {/* Vendor Details */}
-                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                    <Users className="w-5 h-5 mr-2 text-blue-400" />
-                    Vendor Details
-                    {loadingVendorStats && <DotLoader size="sm" color="text-blue-400" />}
+                <div className="bg-[#111C20] rounded-xl p-4 border border-white/5">
+                  <h3 className="text-sm font-bold text-white mb-4 flex items-center uppercase tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                    <Users className="w-4 h-4 mr-2 text-theme-cyan" />
+                    Vendor Profile
+                    {loadingVendorStats && <Loader2 className="w-4 h-4 ml-2 animate-spin text-theme-cyan" />}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-3">
@@ -658,10 +682,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 </div>
 
                 {/* Product Statistics */}
-                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                    <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
-                    Product Statistics
+                <div className="bg-[#111C20] rounded-xl p-4 border border-white/5">
+                  <h3 className="text-sm font-bold text-white mb-4 flex items-center uppercase tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                    <TrendingUp className="w-4 h-4 mr-2 text-theme-cyan" />
+                    Analytics
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-3">

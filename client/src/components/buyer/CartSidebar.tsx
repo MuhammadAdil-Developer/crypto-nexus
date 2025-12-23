@@ -95,12 +95,14 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-gray-900 border-l border-gray-700/50 shadow-2xl">
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+          <div className="flex items-center justify-between p-6 border-b border-white/5">
             <div className="flex items-center space-x-3">
-              <ShoppingCart className="w-6 h-6 text-blue-400" />
-              <h2 className="text-xl font-bold text-white">Shopping Cart</h2>
+              <div className="p-2 bg-theme-cyan/10 rounded-lg border border-theme-cyan/20">
+                <ShoppingCart className="w-5 h-5 text-theme-cyan" />
+              </div>
+              <h2 className="text-xl font-black text-white uppercase tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif" }}>Your Vault</h2>
               {getTotalItems() > 0 && (
-                <Badge className="bg-blue-600 text-white">
+                <Badge className="bg-theme-red text-white border-none text-[10px] font-bold">
                   {getTotalItems()}
                 </Badge>
               )}
@@ -197,7 +199,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
                           {/* Item Total */}
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-xs text-gray-400">Total:</span>
-                            <span className="text-sm font-bold text-blue-400 font-mono">
+                            <span className="text-sm font-bold text-theme-cyan font-mono">
                               {formatBTCEquivalent(parseFloat(item.price) * item.quantity)} BTC
                             </span>
                             <span className="text-xs text-gray-400 ml-1">
@@ -226,39 +228,42 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
 
           {/* Footer */}
           {cartItems.length > 0 && (
-            <div className="border-t border-gray-700/50 p-6 space-y-4">
+            <div className="border-t border-white/5 p-6 space-y-6 bg-[#0E1A26]">
               {/* Total */}
               <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-white">Total:</span>
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Vault Value</span>
                 <div className="flex flex-col items-end">
-                  <span className="text-xl font-bold text-blue-400 font-mono">
+                  <span className="text-xl font-black text-theme-cyan font-mono">
                     {formatBTCEquivalent(getTotalPrice())} BTC
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
                     ≈ ${getTotalPrice().toFixed(2)}
                   </span>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Button
                   onClick={handleCheckout}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-theme-red hover:bg-[#850231] text-white text-xs font-bold uppercase tracking-widest py-6 shadow-lg shadow-theme-red/20 transition-all active:scale-[0.98]"
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Checkout ({getTotalItems()} items)
+                  Initiate Checkout
                 </Button>
 
                 <Button
                   onClick={handleClearCart}
                   variant="outline"
-                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
+                  className="w-full border-white/10 text-gray-400 hover:bg-white/5 text-xs font-bold uppercase tracking-widest py-6 transition-all"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Clear Cart
+                  Clear Vault
                 </Button>
               </div>
+              <p className="text-[9px] text-gray-600 text-center uppercase tracking-[0.2em] font-bold">
+                Secure Anonymous Transaction • Escrow Protected
+              </p>
             </div>
           )}
         </div>

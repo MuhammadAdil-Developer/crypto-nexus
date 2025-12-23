@@ -8,7 +8,7 @@ const Signup: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const [formData, setFormData] = useState<UserRegistrationData>({
     email: '',
     password: '',
@@ -70,7 +70,7 @@ const Signup: React.FC = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[name as keyof UserRegistrationData]) {
       setErrors(prev => ({
@@ -82,24 +82,24 @@ const Signup: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
       const response = await authService.register(formData);
-      
+
       if (response.success) {
         showToast({
           type: 'success',
           title: 'Registration Successful!',
-          message: 'Welcome to CryptoNexus! You can now log in to your account.',
+          message: 'Welcome to AccountzClub! You can now log in to your account.',
           duration: 5000
         });
-        
+
         // Reset form
         setFormData({
           email: '',
@@ -110,7 +110,7 @@ const Signup: React.FC = () => {
           phone: '',
           user_type: 'buyer'
         });
-        
+
         // Redirect to login or dashboard
         setTimeout(() => {
           window.location.href = '/login';
@@ -136,17 +136,21 @@ const Signup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen bg-[#0E1A26] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-theme-red/5 blur-3xl rounded-full -mr-48 -mt-48 animate-pulse"></div>
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-theme-cyan/5 blur-3xl rounded-full -ml-32 -mb-32"></div>
+
+      <div className="max-w-md w-full space-y-8 relative z-10 bg-black/40 p-8 rounded-3xl border border-white/5 backdrop-blur-xl shadow-2xl">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
+          <h2 className="mt-6 text-center text-3xl font-black text-white uppercase tracking-[0.2em]" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+            Join the <span className="text-theme-red">Club</span>
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Join CryptoNexus and start your crypto journey
+          <p className="mt-2 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">
+            Welcome to <span className="text-theme-cyan">Accountz</span><span className="text-theme-red">Club</span> • Secure Assets
           </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             {/* User Type Selection */}
@@ -184,9 +188,8 @@ const Signup: React.FC = () => {
                     required
                     value={formData.first_name}
                     onChange={handleInputChange}
-                    className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.first_name ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.first_name ? 'border-red-300' : 'border-gray-300'
+                      }`}
                     placeholder="John"
                   />
                 </div>
@@ -194,7 +197,7 @@ const Signup: React.FC = () => {
                   <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>
                 )}
               </div>
-              
+
               <div>
                 <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
                   Last Name
@@ -208,9 +211,8 @@ const Signup: React.FC = () => {
                     required
                     value={formData.last_name}
                     onChange={handleInputChange}
-                    className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.last_name ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.last_name ? 'border-red-300' : 'border-gray-300'
+                      }`}
                     placeholder="Doe"
                   />
                 </div>
@@ -235,9 +237,8 @@ const Signup: React.FC = () => {
                   required
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="john@example.com"
                 />
               </div>
@@ -259,9 +260,8 @@ const Signup: React.FC = () => {
                   type="tel"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.phone ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.phone ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="+1 (555) 123-4567"
                 />
               </div>
@@ -285,9 +285,8 @@ const Signup: React.FC = () => {
                   required
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.password ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button
@@ -321,9 +320,8 @@ const Signup: React.FC = () => {
                   required
                   value={formData.confirm_password}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.confirm_password ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.confirm_password ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button
@@ -344,11 +342,10 @@ const Signup: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                isLoading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${isLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              } transition-colors duration-200`}
+                } transition-colors duration-200`}
             >
               {isLoading ? (
                 <div className="flex items-center">

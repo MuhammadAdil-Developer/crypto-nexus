@@ -77,7 +77,7 @@ const transformOrderData = (apiOrder: Order) => {
     buyer: apiOrder.buyer.username,
     product: apiOrder.product.headline,
     amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
-    usdAmount: `$${(parseFloat(apiOrder.total_amount) * 100000).toFixed(2)}`,
+    usdAmount: `$${(parseFloat(apiOrder.total_amount) * (apiOrder.crypto_currency === 'XMR' ? 170 : 100000)).toFixed(2)}`,
     status: getStatusDisplay(apiOrder),
     priority: "normal",
     date: date,
@@ -146,28 +146,28 @@ const transformOrderData = (apiOrder: Order) => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case "Completed":
-      return "bg-green-200 text-green-800 border-green-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Processing":
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Shipped":
-      return "bg-purple-100 text-purple-800 border-purple-200";
+      return "bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30";
     case "Pending":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "Cancelled":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     default:
-      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
+      return "bg-gray-700 text-gray-300 border-gray-600";
   }
 };
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
     case "urgent":
-      return "bg-red-500";
+      return "bg-theme-red";
     case "high":
-      return "bg-orange-500";
+      return "bg-theme-red/80";
     case "normal":
-      return "bg-gray-400";
+      return "bg-gray-500";
     default:
       return "bg-gray-400";
   }
@@ -517,26 +517,32 @@ export default function VendorOrders() {
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-blue-600">{orders.filter(order => order.status === "Processing").length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{orders.filter(order => order.status === "Processing").length}</div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Processing</p>
             </CardContent>
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-purple-600">{orders.filter(order => order.status === "Shipped").length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{orders.filter(order => order.status === "Shipped").length}</div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Shipped</p>
             </CardContent>
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-green-600">{orders.filter(order => order.status === "Completed").length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{orders.filter(order => order.status === "Completed").length}</div>
               <p className="text-xs sm:text-sm text-gray-400 truncate">Completed</p>
             </CardContent>
           </Card>
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10 col-span-2 lg:col-span-1">
             <CardContent className="p-4 sm:p-6">
-              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{orders.reduce((sum, order) => sum + parseFloat(order.amount.split(' ')[0]), 0).toFixed(8)} BTC</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Revenue</p>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-theme-cyan break-words">
+                ${orders.reduce((sum, order) => {
+                  const amount = parseFloat(order.amount.split(' ')[0]);
+                  const rate = order.paymentMethod === 'XMR' ? 170 : 100000;
+                  return sum + (amount * rate);
+                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Revenue (USD)</p>
             </CardContent>
           </Card>
         </div>
@@ -551,7 +557,7 @@ export default function VendorOrders() {
                     placeholder="Search orders, buyers, products..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 text-sm sm:text-base"
+                    className="pl-10 text-sm sm:text-base focus:border-theme-cyan focus:ring-theme-cyan bg-gray-800 border-gray-700 text-white placeholder:text-gray-400"
                   />
                 </div>
               </div>
@@ -585,7 +591,7 @@ export default function VendorOrders() {
 
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">
+            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">
               Orders ({filteredOrders.length})
             </CardTitle>
           </CardHeader>
@@ -593,7 +599,7 @@ export default function VendorOrders() {
             <div className="space-y-3 sm:space-y-4">
               {isLoading ? (
                 <div className="text-center py-8 sm:py-12">
-                  <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 text-blue-600 animate-spin mx-auto" />
+                  <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 text-theme-cyan animate-spin mx-auto" />
                   <p className="text-gray-400 mt-4 text-sm sm:text-base">Loading orders...</p>
                 </div>
               ) : filteredOrders.length === 0 ? (
@@ -635,7 +641,7 @@ export default function VendorOrders() {
 
                     <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
                       <div className="text-left sm:text-right lg:text-right">
-                        <div className="font-semibold text-blue-600 text-sm sm:text-base">{order.amount}</div>
+                        <div className="font-semibold text-theme-cyan text-sm sm:text-base">{order.amount}</div>
                         <div className="text-xs sm:text-sm text-gray-400">{order.usdAmount}</div>
                       </div>
 
@@ -655,7 +661,7 @@ export default function VendorOrders() {
                               </Badge>
                             )}
                             {order.confirmed_at && (
-                              <Badge className="bg-green-500/20 text-green-300 text-[9px] sm:text-[10px] px-1 py-0 h-4">
+                              <Badge className="bg-theme-cyan/20 text-theme-cyan text-[9px] sm:text-[10px] px-1 py-0 h-4">
                                 <CheckCircle className="w-2 h-2 mr-0.5" />
                                 Approved
                               </Badge>
@@ -667,10 +673,10 @@ export default function VendorOrders() {
                       <div className="flex items-center space-x-2 flex-shrink-0">
                         {order.status === "Processing" && (
                           <>
-                            <Button size="sm" variant="outline" className="text-green-600 border-green-300 h-8 w-8 p-0">
+                            <Button size="sm" variant="outline" className="text-theme-cyan border-theme-cyan/30 h-8 w-8 p-0 hover:bg-theme-cyan/10">
                               <Check className="w-3 h-3 sm:w-4 sm:h-4" />
                             </Button>
-                            <Button size="sm" variant="outline" className="text-red-600 border-red-300 h-8 w-8 p-0">
+                            <Button size="sm" variant="outline" className="text-theme-red border-theme-red/30 h-8 w-8 p-0 hover:bg-theme-red/10">
                               <X className="w-3 h-3 sm:w-4 sm:h-4" />
                             </Button>
                           </>
@@ -726,11 +732,11 @@ export default function VendorOrders() {
                             </DropdownMenuItem>
                             {order.status === "Processing" && (
                               <>
-                                <DropdownMenuItem className="text-green-600">
+                                <DropdownMenuItem className="text-theme-cyan focus:text-theme-cyan focus:bg-theme-cyan/10">
                                   <Check className="w-4 h-4 mr-2" />
                                   Mark as Shipped
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">
+                                <DropdownMenuItem className="text-theme-red focus:text-theme-red focus:bg-theme-red/10">
                                   <X className="w-4 h-4 mr-2" />
                                   Cancel Order
                                 </DropdownMenuItem>
@@ -810,8 +816,8 @@ export default function VendorOrders() {
                           size="sm"
                           onClick={() => goToPage(pageNum)}
                           className={`text-xs sm:text-sm h-8 ${currentPage === pageNum
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                            ? "bg-theme-cyan text-black hover:bg-theme-cyan/80 border-theme-cyan"
+                            : "border-gray-600 text-gray-300 hover:bg-gray-700"
                             }`}
                         >
                           {pageNum}
@@ -940,7 +946,7 @@ export default function VendorOrders() {
                     onClick={() => handleStatusChange("Cancelled")}
                     variant="outline"
                     disabled={isUpdatingStatus}
-                    className="border-red-600 text-red-400 hover:bg-red-900/20 disabled:opacity-50"
+                    className="border-theme-red text-theme-red hover:bg-theme-red/10 disabled:opacity-50"
                   >
                     {isUpdatingStatus && updatingStatusType === "Cancelled" ? (
                       <>

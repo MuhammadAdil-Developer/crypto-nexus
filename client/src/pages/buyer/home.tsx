@@ -714,7 +714,7 @@ function BuyerHomeContent() {
       setPendingOrdersCount(pendingOrders.length);
 
       const orderCreatedAt = new Date(lastOrder.created_at).getTime();
-      const expiresAt = orderCreatedAt + (30 * 60 * 1000); // 30 minutes
+      const expiresAt = orderCreatedAt + (120 * 60 * 1000); // 2 hours
       const now = Date.now();
       const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
 
@@ -1052,7 +1052,7 @@ function BuyerHomeContent() {
       />
       {/* Order Payment Banner */}
       {activeOrder && !isLoadingOrder && timeRemaining > 0 && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-900/30 to-blue-800/30 border-b border-blue-700/50 text-white px-4 py-3 flex items-center justify-between">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-[#A6033E]/30 to-[#590120]/30 border-b border-red-900/50 text-white px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-6 flex-1 min-w-0">
             <div className="flex items-center space-x-2 flex-shrink-0 ml-16">
               <AlertTriangle className="w-4 h-4" />
@@ -1075,20 +1075,20 @@ function BuyerHomeContent() {
               variant="ghost"
               size="sm"
               onClick={() => activeOrder.payment_address && copyToClipboard(activeOrder.payment_address)}
-              className="text-white hover:bg-blue-700"
+              className="text-white hover:bg-theme-red-dark"
               disabled={!activeOrder.payment_address}
             >
               <Copy className="w-4 h-4" />
             </Button>
             {pendingOrdersCount > 1 && (
               <Link to="/buyer/orders">
-                <Button size="sm" className="bg-blue-700 text-white hover:bg-blue-800">
+                <Button size="sm" className="bg-theme-red text-white hover:bg-theme-red-dark">
                   View All ({pendingOrdersCount})
                 </Button>
               </Link>
             )}
             <Link to="/buyer/payment-test">
-              <Button size="sm" className="bg-white text-blue-600 hover:bg-gray-100">
+              <Button size="sm" className="bg-white text-theme-red hover:bg-gray-100">
                 Pay Now
               </Button>
             </Link>
@@ -1139,15 +1139,12 @@ function BuyerHomeContent() {
                       handleHomeSearch();
                     }
                   }}
-                  className="w-full pl-12 pr-16 py-3 sm:py-4 text-base sm:text-lg  text-gray-900 placeholder-gray-500 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full pl-12 pr-16 py-3 sm:py-4 text-base sm:text-lg  text-gray-900 placeholder-gray-500 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-theme-cyan"
                 />
               </div>
               <Button
                 size="lg"
-                className="absolute right-2 w-10 h-10 sm:w-12 sm:h-12 rounded-full p-0 flex items-center justify-center shadow-lg transition-all duration-200"
-                style={{ backgroundColor: '#AD0539' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c10647'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#AD0539'}
+                className="absolute right-2 w-10 h-10 sm:w-12 sm:h-12 rounded-full p-0 flex items-center justify-center shadow-lg transition-all duration-200 bg-theme-red hover:bg-theme-red-dark"
                 onClick={() => handleHomeSearch()}
               >
                 <Search className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
@@ -1270,8 +1267,8 @@ function BuyerHomeContent() {
                 FEATURED CATEGORIES
               </h2>
               <Link to="/buyer/listings">
-                <Button variant="ghost" className="w-full sm:w-auto text-white hover:text-pink-400">
-                  View All <ChevronRight className="w-4 h-4 ml-1" />
+                <Button variant="ghost" className="w-full sm:w-auto text-theme-cyan hover:text-pink-400">
+                  View All <ChevronRight className="w-4 h-4 ml-1 text-theme-cyan" />
                 </Button>
               </Link>
             </div>
@@ -1335,7 +1332,7 @@ function BuyerHomeContent() {
               </h2>
               <div className="flex items-center space-x-2 sm:space-x-4">
                 <Link to="/buyer/listings">
-                  <Button variant="ghost" className="text-cyan-400 hover:text-cyan-300">
+                  <Button variant="ghost" className="text-theme-cyan hover:text-white">
                     View All <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </Link>
@@ -1434,8 +1431,8 @@ function BuyerHomeContent() {
                 RECENT ORDERS
               </h2>
               <Link to="/buyer/orders">
-                <Button variant="ghost" className="w-full sm:w-auto text-white hover:text-pink-400">
-                  View All <ChevronRight className="w-4 h-4 ml-1" />
+                <Button variant="ghost" className="w-full sm:w-auto text-theme-cyan hover:text-theme-cyan">
+                  View All <ChevronRight className="w-4 h-4 ml-1 text-theme-cyan" />
                 </Button>
               </Link>
             </div>
@@ -1741,8 +1738,8 @@ function BuyerHomeContent() {
                 TOP VENDORS
               </h2>
               <Link to="/vendors">
-                <Button variant="ghost" className="w-full sm:w-auto text-white hover:text-pink-400">
-                  View All <ChevronRight className="w-4 h-4 ml-1" />
+                <Button variant="ghost" className="w-full sm:w-auto text-theme-cyan hover:text-pink-400">
+                  View All <ChevronRight className="w-4 h-4 ml-1 text-theme-cyan" />
                 </Button>
               </Link>
             </div>

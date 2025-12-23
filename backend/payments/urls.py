@@ -17,6 +17,7 @@ from .views import (
     BuyerTransactionHistoryView,
     VendorTransactionHistoryView,
     DirectPaymentMonitorView,
+    ExchangeRateView,
 )
 from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView
 
@@ -44,6 +45,7 @@ urlpatterns = [
 
     # Supported currencies
     path('currencies/', SupportedCurrenciesView.as_view(), name='supported_currencies'),
+    path('rates/', ExchangeRateView.as_view(), name='exchange_rates'),
 
     # Admin endpoints
     path('admin/escrows/', AdminEscrowView.as_view(), name='admin_escrows'),

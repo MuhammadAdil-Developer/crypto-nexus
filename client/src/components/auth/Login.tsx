@@ -7,7 +7,7 @@ const Login: React.FC = () => {
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [formData, setFormData] = useState<UserLoginData>({
     email: '',
     password: ''
@@ -38,7 +38,7 @@ const Login: React.FC = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[name as keyof UserLoginData]) {
       setErrors(prev => ({
@@ -50,49 +50,49 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
       const response = await authService.login(formData);
-      
+
       if (response.success) {
         showToast({
           type: 'success',
           title: 'Login Successful!',
-          message: `Welcome back, ${response.data.user.username}!`,
+          message: `Welcome to AccountzClub, ${response.data.user.username}!`,
           duration: 3000
         });
-        
+
         // Smart routing based on user type and vendor status
         setTimeout(async () => {
           try {
-          const userType = response.data.user.user_type;
+            const userType = response.data.user.user_type;
             console.log('🔍 Login - User Type:', userType);
             console.log('🔍 Login - Full User Data:', response.data.user);
-            
+
             if (userType === 'admin') {
               console.log('🚀 Redirecting to Admin Dashboard');
               window.location.href = '/admin/dashboard';
               return;
             }
-            
+
             if (userType === 'vendor') {
               console.log('🚀 Redirecting to Vendor Dashboard');
               window.location.href = '/vendor/dashboard';
               return;
             }
-            
+
             // For buyers, check if they have vendor application
             if (userType === 'buyer') {
               console.log('🔍 Checking vendor status for buyer...');
               const vendorStatus = await authService.checkVendorStatus();
               console.log('🔍 Vendor Status:', vendorStatus);
-              
+
               if (vendorStatus.hasApplication) {
                 if (vendorStatus.applicationStatus === 'approved') {
                   // User is now an approved vendor
@@ -114,11 +114,11 @@ const Login: React.FC = () => {
               }
               return;
             }
-            
+
             // Default fallback
             console.log('🚀 Default fallback, redirecting to Buyer Dashboard');
             window.location.href = '/buyer';
-            
+
           } catch (error) {
             console.error('❌ Routing error:', error);
             // Fallback to buyer dashboard
@@ -146,17 +146,21 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen bg-[#0E1A26] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-theme-red/5 blur-3xl rounded-full -mr-48 -mt-48 animate-pulse"></div>
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-theme-cyan/5 blur-3xl rounded-full -ml-32 -mb-32"></div>
+
+      <div className="max-w-md w-full space-y-8 relative z-10 bg-black/40 p-8 rounded-3xl border border-white/5 backdrop-blur-xl shadow-2xl">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
+          <h2 className="mt-6 text-center text-3xl font-black text-white uppercase tracking-[0.2em]" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+            Identify Your <span className="text-theme-cyan">Accountz</span>
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Welcome back to CryptoNexus
+          <p className="mt-2 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">
+            Welcome back to <span className="text-theme-cyan">Accountz</span><span className="text-theme-red">Club</span>
           </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             {/* Email */}
@@ -174,9 +178,8 @@ const Login: React.FC = () => {
                   required
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="john@example.com"
                 />
               </div>
@@ -200,9 +203,8 @@ const Login: React.FC = () => {
                   required
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.password ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button
@@ -243,11 +245,10 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                isLoading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              } transition-colors duration-200`}
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${isLoading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                } transition-colors duration-200`}
             >
               {isLoading ? (
                 <div className="flex items-center">

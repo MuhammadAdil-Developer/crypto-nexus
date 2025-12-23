@@ -233,7 +233,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                         {displayedNotifications.map((notification) => (
                           <DropdownMenuItem
                             key={notification.id}
-                            className="p-3 border-b last:border-b-0 cursor-pointer"
+                            className="p-3 cursor-pointer focus:bg-gray-800 transition-colors"
                             onClick={() => handleNotificationClick(notification)}
                           >
                             <div className="flex items-start space-x-3 w-full">
@@ -295,14 +295,14 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
           {/* Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 rounded-full flex items-center justify-center">
-                  <User className="text-white w-4 h-4" />
+              <Button variant="default" className="bg-transparent shadow-none border-none flex items-center space-x-2 hover:bg-theme-red/10 group transition-all duration-200">
+                <div className="w-8 h-8 bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a] rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_15px_rgba(166,3,62,0.4)] group-hover:shadow-[0_0_20px_rgba(166,3,62,0.6)] transition-all">
+                  <User className="text-white w-4 h-4 shadow-sm" />
                 </div>
-                <span className="hidden md:block font-medium hover:text-grey-200 text-gray-300">
+                <span className="hidden md:block font-medium text-gray-300 group-hover:text-white transition-colors">
                   {loading ? "Loading..." : userData.username}
                 </span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-theme-red transition-colors" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -350,7 +350,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
             <Button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="bg-pink-800 hover:bg-pink-900 text-white disabled:opacity-50"
+              className="bg-theme-red hover:bg-theme-red/80 text-white disabled:opacity-50"
             >
               {isLoggingOut ? (
                 <>

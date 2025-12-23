@@ -357,7 +357,15 @@ def check_application_status(request, username):
         
         try:
             application = VendorApplication.objects.get(vendor_username=username)
-            serializer = VendorApplicationSerializer(application, context={'request': request})
+            # Find associated user to get current payout addresses
+            try:
+                user = User.objects.get(username=username)
+                btc_address = user.btc_payout_address or application.btc_address
+                xmr_address = user.xmr_payout_address or application.xmr_address
+            except User.DoesNotExist:
+                btc_address = application.btc_address
+                xmr_address = application.xmr_address
+
             return Response({
                 'success': True,
                 'message': 'Application found',
@@ -366,8 +374,8 @@ def check_application_status(request, username):
                     'status': application.status,
                     'application_id': application.id,
                     'created_at': application.created_at,
-                    'btc_address': application.btc_address,
-                    'xmr_address': application.xmr_address,
+                    'btc_address': btc_address,
+                    'xmr_address': xmr_address,
                     'business_name': application.business_name,
                     'contact': application.contact,
                     'phone': application.phone,

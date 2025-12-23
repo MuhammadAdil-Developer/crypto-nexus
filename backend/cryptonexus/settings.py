@@ -153,7 +153,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 10000,
+    'PAGE_SIZE_QUERY_PARAM': 'page_size',
+    'MAX_PAGE_SIZE': 10000,
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
@@ -197,7 +199,7 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 if cors_origins:
-    CORS_ALLOWED_ORIGINS = cors_origins.split(',')
+    CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in cors_origins.split(',')]
 else:
     # Default origins if not set in environment
     CORS_ALLOWED_ORIGINS = [
@@ -219,6 +221,12 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# Isolate queue to avoid picking up tasks from other projects sharing this Redis
+CELERY_TASK_DEFAULT_QUEUE = 'crypto_nexus_tasks'
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'global_keyprefix': 'crypto_nexus:'
+}
 
 # Redis SSL Configuration for Celery
 CELERY_REDIS_SSL_CERT_REQS = 'CERT_NONE'  # For Upstash Redis
@@ -294,11 +302,11 @@ os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True)
 # BTCPay Server (Bitcoin)
 BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'https://pay.accountzclub.com')
 BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7')  # Correct Store ID from BTCPay dashboard
-BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'ce9980b1b464d82c984779858b38a8f0cef1a3a1')    # Working Greenfield API key
+BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'f66dd13f59806719fcee1eb31be75057ea47c1fd')    # Working Greenfield API key
 BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '2E8LrToLhNwHmZUwGCkKGzg8tSXx')
 
 # Monero RPC (Monero)
-MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://88.99.143.151:18081/json_rpc')  # Mainnet port
+MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://127.0.0.1:18082/json_rpc')  # Local Wallet RPC
 MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', 'monerouser')
 MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'moneropass123')
 MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'testwallet')
@@ -345,3 +353,8 @@ CHANNEL_LAYERS = {
     },
 }  
 
+
+try:
+    from .local_settings import *
+except ImportError:
+    pass

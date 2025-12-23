@@ -259,7 +259,7 @@ export default function VenderSignIn() {
   return (
     <div className="h-screen overflow-hidden bg-black flex">
       {/* Left Side - Video */}
-      <div className="hidden xl:flex xl:w-1/2 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 flex items-center justify-center bg-black">
           <video
             autoPlay
@@ -297,13 +297,13 @@ export default function VenderSignIn() {
       </div>
 
       {/* Right Side - Sign In Form */}
-      <div className="w-full xl:w-1/2 flex items-center justify-center p-4 sm:p-6 relative bg-black overflow-y-auto">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 relative bg-black overflow-y-auto">
         {/* Fixed background layers */}
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-l from-transparent via-transparent to-black/60 pointer-events-none z-0"></div>
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-br from-black/90 via-pink-950/40 to-black/90 z-0"></div>
-        <div className="fixed inset-0 xl:left-1/2 bg-gradient-to-tr from-pink-950/30 via-black/70 to-rose-900/20 z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-l from-transparent via-transparent to-black/60 pointer-events-none z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-br from-black/90 via-pink-950/40 to-black/90 z-0"></div>
+        <div className="fixed inset-0 lg:left-1/2 bg-gradient-to-tr from-pink-950/30 via-black/70 to-rose-900/20 z-0"></div>
         <div
-          className="fixed inset-0 xl:left-1/2 opacity-5 z-0"
+          className="fixed inset-0 lg:left-1/2 opacity-5 z-0"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}
@@ -312,7 +312,6 @@ export default function VenderSignIn() {
         <div className="w-full max-w-md relative z-10 my-auto">
           <div className="text-center mb-4">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-1">Sign In</h2>
-            <p className="text-gray-300 text-sm">Welcome back to AccountZ Club</p>
           </div>
 
           <Card className="border border-pink-800/30 bg-black/80 backdrop-blur-md shadow-2xl shadow-pink-900/20">

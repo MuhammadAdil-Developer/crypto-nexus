@@ -94,7 +94,7 @@ export function MarketplaceHeader() {
                 variant="outline"
                 size="sm"
                 onClick={handleSignUp}
-                className="font-medium text-xs px-3 hover:bg-[#a0103d] hover:text-white"
+                className="font-medium text-xs px-3 bg-theme-cyan/10 text-[#a5f3fc] border-theme-cyan/10 hover:bg-theme-cyan/10 hover:text-[#a5f3fc] transition-all"
                 data-testid="signup-button"
               >
                 <User className="w-3 h-3 mr-1.5" />
@@ -103,7 +103,7 @@ export function MarketplaceHeader() {
               <Button
                 size="sm"
                 onClick={handleSignIn}
-                className="font-medium text-xs px-3 bg-[#c4144b] hover:bg-[#a0103d] text-white border-transparent"
+                className="font-medium text-xs px-3 bg-theme-red hover:bg-theme-red-dark text-white border-transparent transition-all shadow-lg shadow-theme-red/20"
                 data-testid="signin-button"
               >
                 <LogIn className="w-3 h-3 mr-1.5" />
@@ -119,12 +119,12 @@ export function MarketplaceHeader() {
                 className="absolute inset-y-0 left-0 pl-3 flex items-center cursor-pointer hover:text-pink-500 transition-colors z-10"
                 onClick={() => handleSearch()}
               >
-                {isSearchLoading ? <Loader2 className="w-4 h-4 flex-shrink-0 text-gray-400 animate-spin" /> : <Search className="w-4 h-4 flex-shrink-0 text-gray-400 hover:text-pink-500" />}
+                {isSearchLoading ? <Loader2 className="w-4 h-4 flex-shrink-0 text-gray-400 animate-spin" /> : <Search className="w-4 h-4 flex-shrink-0 text-gray-400 hover:text-theme-cyan" />}
               </div>
               <Input
                 type="text"
                 placeholder="Search for accounts..."
-                className="w-full pl-9 pr-3 h-9 bg-white/10 border border-gray-600 text-white text-sm placeholder-gray-400 focus:ring-pink-500 focus:border-pink-500 backdrop-blur-sm transition-all duration-300"
+                className="w-full pl-9 pr-3 h-9 bg-white/5 border border-gray-700 text-white text-sm placeholder-gray-500 focus:ring-theme-cyan focus:border-theme-cyan/50 backdrop-blur-sm transition-all duration-300"
                 data-testid="search-input"
                 value={searchQuery}
                 onChange={(e) => {
@@ -156,15 +156,13 @@ export function MarketplaceHeader() {
                               <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-xs text-gray-500">Img</div>
                             )}
                             <div className="flex flex-col min-w-0">
-                              <span className="text-white font-medium text-sm truncate">{product.listing_title || product.headline}</span>
-                              <span className="text-gray-400 text-xs truncate max-w-[200px]">{product.category?.name} • {product.vendor?.username}</span>
                             </div>
                           </div>
-                          <ArrowRight className="w-4 h-4 text-gray-500 group-hover:text-pink-500 opacity-0 group-hover:opacity-100 transition-all" />
+                          <ArrowRight className="w-4 h-4 text-gray-500 group-hover:text-theme-cyan opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" />
                         </div>
                       ))}
                       <div
-                        className="p-2 text-center text-pink-400 text-xs font-semibold cursor-pointer hover:bg-pink-500/20"
+                        className="p-2 text-center text-theme-cyan text-xs font-semibold cursor-pointer hover:bg-theme-cyan/10 border-t border-gray-800"
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowSuggestions(false);
@@ -190,7 +188,7 @@ export function MarketplaceHeader() {
               variant="outline"
               size="sm"
               onClick={handleSignUp}
-              className="font-medium text-sm hover:bg-[#a0103d] hover:text-white"
+              className="font-medium text-sm bg-theme-cyan/10 text-[#a5f3fc] border-theme-cyan/20 hover:bg-theme-cyan/20 hover:text-[#a5f3fc] transition-all px-4"
               data-testid="signup-button"
             >
               <User className="w-4 h-4 mr-2" />
@@ -199,7 +197,7 @@ export function MarketplaceHeader() {
             <Button
               size="sm"
               onClick={handleSignIn}
-              className="font-medium text-sm bg-[#c4144b] hover:bg-[#a0103d] text-white border-transparent"
+              className="font-medium text-sm bg-theme-red hover:bg-theme-red-dark text-white border-transparent transition-all shadow-lg shadow-theme-red/20 px-4"
               data-testid="signin-button"
             >
               <LogIn className="w-4 h-4 mr-2" />

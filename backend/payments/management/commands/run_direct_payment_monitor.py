@@ -31,28 +31,17 @@ class Command(BaseCommand):
 
     def run_monitoring(self):
         """Run the direct payment monitoring"""
-        self.stdout.write(self.style.SUCCESS('=== Running Direct Payment Monitoring ==='))
+        self.stdout.write(self.style.SUCCESS('=== Running Crypto Payment Monitoring ==='))
+        self.stdout.write('Checking both Direct and Escrow (Subaddress) payments...')
         
-        # Check pending payments first
-        pending_count = DirectPayment.objects.filter(
-            status='pending',
-            expires_at__gt=timezone.now()
-        ).count()
-        
-        self.stdout.write(f"Found {pending_count} pending direct payments")
-        
-        if pending_count == 0:
-            self.stdout.write(self.style.WARNING('No pending payments to monitor'))
-            return
-        
-        # Run monitoring
         try:
+            # 1. Check direct payments
             direct_payment_monitor.monitor_pending_direct_payments()
-            self.stdout.write(self.style.SUCCESS('✅ Monitoring completed successfully'))
             
-            # Check results
-            updated_count = DirectPayment.objects.filter(status='confirmed').count()
-            self.stdout.write(f"Total confirmed payments: {updated_count}")
+            # 2. Check general payment addresses (Escrow orders etc.)
+            direct_payment_monitor.monitor_pending_payment_addresses()
+            
+            self.stdout.write(self.style.SUCCESS('✅ Monitoring completed successfully'))
             
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'❌ Monitoring failed: {e}'))

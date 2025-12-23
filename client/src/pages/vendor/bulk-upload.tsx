@@ -41,7 +41,7 @@ export default function BulkUpload() {
       if (response.success) {
         // Convert template data to CSV format
         const template = response.data;
-        
+
         // Helper function to properly escape CSV values
         const escapeCSV = (value: string) => {
           // If value contains comma, newline, or quote, wrap in quotes and escape quotes
@@ -50,11 +50,11 @@ export default function BulkUpload() {
           }
           return value;
         };
-        
+
         const headers = template.headers.map(escapeCSV).join(',');
         const sampleRow = template.sample_data.map(escapeCSV).join(',');
         const csvContent = `${headers}\n${sampleRow}`;
-        
+
         // Create and download the template file
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
@@ -65,7 +65,7 @@ export default function BulkUpload() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         showToast({
           type: 'success',
           title: 'Template Downloaded',
@@ -191,19 +191,19 @@ export default function BulkUpload() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-white">CSV File</Label>
-                  <div 
+                  <div
                     className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-gray-500 transition-colors"
                     onClick={() => document.getElementById('csv-upload')?.click()}
                     onDragOver={(e) => {
                       e.preventDefault();
-                      e.currentTarget.classList.add('border-blue-500');
+                      e.currentTarget.classList.add('border-theme-cyan');
                     }}
                     onDragLeave={(e) => {
-                      e.currentTarget.classList.remove('border-blue-500');
+                      e.currentTarget.classList.remove('border-theme-cyan');
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      e.currentTarget.classList.remove('border-blue-500');
+                      e.currentTarget.classList.remove('border-theme-cyan');
                       const droppedFile = e.dataTransfer.files[0];
                       if (droppedFile && droppedFile.name.endsWith('.csv')) {
                         setFile(droppedFile);
@@ -219,8 +219,8 @@ export default function BulkUpload() {
                       className="hidden"
                       id="csv-upload"
                     />
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="border-gray-600 text-gray-300 hover:bg-gray-800"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -274,7 +274,7 @@ export default function BulkUpload() {
             <Button
               onClick={handleUpload}
               disabled={uploading}
-              className="w-full bg-blue-500 hover:bg-blue-600"
+              className="w-full bg-theme-cyan hover:bg-theme-cyan/80 text-black font-bold"
             >
               {uploading ? (
                 <>
@@ -332,7 +332,7 @@ export default function BulkUpload() {
                   <p className="text-sm text-gray-400 mb-2">
                     Enter one account per line using this format:
                   </p>
-                  <code className="block bg-gray-800 p-2 rounded text-xs text-green-400">
+                  <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono">
                     Account Name | Website | Account Type | Price | Description | Credentials (required)
                   </code>
                 </div>
@@ -349,7 +349,7 @@ export default function BulkUpload() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-white mb-2">Example:</h4>
-                  <code className="block bg-gray-800 p-2 rounded text-xs text-green-400 whitespace-pre-wrap break-words">
+                  <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap break-words">
                     Premium Netflix Account | netflix.com | streaming | 15.00 | 4K Ultra HD Netflix account with premium features | {`{"username":"netflix_user","password":"netflix_pass"}`}
                   </code>
                 </div>
@@ -377,19 +377,19 @@ export default function BulkUpload() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-500">{result.total}</div>
+                <div className="text-2xl font-bold text-theme-cyan">{result.total}</div>
                 <p className="text-sm text-gray-400">Total Accounts</p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{result.successful}</div>
+                <div className="text-2xl font-bold text-theme-cyan">{result.successful}</div>
                 <p className="text-sm text-gray-400">Successful</p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">{result.failed}</div>
+                <div className="text-2xl font-bold text-theme-red">{result.failed}</div>
                 <p className="text-sm text-gray-400">Failed</p>
               </div>
             </div>
-            
+
             {result.errors && result.errors.length > 0 && (
               <div className="mt-4">
                 <h4 className="font-semibold text-white mb-2">Errors:</h4>

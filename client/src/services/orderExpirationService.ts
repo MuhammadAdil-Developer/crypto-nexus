@@ -15,7 +15,7 @@ class OrderExpirationService {
 
     const checkExpiration = () => {
       const orderCreatedAtTime = new Date(orderCreatedAt).getTime();
-      const expiresAt = orderCreatedAtTime + (30 * 60 * 1000); // 30 minutes
+      const expiresAt = orderCreatedAtTime + (120 * 60 * 1000); // 2 hours
       const now = Date.now();
       const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
 

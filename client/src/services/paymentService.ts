@@ -114,7 +114,7 @@ class PaymentService {
       try {
         const status = await this.getPaymentStatus(orderId);
         callback(status);
-        
+
         // Stop polling if payment is completed or expired
         if (['paid', 'expired', 'cancelled'].includes(status.status)) {
           clearInterval(pollInterval);
@@ -160,7 +160,7 @@ class PaymentService {
   generatePaymentQR(address: string, amount: string, currency: string): string {
     // Generate QR code data
     let qrData = '';
-    
+
     if (currency === 'BTC') {
       qrData = `bitcoin:${address}?amount=${amount}`;
     } else if (currency === 'XMR') {
@@ -168,7 +168,7 @@ class PaymentService {
     } else {
       qrData = address;
     }
-    
+
     // Return QR code URL (using qr-server.com for simplicity)
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
   }
@@ -176,28 +176,42 @@ class PaymentService {
   // Format crypto amounts
   formatCryptoAmount(amount: string, currency: string): string {
     const num = parseFloat(amount);
-    
+
     if (currency === 'BTC') {
       return num.toFixed(8);
     } else if (currency === 'XMR') {
       return num.toFixed(12);
     }
-    
+
     return amount;
   }
 
-  // Convert fiat to crypto (mock implementation)
+  // Convert fiat to crypto using live backend rates
   async getFiatToCryptoRate(fiatAmount: number, fiatCurrency: string, cryptoCurrency: string): Promise<number> {
-    // Mock exchange rates
-    const rates: { [key: string]: number } = {
-      'BTC': 45000, // $45,000 per BTC
-      'XMR': 150,   // $150 per XMR
-    };
+    try {
+      const response = await api.get('/payments/rates/', {
+        params: {
+          crypto: cryptoCurrency,
+          fiat: fiatCurrency
+        }
+      });
 
-    const rate = rates[cryptoCurrency];
-    if (!rate) throw new Error('Unsupported cryptocurrency');
+      if (response.data && response.data.rate) {
+        const rate = parseFloat(response.data.rate);
+        return fiatAmount / rate;
+      }
+      throw new Error('Could not fetch exchange rate');
+    } catch (error: any) {
+      console.error('Exchange rate error:', error);
+      // Fallback fallback rates if API fails
+      const fallbackRates: { [key: string]: number } = {
+        'BTC': 95000,
+        'XMR': 160,
+      };
 
-    return fiatAmount / rate;
+      const rate = fallbackRates[cryptoCurrency] || 100;
+      return fiatAmount / rate;
+    }
   }
 }
 

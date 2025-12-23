@@ -31,20 +31,20 @@ export default function VendorProductDetail() {
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
-      
+
       try {
         setLoading(true);
         setError(null);
-        
+
         console.log('🔍 Fetching product with ID:', id);
-        
+
         // Use dedicated product detail endpoint
         const response = await vendorService.getProductDetail(id);
-        
+
         console.log('🔍 Product detail response:', response);
         console.log('🔍 Response success:', response.success);
         console.log('🔍 Response data:', response.data);
-          
+
         if (response.success && response.data) {
           console.log('✅ Setting product state:', response.data);
           setProduct(response.data);
@@ -65,7 +65,7 @@ export default function VendorProductDetail() {
 
   const handleDelete = async () => {
     if (!product) return;
-    
+
     try {
       const response = await vendorService.deleteProduct(product.id);
       if (response.success) {
@@ -96,7 +96,7 @@ export default function VendorProductDetail() {
       <div className="space-y-6">
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-cyan mx-auto mb-4"></div>
             <p className="text-gray-400">Loading product details...</p>
           </div>
         </div>
@@ -133,7 +133,8 @@ export default function VendorProductDetail() {
             </div>
             <h3 className="text-lg font-medium text-white mb-2">Invalid product data</h3>
             <p className="text-gray-400 mb-4">The product data is not in the expected format.</p>
-            <Button onClick={() => navigate('/vendor/listings')} className="bg-blue-500 hover:bg-blue-600">
+            <Button onClick={() => navigate('/vendor/listings')} className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold">
+              Back to Listings
             </Button>
           </div>
         </div>
@@ -161,12 +162,12 @@ export default function VendorProductDetail() {
         <div className="flex space-x-3">
           <Button
             onClick={() => navigate(`/vendor/listings/edit/${product.id}`)}
-            className="bg-blue-500 hover:bg-blue-600"
+            className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit Product
           </Button>
-          
+
           {/* Delete Product Icon with Confirmation */}
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -182,7 +183,7 @@ export default function VendorProductDetail() {
               <AlertDialogHeader>
                 <AlertDialogTitle className="text-white">Delete Product</AlertDialogTitle>
                 <AlertDialogDescription className="text-gray-300">
-                  Are you sure you want to delete your listing "{product.listing_title}"? 
+                  Are you sure you want to delete your listing "{product.listing_title}"?
                   This action cannot be undone and will permanently remove your product from the marketplace.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -208,7 +209,7 @@ export default function VendorProductDetail() {
           <Card className="border border-gray-700 bg-gray-900">
             <CardContent className="p-6">
               <img
-                src={getImageUrl(product.main_image) || 
+                src={getImageUrl(product.main_image) ||
                   (product.main_images && product.main_images.length > 0
                     ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
                     : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400")}
@@ -232,7 +233,7 @@ export default function VendorProductDetail() {
                 {getStatusDisplayName(product.status)}
               </Badge>
               {product.escrow_enabled && (
-                <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60">
+                <Badge className="bg-theme-cyan/20 text-theme-cyan border border-theme-cyan/30">
                   <Lock className="w-3 h-3 mr-1" />
                   ESCROW PROTECTED
                 </Badge>
@@ -264,7 +265,7 @@ export default function VendorProductDetail() {
                   <div className="flex items-center space-x-2">
                     <Lock className="w-4 h-4 text-gray-400" />
                     <span className="text-gray-400">Escrow:</span>
-                    <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60">
+                    <Badge className="bg-theme-cyan/20 text-theme-cyan border border-theme-cyan/30">
                       <Lock className="w-3 h-3 mr-1" />
                       ENABLED
                     </Badge>
@@ -323,13 +324,13 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <DollarSign className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Final Price:</span>
-                  <span className="text-green-500 font-bold">${product.final_price || 0}</span>
+                  <span className="text-theme-cyan font-bold">${product.final_price || 0}</span>
                 </div>
                 {(product.discount_percentage || 0) > 0 && (
                   <div className="flex items-center space-x-2">
-                    <DollarSign className="w-4 h-4 text-green-400" />
+                    <DollarSign className="w-4 h-4 text-theme-cyan" />
                     <span className="text-gray-400">Discount:</span>
-                    <span className="text-green-500">-{product.discount_percentage || 0}%</span>
+                    <span className="text-theme-cyan">-{product.discount_percentage || 0}%</span>
                   </div>
                 )}
               </div>
@@ -346,14 +347,14 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Account Type:</span>
-                  <Badge variant="outline" className="text-blue-400 border-blue-400">
+                  <Badge variant="outline" className="text-theme-cyan border-theme-cyan">
                     {product.account_type || 'N/A'}
                   </Badge>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Shield className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Access Type:</span>
-                  <Badge variant="outline" className="text-green-400 border-green-400">
+                  <Badge variant="outline" className="text-theme-cyan border-theme-cyan">
                     {product.access_type || 'N/A'}
                   </Badge>
                 </div>
@@ -375,7 +376,7 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <Truck className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Delivery Time:</span>
-                  <Badge variant="outline" className="text-yellow-400 border-yellow-400">
+                  <Badge variant="outline" className="text-theme-red border-theme-red">
                     {product.delivery_time || 'N/A'}
                   </Badge>
                 </div>
@@ -394,14 +395,14 @@ export default function VendorProductDetail() {
                   <h4 className="text-sm font-medium text-gray-300 mb-2">Special Features:</h4>
                   <div className="flex flex-wrap gap-2">
                     {product.special_features.map((feature: string, index: number) => (
-                      <Badge key={index} variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-400/30">
+                      <Badge key={index} variant="secondary" className="bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30">
                         {feature}
                       </Badge>
                     ))}
                   </div>
                 </div>
               )}
-              
+
               {product.region_restrictions && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-300 mb-2">Region Restrictions:</h4>
@@ -414,7 +415,7 @@ export default function VendorProductDetail() {
                   <h4 className="text-sm font-medium text-gray-300 mb-2">Tags:</h4>
                   <div className="flex flex-wrap gap-2">
                     {product.tags.map((tag: string, index: number) => (
-                      <Badge key={index} variant="outline" className="text-purple-400 border-purple-400">
+                      <Badge key={index} variant="outline" className="text-theme-red border-theme-red/50">
                         #{tag}
                       </Badge>
                     ))}
@@ -434,7 +435,7 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <Truck className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Delivery Method:</span>
-                  <Badge variant="outline" className="text-orange-400 border-orange-400">
+                  <Badge variant="outline" className="text-theme-cyan border-theme-cyan">
                     {product.delivery_method || 'N/A'}
                   </Badge>
                 </div>
@@ -448,28 +449,28 @@ export default function VendorProductDetail() {
               </div>
             </CardContent>
           </Card>
-          
-                    {/* Performance Metrics */}
-            <Card className="border border-gray-700 bg-gray-900">
+
+          {/* Performance Metrics */}
+          <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
               <CardTitle className="text-xl font-bold text-white">Performance Metrics</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-500">{product.views_count || 0}</div>
+                  <div className="text-2xl font-bold text-theme-cyan">{product.views_count || 0}</div>
                   <p className="text-sm text-gray-400">Views</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-500">{product.favorites_count || 0}</div>
+                  <div className="text-2xl font-bold text-theme-red">{product.favorites_count || 0}</div>
                   <p className="text-sm text-gray-400">Favorites</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-500">{product.review_count || 0}</div>
+                  <div className="text-2xl font-bold text-theme-cyan">{product.review_count || 0}</div>
                   <p className="text-sm text-gray-400">Reviews</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-500">
+                  <div className="text-2xl font-bold text-theme-red">
                     {typeof product.rating === 'number' && !isNaN(product.rating) ? product.rating.toFixed(1) : '0.0'}
                   </div>
                   <p className="text-sm text-gray-400">Rating</p>
@@ -501,19 +502,19 @@ export default function VendorProductDetail() {
                   {product.gallery_images.map((image: string, index: number) => {
                     const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
                     return (
-                    <div key={index} className="relative group">
-                      <img
+                      <div key={index} className="relative group">
+                        <img
                           src={imageUrl}
-                        alt={`Gallery image ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg border border-gray-600 group-hover:border-blue-400 transition-colors"
+                          alt={`Gallery image ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-600 group-hover:border-theme-cyan transition-colors"
                           onError={(e) => {
                             e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
                           }}
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                        <Eye className="w-6 h-6 text-white" />
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -533,22 +534,22 @@ export default function VendorProductDetail() {
                     const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
                     const docName = doc.split('/').pop() || `Document ${index + 1}`;
                     return (
-                    <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
-                      <FileText className="w-5 h-5 text-blue-400" />
+                      <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                        <FileText className="w-5 h-5 text-theme-cyan" />
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
                           <p className="text-gray-400 text-xs truncate">{docName}</p>
-                      </div>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-theme-cyan border-theme-cyan hover:bg-theme-cyan/10 flex-shrink-0"
                           onClick={() => window.open(docUrl, '_blank')}
                         >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
                     );
                   })}
                 </div>
@@ -565,7 +566,7 @@ export default function VendorProductDetail() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <CheckCircle className="w-4 h-4 text-theme-cyan" />
                     <span className="text-gray-400">Approved By:</span>
                     <span className="text-white">{product.approved_by || 'Admin'}</span>
                   </div>
@@ -596,7 +597,7 @@ export default function VendorProductDetail() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-2">
-                    <XCircle className="w-4 h-4 text-red-400" />
+                    <XCircle className="w-4 h-4 text-theme-red" />
                     <span className="text-gray-400">Rejected By:</span>
                     <span className="text-white">{product.rejected_by || 'Admin'}</span>
                   </div>
@@ -652,15 +653,15 @@ export default function VendorProductDetail() {
 const getStatusColor = (status: string) => {
   switch (status) {
     case "approved":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "pending_approval":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "rejected":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "draft":
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-800 text-gray-400 border-gray-700";
     default:
-      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
+      return "bg-gray-800 text-gray-400 border-gray-700";
   }
 };
 

@@ -192,15 +192,15 @@ export default function BuyerSupport() {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'open':
-        return 'text-green-400 bg-green-900/20';
+        return 'text-theme-cyan bg-theme-cyan/10';
       case 'in_progress':
-        return 'text-blue-400 bg-blue-900/20';
+        return 'text-theme-cyan bg-theme-cyan/20';
       case 'waiting_response':
         return 'text-yellow-400 bg-yellow-900/20';
       case 'resolved':
         return 'text-gray-400 bg-gray-900/20';
       case 'closed':
-        return 'text-red-400 bg-red-900/20';
+        return 'text-theme-red bg-theme-red/10';
       default:
         return 'text-gray-400 bg-gray-900/20';
     }
@@ -213,13 +213,13 @@ export default function BuyerSupport() {
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case 'urgent':
-        return 'bg-red-500';
+        return 'bg-theme-red';
       case 'high':
         return 'bg-orange-500';
       case 'medium':
         return 'bg-yellow-500';
       case 'low':
-        return 'bg-green-500';
+        return 'bg-theme-cyan';
       default:
         return 'bg-gray-500';
     }
@@ -235,7 +235,7 @@ export default function BuyerSupport() {
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center space-x-3">
-            <HelpCircle className="w-8 h-8" />
+            <HelpCircle className="w-8 h-8 text-theme-cyan" />
             <div>
               <h1 className="text-2xl font-bold">Help & Support</h1>
               <p className="text-gray-300">Get help with your account and orders</p>
@@ -247,15 +247,15 @@ export default function BuyerSupport() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border border-gray-700 bg-gray-900 hover:shadow-xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-cyan to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="w-6 h-6 text-black" />
               </div>
               <h3 className="font-semibold text-white mb-2">Live Chat</h3>
               <p className="text-sm text-gray-400 mb-4">
                 Get instant help from our support team
               </p>
               <Button
-                className="w-full bg-gray-700 cursor-pointer"
+                className="w-full bg-theme-cyan text-black hover:bg-theme-cyan/90 cursor-pointer"
                 onClick={() => {
                   toast({
                     title: "Live Chat",
@@ -270,8 +270,8 @@ export default function BuyerSupport() {
 
           <Card className="border border-gray-700 bg-gray-900 hover:shadow-xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 bg-gray-800 border border-gray-700">
+                <Mail className="w-6 h-6 text-theme-cyan" />
               </div>
               <h3 className="font-semibold text-white mb-2">Email Support</h3>
               <p className="text-sm text-gray-400 mb-4">
@@ -291,8 +291,8 @@ export default function BuyerSupport() {
 
           <Card className="border border-gray-700 bg-gray-900 hover:shadow-xl transition-shadow cursor-pointer">
             <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 bg-gray-800 border border-gray-700">
+                <FileText className="w-6 h-6 text-theme-red" />
               </div>
               <h3 className="font-semibold text-white mb-2">Submit Ticket</h3>
               <p className="text-sm text-gray-400 mb-4">
@@ -422,7 +422,7 @@ export default function BuyerSupport() {
                     />
                   </div>
 
-                  <Button type="submit" disabled={isSubmittingTicket} className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Button type="submit" disabled={isSubmittingTicket} className="w-full bg-theme-cyan hover:bg-theme-cyan/90 text-black">
                     {isSubmittingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Submit Ticket
                   </Button>
@@ -457,7 +457,7 @@ export default function BuyerSupport() {
                 <Button
                   onClick={() => setIsCreatingTicket(true)}
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                  className="bg-theme-cyan hover:bg-theme-cyan/90 text-black w-full sm:w-auto"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   New Ticket
@@ -552,7 +552,7 @@ export default function BuyerSupport() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-gray-800 rounded-lg">
-                <FileText className="w-8 h-8 text-blue-600 mx-auto mb-3" />
+                <FileText className="w-8 h-8 text-theme-cyan mx-auto mb-3" />
                 <h4 className="font-medium mb-2">User Guide</h4>
                 <p className="text-sm text-gray-400 mb-3">Complete guide to using our platform</p>
                 <Button
@@ -566,7 +566,7 @@ export default function BuyerSupport() {
               </div>
 
               <div className="text-center p-4 bg-gray-800 rounded-lg">
-                <MessageSquare className="w-8 h-8 text-green-600 mx-auto mb-3" />
+                <MessageSquare className="w-8 h-8 text-theme-red mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Community Forum</h4>
                 <p className="text-sm text-gray-400 mb-3">Connect with other users and get tips</p>
                 <Button
@@ -580,7 +580,7 @@ export default function BuyerSupport() {
               </div>
 
               <div className="text-center p-4 bg-gray-800 rounded-lg">
-                <HelpCircle className="w-8 h-8 text-purple-600 mx-auto mb-3" />
+                <HelpCircle className="w-8 h-8 text-theme-cyan mx-auto mb-3" />
                 <h4 className="font-medium mb-2">Video Tutorials</h4>
                 <p className="text-sm text-gray-400 mb-3">Step-by-step video guides</p>
                 <Button
@@ -614,7 +614,7 @@ export default function BuyerSupport() {
             <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
               <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#AD0539' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-theme-red">
                     <BookOpen className="w-5 h-5 text-white" />
                   </div>
                   <h2 className="text-2xl font-bold text-white">User Guide</h2>
@@ -668,7 +668,7 @@ export default function BuyerSupport() {
             <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
               <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#AD0539' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-theme-red">
                     <Users className="w-5 h-5 text-white" />
                   </div>
                   <h2 className="text-2xl font-bold text-white">Community Forum</h2>
@@ -731,8 +731,7 @@ export default function BuyerSupport() {
                   </div>
 
                   <Button
-                    className="w-full"
-                    style={{ backgroundColor: '#AD0539' }}
+                    className="w-full bg-theme-red hover:bg-theme-red-dark text-white"
                     onClick={() => {
                       toast({
                         title: "Forum Access",
@@ -754,7 +753,7 @@ export default function BuyerSupport() {
             <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
               <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#AD0539' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-theme-red">
                     <Play className="w-5 h-5 text-white" />
                   </div>
                   <h2 className="text-2xl font-bold text-white">Video Tutorials</h2>

@@ -113,30 +113,31 @@ const faqData = [
 const getStatusColor = (status: string) => {
   switch (status) {
     case "Open":
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "In Progress":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Waiting for Response":
-      return "bg-purple-100 text-purple-800 border-purple-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "Resolved":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Closed":
-      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
+      return "bg-gray-700 text-gray-400 border-gray-600";
     default:
-      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
+      return "bg-gray-700 text-gray-400 border-gray-600";
   }
 };
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
     case "High":
-      return "bg-red-500";
+    case "Urgent":
+      return "bg-theme-red";
     case "Medium":
-      return "bg-yellow-500";
+      return "bg-theme-cyan/70";
     case "Low":
-      return "bg-green-500";
+      return "bg-theme-cyan";
     default:
-      return "bg-gray-8000";
+      return "bg-gray-800";
   }
 };
 
@@ -245,7 +246,7 @@ export default function VendorSupport() {
   };
 
   const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = 
+    const matchesSearch =
       ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.ticket_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -280,334 +281,334 @@ export default function VendorSupport() {
   };
 
   return (
-    
-      <div className="space-y-4 sm:space-y-6 relative z-10 p-3 sm:p-0">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Support & Help</h1>
-            <p className="text-gray-400 text-sm sm:text-base">Get help with your vendor account and marketplace features</p>
-          </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-500 hover:bg-blue-600 w-full sm:w-auto text-xs sm:text-sm">
-                <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Create Ticket</span>
-                <span className="sm:hidden">Create</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto">
-              <DialogHeader>
-                <DialogTitle className="text-base sm:text-lg">Create Support Ticket</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
+
+    <div className="space-y-4 sm:space-y-6 relative z-10 p-3 sm:p-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Support & Help</h1>
+          <p className="text-gray-400 text-sm sm:text-base">Get help with your vendor account and marketplace features</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="bg-theme-cyan hover:bg-theme-cyan/80 text-black w-full sm:w-auto text-xs sm:text-sm">
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Create Ticket</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">Create Support Ticket</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Subject</label>
+                <Input
+                  placeholder="Brief description of your issue"
+                  value={newTicket.subject}
+                  onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                  className="text-sm sm:text-base"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Subject</label>
-                  <Input
-                    placeholder="Brief description of your issue"
-                    value={newTicket.subject}
-                    onChange={(e) => setNewTicket({...newTicket, subject: e.target.value})}
-                    className="text-sm sm:text-base"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Category</label>
-                    <Select value={newTicket.category} onValueChange={(value) => setNewTicket({...newTicket, category: value})}>
-                      <SelectTrigger className="text-sm sm:text-base">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="account">Account</SelectItem>
-                        <SelectItem value="payment">Payments</SelectItem>
-                        <SelectItem value="listing">Listings</SelectItem>
-                        <SelectItem value="technical">Technical</SelectItem>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="vendor_application">Vendor Application</SelectItem>
-                        <SelectItem value="order_issue">Order Issue</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Priority</label>
-                    <Select value={newTicket.priority} onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => setNewTicket({...newTicket, priority: value})}>
-                      <SelectTrigger className="text-sm sm:text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Category</label>
+                  <Select value={newTicket.category} onValueChange={(value) => setNewTicket({ ...newTicket, category: value })}>
+                    <SelectTrigger className="text-sm sm:text-base">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="account">Account</SelectItem>
+                      <SelectItem value="payment">Payments</SelectItem>
+                      <SelectItem value="listing">Listings</SelectItem>
+                      <SelectItem value="technical">Technical</SelectItem>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="vendor_application">Vendor Application</SelectItem>
+                      <SelectItem value="order_issue">Order Issue</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Description</label>
-                  <Textarea
-                    placeholder="Describe your issue in detail..."
-                    value={newTicket.description}
-                    onChange={(e) => setNewTicket({...newTicket, description: e.target.value})}
-                    className="min-h-32 text-sm sm:text-base"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
-                  <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base">Cancel</Button>
-                  <Button onClick={handleCreateTicket} disabled={isCreatingTicket} className="bg-blue-500 hover:bg-blue-600 w-full sm:w-auto text-sm sm:text-base">
-                    {isCreatingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Create Ticket
-                  </Button>
+                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Priority</label>
+                  <Select value={newTicket.priority} onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => setNewTicket({ ...newTicket, priority: value })}>
+                    <SelectTrigger className="text-sm sm:text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <Card className="border border-gray-700 bg-gray-900">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xl sm:text-2xl font-bold text-white">
-                    {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : totalTickets}
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">Total Tickets</p>
-                </div>
-                <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0 ml-2" />
+              <div>
+                <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Description</label>
+                <Textarea
+                  placeholder="Describe your issue in detail..."
+                  value={newTicket.description}
+                  onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                  className="min-h-32 text-sm sm:text-base"
+                />
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border border-gray-700 bg-gray-900">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xl sm:text-2xl font-bold text-yellow-600">
-                    {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : openTickets}
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">Open Tickets</p>
-                </div>
-                <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400 flex-shrink-0 ml-2" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border border-gray-700 bg-gray-900">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xl sm:text-2xl font-bold text-purple-600">
-                    {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : waitingResponse}
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">Waiting Response</p>
-                </div>
-                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 flex-shrink-0 ml-2" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border border-gray-700 bg-gray-900">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xl sm:text-2xl font-bold text-green-600">
-                    {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : resolvedTickets}
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">Resolved</p>
-                </div>
-                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-400 flex-shrink-0 ml-2" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Support Tickets */}
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardHeader className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <CardTitle className="text-lg sm:text-xl font-bold text-white">Support Tickets</CardTitle>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search tickets..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full sm:w-64 text-sm sm:text-base"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="waiting_response">Waiting for Response</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
+                <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base">Cancel</Button>
+                <Button onClick={handleCreateTicket} disabled={isCreatingTicket} className="bg-theme-cyan hover:bg-theme-cyan/80 text-black w-full sm:w-auto text-sm sm:text-base">
+                  {isCreatingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Create Ticket
+                </Button>
               </div>
             </div>
-          </CardHeader>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+        <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-4 sm:p-6">
-            <div className="space-y-3 sm:space-y-4">
-              {loading ? (
-                <div className="text-center py-8">
-                  <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-3 sm:mb-4" />
-                  <p className="text-gray-400 text-sm sm:text-base">Loading tickets...</p>
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="text-xl sm:text-2xl font-bold text-white">
+                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : totalTickets}
                 </div>
-              ) : filteredTickets.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-400 text-sm sm:text-base">No tickets found</p>
+                <p className="text-xs sm:text-sm text-gray-400 truncate">Total Tickets</p>
+              </div>
+              <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0 ml-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-gray-700 bg-gray-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
+                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : openTickets}
                 </div>
-              ) : (
-                filteredTickets.map((ticket) => (
-                  <div key={ticket.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
-                        <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                          <h3 className="font-semibold text-white text-sm sm:text-base truncate">{ticket.ticket_id}</h3>
-                          <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(getStatusDisplay(ticket.status))}`}>
-                            {getStatusDisplay(ticket.status)}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] sm:text-xs capitalize">
-                            {ticket.category}
-                          </Badge>
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{ticket.subject}</p>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-[10px] sm:text-xs text-gray-400">
-                          <span>Created: {new Date(ticket.created_at).toLocaleDateString()}</span>
-                          <span className="hidden sm:inline">•</span>
-                          <span>Last update: {new Date(ticket.updated_at).toLocaleDateString()}</span>
-                          <span className="hidden sm:inline">•</span>
-                          <span>{ticket.response_count} responses</span>
-                        </div>
-                      </div>
+                <p className="text-xs sm:text-sm text-gray-400 truncate">Open Tickets</p>
+              </div>
+              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan flex-shrink-0 ml-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-gray-700 bg-gray-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="text-xl sm:text-2xl font-bold text-theme-red">
+                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : waitingResponse}
+                </div>
+                <p className="text-xs sm:text-sm text-gray-400 truncate">Waiting Response</p>
+              </div>
+              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-red flex-shrink-0 ml-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-gray-700 bg-gray-900">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
+                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : resolvedTickets}
+                </div>
+                <p className="text-xs sm:text-sm text-gray-400 truncate">Resolved</p>
+              </div>
+              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan flex-shrink-0 ml-2" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Support Tickets */}
+      <Card className="border border-gray-700 bg-gray-900">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <CardTitle className="text-lg sm:text-xl font-bold text-white">Support Tickets</CardTitle>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search tickets..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-full sm:w-64 text-sm sm:text-base"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="waiting_response">Waiting for Response</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          <div className="space-y-3 sm:space-y-4">
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-3 sm:mb-4" />
+                <p className="text-gray-400 text-sm sm:text-base">Loading tickets...</p>
+              </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400 text-sm sm:text-base">No tickets found</p>
+              </div>
+            ) : (
+              filteredTickets.map((ticket) => (
+                <div key={ticket.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
+                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
+                      <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
                     </div>
 
-                    <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-xs sm:text-sm flex-1 sm:flex-initial"
-                        onClick={() => {
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                        <h3 className="font-semibold text-white text-sm sm:text-base truncate">{ticket.ticket_id}</h3>
+                        <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(getStatusDisplay(ticket.status))}`}>
+                          {getStatusDisplay(ticket.status)}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] sm:text-xs capitalize">
+                          {ticket.category}
+                        </Badge>
+                      </div>
+                      <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{ticket.subject}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-[10px] sm:text-xs text-gray-400">
+                        <span>Created: {new Date(ticket.created_at).toLocaleDateString()}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>Last update: {new Date(ticket.updated_at).toLocaleDateString()}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>{ticket.response_count} responses</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs sm:text-sm flex-1 sm:flex-initial"
+                      onClick={() => {
+                        setSelectedTicketId(ticket.id);
+                        setIsTicketModalOpen(true);
+                      }}
+                    >
+                      <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">View</span>
+                      <span className="sm:hidden">View</span>
+                    </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
+                        <DropdownMenuItem className="text-xs sm:text-sm" onClick={() => {
                           setSelectedTicketId(ticket.id);
                           setIsTicketModalOpen(true);
-                        }}
-                      >
-                        <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">View</span>
-                        <span className="sm:hidden">View</span>
-                      </Button>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
-                          <DropdownMenuItem className="text-xs sm:text-sm" onClick={() => {
-                            setSelectedTicketId(ticket.id);
-                            setIsTicketModalOpen(true);
-                          }}>
-                            <FileText className="w-4 h-4 mr-2" />
-                            View Details
+                        }}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        {ticket.status !== "resolved" && (
+                          <DropdownMenuItem className="text-xs sm:text-sm">
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            Add Response
                           </DropdownMenuItem>
-                          {ticket.status !== "resolved" && (
-                            <DropdownMenuItem className="text-xs sm:text-sm">
-                              <MessageSquare className="w-4 h-4 mr-2" />
-                              Add Response
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-          </CardContent>
-        </Card>
-
-        {/* FAQ Section */}
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-white">Frequently Asked Questions</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            <div className="space-y-4 sm:space-y-6">
-              {faqData.map((category, categoryIndex) => (
-                <div key={categoryIndex}>
-                  <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">{category.category}</h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    {category.questions.map((faq, faqIndex) => (
-                      <div key={faqIndex} className="border border-gray-700 bg-gray-900 rounded-lg p-3 sm:p-4">
-                        <h4 className="font-medium text-white mb-2 text-sm sm:text-base break-words">{faq.question}</h4>
-                        <p className="text-gray-400 text-xs sm:text-sm break-words">{faq.answer}</p>
-                      </div>
-                    ))}
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              ))
+            )}
+          </div>
 
-        {/* Contact Information */}
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-white">Contact Support</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg">
-                <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-2 sm:mb-3" />
-                <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Live Chat</h4>
-                <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">Chat with our support team</p>
-                <p className="text-[10px] sm:text-xs text-blue-600">Available 24/7</p>
-              </div>
-              
-              <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg">
-                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 mx-auto mb-2 sm:mb-3" />
-                <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Email Support</h4>
-                <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3 break-words">vendor-support@cryptomarket.com</p>
-                <p className="text-[10px] sm:text-xs text-green-600">Response within 24h</p>
-              </div>
-              
-              <div className="text-center p-3 sm:p-4 bg-purple-50 rounded-lg sm:col-span-2 lg:col-span-1">
-                <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 mx-auto mb-2 sm:mb-3" />
-                <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Help Center</h4>
-                <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">Browse our documentation</p>
-                <p className="text-[10px] sm:text-xs text-purple-600">Self-service guides</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
-        {/* Ticket Detail Modal */}
-        <TicketDetailModal
-          isOpen={isTicketModalOpen}
-          onClose={() => setIsTicketModalOpen(false)}
-          ticketId={selectedTicketId}
-          isAdmin={false}
-          onTicketUpdated={() => {
-            fetchTickets();
-            fetchStatistics();
-          }}
-        />
-      </div>
-    
+      {/* FAQ Section */}
+      <Card className="border border-gray-700 bg-gray-900">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl font-bold text-white">Frequently Asked Questions</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          <div className="space-y-4 sm:space-y-6">
+            {faqData.map((category, categoryIndex) => (
+              <div key={categoryIndex}>
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">{category.category}</h3>
+                <div className="space-y-3 sm:space-y-4">
+                  {category.questions.map((faq, faqIndex) => (
+                    <div key={faqIndex} className="border border-gray-700 bg-gray-900 rounded-lg p-3 sm:p-4">
+                      <h4 className="font-medium text-white mb-2 text-sm sm:text-base break-words">{faq.question}</h4>
+                      <p className="text-gray-400 text-xs sm:text-sm break-words">{faq.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Contact Information */}
+      <Card className="border border-gray-700 bg-gray-900">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl font-bold text-white">Contact Support</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="text-center p-3 sm:p-4 bg-theme-cyan/20 rounded-lg">
+              <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan mx-auto mb-2 sm:mb-3" />
+              <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Live Chat</h4>
+              <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">Chat with our support team</p>
+              <p className="text-[10px] sm:text-xs text-theme-cyan">Available 24/7</p>
+            </div>
+
+            <div className="text-center p-3 sm:p-4 bg-theme-cyan/10 rounded-lg">
+              <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan mx-auto mb-2 sm:mb-3" />
+              <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Email Support</h4>
+              <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3 break-words">vendor-support@cryptomarket.com</p>
+              <p className="text-[10px] sm:text-xs text-theme-cyan">Response within 24h</p>
+            </div>
+
+            <div className="text-center p-3 sm:p-4 bg-theme-red/10 rounded-lg sm:col-span-2 lg:col-span-1">
+              <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-red mx-auto mb-2 sm:mb-3" />
+              <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Help Center</h4>
+              <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">Browse our documentation</p>
+              <p className="text-[10px] sm:text-xs text-theme-red">Self-service guides</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Ticket Detail Modal */}
+      <TicketDetailModal
+        isOpen={isTicketModalOpen}
+        onClose={() => setIsTicketModalOpen(false)}
+        ticketId={selectedTicketId}
+        isAdmin={false}
+        onTicketUpdated={() => {
+          fetchTickets();
+          fetchStatistics();
+        }}
+      />
+    </div>
+
   );
 }

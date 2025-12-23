@@ -128,6 +128,7 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         """Validate order data"""
         product = data['product']
         quantity = data['quantity']
+        crypto_currency = data['crypto_currency']
         
         # Check if product is available
         if product.status != 'approved':
@@ -137,8 +138,29 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         if product.quantity_available < quantity:
             raise serializers.ValidationError(f"Only {product.quantity_available} units available")
         
-        # Set unit price from product
-        data['unit_price'] = product.price
+        # Convert USD price to Crypto amount
+        # We store the crypto amount in unit_price as per model intention
+        from decimal import Decimal
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            from payments.services import PaymentService
+            payment_service = PaymentService()
+            rate = payment_service.get_fiat_to_crypto_rate(crypto_currency, 'USD')
+            
+            if rate and rate > 0:
+                # rate is price of 1 crypto in USD. e.g. 100,000 USD for 1 BTC
+                # crypto_price = usd_price / rate
+                data['unit_price'] = product.price / rate
+            else:
+                # Fallback rates
+                fallbacks = {'BTC': Decimal('100000'), 'XMR': Decimal('170')}
+                data['unit_price'] = product.price / fallbacks.get(crypto_currency, Decimal('1'))
+        except Exception as e:
+            logger.error(f"Error converting price to crypto: {e}")
+            fallbacks = {'BTC': Decimal('100000'), 'XMR': Decimal('170')}
+            data['unit_price'] = product.price / fallbacks.get(crypto_currency, Decimal('1'))
         
         return data
     

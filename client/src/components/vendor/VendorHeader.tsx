@@ -622,7 +622,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
               <Button variant="ghost" size="sm" className="relative">
                 <Bell className="w-5 h-5 text-gray-300" />
                 {badgeCount && (
-                  <Badge className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-xs p-0 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 min-w-5 h-5 bg-theme-red text-white text-xs p-0 flex items-center justify-center border-none">
                     {badgeCount}
                   </Badge>
                 )}
@@ -678,7 +678,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
               <div className="max-h-[320px] overflow-y-auto">
                 {isLoadingNotifications && displayedNotifications.length === 0 ? (
                   <div className="p-8 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />
+                    <Loader2 className="w-6 h-6 animate-spin text-theme-cyan mx-auto mb-2" />
                     <p className="text-sm text-gray-400">Loading notifications...</p>
                   </div>
                 ) : displayedNotifications.length === 0 ? (
@@ -708,14 +708,14 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                             <div className="flex items-start gap-3">
                               <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.unread
                                 ? n.type === 'review'
-                                  ? 'bg-yellow-500'
+                                  ? 'bg-theme-cyan'
                                   : n.type === 'dispute' || n.type === 'listing_rejection'
-                                    ? 'bg-red-500'
+                                    ? 'bg-theme-red'
                                     : n.type === 'dispute_message'
-                                      ? 'bg-orange-500'
+                                      ? 'bg-theme-red/80'
                                       : n.type === 'dispute_resolved' || n.type === 'listing_approval'
-                                        ? 'bg-green-500'
-                                        : 'bg-blue-500'
+                                        ? 'bg-theme-cyan'
+                                        : 'bg-theme-cyan'
                                 : 'bg-gray-600'
                                 }`} />
                               <div className="flex-1 min-w-0">
@@ -737,7 +737,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                                 handleNotificationDropdownOpen(false);
                                 navigate('/vendor/notifications');
                               }}
-                              className="w-full text-sm text-blue-400 hover:text-blue-300 hover:bg-gray-800"
+                              className="w-full text-sm text-theme-cyan hover:text-theme-cyan/80 hover:bg-gray-800"
                             >
                               View all ({sortedNotifications.length})
                             </Button>
@@ -756,7 +756,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-gradient-to-br from-pink-600 text-white">
+                  <AvatarFallback className="bg-gradient-to-br from-[#4DF8FF] via-[#00d0d9] to-[#008c99] text-white font-bold border border-white/20 shadow-[0_0_15px_rgba(77,248,255,0.4)]">
                     {loading ? "..." : (userData.business_name ? userData.business_name.substring(0, 2).toUpperCase() : userData.username.substring(0, 2).toUpperCase())}
                   </AvatarFallback>
                 </Avatar>
@@ -775,7 +775,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleSwitchToBuyer}
-                className="text-blue-400 focus:text-blue-300 hover:bg-blue-900/20 transition-colors duration-200"
+                className="text-theme-cyan focus:text-theme-cyan/80 hover:bg-theme-cyan/10 transition-colors duration-200"
               >
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
                 <span>Buyer Dashboard</span>
@@ -788,7 +788,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
 
               <DropdownMenuItem
                 onClick={() => setShowLogoutDialog(true)}
-                className="text-red-400 focus:text-red-300"
+                className="text-theme-red focus:text-theme-red/80 hover:bg-theme-red/10"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>

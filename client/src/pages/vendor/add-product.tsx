@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, ArrowLeftCircle, ArrowRightCircle, Upload, Plus, X, CheckCircle, Loader2, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import authService from "@/services/authService";
+import vendorService from "@/services/vendorService";
 
 // API Service
 import { API_BASE_URL, getApiUrl } from '@/config/api';
@@ -47,6 +48,7 @@ interface ProductFormData {
   tags: string[];
   auto_delivery_script: string;
   notes_for_buyer: string;
+  accepted_crypto: string[];
 }
 
 export default function VendorAddProduct() {
@@ -80,6 +82,7 @@ export default function VendorAddProduct() {
     gallery_images: [] as File[],
     documents: [] as File[],
     tags: [] as string[],
+    accepted_crypto: ['BTC', 'XMR'],
 
     // Escrow Settings
     escrow_enabled: false,
@@ -99,6 +102,8 @@ export default function VendorAddProduct() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isVendorBlocked, setIsVendorBlocked] = useState(false);
+  const [btcAddressSet, setBtcAddressSet] = useState(false);
+  const [xmrAddressSet, setXmrAddressSet] = useState(false);
 
   // Check if vendor is blocked from non-escrow listings
   useEffect(() => {
@@ -110,7 +115,7 @@ export default function VendorAddProduct() {
         const user = authService.getCurrentUser();
         if (!user || user.user_type !== 'vendor') return;
 
-        // Fetch user profile to check non_escrow_blocked
+        // Fetch user profile to check status and payout addresses
         const response = await fetch(`${API_BASE_URL}/profile/`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -119,10 +124,16 @@ export default function VendorAddProduct() {
 
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.data?.non_escrow_blocked) {
-            setIsVendorBlocked(true);
-            // Auto-enable escrow if blocked
-            setFormData(prev => ({ ...prev, escrow_enabled: true }));
+          if (data.success && data.data) {
+            // Check if blocked from non-escrow
+            if (data.data.non_escrow_blocked) {
+              setIsVendorBlocked(true);
+              setFormData(prev => ({ ...prev, escrow_enabled: true }));
+            }
+
+            // Set address status from profile payout addresses
+            setBtcAddressSet(!!data.data.btc_payout_address);
+            setXmrAddressSet(!!data.data.xmr_payout_address);
           }
         }
       } catch (error) {
@@ -302,6 +313,16 @@ export default function VendorAddProduct() {
       return;
     }
 
+    // Check if vendor has required wallet addresses set (Requirement: BOTH must be set)
+    if (!btcAddressSet || !xmrAddressSet) {
+      toast({
+        title: "Validation Required",
+        description: "You must configure both Bitcoin (BTC) and Monero (XMR) payout addresses in your Settings before creating a listing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -320,6 +341,9 @@ export default function VendorAddProduct() {
       submitData.append('delivery_time', formData.delivery_time);
       submitData.append('credentials', formData.credentials);
 
+      if (formData.category) submitData.append('category', formData.category);
+      if (formData.sub_category) submitData.append('sub_category', formData.sub_category);
+
       // Optional Fields
       if (formData.account_age) submitData.append('account_age', formData.account_age);
       if (formData.access_method) submitData.append('access_method', formData.access_method);
@@ -327,6 +351,7 @@ export default function VendorAddProduct() {
 
       // Escrow Settings
       submitData.append('escrow_enabled', formData.escrow_enabled.toString());
+      submitData.append('accepted_crypto', JSON.stringify(formData.accepted_crypto));
 
       // Media files
       if (formData.main_image) {
@@ -412,13 +437,13 @@ export default function VendorAddProduct() {
       {[1, 2, 3, 4, 5].map((step) => (
         <div key={step} className="flex items-center">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${step <= currentStep
-            ? "bg-blue-600 border-blue-600 text-white"
+            ? "bg-theme-red border-theme-red text-white"
             : "border-gray-600 text-gray-400"
             }`}>
             {step < currentStep ? <CheckCircle className="w-5 h-5" /> : step}
           </div>
           {step < 5 && (
-            <div className={`w-16 h-1 mx-2 ${step < currentStep ? "bg-blue-600" : "bg-gray-600"
+            <div className={`w-16 h-1 mx-2 ${step < currentStep ? "bg-theme-red" : "bg-gray-600"
               }`} />
           )}
         </div>
@@ -547,7 +572,7 @@ export default function VendorAddProduct() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <Label htmlFor="price" className="text-white">Price (BTC) *</Label>
-                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Input BTC, we save as USD</span>
+                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Input BTC, we save as USD</span>
                   </div>
                   <Input
                     id="price"
@@ -597,6 +622,53 @@ export default function VendorAddProduct() {
                   </Select>
                   {errors.delivery_time && <p className="text-red-500 text-sm mt-1">{errors.delivery_time}</p>}
                 </div>
+              </div>
+
+              <div>
+                <Label className="text-white mb-2 block">Accepted Crypto *</Label>
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="btc_check"
+                      checked={formData.accepted_crypto.includes('BTC')}
+                      onCheckedChange={(checked) => {
+                        const current = [...formData.accepted_crypto];
+                        if (checked) {
+                          if (!current.includes('BTC')) current.push('BTC');
+                        } else {
+                          if (current.includes('BTC') && current.length > 1) {
+                            const idx = current.indexOf('BTC');
+                            current.splice(idx, 1);
+                          }
+                        }
+                        setFormData({ ...formData, accepted_crypto: current });
+                      }}
+                      className="border-gray-600 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                    />
+                    <Label htmlFor="btc_check" className="text-white">Bitcoin (BTC)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="xmr_check"
+                      checked={formData.accepted_crypto.includes('XMR')}
+                      onCheckedChange={(checked) => {
+                        const current = [...formData.accepted_crypto];
+                        if (checked) {
+                          if (!current.includes('XMR')) current.push('XMR');
+                        } else {
+                          if (current.includes('XMR') && current.length > 1) {
+                            const idx = current.indexOf('XMR');
+                            current.splice(idx, 1);
+                          }
+                        }
+                        setFormData({ ...formData, accepted_crypto: current });
+                      }}
+                      className="border-gray-600 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                    />
+                    <Label htmlFor="xmr_check" className="text-white">Monero (XMR)</Label>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Select at least one payment method.</p>
               </div>
 
               <div>
@@ -774,7 +846,7 @@ export default function VendorAddProduct() {
                         setNewTag('');
                       }
                     }}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
                   >
                     Add
                   </Button>
@@ -844,7 +916,7 @@ export default function VendorAddProduct() {
           {/* Basic Information Card */}
           <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-pink-600">Basic Information</CardTitle>
+              <CardTitle className="text-theme-red">Basic Information</CardTitle>
               <CardDescription className="text-gray-400">
                 Essential details about your account listing
               </CardDescription>
@@ -947,7 +1019,7 @@ export default function VendorAddProduct() {
           {/* Pricing & Delivery Card */}
           <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-pink-600">Pricing & Delivery</CardTitle>
+              <CardTitle className="text-theme-red">Pricing & Delivery</CardTitle>
               <CardDescription className="text-gray-400">
                 Set your price and delivery options
               </CardDescription>
@@ -955,17 +1027,47 @@ export default function VendorAddProduct() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="price" className="text-white">Price *</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="price" className="text-white">Price (BTC) *</Label>
+                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Input BTC, we save as USD</span>
+                  </div>
                   <Input
                     id="price"
                     type="number"
-                    step="0.01"
-                    placeholder="e.g., 7.00"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.price ? 'border-red-500' : ''}`}
+                    step="0.00000001"
+                    placeholder="e.g., 0.0001"
+                    value={localBtcPrice}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalBtcPrice(val);
+                      const btc = parseFloat(val);
+                      if (!isNaN(btc)) {
+                        // Rate: 100,000 USD/BTC
+                        const usd = (btc * 100000).toFixed(2);
+                        setFormData({ ...formData, price: usd });
+                      } else {
+                        setFormData({ ...formData, price: '' });
+                      }
+                    }}
+                    className={`bg-[#1a1f2e] border-gray-600 text-white font-mono ${errors.price ? 'border-red-500' : ''}`}
                   />
-                  {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
+                  <div className="flex flex-col gap-2 mt-2">
+                    <div className="flex-1">
+                      {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <div className="text-right bg-green-500/10 px-3 py-1.5 rounded border border-green-500/20">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">Storage (USD)</p>
+                        <p className="text-green-400 font-bold font-mono text-sm">${formData.price || '0.00'}</p>
+                      </div>
+                      <div className="text-right bg-orange-500/10 px-3 py-1.5 rounded border border-orange-500/20">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">Monero (XMR)</p>
+                        <p className="text-orange-400 font-bold font-mono text-sm">
+                          {formData.price ? (parseFloat(formData.price) / 170).toFixed(4) : '0.0000'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -984,6 +1086,53 @@ export default function VendorAddProduct() {
                   </Select>
                   {errors.delivery_time && <p className="text-red-500 text-sm mt-1">{errors.delivery_time}</p>}
                 </div>
+              </div>
+
+              <div>
+                <Label className="text-white mb-2 block">Accepted Crypto *</Label>
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="btc_check_main"
+                      checked={formData.accepted_crypto.includes('BTC')}
+                      onCheckedChange={(checked) => {
+                        const current = [...formData.accepted_crypto];
+                        if (checked) {
+                          if (!current.includes('BTC')) current.push('BTC');
+                        } else {
+                          if (current.includes('BTC') && current.length > 1) {
+                            const idx = current.indexOf('BTC');
+                            current.splice(idx, 1);
+                          }
+                        }
+                        setFormData({ ...formData, accepted_crypto: current });
+                      }}
+                      className="border-gray-600 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                    />
+                    <Label htmlFor="btc_check_main" className="text-white">Bitcoin (BTC)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="xmr_check_main"
+                      checked={formData.accepted_crypto.includes('XMR')}
+                      onCheckedChange={(checked) => {
+                        const current = [...formData.accepted_crypto];
+                        if (checked) {
+                          if (!current.includes('XMR')) current.push('XMR');
+                        } else {
+                          if (current.includes('XMR') && current.length > 1) {
+                            const idx = current.indexOf('XMR');
+                            current.splice(idx, 1);
+                          }
+                        }
+                        setFormData({ ...formData, accepted_crypto: current });
+                      }}
+                      className="border-gray-600 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                    />
+                    <Label htmlFor="xmr_check_main" className="text-white">Monero (XMR)</Label>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Select at least one payment method.</p>
               </div>
 
               <div>
@@ -1046,6 +1195,7 @@ export default function VendorAddProduct() {
                     }
                     setFormData({ ...formData, escrow_enabled: checked });
                   }}
+                  className="data-[state=checked]:bg-theme-cyan"
                 />
               </div>
             </CardContent>
@@ -1054,7 +1204,7 @@ export default function VendorAddProduct() {
           {/* Optional Details Card */}
           <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-pink-600">Optional Details</CardTitle>
+              <CardTitle className="text-theme-red">Optional Details</CardTitle>
               <CardDescription className="text-gray-400">
                 Additional information to enhance your listing
               </CardDescription>
@@ -1103,7 +1253,7 @@ export default function VendorAddProduct() {
           {/* Media & Documents Card */}
           <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-pink-600">Media & Documents</CardTitle>
+              <CardTitle className="text-theme-red">Media & Documents</CardTitle>
               <CardDescription className="text-gray-400">
                 Upload images and documents to showcase your product
               </CardDescription>
@@ -1158,7 +1308,7 @@ export default function VendorAddProduct() {
           {/* Tags Card */}
           <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
             <CardHeader>
-              <CardTitle className="text-pink-600">Tags & Keywords</CardTitle>
+              <CardTitle className="text-theme-red">Tags & Keywords</CardTitle>
               <CardDescription className="text-gray-400">
                 Add tags to help buyers find your product
               </CardDescription>
@@ -1197,7 +1347,7 @@ export default function VendorAddProduct() {
                         setNewTag('');
                       }
                     }}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
                   >
                     Add
                   </Button>
@@ -1240,7 +1390,7 @@ export default function VendorAddProduct() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-bold"
             >
               {isSubmitting ? (
                 <>

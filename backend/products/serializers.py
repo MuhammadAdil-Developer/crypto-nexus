@@ -97,7 +97,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'gallery_images', 'documents', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
-            'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason'
+            'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason', 'accepted_crypto'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
@@ -157,7 +157,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'vendor_username', 'access_method', 'account_age', 'quantity_available',
             'delivery_method', 'special_features', 'region_restrictions',
             'tags', 'documents', 'main_images', 'auto_delivery_script',
-            'notes_for_buyer', 'discount_percentage', 'escrow_enabled'
+            'notes_for_buyer', 'discount_percentage', 'escrow_enabled', 'accepted_crypto'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
@@ -172,8 +172,8 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     # Note: gallery_images and documents are handled manually in create() method
     # They are excluded from Meta fields to avoid validation issues with multiple file uploads
     account_age = serializers.CharField(required=False, allow_blank=True)
-    category = serializers.IntegerField(required=False)
-    sub_category = serializers.IntegerField(required=False)  # Sub-category ID
+    category = serializers.UUIDField(required=False)
+    sub_category = serializers.UUIDField(required=False)  # Sub-category ID
     
     class Meta:
         model = Product
@@ -184,19 +184,55 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'main_image', 'main_images', 'tags',
             'account_age', 'quantity_available', 'special_features', 
             'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
-            'category', 'sub_category', 'escrow_enabled'
+            'category', 'sub_category', 'escrow_enabled', 'accepted_crypto'
         ]
     
     def validate(self, data):
         """Validate product data"""
+        request = self.context.get('request')
+        requester = request.user if request else None
+        
+        # Identify the vendor - if admin is creating for someone else, use that vendor
+        vendor = None
+        vendor_id = data.get('vendor')
+        
+        from users.models import User
+        if vendor_id:
+            try:
+                if isinstance(vendor_id, User):
+                    vendor = vendor_id
+                else:
+                    vendor = User.objects.get(id=vendor_id)
+            except (User.DoesNotExist, ValueError, TypeError):
+                vendor = requester
+        else:
+            vendor = requester
+
+        # Check if vendor has payout addresses configured
+        # This covers both the vendor creating for themselves and admin creating for a vendor
+        if vendor and not self.instance:  # Only for new listings
+            # Only enforce for actual vendors
+            is_vendor = getattr(vendor, 'user_type', None) == 'vendor'
+            if is_vendor:
+                if not vendor.btc_payout_address or not vendor.xmr_payout_address:
+                    raise serializers.ValidationError({
+                        "payout_address": "The vendor must configure both Bitcoin (BTC) and Monero (XMR) payout addresses in settings before creating a listing. This is required for automatic payouts."
+                    })
+
         # Client required fields validation - only for creation, not updates
         if not self.instance:  # Creating new product
             required_fields = ['headline', 'website', 'account_type', 'access_type', 
-                             'description', 'price', 'delivery_time', 'credentials']
+                             'description', 'price', 'delivery_time']
             
+            errors = {}
             for field in required_fields:
-                if not data.get(field):
-                    raise serializers.ValidationError(f"{field} is required")
+                if field not in data or data[field] is None:
+                    errors[field] = f"{field} is required"
+                elif isinstance(data[field], str) and not data[field].strip():
+                    errors[field] = f"{field} cannot be empty"
+            
+            if errors:
+                raise serializers.ValidationError(errors)
         
         return data
     
@@ -355,7 +391,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         validated_data['documents'] = document_paths
         
         # Process JSON fields - ensure they are proper lists
-        json_fields = ['main_images', 'tags', 'special_features']
+        json_fields = ['main_images', 'tags', 'special_features', 'accepted_crypto']
         for field in json_fields:
             if field in validated_data:
                 value = validated_data[field]

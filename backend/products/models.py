@@ -110,6 +110,7 @@ class Product(BaseModel):
     
     # Escrow Settings
     escrow_enabled = models.BooleanField(default=False)  # Enable escrow for this product
+    accepted_crypto = models.JSONField(default=list, db_column='accepted_crypto')  # ['BTC', 'XMR']
     
     # Media
     main_image = models.ImageField(upload_to='products/images/', blank=True, null=True)

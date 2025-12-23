@@ -94,10 +94,10 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
           title: "Success",
           description: "Message sent successfully"
         });
-        
+
         // Refresh messages
         await fetchMessages();
-        
+
         // Notify parent component
         if (onMessageSent) {
           onMessageSent();
@@ -135,9 +135,9 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
   const getSenderColor = (senderType: string) => {
     switch (senderType) {
       case 'admin':
-        return 'bg-blue-500';
+        return 'bg-theme-cyan';
       case 'vendor':
-        return 'bg-green-500';
+        return 'bg-theme-red';
       default:
         return 'bg-gray-500';
     }
@@ -160,7 +160,7 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
         <div className="max-h-96 overflow-y-auto space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
           {loading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-theme-cyan" />
               <p className="text-gray-400">Loading messages...</p>
             </div>
           ) : messages.length === 0 ? (
@@ -176,13 +176,12 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
                 className={`flex ${message.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.sender_type === 'admin'
-                      ? 'bg-blue-600 text-white'
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.sender_type === 'admin'
+                      ? 'bg-theme-cyan text-black'
                       : message.is_internal && isAdmin
-                      ? 'bg-yellow-600 text-white'
-                      : 'bg-gray-700 text-white'
-                  }`}
+                        ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30'
+                        : 'bg-gray-700 text-white'
+                    }`}
                 >
                   {/* Message Header */}
                   <div className="flex items-center justify-between mb-2">
@@ -206,7 +205,7 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
                       <span>{formatTime(message.created_at)}</span>
                     </div>
                   </div>
-                  
+
                   {/* Message Content */}
                   <div className="text-sm whitespace-pre-wrap">
                     {message.message}
@@ -227,14 +226,14 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
                   id="internal"
                   checked={isInternal}
                   onChange={(e) => setIsInternal(e.target.checked)}
-                  className="rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-600 bg-gray-800 text-theme-cyan focus:ring-theme-cyan"
                 />
                 <label htmlFor="internal" className="text-sm text-gray-300">
                   Internal note (visible only to admins)
                 </label>
               </div>
             )}
-            
+
             <div className="flex space-x-2">
               <Textarea
                 placeholder="Type your message..."
@@ -252,7 +251,7 @@ export function TicketConversation({ ticketId, isAdmin = false, onMessageSent, t
               <Button
                 onClick={handleSendMessage}
                 disabled={sending || !newMessage.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-theme-cyan hover:bg-theme-cyan/90 text-black"
               >
                 {sending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

@@ -80,19 +80,19 @@ interface PendingEarnings {
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
     case "completed":
-      return "bg-green-600 text-white border-green-600";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "processing":
-      return "bg-blue-600 text-white border-blue-600";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "ready":
-      return "bg-blue-600 text-white border-blue-600";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "pending":
-      return "bg-yellow-600 text-white border-yellow-600";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "failed":
-      return "bg-red-600 text-white border-red-600";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "cancelled":
-      return "bg-gray-600 text-white border-gray-600";
+      return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     default:
-      return "bg-gray-600 text-white border-gray-600";
+      return "bg-gray-500/10 text-gray-400 border-gray-500/20";
   }
 };
 
@@ -240,13 +240,13 @@ export default function VendorPayouts() {
 
       {/* Balance Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-        <Card className="border border-orange-500/30 bg-gradient-to-br from-orange-900/20 to-orange-800/10">
+        <Card className="border-theme-cyan/30 bg-gradient-to-br from-theme-cyan/10 to-transparent">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-orange-400">
+              <div className="text-theme-cyan">
                 <Wallet className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
-              <Badge className="bg-orange-500 text-white text-xs sm:text-sm">BTC</Badge>
+              <Badge className="bg-theme-cyan text-black hover:bg-theme-cyan/80 text-xs sm:text-sm">BTC</Badge>
             </div>
             <div className="text-xl sm:text-2xl font-bold text-white">
               {loading ? "..." : `${pendingEarnings.btc.amount} BTC`}
@@ -256,13 +256,13 @@ export default function VendorPayouts() {
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-500/30 bg-gradient-to-br from-gray-900/20 to-gray-800/10">
+        <Card className="border-theme-cyan/30 bg-gradient-to-br from-theme-cyan/10 to-transparent">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-gray-400">
+              <div className="text-theme-cyan">
                 <Wallet className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
-              <Badge className="bg-gray-600 text-white text-xs sm:text-sm">XMR</Badge>
+              <Badge className="bg-theme-cyan text-black hover:bg-theme-cyan/80 text-xs sm:text-sm">XMR</Badge>
             </div>
             <div className="text-xl sm:text-2xl font-bold text-white">
               {loading ? "..." : `${pendingEarnings.xmr.amount} XMR`}
@@ -272,13 +272,13 @@ export default function VendorPayouts() {
           </CardContent>
         </Card>
 
-        <Card className="border border-blue-500/30 bg-gradient-to-br from-blue-900/20 to-blue-800/10 sm:col-span-2 lg:col-span-1">
+        <Card className="border-theme-red/30 bg-gradient-to-br from-theme-red/10 to-transparent sm:col-span-2 lg:col-span-1">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-blue-400">
+              <div className="text-theme-red">
                 <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
-              <Badge className="bg-blue-500 text-white text-xs sm:text-sm">TOTAL</Badge>
+              <Badge className="bg-theme-red text-white hover:bg-theme-red/80 text-xs sm:text-sm">TOTAL</Badge>
             </div>
             <div className="text-xl sm:text-2xl font-bold text-white">{loading ? "..." : pendingEarnings.total.usd}</div>
             <p className="text-xs sm:text-sm text-gray-400">Total Pending</p>
@@ -291,28 +291,28 @@ export default function VendorPayouts() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-green-600">${totalPaidOut.toLocaleString()}</div>
+            <div className="text-xl sm:text-2xl font-bold text-theme-cyan">${totalPaidOut.toLocaleString()}</div>
             <p className="text-xs sm:text-sm text-gray-400">Total Paid Out</p>
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-blue-600">{loading ? "..." : payouts.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{loading ? "..." : payouts.length}</div>
             <p className="text-xs sm:text-sm text-gray-400">Total Payouts</p>
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-purple-600">{loading ? "..." : pendingEarnings.total.orders}</div>
+            <div className="text-xl sm:text-2xl font-bold text-theme-red">{loading ? "..." : pendingEarnings.total.orders}</div>
             <p className="text-xs sm:text-sm text-gray-400">Pending Orders</p>
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900">
           <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-orange-600">
+            <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
               {loading ? "..." : payouts.filter(p => p.status === "Completed" || p.status === "completed").length}
             </div>
             <p className="text-xs sm:text-sm text-gray-400">Successful Payouts</p>
@@ -352,7 +352,7 @@ export default function VendorPayouts() {
         <CardContent className="p-4 sm:p-6">
           {loading ? (
             <div className="flex flex-col sm:flex-row items-center justify-center py-8 gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-orange-500"></div>
+              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-theme-cyan"></div>
               <span className="text-gray-400 text-sm sm:text-base">Loading payouts...</span>
             </div>
           ) : error ? (
@@ -371,8 +371,8 @@ export default function VendorPayouts() {
               {filteredPayouts.map((payout) => (
                 <div key={payout.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
                   <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-theme-cyan/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-theme-cyan" />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -408,9 +408,9 @@ export default function VendorPayouts() {
 
                     <div className="flex items-center space-x-2 sm:space-x-2">
                       {payout.status === "Completed" ? (
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-theme-cyan" />
                       ) : payout.status === "Processing" ? (
-                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
+                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-theme-cyan" />
                       ) : null}
 
                       <Button
@@ -420,7 +420,7 @@ export default function VendorPayouts() {
                           setSelectedPayout(payout);
                           setModalOpen(true);
                         }}
-                        className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm"
+                        className="text-theme-cyan hover:text-theme-cyan/80 text-xs sm:text-sm"
                       >
                         <span className="hidden sm:inline">View Details</span>
                         <span className="sm:hidden">View</span>
@@ -503,7 +503,7 @@ export default function VendorPayouts() {
         <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <CardTitle className="text-lg sm:text-xl font-bold text-white flex items-center">
-              <Wallet className="w-5 h-5 sm:w-6 sm:h-6 sm:mr-3 text-orange-400" />
+              <Wallet className="w-5 h-5 sm:w-6 sm:h-6 sm:mr-3 text-theme-cyan" />
               Transaction History
             </CardTitle>
             <Button
@@ -520,7 +520,7 @@ export default function VendorPayouts() {
         <CardContent className="p-4 sm:p-6">
           {transactionsLoading ? (
             <div className="flex flex-col sm:flex-row items-center justify-center py-8 gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-orange-500"></div>
+              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-theme-cyan"></div>
               <span className="text-gray-400 text-sm sm:text-base">Loading transaction history...</span>
             </div>
           ) : transactions.length === 0 ? (
@@ -535,9 +535,9 @@ export default function VendorPayouts() {
                 <div key={transaction.id} className="bg-gray-800 border border-gray-700 rounded-lg p-3 sm:p-4 hover:bg-gray-700 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${transaction.type === 'payout' ? 'bg-green-500' :
-                        transaction.type === 'direct_payment' ? 'bg-blue-500' :
-                          'bg-orange-500'
+                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${transaction.type === 'payout' ? 'bg-theme-cyan' :
+                        transaction.type === 'direct_payment' ? 'bg-theme-cyan' :
+                          'bg-theme-red'
                         }`}></div>
                       <div className="min-w-0 flex-1">
                         <h3 className="font-semibold text-white text-sm sm:text-base break-words">{transaction.description}</h3>
@@ -562,9 +562,9 @@ export default function VendorPayouts() {
                     <div className="sm:col-span-2 lg:col-span-1">
                       <span className="text-gray-400">Status:</span>
                       <div className="mt-1">
-                        <Badge className={`text-[10px] sm:text-xs ${transaction.status === 'completed' || transaction.status === 'confirmed' ? 'bg-green-500 text-white' :
-                          transaction.status === 'pending' ? 'bg-yellow-500 text-white' :
-                            transaction.status === 'failed' ? 'bg-red-500 text-white' :
+                        <Badge className={`text-[10px] sm:text-xs ${transaction.status === 'completed' || transaction.status === 'confirmed' ? 'bg-theme-cyan/10 text-theme-cyan' :
+                          transaction.status === 'pending' ? 'bg-theme-red/10 text-theme-red' :
+                            transaction.status === 'failed' ? 'bg-theme-red text-white' :
                               'bg-gray-500 text-white'
                           }`}>
                           {transaction.status}
@@ -619,7 +619,7 @@ export default function VendorPayouts() {
                         onClick={() => fetchTransactionHistory(page)}
                         disabled={transactionsLoading}
                         className={`text-xs sm:text-sm ${page === currentPage
-                          ? "bg-blue-600 text-white border-blue-600"
+                          ? "bg-theme-cyan text-black border-theme-cyan"
                           : "border-gray-600 text-gray-300 hover:bg-gray-700"
                           }`}
                       >
@@ -752,18 +752,18 @@ export default function VendorPayouts() {
                     </div>
                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                       <span className="text-gray-400 text-xs sm:text-sm">Platform Fee ({selectedPayout.platform_fee_rate || 0}%):</span>
-                      <span className="text-red-400 text-xs sm:text-sm break-words">-{selectedPayout.platform_fee || '0.00000000'} {selectedPayout.method}</span>
+                      <span className="text-theme-red text-xs sm:text-sm break-words">-{selectedPayout.platform_fee || '0.00000000'} {selectedPayout.method}</span>
                     </div>
                     {selectedPayout.type === 'escrow' && (
                       <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                         <span className="text-gray-400 text-xs sm:text-sm">Escrow Fee ({selectedPayout.escrow_fee_rate || 0}%):</span>
-                        <span className="text-red-400 text-xs sm:text-sm break-words">-{selectedPayout.escrow_fee || '0.00000000'} {selectedPayout.method}</span>
+                        <span className="text-theme-red text-xs sm:text-sm break-words">-{selectedPayout.escrow_fee || '0.00000000'} {selectedPayout.method}</span>
                       </div>
                     )}
                     <div className="border-t border-gray-600 pt-2 sm:pt-3">
                       <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                         <span className="text-gray-400 font-semibold text-xs sm:text-sm">Net Amount to Vendor:</span>
-                        <span className="text-green-400 font-bold text-xs sm:text-sm break-words">{selectedPayout.amount}</span>
+                        <span className="text-theme-cyan font-bold text-xs sm:text-sm break-words">{selectedPayout.amount}</span>
                       </div>
                     </div>
                   </div>
@@ -799,7 +799,7 @@ export default function VendorPayouts() {
                   {selectedPayout.type === 'escrow' && selectedPayout.status === 'pending' && (
                     <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                       <span className="text-gray-400 text-xs sm:text-sm">Auto-Release Scheduled:</span>
-                      <span className="text-yellow-400 text-xs sm:text-sm break-words">
+                      <span className="text-theme-cyan text-xs sm:text-sm font-medium break-words">
                         {new Date(new Date(selectedPayout.date).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
                       </span>
                     </div>

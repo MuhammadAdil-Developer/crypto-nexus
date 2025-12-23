@@ -15,28 +15,28 @@ import disputeService, { Dispute } from "@/services/disputeService";
 export default function VendorDisputes() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  
+
   // State
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isResponseModalOpen, setIsResponseModalOpen] = useState(false);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
-  
+
   // Response form
   const [responseText, setResponseText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [respondingToDisputeId, setRespondingToDisputeId] = useState<string | null>(null);
-  
+
   useEffect(() => {
     fetchDisputes();
   }, [page, statusFilter]);
-  
+
   const fetchDisputes = async () => {
     try {
       setLoading(true);
@@ -44,13 +44,13 @@ export default function VendorDisputes() {
         page,
         page_size: 20
       };
-      
+
       if (statusFilter !== 'all') {
         params.status = statusFilter;
       }
-      
+
       const response = await disputeService.getDisputes(params);
-      
+
       if (response.success) {
         setDisputes(response.data);
       } else {
@@ -71,7 +71,7 @@ export default function VendorDisputes() {
       setLoading(false);
     }
   };
-  
+
   const handleViewDetails = async (dispute: Dispute) => {
     // Open immediately, show skeleton while loading
     setIsDetailModalOpen(true);
@@ -93,7 +93,7 @@ export default function VendorDisputes() {
       });
     }
   };
-  
+
   const handleSendResponse = async () => {
     if (!selectedDispute || !responseText.trim()) {
       toast({
@@ -103,23 +103,23 @@ export default function VendorDisputes() {
       });
       return;
     }
-    
+
     setSubmitting(true);
-    
+
     try {
       const response = await disputeService.sendDisputeMessage(selectedDispute.id, {
         message: responseText.trim()
       });
-      
+
       if (response.success) {
         toast({
           title: "Response Sent",
           description: "Your response has been sent successfully",
         });
-        
+
         setIsResponseModalOpen(false);
         setResponseText("");
-        
+
         // Refresh disputes to get updated message count
         fetchDisputes();
       } else {
@@ -140,42 +140,42 @@ export default function VendorDisputes() {
       setSubmitting(false);
     }
   };
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'in_progress': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'resolved': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'open': return 'bg-theme-red/20 text-theme-red border-theme-red/30';
+      case 'in_progress': return 'bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30';
+      case 'resolved': return 'bg-theme-cyan/10 text-theme-cyan border-theme-cyan/30';
       case 'closed': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-      case 'escalated': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'escalated': return 'bg-theme-red/20 text-theme-red border-theme-red/30';
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
-  
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
+      case 'urgent': return 'bg-theme-red';
+      case 'high': return 'bg-theme-red/80';
+      case 'medium': return 'bg-theme-cyan/80';
+      case 'low': return 'bg-theme-cyan';
       default: return 'bg-gray-500';
     }
   };
-  
+
   const filteredDisputes = disputes.filter(dispute => {
-    const matchesSearch = 
+    const matchesSearch =
       dispute.dispute_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dispute.buyer_username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dispute.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dispute.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
-  
+
   const totalDisputes = disputes.length;
   const openDisputes = disputes.filter(d => d.status === "open").length;
   const inProgressDisputes = disputes.filter(d => d.status === "in_progress").length;
   const resolvedDisputes = disputes.filter(d => d.status === "resolved").length;
-  
+
   return (
     <div className="space-y-4 sm:space-y-6 relative z-10 p-3 sm:p-0">
       {/* Header */}
@@ -186,7 +186,7 @@ export default function VendorDisputes() {
         </div>
         <div className="flex items-center space-x-4">
           {openDisputes > 0 && (
-            <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs sm:text-sm">
+            <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 text-xs sm:text-sm">
               {openDisputes} urgent
             </Badge>
           )}
@@ -198,7 +198,7 @@ export default function VendorDisputes() {
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
-              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400 mr-2 sm:mr-4 flex-shrink-0" />
+              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-red mr-2 sm:mr-4 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm text-gray-400 truncate">Total Disputes</p>
                 <p className="text-xl sm:text-2xl font-bold text-white">{totalDisputes}</p>
@@ -206,11 +206,11 @@ export default function VendorDisputes() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400 mr-2 sm:mr-4 flex-shrink-0" />
+              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-theme-red mr-2 sm:mr-4 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm text-gray-400 truncate">Open</p>
                 <p className="text-xl sm:text-2xl font-bold text-white">{openDisputes}</p>
@@ -218,11 +218,11 @@ export default function VendorDisputes() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
-              <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 mr-2 sm:mr-4 flex-shrink-0" />
+              <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan mr-2 sm:mr-4 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm text-gray-400 truncate">In Progress</p>
                 <p className="text-xl sm:text-2xl font-bold text-white">{inProgressDisputes}</p>
@@ -230,11 +230,11 @@ export default function VendorDisputes() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
-              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-400 mr-2 sm:mr-4 flex-shrink-0" />
+              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan mr-2 sm:mr-4 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm text-gray-400 truncate">Resolved</p>
                 <p className="text-xl sm:text-2xl font-bold text-white">{resolvedDisputes}</p>
@@ -251,8 +251,8 @@ export default function VendorDisputes() {
             <div className="flex-1 min-w-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input 
-                  placeholder="Search disputes..." 
+                <Input
+                  placeholder="Search disputes..."
                   className="pl-10 bg-gray-800 border-gray-600 text-white text-sm sm:text-base"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -280,7 +280,7 @@ export default function VendorDisputes() {
       <div className="space-y-4 sm:space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-8 sm:py-12">
-            <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-blue-400" />
+            <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-theme-cyan" />
             <span className="ml-2 text-gray-400 text-sm sm:text-base">Loading disputes...</span>
           </div>
         ) : filteredDisputes.length === 0 ? (
@@ -299,8 +299,8 @@ export default function VendorDisputes() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
                       <div className="flex items-center space-x-2">
-                        <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0" />
-                        <span className="font-mono text-blue-400 text-sm sm:text-base break-all">#{dispute.dispute_id}</span>
+                        <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-theme-red flex-shrink-0" />
+                        <span className="font-mono text-theme-cyan text-sm sm:text-base break-all">#{dispute.dispute_id}</span>
                       </div>
                       <Badge className={`text-[10px] sm:text-xs ${getStatusColor(dispute.status)}`}>
                         {dispute.status.replace('_', ' ').toUpperCase()}
@@ -311,29 +311,28 @@ export default function VendorDisputes() {
                           {dispute.priority.toUpperCase()} PRIORITY
                         </div>
                       </Badge>
-                      
+
                       {/* Resolution Badge */}
                       {dispute.resolution !== 'pending' && (
-                        <Badge className={`text-[10px] sm:text-xs ${
-                          dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial'
-                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                            : 'bg-green-500/20 text-green-400 border-green-500/30'
-                        }`}>
+                        <Badge className={`text-[10px] sm:text-xs ${dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial'
+                          ? 'bg-theme-red/20 text-theme-red border-theme-red/30'
+                          : 'bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30'
+                          }`}>
                           {dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial' ? (
                             <XCircle className="w-3 h-3 mr-1" />
                           ) : (
                             <CheckCircle className="w-3 h-3 mr-1" />
                           )}
                           <span className="text-xs">
-                            {dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial' 
+                            {dispute.resolution === 'buyer_wins' || dispute.resolution === 'refund_full' || dispute.resolution === 'refund_partial'
                               ? 'Lost' : 'Won'}
                           </span>
                         </Badge>
                       )}
                     </div>
-                    
+
                     <h3 className="text-base sm:text-lg font-semibold text-white mb-2 break-words">{dispute.title}</h3>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                       <div className="flex items-center space-x-2">
                         <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -357,7 +356,7 @@ export default function VendorDisputes() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400">
                       <span>Created {new Date(dispute.created_at).toLocaleDateString()}</span>
                       <span className="hidden sm:inline">•</span>
@@ -370,10 +369,10 @@ export default function VendorDisputes() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex flex-row sm:flex-col space-x-2 sm:space-x-0 sm:space-y-2 lg:ml-6 flex-shrink-0">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       className="border-gray-600 text-gray-300 hover:bg-gray-800 flex-1 sm:flex-initial text-xs sm:text-sm"
                       onClick={() => handleViewDetails(dispute)}
@@ -383,9 +382,9 @@ export default function VendorDisputes() {
                       <span className="sm:hidden">View</span>
                     </Button>
                     {(dispute.status === 'open' || dispute.status === 'in_progress') && (
-                      <Button 
+                      <Button
                         size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-initial text-xs sm:text-sm"
+                        className="bg-theme-cyan hover:bg-theme-cyan/80 text-black flex-1 sm:flex-initial text-xs sm:text-sm"
                         disabled={respondingToDisputeId === dispute.id}
                         onClick={async () => {
                           const currentDisputeId = dispute.id;
@@ -396,7 +395,7 @@ export default function VendorDisputes() {
                             const full = resp?.data?.dispute || null;
                             const productId = full?.product || dispute.product;
                             const buyerId = full?.buyer;
-                            
+
                             if (!productId || !buyerId) {
                               toast({
                                 title: "Error",
@@ -406,7 +405,7 @@ export default function VendorDisputes() {
                               setRespondingToDisputeId(null);
                               return;
                             }
-                            
+
                             // Store context so Messages page can auto-open or create conversation
                             messagingService.setProductContextInStorage({
                               id: productId,
@@ -416,7 +415,7 @@ export default function VendorDisputes() {
                               disputeId: dispute.id,
                               buyerUsername: dispute.buyer_username
                             });
-                            
+
                             // Navigate to messages page
                             navigate('/vendor/messages');
                             setRespondingToDisputeId(null);
@@ -460,7 +459,7 @@ export default function VendorDisputes() {
           <DialogHeader>
             <DialogTitle className="text-white text-base sm:text-lg">Dispute Details</DialogTitle>
           </DialogHeader>
-          
+
           {selectedDispute && (
             <div className="space-y-4 sm:space-y-6">
               {/* Basic Info */}
@@ -493,7 +492,7 @@ export default function VendorDisputes() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Parties</h4>
                   <div className="space-y-2 text-xs sm:text-sm">
@@ -516,13 +515,13 @@ export default function VendorDisputes() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Description */}
               <div>
                 <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Description</h4>
                 <p className="text-gray-300 bg-gray-800 p-3 rounded-lg text-xs sm:text-sm break-words">{selectedDispute.description}</p>
               </div>
-              
+
               {/* Resolution Info */}
               {selectedDispute.resolution !== 'pending' && (
                 <div>
@@ -532,7 +531,7 @@ export default function VendorDisputes() {
                       <span className="text-gray-400 text-xs sm:text-sm">Decision:</span>
                       <span className="text-white text-xs sm:text-sm break-words text-right">{selectedDispute.resolution.replace('_', ' ')}</span>
                     </div>
-                    
+
                     {/* Resolution Basis */}
                     <div>
                       <span className="text-gray-400 block mb-2 text-xs sm:text-sm">Resolution Basis:</span>
@@ -544,7 +543,7 @@ export default function VendorDisputes() {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Admin Decision Details */}
                     <div className="border-t border-gray-600 pt-3">
                       <div className="flex justify-between gap-2 mb-2">
@@ -557,29 +556,29 @@ export default function VendorDisputes() {
                           {selectedDispute.resolved_at ? new Date(selectedDispute.resolved_at).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
-                      
+
                       {/* Outcome Summary */}
                       <div className="mt-3">
                         <span className="text-gray-400 block mb-2 text-xs sm:text-sm">Outcome Summary:</span>
                         <div className="bg-gray-700 p-3 rounded-lg">
                           {selectedDispute.resolution === 'buyer_wins' || selectedDispute.resolution === 'refund_full' || selectedDispute.resolution === 'refund_partial' ? (
-                            <div className="flex items-center space-x-2 text-red-400">
+                            <div className="flex items-center space-x-2 text-theme-red">
                               <XCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                               <span className="text-xs sm:text-sm">Decision was in buyer's favor</span>
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-2 text-green-400">
+                            <div className="flex items-center space-x-2 text-theme-cyan">
                               <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
                               <span className="text-xs sm:text-sm">Decision was in your favor</span>
                             </div>
                           )}
                         </div>
                       </div>
-                      
+
                       {selectedDispute.refund_amount && (
                         <div className="flex justify-between gap-2 mt-3">
                           <span className="text-gray-400 text-xs sm:text-sm">Refund Amount:</span>
-                          <span className="text-red-400 font-semibold text-xs sm:text-sm break-words text-right">{selectedDispute.refund_amount} BTC</span>
+                          <span className="text-theme-red font-semibold text-xs sm:text-sm break-words text-right">{selectedDispute.refund_amount} BTC</span>
                         </div>
                       )}
                     </div>
@@ -597,14 +596,14 @@ export default function VendorDisputes() {
           <DialogHeader>
             <DialogTitle className="text-white text-base sm:text-lg">Respond to Dispute</DialogTitle>
           </DialogHeader>
-          
+
           {selectedDispute && (
             <div className="space-y-4 sm:space-y-6">
               <div>
                 <h4 className="text-white font-medium mb-2 text-sm sm:text-base break-words">Dispute: {selectedDispute.title}</h4>
                 <p className="text-gray-400 text-xs sm:text-sm break-words">Respond to buyer: {selectedDispute.buyer_username}</p>
               </div>
-              
+
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                   Your Response *
@@ -618,12 +617,12 @@ export default function VendorDisputes() {
                 />
                 <p className="text-xs text-gray-400 mt-1">{responseText.length}/2000 characters</p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
                 <Button
                   onClick={handleSendResponse}
                   disabled={submitting || !responseText.trim()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto text-sm sm:text-base"
+                  className="bg-theme-cyan hover:bg-theme-cyan/80 text-black w-full sm:w-auto text-sm sm:text-base"
                 >
                   {submitting ? (
                     <>
@@ -637,7 +636,7 @@ export default function VendorDisputes() {
                     </>
                   )}
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   onClick={() => setIsResponseModalOpen(false)}

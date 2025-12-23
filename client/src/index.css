@@ -1,9 +1,46 @@
 /* Google Fonts - EXTERNAL HOSTING: Commented out. Self-host fonts for production */
 /* To self-host: Download fonts and add @font-face declarations here */
 /* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Poppins:wght@300;400;500;600;700;800;900&display=swap'); */
+@import url('https://fonts.cdnfonts.com/css/space-age');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .bg-theme-red {
+    background-color: #A6033E;
+  }
+
+  .text-theme-red {
+    color: #A6033E;
+  }
+
+  .hover\:bg-theme-red-dark:hover {
+    background-color: #850231;
+  }
+
+  .text-theme-cyan {
+    color: #4df8ff;
+  }
+
+  .border-theme-cyan {
+    border-color: #4df8ff;
+  }
+
+  .bg-theme-cyan {
+    background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+  }
+
+  .bg-theme-cyan-dim {
+    background-color: rgba(77, 248, 255, 0.1);
+  }
+
+  .ring-theme-cyan {
+    --tw-ring-color: #4df8ff;
+  }
+}
 
 :root {
   /* Crypto Marketplace Color Tokens - Moderately Lighter */

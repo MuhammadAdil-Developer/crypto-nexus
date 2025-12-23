@@ -137,9 +137,8 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
 
   const getBadgeColor = (title: string, count: number | null): string => {
     if (!count) return '';
-    if (title === 'Messages') return 'bg-red-500'; // Red for Messages
-    if (title === 'Orders' || title === 'Wishlist') return 'bg-blue-500'; // Light blue for Orders/Wishlist
-    return 'bg-blue-500'; // Default blue
+    if (title === 'Messages') return 'bg-theme-red text-white'; // Red for Messages
+    return 'bg-theme-cyan text-black'; // Cyan for others
   };
 
   return (
@@ -190,21 +189,28 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
             <Link key={item.href} to={item.href}>
               <div
                 className={cn(
-                  "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer",
+                  "relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer overflow-hidden",
                   isActive
-                    ? "text-pink-600 bg-pink-600/10"
-                    : "text-white hover:text-pink-600"
+                    ? "text-theme-red bg-theme-red/10"
+                    : "text-white hover:text-theme-red hover:bg-gray-800/40"
                 )}
                 data-testid={`buyer-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                {/* Active state vertical line indicator */}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-theme-red rounded-full shadow-[0_0_8px_rgba(166,3,62,0.6)]" />
+                )}
+                <Icon className={cn("w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110", isActive ? "text-theme-red" : "text-white")} />
 
                 {expanded ? (
                   <div className="ml-3 flex items-center justify-between w-full">
-                    <span className="font-medium">{item.title}</span>
+                    <span className={cn("font-medium transition-colors", isActive ? "text-theme-red font-semibold" : "")}>{item.title}</span>
                     {count !== null && count > 0 && (
                       <Badge
-                        className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center transition-all duration-300 animate-in fade-in zoom-in"
+                        className={cn(
+                          "text-[10px] font-bold px-1.5 py-0 min-w-[18px] h-4.5 flex items-center justify-center rounded-md border-none shadow-md",
+                          badgeColor
+                        )}
                       >
                         {count > 99 ? '99+' : count}
                       </Badge>
@@ -213,7 +219,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
                 ) : (
                   <>
                     {count !== null && count > 0 && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-600 rounded-full"></div>
+                      <div className={cn("absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-gray-900 shadow-sm", item.title === 'Messages' ? 'bg-theme-red' : 'bg-theme-cyan')}></div>
                     )}
 
                     {/* Tooltip */}
@@ -236,14 +242,14 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       <div className="p-2 border-t border-gray-800">
         <Link to="/vendor/apply">
           <div
-            className="relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-white hover:bg-gray-800 hover:text-pink-600"
+            className="relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-white hover:bg-gray-800/40 hover:text-theme-red"
           >
-            <Store className="w-5 h-5 flex-shrink-0" />
+            <Store className="w-5 h-5 flex-shrink-0 group-hover:text-theme-red" />
 
             {expanded ? (
               <div className="ml-3 flex items-center justify-between w-full">
-                <span className="font-medium">Apply as Vendor</span>
-                <ArrowRight className="w-4 h-4" />
+                <span className="font-medium group-hover:text-theme-red transition-colors">Apply as Vendor</span>
+                <ArrowRight className="w-4 h-4 group-hover:text-theme-red transition-transform group-hover:translate-x-1" />
               </div>
             ) : (
               <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
@@ -259,8 +265,8 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
       {/* User Profile */}
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
-            <User className="text-white w-4 h-4" />
+          <div className="w-8 h-8 bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a] rounded-full flex items-center justify-center border border-white/10 shadow-[0_0_12px_rgba(166,3,62,0.3)]">
+            <User className="text-white w-4 h-4 shadow-sm" />
           </div>
           {expanded && (
             <div className="ml-3 min-w-0">

@@ -133,18 +133,20 @@ export default function VendorOverview() {
       const pending = allOrders.filter((o: any) => ['pending', 'pending_payment', 'processing'].includes((o?.order_status || '').toLowerCase())).length;
       setPendingOrdersCount(pending);
 
-      // Calculate total sales and revenue
-      let totalRevenueBTC = 0;
+      // Calculate total sales and revenue in USD
+      let totalRevenueUSD = 0;
       allOrders.forEach((order: any) => {
         const amount = parseFloat(order.total_amount || "0");
-        if ((order.crypto_currency || "").toUpperCase() === "BTC" && !isNaN(amount)) {
-          totalRevenueBTC += amount;
+        const crypto = (order.crypto_currency || "BTC").toUpperCase();
+        if (!isNaN(amount)) {
+          const rate = crypto === 'XMR' ? 170 : 100000;
+          totalRevenueUSD += (amount * rate);
         }
       });
 
-      setTotalSales(`$${totalRevenueBTC.toFixed(2)}`);
-      setTotalRevenue(totalRevenueBTC);
-      setEarnings(totalRevenueBTC * 0.8); // Assume 80% available for withdrawal
+      setTotalSales(`$${totalRevenueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      setTotalRevenue(totalRevenueUSD);
+      setEarnings(totalRevenueUSD * 0.8); // Assume 80% available for withdrawal
       // Calculate disputes from actual dispute service
       try {
         const disputeStats = await disputeService.getDisputeStatistics();
@@ -408,7 +410,7 @@ export default function VendorOverview() {
         {/* ADD LISTING Button - Left Positioned */}
         <div className="flex justify-start mb-4 sm:mb-6 lg:mb-8">
           <Button
-            className="bg-pink-800 hover:bg-pink-700 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg w-full sm:w-auto"
+            className="bg-theme-red hover:bg-theme-red-dark text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg w-full sm:w-auto shadow-lg shadow-theme-red/20"
             onClick={handleAddNewProduct}
           >
             <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
@@ -433,9 +435,9 @@ export default function VendorOverview() {
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">RECENT ORDERS</CardTitle>
+                <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">RECENT ORDERS</CardTitle>
                 <Button
-                  className="bg-pink-800 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto"
+                  className="bg-theme-red hover:bg-theme-red-dark text-white text-xs sm:text-sm w-full sm:w-auto"
                   size="sm"
                   onClick={handleViewAllOrders}
                 >
@@ -477,29 +479,29 @@ export default function VendorOverview() {
                           <div className="text-left sm:text-right flex-shrink-0">
                             <div className="text-xs text-gray-400 mb-1">{formatDate(order.created_at)}</div>
                             <div className="flex items-center gap-1 flex-wrap">
-                              <Badge className={`text-[10px] sm:text-xs ${getStatusDisplay(order) === "Completed"
-                                  ? "bg-emerald-500 text-white border-emerald-400"
-                                  : getStatusDisplay(order) === "Processing"
-                                    ? "bg-blue-500 text-white border-blue-400"
-                                    : getStatusDisplay(order) === "Pending"
-                                      ? "bg-amber-500 text-white border-amber-400"
-                                      : "bg-pink-500 text-white border-pink-400"
+                              <Badge className={`text-[10px] sm:text-xs border-none ${getStatusDisplay(order) === "Completed"
+                                ? "bg-theme-cyan-dim text-theme-cyan"
+                                : getStatusDisplay(order) === "Processing"
+                                  ? "bg-theme-cyan/20 text-theme-cyan"
+                                  : getStatusDisplay(order) === "Pending"
+                                    ? "bg-theme-red/10 text-theme-red"
+                                    : "bg-theme-red text-white"
                                 }`}>
                                 {getStatusDisplay(order)}
                               </Badge>
                               {order.use_escrow && (
                                 <>
-                                  <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4">
+                                  <Badge className="bg-gradient-to-r from-theme-cyan/90 to-theme-cyan/70 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4 shadow-sm shadow-theme-cyan/20">
                                     <Lock className="w-2 h-2 mr-0.5" />
                                     ESCROW
                                   </Badge>
                                   {order.order_status === 'paid' && !order.confirmed_at && (
-                                    <Badge className="bg-orange-500/20 text-orange-300 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
+                                    <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
                                       Awaiting
                                     </Badge>
                                   )}
                                   {order.confirmed_at && (
-                                    <Badge className="bg-green-500/20 text-green-300 text-[9px] sm:text-[10px] px-1 py-0 h-4">
+                                    <Badge className="bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30 text-[9px] sm:text-[10px] px-1 py-0 h-4">
                                       <CheckCircle className="w-2 h-2 mr-0.5" />
                                       Approved
                                     </Badge>
@@ -512,7 +514,7 @@ export default function VendorOverview() {
                         <p className="text-xs sm:text-sm text-gray-300 mb-1 break-words">{order.product.headline}</p>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                           <span className="text-xs sm:text-sm text-gray-400">by {order.buyer.username}</span>
-                          <span className="font-semibold text-pink-600 text-sm sm:text-base">{order.total_amount} {order.crypto_currency}</span>
+                          <span className="font-semibold text-theme-cyan text-sm sm:text-base">{order.total_amount} {order.crypto_currency}</span>
                         </div>
                       </div>
                     </div>
@@ -526,8 +528,8 @@ export default function VendorOverview() {
           <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
             <CardHeader className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">TOP PRODUCTS</CardTitle>
-                <Button className="bg-pink-800 hover:bg-pink-700 text-white text-xs sm:text-sm w-full sm:w-auto" size="sm">
+                <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">TOP PRODUCTS</CardTitle>
+                <Button className="bg-theme-red hover:bg-theme-red-dark text-white text-xs sm:text-sm w-full sm:w-auto" size="sm">
                   <Package className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
                   <span className="sm:inline">Manage</span>
                 </Button>
@@ -573,8 +575,8 @@ export default function VendorOverview() {
                         </div>
                       </div>
                       <div className="text-left sm:text-right flex-shrink-0">
-                        <div className="font-semibold text-pink-600 text-sm sm:text-base">{product.revenue}</div>
-                        <Badge className={`mt-1 text-[10px] sm:text-xs ${product.status === 'Active' ? 'bg-pink-600' : 'bg-gray-600'} text-white`}>
+                        <div className="font-semibold text-theme-cyan text-sm sm:text-base">{product.revenue}</div>
+                        <Badge className={`mt-1 text-[10px] sm:text-xs ${product.status === 'Active' ? 'bg-theme-red text-white' : 'bg-gray-600'} border-none`}>
                           {product.status}
                         </Badge>
                       </div>
@@ -590,11 +592,11 @@ export default function VendorOverview() {
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">RECENT MESSAGES</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">RECENT MESSAGES</CardTitle>
               <Button
                 variant="outline"
                 size="sm"
-                className="border-pink-600 text-pink-400 hover:bg-pink-600 hover:text-white transition-colors text-xs sm:text-sm w-full sm:w-auto"
+                className="border-theme-cyan text-theme-cyan hover:bg-theme-cyan/20 transition-colors text-xs sm:text-sm w-full sm:w-auto"
                 onClick={() => navigate('/vendor/messages')}
               >
                 <MessageSquare className="w-3 h-3 sm:mr-1" />
@@ -635,8 +637,8 @@ export default function VendorOverview() {
                 recentMessages.map((message) => (
                   <div key={message.id} className="flex items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
                     <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-pink-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-semibold text-xs sm:text-sm">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-theme-cyan-dim rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-theme-cyan font-semibold text-xs sm:text-sm">
                           {message.buyer.substring(0, 2).toUpperCase()}
                         </span>
                       </div>
@@ -644,7 +646,7 @@ export default function VendorOverview() {
                         <div className="flex items-center space-x-2 mb-1">
                           <h4 className="font-medium text-white text-sm sm:text-base truncate">{message.buyer}</h4>
                           {message.unread && (
-                            <div className="w-2 h-2 bg-pink-600 rounded-full flex-shrink-0"></div>
+                            <div className="w-2 h-2 bg-theme-red rounded-full flex-shrink-0"></div>
                           )}
                         </div>
                         <p className="text-xs sm:text-sm text-gray-300 break-words">{message.product}</p>
@@ -664,12 +666,12 @@ export default function VendorOverview() {
         {/* Quick Actions */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-pink-600">QUICK ACTIONS</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">QUICK ACTIONS</CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Button
-                className="bg-pink-800 hover:bg-pink-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
+                className="bg-theme-red hover:bg-theme-red-dark text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
                 onClick={() => navigate('/vendor/listings/add')}
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
@@ -677,23 +679,23 @@ export default function VendorOverview() {
                 <span className="sm:hidden">Add</span>
               </Button>
               <Button
-                className="bg-gray-800 hover:bg-gray-600 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
+                className="bg-gray-800 hover:bg-gray-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base group"
                 onClick={() => navigate('/vendor/analytics')}
               >
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 text-gray-400 group-hover:text-theme-cyan transition-colors" />
                 <span className="hidden sm:inline">View Analytics</span>
                 <span className="sm:hidden">Analytics</span>
               </Button>
               <Button
-                className="bg-gray-800 hover:bg-gray-600 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base"
+                className="bg-gray-800 hover:bg-gray-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base group"
                 onClick={() => navigate('/vendor/reviews')}
               >
-                <Star className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+                <Star className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 text-gray-400 group-hover:text-theme-cyan transition-colors" />
                 <span className="hidden sm:inline">Check Reviews</span>
                 <span className="sm:hidden">Reviews</span>
               </Button>
               <Button
-                className="bg-gray-800 hover:bg-gray-600 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base sm:col-span-2 lg:col-span-1"
+                className="bg-gray-800 hover:bg-gray-700 text-white h-14 sm:h-16 cursor-pointer text-sm sm:text-base sm:col-span-2 lg:col-span-1 group"
                 onClick={() => {
                   const userStr = localStorage.getItem('user');
                   if (userStr) {
@@ -709,7 +711,7 @@ export default function VendorOverview() {
                   }
                 }}
               >
-                <Eye className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+                <Eye className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 text-gray-400 group-hover:text-theme-cyan transition-colors" />
                 <span className="hidden sm:inline">Preview Store</span>
                 <span className="sm:hidden">Preview</span>
               </Button>

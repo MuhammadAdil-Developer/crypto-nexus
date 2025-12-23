@@ -59,6 +59,7 @@ def list_products(request):
         account_type = request.GET.get('account_type', '')
         min_price = request.GET.get('min_price', '')
         max_price = request.GET.get('max_price', '')
+        crypto = request.GET.get('crypto', '')
         sort_by = request.GET.get('sort_by', 'created_at')
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
@@ -90,6 +91,10 @@ def list_products(request):
             
         if max_price:
             products = products.filter(price__lte=Decimal(max_price))
+        
+        if crypto:
+            # Handle list field filtering for JSONField
+            products = products.filter(accepted_crypto__contains=[crypto])
         
         # Apply sorting
         if sort_by == 'price_low':
@@ -307,7 +312,7 @@ def get_vendor_products(request):
 @permission_classes([AllowAny])
 def get_vendor_public_products(request, vendor_username):
     """Get public products for a specific vendor by username"""
-    print(f"🔍 get_vendor_public_products called with vendor_username: {vendor_username}")
+    print(f"get_vendor_public_products called with vendor_username: {vendor_username}")
     try:
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
@@ -427,9 +432,13 @@ def create_product(request):
             from users.models import User
             vendor_user = User.objects.get(id=vendor_id)
             
-            # If vendor is blocked from non-escrow and product doesn't have escrow enabled
+            # Handle escrow_enabled as boolean (it might be a string "true"/"false" from FormData)
             escrow_enabled = data.get('escrow_enabled', False)
+            if isinstance(escrow_enabled, str):
+                escrow_enabled = escrow_enabled.lower() == 'true'
+            
             if vendor_user.non_escrow_blocked and not escrow_enabled:
+                logger.warning(f"Vendor {vendor_user.username} is blocked from non-escrow listings")
                 return Response({
                     'success': False,
                     'message': 'This vendor is blocked from creating non-escrow listings. Please enable escrow for this product.',
@@ -438,13 +447,58 @@ def create_product(request):
         except User.DoesNotExist:
             pass  # Will be caught by serializer validation
         
-        # Debug logging
-        logger.info(f"Request data keys: {list(data.keys())}")
-        logger.info(f"Request FILES keys: {list(request.FILES.keys()) if hasattr(request, 'FILES') else 'No FILES'}")
-        logger.info(f"gallery_images type: {type(data.get('gallery_images'))}, value: {data.get('gallery_images')}")
-        logger.info(f"documents type: {type(data.get('documents'))}, value: {data.get('documents')}")
+        # Merged Address Check logic
+        try:
+            if 'vendor_user' not in locals():
+                vendor_user = User.objects.get(id=vendor_id)
+            
+            if getattr(vendor_user, 'user_type', None) == 'vendor':
+                if not vendor_user.btc_payout_address or not vendor_user.xmr_payout_address:
+                    missing = []
+                    if not vendor_user.btc_payout_address: missing.append("Bitcoin (BTC)")
+                    if not vendor_user.xmr_payout_address: missing.append("Monero (XMR)")
+                    
+                    logger.warning(f"Vendor {vendor_user.username} missing payout addresses: {missing}")
+                    return Response({
+                        'success': False,
+                        'message': f'You must configure both Bitcoin (BTC) and Monero (XMR) payout addresses in your settings before creating a listing. Missing: {", ".join(missing)}',
+                        'error_code': 'MISSING_PAYOUT_ADDRESSES'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error checking wallet addresses: {e}")
+
+        # Prepare clean data for the serializer
+        import json
+        serializer_data = {}
         
-        serializer = ProductCreateSerializer(data=data, context={"request": request})
+        # Process regular fields from request.data
+        for key in data.keys():
+            if key in ['accepted_crypto', 'tags', 'special_features']:
+                val = data.get(key)
+                if isinstance(val, str) and val.strip():
+                    try:
+                        serializer_data[key] = json.loads(val)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON for {key}: {val}")
+                        serializer_data[key] = []
+                else:
+                    serializer_data[key] = val or []
+            elif key == 'escrow_enabled':
+                val = data.get(key)
+                serializer_data[key] = str(val).lower() == 'true'
+            else:
+                serializer_data[key] = data.get(key)
+        
+        # Add files to serializer data
+        for key in request.FILES:
+            if key not in ['gallery_images', 'documents']:
+                serializer_data[key] = request.FILES.get(key)
+        
+        # Debug logging
+        logger.info(f"Serializer Data keys: {list(serializer_data.keys())}")
+        logger.info(f"Accepted Crypto value: {serializer_data.get('accepted_crypto')} (type: {type(serializer_data.get('accepted_crypto'))})")
+        
+        serializer = ProductCreateSerializer(data=serializer_data, context={"request": request})
         if serializer.is_valid():
             product = serializer.save()
             
@@ -539,6 +593,7 @@ def create_product(request):
                 'data': ProductSerializer(product, context={'request': request}).data
             }, status=status.HTTP_201_CREATED)
         else:
+            logger.error(f"Serializer validation failed for product creation: {serializer.errors}")
             return Response({
                 'success': False,
                 'message': 'Failed to create product',
@@ -1011,6 +1066,10 @@ def buyer_listings(request):
         
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 50))  # Increased page size
+        search = request.GET.get('search', '')
+        crypto = request.GET.get('crypto', '')
+        min_price = request.GET.get('min_price', '')
+        max_price = request.GET.get('max_price', '')
         
         # Base queryset
         products_qs = Product.objects.filter(
@@ -1018,6 +1077,28 @@ def buyer_listings(request):
             is_active=True,
             is_deleted=False
         ).select_related('vendor', 'category', 'sub_category')
+
+        # Apply search filter
+        if search:
+            from django.db.models import Q
+            products_qs = products_qs.filter(
+                Q(listing_title__icontains=search) |
+                Q(description__icontains=search) |
+                Q(headline__icontains=search) |
+                Q(tags__icontains=search)
+            )
+
+        # Apply crypto filter
+        if crypto:
+            products_qs = products_qs.filter(accepted_crypto__contains=[crypto])
+
+        # Apply price filters
+        if min_price:
+            from decimal import Decimal
+            products_qs = products_qs.filter(price__gte=Decimal(min_price))
+        if max_price:
+            from decimal import Decimal
+            products_qs = products_qs.filter(price__lte=Decimal(max_price))
 
         # Get unique vendor IDs
         vendor_ids = list(set([p.vendor_id for p in products_qs]))
@@ -1286,7 +1367,41 @@ def update_product(request, product_id):
         else:
             product = get_object_or_404(Product, id=product_id, vendor=request.user)
         
+        # Check if updating accepted_crypto and validate wallet addresses
+        data = request.data
+        if 'accepted_crypto' in data:
+            try:
+                # accepted_crypto might be a list or a string
+                accepted_crypto = data.get('accepted_crypto')
+                if isinstance(accepted_crypto, str):
+                    import json
+                    try:
+                        accepted_crypto = json.loads(accepted_crypto)
+                    except:
+                        pass
+                
+                if isinstance(accepted_crypto, list):
+                     # Use the product's vendor
+                     vendor_user = product.vendor
+                     
+                     if 'BTC' in accepted_crypto and not vendor_user.btc_payout_address:
+                        return Response({
+                            'success': False,
+                            'message': 'You must set your Bitcoin wallet address in settings before listing a product that accepts Bitcoin.',
+                            'error_code': 'MISSING_BTC_WALLET'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                        
+                     if 'XMR' in accepted_crypto and not vendor_user.xmr_payout_address:
+                        return Response({
+                            'success': False,
+                            'message': 'You must set your Monero wallet address in settings before listing a product that accepts Monero.',
+                            'error_code': 'MISSING_XMR_WALLET'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Error checking wallet addresses in update: {e}")
+
         serializer = ProductCreateSerializer(product, data=request.data, partial=True)
+
         if serializer.is_valid():
             serializer.save()
             

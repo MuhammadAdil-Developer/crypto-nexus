@@ -828,7 +828,7 @@ export default function VendorMessages() {
     return (
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
         <div className="flex items-center space-x-3">
-          <MessageSquare className="w-5 h-5 text-blue-400" />
+          <MessageSquare className="w-5 h-5 text-theme-cyan" />
           <span className="text-white font-semibold">Conversation</span>
         </div>
         {(() => {
@@ -842,7 +842,7 @@ export default function VendorMessages() {
             try {
               const context = JSON.parse(disputeContext);
               if (context.conversationId === selectedConversation.id && context.disputeId) {
-                return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>;
+                return <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30">DISPUTE CHAT</Badge>;
               }
             } catch (e) {
               // Ignore parse errors
@@ -854,7 +854,7 @@ export default function VendorMessages() {
             try {
               const context = JSON.parse(refundContext);
               if (context.conversationId === selectedConversation.id && context.refundId) {
-                return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>;
+                return <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 uppercase">Refund Request</Badge>;
               }
             } catch (e) {
               // Ignore parse errors
@@ -890,10 +890,10 @@ export default function VendorMessages() {
             );
             if (productRefMessage) {
               if (productRefMessage.metadata?.refund_id) {
-                return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">REFUND CHAT</Badge>;
+                return <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 uppercase">Refund Request</Badge>;
               }
               if (productRefMessage.metadata?.dispute_id) {
-                return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">DISPUTE CHAT</Badge>;
+                return <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30">DISPUTE CHAT</Badge>;
               }
             }
           }
@@ -1031,7 +1031,7 @@ export default function VendorMessages() {
           <p className="text-gray-300 text-sm sm:text-base">Communicate with your customers</p>
         </div>
         <div className="flex items-center space-x-4">
-          <Badge className="bg-red-100 text-red-800 text-xs sm:text-sm">
+          <Badge className="bg-theme-red/10 text-theme-red border-theme-red/20 text-xs sm:text-sm">
             {totalUnread} unread
           </Badge>
         </div>
@@ -1045,8 +1045,8 @@ export default function VendorMessages() {
               <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Total Conversations</p>
               <p className="text-xl sm:text-2xl font-bold text-white">{conversations.length}</p>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 ml-2">
-              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-theme-cyan/20 flex items-center justify-center flex-shrink-0 ml-2">
+              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-theme-cyan" />
             </div>
           </div>
         </div>
@@ -1057,8 +1057,8 @@ export default function VendorMessages() {
               <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Unread Messages</p>
               <p className="text-xl sm:text-2xl font-bold text-white">{totalUnread}</p>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center flex-shrink-0 ml-2">
-              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-theme-red/20 flex items-center justify-center flex-shrink-0 ml-2">
+              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-theme-red" />
             </div>
           </div>
         </div>
@@ -1069,8 +1069,8 @@ export default function VendorMessages() {
               <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Active Buyers</p>
               <p className="text-xl sm:text-2xl font-bold text-white">{new Set(conversations.map(c => c.participants?.find((p: any) => p.id !== localStorage.getItem('userId'))?.id).filter(Boolean)).size}</p>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 ml-2">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-theme-cyan/20 flex items-center justify-center flex-shrink-0 ml-2">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-theme-cyan" />
             </div>
           </div>
         </div>
@@ -1081,8 +1081,8 @@ export default function VendorMessages() {
               <p className="text-xs sm:text-sm text-gray-400 mb-1 truncate">Avg Response Time</p>
               <p className="text-xl sm:text-2xl font-bold text-white">2h</p>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center flex-shrink-0 ml-2">
-              <Star className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-theme-cyan to-theme-red flex items-center justify-center flex-shrink-0 ml-2">
+              <Star className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
             </div>
           </div>
         </div>
@@ -1122,14 +1122,14 @@ export default function VendorMessages() {
                     <div
                       key={conv.id}
                       className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${selectedConversation?.id === conv.id
-                        ? 'bg-blue-900/20 border-r-2 border-blue-500'
+                        ? 'bg-theme-cyan/10 border-r-2 border-theme-cyan'
                         : 'hover:bg-gray-800'
                         }`}
                       onClick={() => handleConversationSelect(conv)}
                     >
                       <div className="flex items-center space-x-2 sm:space-x-3">
-                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
-                          <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
+                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-theme-cyan-dim flex-shrink-0">
+                          <AvatarFallback className="text-theme-cyan font-semibold text-xs sm:text-sm">
                             {buyer?.username?.charAt(0) || 'B'}
                           </AvatarFallback>
                         </Avatar>
@@ -1145,7 +1145,7 @@ export default function VendorMessages() {
                               </span>
                             </div>
                             {conv.unread_count > 0 && (
-                              <Badge className="bg-red-500 text-white text-[10px] sm:text-xs flex-shrink-0">
+                              <Badge className="bg-theme-red text-white text-[10px] sm:text-xs flex-shrink-0">
                                 {conv.unread_count}
                               </Badge>
                             )}
@@ -1181,14 +1181,14 @@ export default function VendorMessages() {
               <CardHeader className="border-b p-3 sm:p-6">
                 <div className="flex items-center justify-between gap-2 sm:gap-4">
                   <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
-                      <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
+                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-theme-cyan-dim flex-shrink-0">
+                      <AvatarFallback className="text-theme-cyan font-semibold text-xs sm:text-sm">
                         {getBuyerFromConversation(selectedConversation)?.username?.charAt(0) || 'B'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <h3
-                        className="font-semibold text-white flex items-center space-x-2 text-sm sm:text-base cursor-pointer hover:text-blue-400 transition-colors"
+                        className="font-semibold text-white flex items-center space-x-2 text-sm sm:text-base cursor-pointer hover:text-theme-cyan transition-colors"
                         onClick={handleOpenUserProfile}
                       >
                         <span className="truncate">{getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}</span>
@@ -1298,12 +1298,12 @@ export default function VendorMessages() {
                           Report User
                         </DropdownMenuItem>
                         {isConversationLocked ? (
-                          <DropdownMenuItem onClick={handleUnblockUser} className="text-green-600 text-xs sm:text-sm">
+                          <DropdownMenuItem onClick={handleUnblockUser} className="text-theme-cyan text-xs sm:text-sm">
                             <Shield className="w-4 h-4 mr-2" />
                             Unblock Chat
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={handleBlockUser} className="text-red-600 text-xs sm:text-sm">
+                          <DropdownMenuItem onClick={handleBlockUser} className="text-theme-red text-xs sm:text-sm">
                             <Lock className="w-4 h-4 mr-2" />
                             Block Chat
                           </DropdownMenuItem>
@@ -1312,7 +1312,7 @@ export default function VendorMessages() {
                           <User className="w-4 h-4 mr-2" />
                           View Profile
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleDeleteChat} className="text-red-600 text-xs sm:text-sm">
+                        <DropdownMenuItem onClick={handleDeleteChat} className="text-theme-red text-xs sm:text-sm">
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete Chat
                         </DropdownMenuItem>
@@ -1327,7 +1327,7 @@ export default function VendorMessages() {
                 {loadingMessages ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                      <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-theme-cyan mx-auto mb-2"></div>
                       <p className="text-gray-400 text-xs sm:text-sm">Loading messages...</p>
                     </div>
                   </div>
@@ -1383,18 +1383,14 @@ export default function VendorMessages() {
                         // Determine background color based on chat type
                         const isRefund = message.metadata?.refund_id;
                         const isDispute = message.metadata?.dispute_id;
-                        let bgColor = 'bg-blue-300/80 border-blue-400/50'; // Normal chat
-                        let textColor = 'text-blue-900';
-                        let borderColor = 'border-blue-400/50';
+                        let bgColor = 'bg-theme-cyan/20 border-theme-cyan/30'; // Normal chat
+                        let textColor = 'text-theme-cyan';
+                        let borderColor = 'border-theme-cyan/30';
 
-                        if (isRefund) {
-                          bgColor = 'bg-orange-300/80 border-orange-400/50';
-                          textColor = 'text-orange-900';
-                          borderColor = 'border-orange-400/50';
-                        } else if (isDispute) {
-                          bgColor = 'bg-red-300/80 border-red-400/50';
-                          textColor = 'text-red-900';
-                          borderColor = 'border-red-400/50';
+                        if (isRefund || isDispute) {
+                          bgColor = 'bg-theme-red/20 border-theme-red/30';
+                          textColor = 'text-theme-red';
+                          borderColor = 'border-theme-red/30';
                         }
 
                         return (
@@ -1402,7 +1398,7 @@ export default function VendorMessages() {
                             <div className="relative max-w-md">
                               {/* Arrow pointing down */}
                               <div className={`absolute -bottom-3 z-10 ${isFirstMessageFromCurrentUser ? 'right-4' : 'left-4'}`}>
-                                <div className={`w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent ${isRefund ? 'border-t-orange-300/80' : isDispute ? 'border-t-red-300/80' : 'border-t-blue-300/80'}`}></div>
+                                <div className={`w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent ${isRefund || isDispute ? 'border-t-theme-red/20' : 'border-t-theme-cyan/20'}`}></div>
                               </div>
 
                               {/* Product reference box with color based on chat type */}
@@ -1415,14 +1411,14 @@ export default function VendorMessages() {
                                       className="w-10 h-10 rounded object-cover"
                                     />
                                   ) : (
-                                    <div className={`w-10 h-10 rounded ${isRefund ? 'bg-orange-400' : isDispute ? 'bg-red-400' : 'bg-blue-400'} flex items-center justify-center`}>
-                                      <Package className={`w-5 h-5 ${isRefund ? 'text-orange-900' : isDispute ? 'text-red-900' : 'text-blue-900'}`} />
+                                    <div className={`w-10 h-10 rounded ${isRefund ? 'bg-theme-red' : isDispute ? 'bg-theme-red' : 'bg-theme-cyan'} flex items-center justify-center`}>
+                                      <Package className={`w-5 h-5 ${isRefund ? 'text-white' : isDispute ? 'text-white' : 'text-black'}`} />
                                     </div>
                                   )}
                                   <div className="flex-1 min-w-0">
-                                    <p className={`text-xs ${isRefund ? 'text-orange-700' : isDispute ? 'text-red-700' : 'text-blue-700'} mb-1`}>This message is related to:</p>
+                                    <p className={`text-xs ${isRefund || isDispute ? 'text-theme-red/70' : 'text-theme-cyan/70'} mb-1`}>This message is related to:</p>
                                     <h4 className={`font-medium text-sm ${textColor} truncate`}>{message.metadata?.product_title}</h4>
-                                    <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
+                                    <p className={`text-xs ${isRefund || isDispute ? 'text-theme-red/80' : 'text-theme-cyan/80'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
                                   </div>
                                 </div>
                               </div>
@@ -1478,7 +1474,7 @@ export default function VendorMessages() {
                                 {message.message_type === 'pdf' ? (
                                   <File className="w-5 h-5 text-red-400" />
                                 ) : (
-                                  <File className="w-5 h-5 text-blue-400" />
+                                  <File className="w-5 h-5 text-theme-cyan" />
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs sm:text-sm font-medium truncate">{message.metadata?.file_name || 'File'}</p>
@@ -1521,11 +1517,11 @@ export default function VendorMessages() {
                           className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                         >
                           <div className={`max-w-[75%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${isOwnMessage
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-8'
+                            ? 'bg-theme-cyan text-black ml-8'
                             : 'bg-gray-700 text-white mr-8'
                             }`}>
                             {renderMessageContent()}
-                            <p className={`text-[10px] sm:text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-400'
+                            <p className={`text-[10px] sm:text-xs mt-1 ${isOwnMessage ? 'text-black/60' : 'text-gray-400'
                               }`}>
                               {formatTime(message.created_at)}
                             </p>
@@ -1538,7 +1534,7 @@ export default function VendorMessages() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-6 w-6 p-0 hover:bg-white/30 text-blue-200 hover:text-white bg-white/10"
+                                      className="h-6 w-6 p-0 hover:bg-black/30 text-black/50 hover:text-black bg-black/10"
                                     >
                                       <MoreVertical className="w-4 h-4" />
                                     </Button>
@@ -1558,7 +1554,7 @@ export default function VendorMessages() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => handleDeleteMessage(message)}
-                                      className="text-red-600"
+                                      className="text-theme-red"
                                     >
                                       <Archive className="w-4 h-4 mr-2" />
                                       Delete
@@ -1592,7 +1588,7 @@ export default function VendorMessages() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => handleReportMessage(message)}
-                                      className="text-red-600"
+                                      className="text-theme-red"
                                     >
                                       <Archive className="w-4 h-4 mr-2" />
                                       Report
@@ -1626,7 +1622,7 @@ export default function VendorMessages() {
                   <div className="absolute bottom-24 right-6 z-10">
                     <Button
                       size="sm"
-                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg"
+                      className="bg-theme-cyan hover:bg-theme-cyan/80 text-black rounded-full shadow-lg"
                       onClick={scrollToBottom}
                     >
                       <ArrowDown className="w-4 h-4" />
@@ -1755,7 +1751,7 @@ export default function VendorMessages() {
                       ) : selectedFile.type.startsWith('video/') ? (
                         <Video className="w-5 h-5 text-purple-400" />
                       ) : (
-                        <File className="w-5 h-5 text-blue-400" />
+                        <File className="w-5 h-5 text-theme-cyan" />
                       )}
                       <span className="text-sm text-white flex-1 truncate">{selectedFile.name}</span>
                       <Button
@@ -1934,7 +1930,7 @@ export default function VendorMessages() {
                     />
                     <Button
                       size="sm"
-                      className="bg-blue-500 hover:bg-blue-600 h-9 sm:h-10 w-9 sm:w-10 p-0 flex-shrink-0"
+                      className="bg-theme-cyan hover:bg-theme-cyan/80 text-black h-9 sm:h-10 w-9 sm:w-10 p-0 flex-shrink-0"
                       disabled={(!newMessage.trim() && !selectedFile) || isConversationLocked}
                       onClick={handleSendMessage}
                     >
@@ -2062,8 +2058,8 @@ export default function VendorMessages() {
             <div className="p-6">
               {/* User Avatar and Name */}
               <div className="flex flex-col items-center mb-6">
-                <Avatar className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 mb-3">
-                  <AvatarFallback className="text-white font-semibold text-2xl">
+                <Avatar className="w-20 h-20 bg-theme-cyan-dim mb-3">
+                  <AvatarFallback className="text-theme-cyan font-semibold text-2xl">
                     {getBuyerFromConversation(selectedConversation)?.username?.charAt(0).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
@@ -2135,8 +2131,8 @@ export default function VendorMessages() {
                     }}
                     className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-800 transition-colors text-left"
                   >
-                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <Info className="w-4 h-4 text-blue-400" />
+                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                      <Info className="w-4 h-4 text-theme-cyan" />
                     </div>
                     <span className="text-sm text-gray-300">Report User</span>
                   </button>
@@ -2204,7 +2200,7 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'all'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-theme-cyan text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
@@ -2213,7 +2209,7 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('image')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'image'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-theme-cyan text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
@@ -2222,7 +2218,7 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('video')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'video'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-theme-cyan text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
@@ -2231,7 +2227,7 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('pdf')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'pdf'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-theme-cyan text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >
@@ -2240,7 +2236,7 @@ export default function VendorMessages() {
               <button
                 onClick={() => setAttachmentFilter('file')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${attachmentFilter === 'file'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-theme-cyan text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
               >

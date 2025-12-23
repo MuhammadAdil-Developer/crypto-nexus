@@ -27,12 +27,12 @@ function VendorPublicListingsContent() {
         setLoadingStats(false);
         return;
       }
-      
+
       try {
         setError(null);
         setLoading(true);
         setLoadingStats(true);
-        
+
         // Load vendor statistics
         try {
           const statsRes = await vendorService.getVendorStatistics(vendorUsername);
@@ -44,12 +44,12 @@ function VendorPublicListingsContent() {
         } finally {
           setLoadingStats(false);
         }
-        
+
         // Load products with pagination
         console.log('🔍 Fetching products for vendor:', vendorUsername, 'page:', currentPage);
         const res = await productService.getVendorPublicProducts(vendorUsername, { page: currentPage, page_size: pageSize });
         console.log('🔍 API Response:', res);
-        
+
         if (res.success && res.data) {
           setProducts(res.data);
           if (res.pagination) {
@@ -82,7 +82,7 @@ function VendorPublicListingsContent() {
       <div className="p-6">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" />
+            <Loader2 className="w-8 h-8 text-theme-cyan animate-spin mx-auto mb-4" />
             <p className="text-gray-400">Loading vendor store...</p>
           </div>
         </div>
@@ -123,7 +123,7 @@ function VendorPublicListingsContent() {
         <Card className="bg-gray-900 border-gray-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+              <Loader2 className="w-6 h-6 text-theme-cyan animate-spin" />
             </div>
           </CardContent>
         </Card>
@@ -133,7 +133,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Calendar className="w-5 h-5 text-blue-500" />
+                <Calendar className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Member Since</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.member_since || 'N/A'}</p>
@@ -144,7 +144,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Package className="w-5 h-5 text-green-500" />
+                <Package className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Active Listings</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.active_listings || 0}</p>
@@ -155,7 +155,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-green-500" />
+                <TrendingUp className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Total Sales</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.total_sales || 0}</p>
@@ -166,7 +166,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                <Star className="w-5 h-5 text-theme-red fill-current" />
                 <h3 className="text-sm font-medium text-gray-400">Vendor Rating</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.vendor_rating || 'No rating'}</p>
@@ -177,7 +177,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Award className="w-5 h-5 text-purple-500" />
+                <Award className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Completion Rate</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.completion_rate || '100%'}</p>
@@ -188,7 +188,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Star className="w-5 h-5 text-blue-500" />
+                <Star className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Total Reviews</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.total_reviews || 0}</p>
@@ -199,7 +199,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Eye className="w-5 h-5 text-cyan-500" />
+                <Eye className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Total Views</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.total_views || 0}</p>
@@ -210,7 +210,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Star className="w-5 h-5 text-pink-500" />
+                <Star className="w-5 h-5 text-theme-red" />
                 <h3 className="text-sm font-medium text-gray-400">Total Favorites</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.total_favorites !== undefined ? vendorStats.total_favorites : 0}</p>
@@ -221,7 +221,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <Users className="w-5 h-5 text-indigo-500" />
+                <Users className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Unique Buyers</h3>
               </div>
               <p className="text-xl font-bold text-white">{vendorStats.unique_buyers || 'N/A'}</p>
@@ -232,7 +232,7 @@ function VendorPublicListingsContent() {
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <DollarSign className="w-5 h-5 text-green-500" />
+                <DollarSign className="w-5 h-5 text-theme-cyan" />
                 <h3 className="text-sm font-medium text-gray-400">Total Earnings</h3>
               </div>
               <p className="text-xl font-bold text-white">
@@ -246,7 +246,7 @@ function VendorPublicListingsContent() {
             <Card className="bg-gray-900 border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Calendar className="w-5 h-5 text-orange-500" />
+                  <Calendar className="w-5 h-5 text-theme-red" />
                   <h3 className="text-sm font-medium text-gray-400">Last Sale</h3>
                 </div>
                 <p className="text-xl font-bold text-white">{vendorStats.last_sale_date}</p>
@@ -259,7 +259,7 @@ function VendorPublicListingsContent() {
             <Card className="bg-gray-900 border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Award className="w-5 h-5 text-yellow-500" />
+                  <Award className="w-5 h-5 text-theme-cyan" />
                   <h3 className="text-sm font-medium text-gray-400">Most Selling</h3>
                 </div>
                 <p className="text-sm font-bold text-white truncate" title={vendorStats.most_selling_product}>
@@ -270,7 +270,7 @@ function VendorPublicListingsContent() {
           )}
         </div>
       )}
-      
+
       {/* Products Section */}
       <Card className="bg-gray-900 border-gray-700">
         <CardHeader>
@@ -282,7 +282,7 @@ function VendorPublicListingsContent() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+              <Loader2 className="w-8 h-8 text-theme-cyan animate-spin" />
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-12">
@@ -297,7 +297,7 @@ function VendorPublicListingsContent() {
                   <ProductCard key={product.id} product={product as any} viewMode="grid" />
                 ))}
               </div>
-              
+
               {/* Pagination */}
               {pagination && pagination.total_pages > 1 && (
                 <div className="mt-6">

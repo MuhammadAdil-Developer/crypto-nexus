@@ -156,7 +156,9 @@ class PaymentStatusView(APIView):
             status_data = payment_service.check_payment_status(order_id)
             
             if 'error' in status_data:
-                return Response(status_data, status=status.HTTP_404_NOT_FOUND)
+                if status_data['error'] == 'Payment not found':
+                    return Response(status_data, status=status.HTTP_404_NOT_FOUND)
+                return Response(status_data, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             
             return Response(status_data, status=status.HTTP_200_OK)
             
@@ -362,6 +364,38 @@ class SupportedCurrenciesView(APIView):
                 {'error': 'Failed to fetch supported currencies'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class ExchangeRateView(APIView):
+    """API for getting exchange rates"""
+    
+    def get(self, request):
+        try:
+            crypto = request.query_params.get('crypto', 'BTC')
+            fiat = request.query_params.get('fiat', 'USD')
+            
+            payment_service = PaymentService()
+            rate = payment_service.get_fiat_to_crypto_rate(crypto, fiat)
+            
+            if rate:
+                return Response({
+                    'crypto': crypto,
+                    'fiat': fiat,
+                    'rate': str(rate)
+                })
+            else:
+                return Response(
+                    {'error': 'Failed to fetch rate'}, 
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+                
+        except Exception as e:
+            logger.error(f"Exchange rate view error: {str(e)}")
+            return Response(
+                {'error': 'Internal error'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 
 class AdminEscrowView(APIView):

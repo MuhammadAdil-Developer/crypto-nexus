@@ -11,6 +11,7 @@ import { productService } from "@/services/productService";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/ToastContainer";
 import { getImageUrl, getApiUrl } from "@/config/api";
+import authService from "@/services/authService";
 
 export default function VendorEditProduct() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,8 @@ export default function VendorEditProduct() {
   const [localBtcPrice, setLocalBtcPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<VendorProduct | null>(null);
+  const [btcAddressSet, setBtcAddressSet] = useState(false);
+  const [xmrAddressSet, setXmrAddressSet] = useState(false);
 
   useEffect(() => {
     if (product && product.price) {
@@ -64,7 +67,8 @@ export default function VendorEditProduct() {
     notes_for_buyer: '',
 
     // Status
-    status: 'pending_approval'
+    status: 'pending_approval',
+    accepted_crypto: ['BTC', 'XMR']
   });
 
   // Image management state
@@ -127,7 +131,8 @@ export default function VendorEditProduct() {
             notes_for_buyer: foundProduct.notes_for_buyer || '',
 
             // Status
-            status: foundProduct.status || 'pending_approval'
+            status: foundProduct.status || 'pending_approval',
+            accepted_crypto: foundProduct.accepted_crypto || ['BTC', 'XMR']
           });
 
           // Set existing images
@@ -167,7 +172,26 @@ export default function VendorEditProduct() {
       }
     };
 
+
+
     fetchProduct();
+
+    // Check vendor wallet status
+    const checkVendorStatus = async () => {
+      try {
+        const user = authService.getCurrentUser();
+        if (user) {
+          const vendorStatus = await vendorService.checkApplicationStatus(user.username);
+          if (vendorStatus.success && vendorStatus.data) {
+            setBtcAddressSet(!!vendorStatus.data.btc_address);
+            setXmrAddressSet(!!vendorStatus.data.xmr_address);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking vendor status:', error);
+      }
+    };
+    checkVendorStatus();
   }, [id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -257,6 +281,25 @@ export default function VendorEditProduct() {
 
     if (!id) return;
 
+    // Check if vendor has required wallet addresses set
+    if (formData.accepted_crypto.includes('BTC') && !btcAddressSet) {
+      showToast({
+        type: 'error',
+        title: "Validation Error",
+        message: "You must save your Bitcoin wallet address in Settings > Payment before listing BTC products."
+      });
+      return;
+    }
+
+    if (formData.accepted_crypto.includes('XMR') && !xmrAddressSet) {
+      showToast({
+        type: 'error',
+        title: "Validation Error",
+        message: "You must save your Monero wallet address in Settings > Payment before listing XMR products."
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -282,7 +325,8 @@ export default function VendorEditProduct() {
         delivery_method: formData.delivery_method,
         special_features: formData.special_features,
         notes_for_buyer: formData.notes_for_buyer,
-        status: formData.status
+        status: formData.status,
+        accepted_crypto: JSON.stringify(formData.accepted_crypto)
       };
 
       // Remove undefined fields
@@ -400,7 +444,7 @@ export default function VendorEditProduct() {
       <div className="space-y-6">
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" />
+            <Loader2 className="w-8 h-8 text-theme-cyan animate-spin mx-auto mb-4" />
             <p className="text-gray-400">Loading product...</p>
           </div>
         </div>
@@ -418,7 +462,7 @@ export default function VendorEditProduct() {
             </div>
             <h3 className="text-lg font-medium text-white mb-2">Error loading product</h3>
             <p className="text-gray-400 mb-4">{error || 'Product not found'}</p>
-            <Button onClick={() => navigate('/vendor/listings')} className="bg-blue-500 hover:bg-blue-600">
+            <Button onClick={() => navigate('/vendor/listings')} className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold">
               Back to Listings
             </Button>
           </div>
@@ -496,7 +540,7 @@ export default function VendorEditProduct() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center mb-1">
                     <Label htmlFor="price" className="text-gray-300">Price (BTC) *</Label>
-                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Input BTC, we save as USD</span>
+                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Input BTC, we save as USD</span>
                   </div>
                   <Input
                     id="price"
@@ -522,9 +566,9 @@ export default function VendorEditProduct() {
 
                   <div className="flex justify-between items-start mt-2">
                     <div className="flex-1"></div>
-                    <div className="text-right bg-green-500/10 px-3 py-1.5 rounded border border-green-500/20">
+                    <div className="text-right bg-theme-cyan/10 px-3 py-1.5 rounded border border-theme-cyan/20">
                       <p className="text-[10px] text-gray-400 uppercase tracking-wider">Storage Value (USD)</p>
-                      <p className="text-green-400 font-bold font-mono text-lg">${formData.price || '0.00'}</p>
+                      <p className="text-theme-cyan font-bold font-mono text-lg">${formData.price || '0.00'}</p>
                     </div>
                   </div>
                 </div>
@@ -541,6 +585,57 @@ export default function VendorEditProduct() {
                     placeholder="1"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-300 mb-2 block">Accepted Crypto *</Label>
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="btc_check"
+                      className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-theme-cyan focus:ring-theme-cyan focus:ring-offset-gray-900"
+                      checked={formData.accepted_crypto.includes('BTC')}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const current = [...formData.accepted_crypto];
+                        if (checked) {
+                          if (!current.includes('BTC')) current.push('BTC');
+                        } else {
+                          if (current.includes('BTC') && current.length > 1) {
+                            const idx = current.indexOf('BTC');
+                            current.splice(idx, 1);
+                          }
+                        }
+                        setFormData({ ...formData, accepted_crypto: current });
+                      }}
+                    />
+                    <Label htmlFor="btc_check" className="text-white">Bitcoin (BTC)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="xmr_check"
+                      className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-theme-cyan focus:ring-theme-cyan focus:ring-offset-gray-900"
+                      checked={formData.accepted_crypto.includes('XMR')}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const current = [...formData.accepted_crypto];
+                        if (checked) {
+                          if (!current.includes('XMR')) current.push('XMR');
+                        } else {
+                          if (current.includes('XMR') && current.length > 1) {
+                            const idx = current.indexOf('XMR');
+                            current.splice(idx, 1);
+                          }
+                        }
+                        setFormData({ ...formData, accepted_crypto: current });
+                      }}
+                    />
+                    <Label htmlFor="xmr_check" className="text-white">Monero (XMR)</Label>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">Select at least one payment method.</p>
               </div>
             </CardContent>
           </Card>
@@ -579,7 +674,7 @@ export default function VendorEditProduct() {
 
               {/* Upload Area */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-400/10' : 'border-gray-600'
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-theme-cyan bg-theme-cyan/10' : 'border-gray-600'
                   }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -601,7 +696,7 @@ export default function VendorEditProduct() {
                 />
                 <Label
                   htmlFor="main-image-upload"
-                  className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block"
+                  className="cursor-pointer bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold px-4 py-2 rounded-lg inline-block"
                 >
                   Choose Image
                 </Label>
@@ -641,7 +736,7 @@ export default function VendorEditProduct() {
 
               {/* Upload Area */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-400/10' : 'border-gray-600'
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-theme-cyan bg-theme-cyan/10' : 'border-gray-600'
                   }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -664,7 +759,7 @@ export default function VendorEditProduct() {
                 />
                 <Label
                   htmlFor="gallery-images-upload"
-                  className="cursor-pointer bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg inline-block"
+                  className="cursor-pointer bg-theme-red hover:bg-theme-red/80 text-white font-semibold px-4 py-2 rounded-lg inline-block"
                 >
                   <Plus className="w-4 h-4 mr-2 inline" />
                   Add Images
@@ -832,7 +927,7 @@ export default function VendorEditProduct() {
                     const docName = doc.split('/').pop() || `Document ${index + 1}`;
                     return (
                       <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
-                        <FileText className="w-5 h-5 text-blue-400" />
+                        <FileText className="w-5 h-5 text-theme-cyan" />
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
                           <p className="text-gray-400 text-xs truncate">{docName}</p>
@@ -840,7 +935,7 @@ export default function VendorEditProduct() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-blue-400 border-blue-400 hover:bg-blue-400/10 flex-shrink-0"
+                          className="text-theme-cyan border-theme-cyan hover:bg-theme-cyan/10 flex-shrink-0"
                           onClick={() => window.open(docUrl, '_blank')}
                         >
                           <Download className="w-4 h-4 mr-2" />
@@ -880,7 +975,7 @@ export default function VendorEditProduct() {
               type="button"
               onClick={handleSubmit}
               disabled={saving}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
             >
               {saving ? (
                 <>
@@ -900,7 +995,7 @@ export default function VendorEditProduct() {
                 type="button"
                 onClick={handleResubmit}
                 disabled={saving}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                className="flex-1 bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
               >
                 {saving ? (
                   <>
@@ -954,7 +1049,7 @@ export default function VendorEditProduct() {
                 {product?.category_name || 'No Category'} • {product?.sub_category_name || 'No Sub-category'}
               </p>
               <div className="mt-2">
-                <span className="text-2xl font-bold text-blue-500">${formData.price || 0}</span>
+                <span className="text-2xl font-bold text-theme-cyan">${formData.price || 0}</span>
                 <span className="text-sm text-gray-400 ml-2">Stock: {formData.quantity_available || 0}</span>
               </div>
               <div className="mt-2">
@@ -973,15 +1068,15 @@ export default function VendorEditProduct() {
 const getStatusColor = (status: string) => {
   switch (status) {
     case "approved":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "pending_approval":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "rejected":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
     case "draft":
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-800 text-gray-400 border-gray-700";
     default:
-      return "bg-gray-700 text-gray-800 border-gray-700 bg-gray-900";
+      return "bg-gray-800 text-gray-400 border-gray-700";
   }
 };
 

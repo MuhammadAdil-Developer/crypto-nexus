@@ -57,6 +57,8 @@ export interface Product {
   };
   created_at: string;
   updated_at: string;
+  accepted_crypto?: string[];
+  escrow_enabled?: boolean;
 }
 
 export interface ProductListResponse {
@@ -88,28 +90,28 @@ export interface ViewTrackingResponse {
 class ProductService {
   private async makeRequest<T>(endpoint: string, options: Omit<RequestInit, 'body' | 'headers'> & { body?: any; headers?: Record<string, string> } = {}): Promise<T> {
     const accessToken = localStorage.getItem('accessToken') || localStorage.getItem('token');
-    
+
     // Handle body serialization before setting headers
     let serializedBody = options.body;
     if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
       serializedBody = JSON.stringify(options.body);
     }
-    
+
     // Create headers object explicitly
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    
+
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
-    
+
     // Merge any additional headers from options
     if (options.headers) {
       Object.assign(headers, options.headers);
     }
-    
+
     const config: RequestInit = {
       ...options,
       headers,
@@ -127,7 +129,7 @@ class ProductService {
     });
 
     const response = await fetch(`${API_BASE_URL}/products${endpoint}`, config);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('🔍 Request failed:', errorData);
@@ -149,16 +151,16 @@ class ProductService {
     page_size?: number;
   } = {}): Promise<ProductListResponse> {
     const searchParams = new URLSearchParams();
-    
+
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
-        searchParams.append(key, value.toString());
+      if (value !== undefined && value !== null && String(value) !== '') {
+        searchParams.append(key, String(value));
       }
     });
 
     const queryString = searchParams.toString();
     const endpoint = queryString ? `?${queryString}` : '';
-    
+
     return this.makeRequest<ProductListResponse>(endpoint);
   }
 
@@ -265,7 +267,7 @@ class ProductService {
     formData.append('file', file);
 
     const token = localStorage.getItem('token');
-    
+
     const response = await fetch(`${API_BASE_URL}/products/bulk-upload/csv/`, {
       method: 'POST',
       headers: {
@@ -298,7 +300,7 @@ class ProductService {
   // Get bulk upload template
   async getBulkUploadTemplate(): Promise<Blob> {
     const token = localStorage.getItem('token');
-    
+
     const response = await fetch(`${API_BASE_URL}/products/bulk-upload/template/`, {
       headers: {
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -380,17 +382,17 @@ class ProductService {
   }
 
   // Product reviews for modal
-  async getProductReviewsModal(productId: number, params: { page?: number; page_size?: number } = {}): Promise<{ 
-    success: boolean; 
-    data: { 
-      reviews: any[]; 
-      product_stats: any; 
-      pagination: any 
-    } 
+  async getProductReviewsModal(productId: number, params: { page?: number; page_size?: number } = {}): Promise<{
+    success: boolean;
+    data: {
+      reviews: any[];
+      product_stats: any;
+      pagination: any
+    }
   }> {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null && String(value) !== '') {
         searchParams.append(key, String(value));
       }
     });

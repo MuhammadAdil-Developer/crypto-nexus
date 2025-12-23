@@ -54,6 +54,7 @@ interface Product {
   quantity_available: number;
   status: string;
   is_featured?: boolean;
+  accepted_crypto?: string[];
 }
 
 interface Review {
@@ -355,7 +356,14 @@ const ProductDetailPage: React.FC = () => {
                 <div className="text-4xl font-bold text-blue-400">
                   ${parseFloat(product.price).toFixed(2)}
                 </div>
-                <span className="text-gray-400 text-lg font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                <div className="flex flex-col gap-1 mt-2">
+                  {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) && (
+                    <span className="text-gray-400 text-lg font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                  )}
+                  {product.accepted_crypto?.includes('XMR') && (
+                    <span className="text-gray-400 text-lg font-mono">≈ {(parseFloat(product.price) / 170).toFixed(8)} XMR</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -466,8 +474,8 @@ const ProductDetailPage: React.FC = () => {
                 <Button
                   size="lg"
                   className={`flex-1 font-semibold text-lg h-14 ${isOutOfStock
-                      ? 'bg-gray-600 hover:bg-gray-500 cursor-not-allowed opacity-60 text-white'
-                      : 'bg-pink-800 hover:bg-pink-700 text-white shadow-lg hover:shadow-xl transition-all'
+                    ? 'bg-gray-600 hover:bg-gray-500 cursor-not-allowed opacity-60 text-white'
+                    : 'bg-pink-800 hover:bg-pink-700 text-white shadow-lg hover:shadow-xl transition-all'
                     }`}
                   onClick={handleOrder}
                   disabled={isOutOfStock}

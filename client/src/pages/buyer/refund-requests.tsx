@@ -4,11 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle, 
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
   RefreshCw,
   Search,
   Eye,
@@ -22,17 +22,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
     case "pending_vendor":
-      return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
     case "vendor_approved":
-      return "bg-green-500/20 text-green-400 border-green-500/30";
+      return "bg-theme-cyan-dim text-theme-cyan border-theme-cyan/30";
     case "vendor_rejected":
-      return "bg-red-500/20 text-red-400 border-red-500/30";
+      return "bg-theme-red/20 text-theme-red border-theme-red/30";
     case "disputed":
-      return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+      return "bg-theme-red/20 text-theme-red border-theme-red/30";
     case "admin_approved":
-      return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      return "bg-theme-cyan-dim text-theme-cyan border-theme-cyan/30";
     case "completed":
-      return "bg-green-500/20 text-green-400 border-green-500/30";
+      return "bg-theme-cyan-dim text-theme-cyan border-theme-cyan/30";
     default:
       return "bg-gray-500/20 text-gray-400 border-gray-500/30";
   }
@@ -93,8 +93,8 @@ export default function BuyerRefundRequests() {
     try {
       setIsLoading(true);
       const result = await refundService.getBuyerRefundRequests(
-        1, 
-        100, 
+        1,
+        100,
         statusFilter === "all" ? undefined : statusFilter
       );
       if (result.success) {
@@ -119,7 +119,7 @@ export default function BuyerRefundRequests() {
   };
 
   const filteredRefunds = refunds.filter(refund => {
-    const matchesSearch = 
+    const matchesSearch =
       refund.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       refund.reason.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
@@ -131,7 +131,7 @@ export default function BuyerRefundRequests() {
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
           <div className="flex items-center space-x-3">
-            <RefreshCw className="w-8 h-8" />
+            <RefreshCw className="w-8 h-8 text-theme-cyan" />
             <div>
               <h1 className="text-2xl font-bold">My Refund Requests</h1>
               <p className="text-gray-300">Track all your refund requests</p>
@@ -176,7 +176,7 @@ export default function BuyerRefundRequests() {
           <CardContent className="p-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-theme-cyan" />
               </div>
             ) : filteredRefunds.length === 0 ? (
               <div className="text-center py-12">
@@ -185,9 +185,9 @@ export default function BuyerRefundRequests() {
                 <p className="text-gray-400">You haven't created any refund requests yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-700">
+              <div className="space-y-4">
                 {filteredRefunds.map((refund) => (
-                  <div key={refund.id} className="p-4 hover:bg-gray-800/50 transition-colors">
+                  <div key={refund.id} className="p-5 rounded-xl bg-gray-900 border border-gray-700 hover:border-gray-500 transition-all shadow-sm">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
@@ -268,6 +268,19 @@ export default function BuyerRefundRequests() {
                   <p className="text-gray-400 text-sm mb-1">Reason</p>
                   <p className="text-white bg-gray-800 p-3 rounded">{selectedRefund.reason}</p>
                 </div>
+                {selectedRefund.status === 'vendor_rejected' && (
+                  <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-red-400 mb-1">Refund Rejected by Vendor</h4>
+                        <p className="text-red-300/80 text-sm">
+                          The vendor has rejected this refund request. {selectedRefund.vendor_response ? `Reason: ${selectedRefund.vendor_response}` : 'Please contact support if you believe this is an error.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {selectedRefund.vendor_decision_deadline && selectedRefund.status === 'pending_vendor' && (
                   <div>
                     <p className="text-gray-400 text-sm">Vendor Decision Deadline</p>

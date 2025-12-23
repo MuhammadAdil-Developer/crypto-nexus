@@ -43,6 +43,7 @@ interface Product {
   rating?: number;
   review_count?: number;
   escrow_enabled?: boolean;
+  accepted_crypto?: string[];
 }
 
 interface ProductCardProps {
@@ -68,10 +69,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     return parseFloat(price).toFixed(2);
   };
 
-  // Format BTC equivalent (assuming price is in USD)
-  const formatBTCEquivalent = (price: string) => {
-    return (parseFloat(price) / 100000).toFixed(8);
+  // Format Crypto equivalent
+  const formatCryptoPrice = (price: string, currency: 'BTC' | 'XMR') => {
+    const usdPrice = parseFloat(price);
+    let cryptoAmount = 0;
+
+    if (currency === 'BTC') {
+      cryptoAmount = usdPrice / 100000;
+      // Remove unnecessary trailing zeros, max 8 decimals
+      return parseFloat(cryptoAmount.toFixed(8)).toString();
+    } else {
+      cryptoAmount = usdPrice / 170;
+      // Remove unnecessary trailing zeros, max 8 decimals - XMR doesn't strictly need 8 but it's fine
+      return parseFloat(cryptoAmount.toFixed(8)).toString();
+    }
   };
+
+  // Legacy support
+  const formatBTCEquivalent = (price: string) => formatCryptoPrice(price, 'BTC');
 
   const getProductImage = () => {
     // Priority: main_image > gallery_images[0] > main_images[0] > null
@@ -343,7 +358,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             )}
           </div>
           <div>
-            <p className="font-bold text-white text-lg font-mono">{formatBTCEquivalent(product.price)} BTC</p>
+            <p className="font-bold text-white text-lg font-mono">
+              {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) ? (
+                <span>{formatCryptoPrice(product.price, 'BTC')} BTC</span>
+              ) : (
+                <span>{formatCryptoPrice(product.price, 'XMR')} XMR</span>
+              )}
+            </p>
             <p className="text-xs text-gray-500">≈ ${formatUSD(product.price)}</p>
           </div>
           <div className="flex items-center gap-1 text-sm text-gray-200">
@@ -364,22 +385,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               onClick={handleBuyNow}
               size="sm"
               disabled={product.quantity_available <= 0}
-              className={product.quantity_available > 0 ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
+              className={product.quantity_available > 0 ? 'bg-theme-red hover:bg-theme-red-dark text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
             >
               Buy
             </Button>
             {isInCart(product.id) ? (
-              <Button onClick={handleRemoveFromCart} size="sm" className="bg-green-500 text-white">
-                Added
+              <Button
+                onClick={handleRemoveFromCart}
+                size="sm"
+                className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 border border-teal-400"
+              >
+                ✓ Added
               </Button>
             ) : (
               <Button
                 onClick={handleAddToCart}
                 size="sm"
                 disabled={product.quantity_available <= 0}
-                className={product.quantity_available > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
+                className={
+                  product.quantity_available > 0
+                    ? 'bg-gradient-to-r from-cyan-400 to-teal-500 text-white hover:from-cyan-500 hover:to-teal-600 border border-cyan-400'
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                }
               >
-                Add
+                + Add
               </Button>
             )}
             <Button
@@ -412,7 +441,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           <div className="flex items-center justify-between text-sm">
             <div>
               <p className="text-gray-400">Price</p>
-              <p className="font-bold text-white font-mono">{formatBTCEquivalent(product.price)} BTC</p>
+              <p className="font-bold text-white font-mono">
+                {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) ? (
+                  <span>{formatCryptoPrice(product.price, 'BTC')} BTC</span>
+                ) : (
+                  <span>{formatCryptoPrice(product.price, 'XMR')} XMR</span>
+                )}
+              </p>
               <p className="text-xs text-gray-500">≈ ${formatUSD(product.price)}</p>
             </div>
             <div className="text-right">
@@ -424,13 +459,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button onClick={handleViewProduct} size="sm" variant="outline" className="flex-1 border-gray-700 text-gray-200">
               View
             </Button>
-            <Button onClick={handleBuyNow} size="sm" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white">
+            <Button onClick={handleBuyNow} size="sm" className="flex-1 bg-theme-red hover:bg-theme-red-dark text-white">
               Buy
             </Button>
             <Button
               onClick={isInCart(product.id) ? handleRemoveFromCart : handleAddToCart}
               size="sm"
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-theme-cyan hover:bg-theme-cyan/90 text-black border border-theme-cyan"
             >
               {isInCart(product.id) ? 'Remove' : 'Add'}
             </Button>
@@ -506,11 +541,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         <div className="p-4 pb-3 flex flex-col flex-1" style={{ backgroundColor: '#0E1A26' }}>
           <div className="space-y-2 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-2xl font-semibold text-white leading-tight line-clamp-1">
+              <h3 className="text-xl font-bold text-white leading-tight line-clamp-1 uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
                 {product.listing_title}
               </h3>
               {product.category?.name && (
-                <Badge className="bg-pink-600/80 text-white border-pink-400/70 text-[10px] px-1.5 py-0.5">
+                <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 text-[9px] px-1.5 py-0.5 font-bold">
                   {product.category.name}
                 </Badge>
               )}
@@ -521,23 +556,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           </div>
 
           {/* Price and Rating */}
-          <div className="flex items-center justify-between mt-3 mb-3">
+          <div className="flex items-center justify-between mt-3 mb-4 bg-white/5 p-2 rounded-lg border border-white/5 shadow-inner">
             <div>
-              <p className="text-lg font-bold text-white font-mono">
-                {formatBTCEquivalent(product.price)} BTC
+              <p className="text-lg font-black text-theme-cyan font-mono">
+                {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) ? (
+                  <span>{formatCryptoPrice(product.price, 'BTC')} BTC</span>
+                ) : (
+                  <span>{formatCryptoPrice(product.price, 'XMR')} XMR</span>
+                )}
               </p>
-              <p className="text-gray-500 text-xs">
+              <p className="text-gray-500 text-[10px] font-bold uppercase tracking-tighter">
                 ≈ ${formatUSD(product.price)}
-              </p>
-              <p className="text-gray-500 text-xs">
-                {product.quantity_available || 0} available
               </p>
             </div>
             <div className="text-right">
-              <div className="flex items-center space-x-1 text-xs text-gray-400">
-                <Star className="w-3 h-3 fill-current text-yellow-400" />
+              <div className="flex items-center space-x-1 text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-1 rounded-full border border-white/10">
+                <Star className="w-2.5 h-2.5 fill-current text-yellow-500" />
                 <span>{(parseFloat(product.rating as any) || 0).toFixed(1)}</span>
               </div>
+              <p className="text-gray-600 text-[9px] font-bold mt-1 uppercase">
+                {product.quantity_available || 0} left
+              </p>
             </div>
           </div>
 
@@ -547,30 +586,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               onClick={handleViewProduct}
               variant="outline"
               size="sm"
-              className="flex-1 border-teal-600/50 text-gray-300 hover:bg-teal-900/30 text-xs py-2 h-9 min-w-0 px-2"
+              className="flex-1 border-white/10 text-gray-400 hover:bg-white/5 text-[10px] font-bold uppercase tracking-widest py-2 h-9 min-w-0 px-2 transition-all"
             >
               <Eye className="w-3 h-3 mr-1" />
-              <span className="text-[10px]">View</span>
+              Info
             </Button>
 
             <Button
               onClick={handleBuyNow}
               size="sm"
               disabled={product.quantity_available <= 0}
-              className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${product.quantity_available > 0
-                ? 'bg-gradient-to-r from-pink-700 to-pink-800 hover:from-pink-800 hover:to-pink-800 text-white shadow-lg'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              className={`flex-1 text-[10px] font-bold uppercase tracking-widest py-2 h-9 min-w-0 px-2 transition-all active:scale-95 ${product.quantity_available > 0
+                ? 'bg-theme-red hover:bg-[#850231] text-white shadow-lg shadow-theme-red/20'
+                : 'bg-gray-800 text-gray-600'
                 }`}
             >
               <ShoppingCart className="w-3 h-3 mr-1" />
-              <span className="text-[10px]">Buy</span>
+              Buy
             </Button>
 
             {isInCart(product.id) ? (
               <Button
                 onClick={handleRemoveFromCart}
                 size="sm"
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white text-xs py-2 h-9 min-w-0 px-2"
+                className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 border border-teal-400 text-xs py-2 h-9 min-w-0 px-2"
               >
                 <Check className="w-3 h-3 mr-1" />
                 <span className="text-[10px]">Added</span>
@@ -581,7 +620,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 size="sm"
                 disabled={product.quantity_available <= 0}
                 className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${product.quantity_available > 0
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white'
+                  ? 'bg-gradient-to-r from-[#00D9FF] to-[#00BCD4] text-white hover:from-[#00C4E6] hover:to-[#00ACC1] border border-[#00D9FF]'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   }`}
               >

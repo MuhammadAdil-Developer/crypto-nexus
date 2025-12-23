@@ -42,7 +42,7 @@ const getStatusColor = (status: string) => {
     case "shipped":
       return "text-yellow-400 bg-yellow-900/20";
     case "processing":
-      return "text-blue-400 bg-blue-900/20";
+      return "text-theme-cyan bg-theme-cyan-dim";
     case "pending":
       return "text-yellow-400 bg-yellow-900/20";
     case "pending_payment":
@@ -101,20 +101,43 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const displayOrders = compact ? orders.slice(0, 3) : orders;
   const intervalRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
-  // Helper to handle inconsistent data where USD might be saved as BTC amount
   const getCorrectedAmounts = (order: Order) => {
-    let btcAmount = parseFloat(order.total_amount);
-    let usdAmount = btcAmount * 100000;
+    const currency = order.crypto_currency || 'BTC';
+    const amountStr = order.total_amount;
+    const amount = parseFloat(amountStr);
 
-    // Heuristic: If BTC amount is suspiciously large (> 50), assume it was saved as USD
-    // 50 BTC = $5,000,000 which is unlikely for a single order here
-    if ((order.crypto_currency === 'BTC' || !order.crypto_currency) && btcAmount > 50) {
-      usdAmount = btcAmount;
-      btcAmount = usdAmount / 100000;
-      // console.log(`Fixed display for order ${order.order_id}: ${order.total_amount} -> ${btcAmount} BTC`);
+    // Default rates if we need to convert USD -> Crypto
+    const rates: Record<string, number> = {
+      'BTC': 100000,
+      'XMR': 170
+    };
+    const rate = rates[currency] || 100000;
+
+    let cryptoAmount = amount;
+    let usdAmount = amount * rate;
+
+    // Heuristic: If amount is suspiciously large for crypto, assume it's USD
+    // For BTC, > 50 is probably USD.
+    // For XMR, we look at both amount and precision.
+    // XMR amounts like 0.00588235 have high precision.
+    // USD amounts like 1.00 or 5.0 have low precision.
+    const decimalPlaces = (amountStr.split('.')[1] || '').length;
+
+    let isProbablyUsd = false;
+    if (currency === 'BTC') {
+      isProbablyUsd = amount > 50;
+    } else if (currency === 'XMR') {
+      // If it looks like a flat USD amount (e.g. 1.0, 10.0) 
+      // instead of a fractional XMR amount (e.g. 0.0058823)
+      isProbablyUsd = amount >= 0.1 && decimalPlaces <= 4;
     }
 
-    return { btc: btcAmount, usd: usdAmount };
+    if (isProbablyUsd) {
+      usdAmount = amount;
+      cryptoAmount = amount / rate;
+    }
+
+    return { crypto: cryptoAmount, usd: usdAmount, currency };
   };
 
   // Calculate time remaining for pending orders
@@ -132,7 +155,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     }
 
     const orderCreatedAt = new Date(order.created_at).getTime();
-    const expiresAt = orderCreatedAt + (30 * 60 * 1000); // 30 minutes
+    const expiresAt = orderCreatedAt + (120 * 60 * 1000); // 2 hours
     const now = Date.now();
     const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
 
@@ -502,7 +525,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/buyer/my-reviews')}
-                className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
+                className="text-theme-cyan border-theme-cyan hover:bg-theme-cyan hover:text-black"
               >
                 <Star className="w-4 h-4 mr-2" />
                 My Reviews
@@ -670,13 +693,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                     
                                     <div class="p-6 overflow-y-auto max-h-[60vh]">
                                       <div class="space-y-6">
-                                        <!-- Release Information -->
-                                        <div class="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+                                        <div class="bg-theme-cyan-dim border border-theme-cyan/30 rounded-lg p-4">
                                           <div class="flex items-center space-x-2 mb-2">
-                                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-4 h-4 text-theme-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1M8 7h8m-8 0l-2 14h12l-2-14M8 7v1a2 2 0 002 2h4a2 2 0 002-2V7"></path>
                                             </svg>
-                                            <span class="text-sm font-medium text-blue-300">Release:</span>
+                                            <span class="text-sm font-medium text-theme-cyan">Release:</span>
                                           </div>
                                           <p class="text-sm text-gray-300">
                                             <span class="text-gray-400">Released on:</span> 
@@ -718,7 +740,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
                                         <!-- Action Buttons -->
                                         <div class="flex justify-center space-x-4">
-                                          <button id="copyBtn" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                                          <button id="copyBtn" class="flex items-center space-x-2 px-4 py-2 bg-theme-red hover:bg-theme-red-dark text-white rounded-lg transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                                             </svg>
@@ -904,11 +926,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                     <div className="flex items-center sm:space-x-4 sm:flex-row flex-col w-full sm:w-auto">
                       <div className="text-right w-full sm:w-auto">
                         {(() => {
-                          const { btc: displayBtc, usd: displayUsd } = getCorrectedAmounts(order);
+                          const { crypto: displayCrypto, usd: displayUsd, currency } = getCorrectedAmounts(order);
+                          const decimals = currency === 'XMR' ? 4 : 8;
                           return (
                             <>
                               <p className="font-semibold text-white">
-                                {displayBtc.toFixed(8).replace(/\.?0+$/, "")} {order.crypto_currency || 'BTC'}
+                                {displayCrypto.toFixed(decimals).replace(/\.?0+$/, "")} {currency}
                               </p>
                               <p className="text-xs text-gray-400">
                                 ≈ ${displayUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

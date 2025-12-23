@@ -31,7 +31,7 @@ interface Product {
   vendor: {
     username: string;
   };
-  accepted_cryptocurrencies?: string[];
+  accepted_crypto?: string[];
   escrow_available?: boolean;
   escrow_enabled?: boolean;
 }
@@ -50,6 +50,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
   const { toast } = useToast();
   const [step, setStep] = useState(1); // 1: Payment Method, 2: Payment Type, 3: Payment Details, 4: Confirmation
+
+  // Track step changes
+  useEffect(() => {
+    console.log('📍 Step changed to:', step);
+  }, [step]);
+
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [paymentType, setPaymentType] = useState<string>('wallet'); // only wallet is supported
   const [useEscrow, setUseEscrow] = useState(false);
@@ -61,7 +67,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [paymentAddress, setPaymentAddress] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [orderId, setOrderId] = useState('');
-  const [timeRemaining, setTimeRemaining] = useState(1800); // 30 minutes
+  const [timeRemaining, setTimeRemaining] = useState(7200); // 120 minutes (2 hours)
   const [addressVisible, setAddressVisible] = useState(false);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
@@ -80,7 +86,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     listing_title: `Bulk Purchase (${items.length} items)`,
     price: items.reduce((sum, it) => sum + ((parseFloat(it.price) || 0) * (Number(it.quantity || 1))), 0).toString(),
     vendor: { username: 'Multiple Vendors' },
-    accepted_cryptocurrencies: items[0]?.accepted_cryptocurrencies || ['BTC', 'XMR'],
+    accepted_crypto: items[0]?.accepted_crypto || items[0]?.accepted_cryptocurrencies || ['BTC', 'XMR'],
     escrow_available: true,
     escrow_enabled: false
   } as Product : null);
@@ -104,13 +110,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   // Real payment creation
 
   const createRealPayment = async () => {
+    console.log('🚀 createRealPayment START', { product, items, selectedCrypto, paymentType, orderId });
+
     // Prevent duplicate runs
     if (orderId && (!items || items.length === 0)) {
+      console.log('⚠️ Skipping: orderId already exists', orderId);
       return;
     }
     // Need either single product or items for bulk
-    if ((!product || !product.id) && (!items || items.length === 0)) return;
-    if (!selectedCrypto || !paymentType) return;
+    if ((!product || !product.id) && (!items || items.length === 0)) {
+      console.log('⚠️ Skipping: No product or items');
+      return;
+    }
+    if (!selectedCrypto || !paymentType) {
+      console.log('⚠️ Skipping: No crypto or payment type');
+      return;
+    }
 
     setIsCreatingPayment(true);
     setApiError(null);
@@ -137,8 +152,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           createdOrders.push(order);
 
           const oid = order.order_id || order.id || order.order_id || order.id;
-          // Convert USD price to BTC (Mock Rate: 100,000)
-          const amount = ((parseFloat(itn.price || '0') * itn.quantity) / 100000).toFixed(8);
+          // Convert USD price to Crypto
+          const usdPrice = parseFloat(itn.price || '0') * itn.quantity;
+          const cryptoAmount = await paymentService.getFiatToCryptoRate(usdPrice, 'USD', selectedCrypto);
+          const amount = paymentService.formatCryptoAmount(cryptoAmount.toString(), selectedCrypto);
 
           const pay = await paymentService.createPaymentAddress({
             order_id: oid,
@@ -204,19 +221,29 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       const order = await orderResponse.json();
       const orderIdGenerated = order.order_id || order.data?.order_id;
       const createdAt = new Date().toISOString();
+
+      console.log('✅ Order created successfully:', { orderIdGenerated, createdAt });
+
       setOrderId(orderIdGenerated);
       setOrderCreatedAt(createdAt);
       window.dispatchEvent(new CustomEvent('order_created', { detail: { order_id: orderIdGenerated } }));
 
       // Then create payment address for single order
+      console.log('💰 About to get crypto rate...', { totalPrice, selectedCrypto });
+      const cryptoAmount = await paymentService.getFiatToCryptoRate(totalPrice, 'USD', selectedCrypto);
+      console.log('💰 Got crypto rate:', cryptoAmount);
+
+      console.log('📝 Creating payment address...', { orderIdGenerated, selectedCrypto, cryptoAmount });
+
       const paymentData = await paymentService.createPaymentAddress({
         order_id: orderIdGenerated,
         crypto_currency: selectedCrypto,
-        // Convert USD total to BTC (Mock Rate: 100,000)
-        amount: (totalPrice / 100000).toFixed(8),
+        amount: paymentService.formatCryptoAmount(cryptoAmount.toString(), selectedCrypto),
         payment_type: paymentType as "wallet" | "buy" | "exchange",
         use_escrow: useEscrow
       });
+
+      console.log('✅ Payment address created:', paymentData);
 
       setRealPaymentAddress(paymentData);
       setPaymentAddress(paymentData.payment_address);
@@ -236,14 +263,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       });
       setPollingInterval(interval);
       toast({ title: "Order Created & Payment Address Generated!", description: `Order #${orderIdGenerated} created. Send ${paymentData.expected_amount} ${selectedCrypto} to the address below.` });
+
+      console.log('🔄 About to set step to 3');
       setStep(3);
+      console.log('✅ Step set to 3');
 
     } catch (error: any) {
-      console.error('Payment creation error:', error);
+      console.error('❌ Payment creation error:', error);
       setApiError(error.message);
       toast({ title: "Error Creating Order", description: error.message || "Failed to create order and payment address", variant: "destructive" });
     } finally {
       setIsCreatingPayment(false);
+      console.log('🏁 createRealPayment COMPLETE');
     }
   };;
 
@@ -266,7 +297,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
           // Calculate remaining time
           const createdAt = new Date(storedCreatedAt).getTime();
-          const expiresAt = createdAt + (30 * 60 * 1000); // 30 minutes
+          const expiresAt = createdAt + (120 * 60 * 1000); // 2 hours
           const now = Date.now();
           const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
 
@@ -325,7 +356,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     if (step === 3 && orderCreatedAt) {
       const timer = setInterval(() => {
         const createdAt = new Date(orderCreatedAt).getTime();
-        const expiresAt = createdAt + (30 * 60 * 1000);
+        const expiresAt = createdAt + (120 * 60 * 1000); // 2 hours
         const now = Date.now();
         const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
 
@@ -511,10 +542,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     }, 2000);
   };
 
-  if (!isOpen || (!effectiveProduct && (!items || items.length === 0))) return null;
+  console.log('PaymentModal Render Check:', { isOpen, effectiveProduct, itemsLength: items?.length, step });
+
+  if (!isOpen || (!effectiveProduct && (!items || items.length === 0))) {
+    console.log('❌ Modal closing/not rendering:', { isOpen, hasProduct: !!effectiveProduct, itemsLength: items?.length });
+    return null;
+  }
 
   const pricing = calculateTotal();
-  const availableCryptos = effectiveProduct?.accepted_cryptocurrencies || ['BTC', 'XMR'];
+  const availableCryptos = effectiveProduct?.accepted_crypto || effectiveProduct?.accepted_cryptocurrencies || ['BTC', 'XMR'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -555,9 +591,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 <div
                   key={stepNum}
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${stepNum === step
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-theme-cyan text-black border border-theme-cyan'
                     : stepNum < step
-                      ? 'bg-green-600 text-white'
+                      ? 'bg-theme-red text-white border border-theme-red'
                       : 'bg-gray-700 text-gray-400'
                     }`}
                 >
@@ -614,7 +650,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                     <div className="flex justify-between">
                       <span className="text-gray-300">Subtotal</span>
                       <div className="text-right">
-                        <span className="text-white block font-mono">{(pricing.subtotal / 100000).toFixed(8)} BTC</span>
+                        <span className="text-white block font-mono">
+                          {selectedCrypto === 'XMR'
+                            ? `${(pricing.subtotal / 170).toFixed(4)} XMR`
+                            : `${(pricing.subtotal / 100000).toFixed(8)} BTC`}
+                        </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.subtotal.toFixed(2)}</span>
                       </div>
                     </div>
@@ -627,7 +667,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                     <div className="flex justify-between font-bold">
                       <span className="text-white">Total</span>
                       <div className="text-right">
-                        <span className="text-white block font-mono">{(pricing.total / 100000).toFixed(8)} BTC</span>
+                        <span className="text-white block font-mono">
+                          {selectedCrypto === 'XMR'
+                            ? `${(pricing.total / 170).toFixed(4)} XMR`
+                            : `${(pricing.total / 100000).toFixed(8)} BTC`}
+                        </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.total.toFixed(2)}</span>
                       </div>
                     </div>
@@ -800,7 +844,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
               <Button
                 onClick={handlePaymentMethodSubmit} disabled={isCreatingPayment}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
+                className="w-full bg-theme-red hover:bg-theme-red-dark text-white py-3"
                 size="lg"
               >
                 Continue
@@ -936,7 +980,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   ((effectiveProduct?.escrow_enabled || useEscrow) && !escrowTermsConfirmed) ||
                   (!effectiveProduct?.escrow_enabled && !useEscrow && !directOrderConfirmed)
                 }
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-theme-red hover:bg-theme-red-dark text-white py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 size="lg"
               >
                 {isCreatingPayment ? (
@@ -998,18 +1042,20 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </Card>
               )}
 
-              {/* Payment Timer */}
-              <Card className="bg-red-900/20 border-red-700">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-red-400" />
-                    <div>
-                      <p className="text-white font-medium">Payment expires in {formatTime(timeRemaining)}</p>
-                      <p className="text-gray-400 text-sm">Complete your payment before the timer expires</p>
+              {/* Payment Timer - Only show if payment is not paid */}
+              {(!realPaymentStatus || realPaymentStatus.status !== 'paid') && (
+                <Card className="bg-red-900/20 border-red-700">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <Clock className="w-5 h-5 text-red-400" />
+                      <div>
+                        <p className="text-white font-medium">Payment expires in {formatTime(timeRemaining)}</p>
+                        <p className="text-gray-400 text-sm">Complete your payment before the timer expires</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Payment Instructions - Wallet */}
               {paymentType === 'wallet' && (
@@ -1043,7 +1089,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       <Label className="text-gray-300">Send exactly this amount</Label>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-2 flex flex-col justify-center">
-                          <span className="text-white font-mono text-lg font-bold">≈ {paymentAmount} {selectedCrypto}</span>
+                          <span className="text-white font-mono text-lg font-bold">≈ {paymentService.formatCryptoAmount(paymentAmount, selectedCrypto)} {selectedCrypto}</span>
                           <span className="text-gray-400 text-xs">${pricing.total.toFixed(2)}</span>
                         </div>
                         <Button
@@ -1269,7 +1315,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               {paymentType === 'wallet' && (
                 <Button
                   onClick={handlePaymentComplete}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
+                  className="w-full bg-theme-cyan hover:bg-theme-cyan/90 text-black py-3"
                   size="lg"
                 >
                   I've Sent the Payment
@@ -1301,7 +1347,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           {/* Step 4: Payment Confirmation */}
           {step === 4 && (
             <div className="space-y-6 text-center">
-              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 bg-theme-cyan/20 rounded-full flex items-center justify-center mx-auto">
                 <Clock className="w-8 h-8 text-white animate-pulse" />
               </div>
 
@@ -1341,7 +1387,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </Button>
                 <Button
                   onClick={() => toast({ title: "Order Tracking", description: "Redirecting to order tracking..." })}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-theme-cyan hover:bg-theme-cyan/90 text-black"
                 >
                   We are tracking your blockchain
                 </Button>

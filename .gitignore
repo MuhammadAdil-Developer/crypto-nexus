@@ -12,3 +12,16 @@ backend/logs/
 # Python cache
 __pycache__/
 *.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Monero
+monero-win-*/
+monero-x86_64-*/
+nexus_wallet*
+*.keys
+*.address.txt
+.monero/
+monero-wallet-rpc.log
+monerod.log

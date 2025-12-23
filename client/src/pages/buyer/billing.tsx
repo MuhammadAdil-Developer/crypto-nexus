@@ -100,28 +100,28 @@ export default function BuyerBilling() {
     switch (status.toLowerCase()) {
       case "completed":
       case "confirmed":
-        return "bg-green-600 text-white border-green-600";
+        return "bg-theme-cyan-dim text-theme-cyan border-theme-cyan/30";
       case "pending":
-        return "bg-yellow-600 text-white border-yellow-600";
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
       case "failed":
-        return "bg-red-600 text-white border-red-600";
+        return "bg-theme-red/20 text-theme-red border-theme-red/30";
       case "processing":
-        return "bg-blue-600 text-white border-blue-600";
+        return "bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30";
       default:
-        return "bg-gray-600 text-white border-gray-600";
+        return "bg-gray-600/20 text-gray-400 border-gray-600/30";
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case "payment":
-        return "bg-green-500";
+        return "bg-theme-red";
       case "escrow_release":
-        return "bg-blue-500";
+        return "bg-theme-cyan text-black";
       case "direct_payment":
-        return "bg-orange-500";
+        return "bg-theme-red";
       case "refund":
-        return "bg-purple-500";
+        return "bg-theme-cyan text-black";
       default:
         return "bg-gray-500";
     }
@@ -277,7 +277,11 @@ export default function BuyerBilling() {
                           <div className="flex items-start justify-between gap-4 mb-4">
                             <div className="flex items-start space-x-4 min-w-0 flex-1">
                               <div className={`w-12 h-12 rounded-full ${getTypeColor(transaction.type)} flex items-center justify-center flex-shrink-0`}>
-                                <Bitcoin className="w-6 h-6 text-white" />
+                                {transaction.crypto_symbol === 'XMR' ? (
+                                  <span className="font-bold text-xs">XMR</span>
+                                ) : (
+                                  <Bitcoin className="w-6 h-6 text-white" />
+                                )}
                               </div>
 
                               <div className="min-w-0 flex-1">
@@ -394,7 +398,7 @@ export default function BuyerBilling() {
                                   size="sm"
                                   onClick={() => fetchTransactionHistory(page)}
                                   disabled={loading}
-                                  className={page === currentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-600 text-gray-300 hover:bg-gray-700"}
+                                  className={page === currentPage ? "bg-theme-cyan text-black border-theme-cyan" : "border-gray-600 text-gray-300 hover:bg-gray-700"}
                                 >
                                   {page}
                                 </Button>
@@ -483,7 +487,11 @@ export default function BuyerBilling() {
                           <div className="flex items-start justify-between gap-4 mb-4">
                             <div className="flex items-start space-x-4 min-w-0 flex-1">
                               <div className={`w-12 h-12 rounded-full ${getTypeColor(transaction.type)} flex items-center justify-center flex-shrink-0`}>
-                                <ArrowDownCircle className="w-6 h-6 text-white" />
+                                {transaction.crypto_symbol === 'XMR' ? (
+                                  <span className="font-bold text-xs">XMR</span>
+                                ) : (
+                                  <ArrowDownCircle className="w-6 h-6 text-white" />
+                                )}
                               </div>
 
                               <div className="min-w-0 flex-1">
@@ -492,7 +500,7 @@ export default function BuyerBilling() {
                                   <Badge className={getStatusColor(transaction.status)}>
                                     {transaction.status}
                                   </Badge>
-                                  <Badge variant="outline" className="bg-purple-500/20 text-purple-300">
+                                  <Badge variant="outline" className="bg-theme-cyan/10 text-theme-cyan border-theme-cyan/30">
                                     REFUND
                                   </Badge>
                                 </div>
@@ -502,7 +510,7 @@ export default function BuyerBilling() {
                             </div>
 
                             <div className="text-right flex-shrink-0">
-                              <p className="text-lg font-bold text-green-400">{transaction.amount}</p>
+                              <p className="text-lg font-bold text-theme-cyan">{transaction.amount}</p>
                               <p className="text-sm text-gray-400">{transaction.usd_amount}</p>
                               <p className="text-xs text-gray-500 mt-1">
                                 {new Date(transaction.timestamp).toLocaleString()}

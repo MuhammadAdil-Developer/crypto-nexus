@@ -82,6 +82,35 @@ export default function BulkUpload() {
   };
 
   const handleUpload = async () => {
+    // Check if vendor has setup BTC and XMR addresses
+    try {
+      const profileResponse = await vendorService.getProfile();
+      if (profileResponse.success && profileResponse.data) {
+        const userData = profileResponse.data;
+        const btcAddress = userData.btc_payout_address || userData.btc_address;
+        const xmrAddress = userData.xmr_payout_address || userData.xmr_address;
+
+        if (!btcAddress || !xmrAddress) {
+          showToast({
+            type: 'error',
+            title: 'Setup Required',
+            message: 'Please setup your btc and xmr in the setting first',
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking profile settings:', error);
+      // If we can't check, we might want to block or allow with warning. 
+      // Safe to block to ensure compliance with user request.
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: 'Could not verify wallet settings. Please try again.',
+      });
+      return;
+    }
+
     if (uploadType === 'csv' && !file) {
       showToast({
         type: 'error',
@@ -264,7 +293,7 @@ export default function BulkUpload() {
                     rows={10}
                   />
                   <p className="text-sm text-gray-400">
-                    Format: Account Name | Website | Account Type | Price | Description
+                    Format: Account Name | Website | Account Type | Price (USD/BTC) | Description
                   </p>
                 </div>
               </div>
@@ -333,7 +362,7 @@ export default function BulkUpload() {
                     Enter one account per line using this format:
                   </p>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono">
-                    Account Name | Website | Account Type | Price | Description | Credentials (required)
+                    Account Name | Website | Account Type | Price (USD or BTC) | Description | Credentials (required)
                   </code>
                 </div>
                 <div>
@@ -342,7 +371,7 @@ export default function BulkUpload() {
                     <li>• Account Name (required)</li>
                     <li>• Website (required)</li>
                     <li>• Account Type (required)</li>
-                    <li>• Price (required)</li>
+                    <li>• Price (required) - e.g. 15.00 (USD) or 0.0001 (BTC)</li>
                     <li>• Description (required)</li>
                     <li>• Credentials (required) - JSON format: {`{"username":"value","password":"value"}`}</li>
                   </ul>

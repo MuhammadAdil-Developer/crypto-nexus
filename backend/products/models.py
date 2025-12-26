@@ -122,6 +122,7 @@ class Product(BaseModel):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
         ('suspended', 'Suspended'),
+        ('reserved', 'Reserved (Out of Stock)'),
     ], default='draft')
     
     verification_level = models.CharField(max_length=20, choices=[

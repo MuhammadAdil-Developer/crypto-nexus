@@ -13,7 +13,13 @@ def run_launcher():
 
     # 1. Check Files
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    rpc_exe = os.path.join(base_dir, "monero-wallet-rpc.exe")
+    
+    # Detect OS and set correct binary name
+    binary_name = "monero-wallet-rpc"
+    if sys.platform == "win32":
+        binary_name += ".exe"
+    
+    rpc_exe = os.path.join(base_dir, binary_name)
     wallet_file = os.path.join(base_dir, "nexus_wallet")
 
     print(f"[*] Working Directory: {base_dir}")

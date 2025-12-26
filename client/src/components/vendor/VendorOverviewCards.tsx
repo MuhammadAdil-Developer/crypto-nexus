@@ -10,6 +10,19 @@ interface VendorOverviewCountsProps {
 	earnings?: number;
 	disputes?: number;
 	isLoading?: boolean;
+	trends?: {
+		salesChange?: string;
+		listingsChange?: string;
+		ordersChange?: string;
+		earningsChange?: string;
+		disputesChange?: string;
+	};
+	additionalStats?: {
+		btcRevenue?: string;
+		featuredListings?: number;
+		ordersAttention?: number;
+		disputesActive?: number;
+	};
 }
 
 export function VendorOverviewCards({
@@ -19,48 +32,50 @@ export function VendorOverviewCards({
 	totalRevenue,
 	earnings,
 	disputes,
-	isLoading
+	isLoading,
+	trends,
+	additionalStats
 }: VendorOverviewCountsProps) {
 	const overviewData = [
 		{
 			title: "Total Sales",
 			value: totalSales || "$0.00",
-			change: "+12.3%",
-			changeType: "positive" as const,
+			change: trends?.salesChange || "0%",
+			changeType: (trends?.salesChange?.includes('+') ? "positive" : trends?.salesChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
 			icon: TrendingUp,
-			description: totalRevenue ? `≈ ${(totalRevenue / 100000).toFixed(8)} BTC` : "≈ 0.00000000 BTC"
+			description: additionalStats?.btcRevenue || "≈ 0 BTC"
 		},
 		{
 			title: "Active Listings",
 			value: activeListings !== undefined ? String(activeListings) : "0",
-			change: "+2 this week",
-			changeType: "positive" as const,
+			change: trends?.listingsChange || "0 this week",
+			changeType: (trends?.listingsChange?.includes('+') ? "positive" : trends?.listingsChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
 			icon: Package,
-			description: `${Math.floor((activeListings || 0) / 2)} featured listings`
+			description: `${additionalStats?.featuredListings || 0} featured listings`
 		},
 		{
 			title: "Pending Orders",
 			value: pendingOrders !== undefined ? String(pendingOrders) : "0",
-			change: "-3 from yesterday",
-			changeType: "negative" as const,
+			change: trends?.ordersChange || "0 from yesterday",
+			changeType: (trends?.ordersChange?.includes('+') ? "positive" : trends?.ordersChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
 			icon: ShoppingCart,
-			description: `${Math.floor((pendingOrders || 0) / 2)} require attention`
+			description: `${additionalStats?.ordersAttention || 0} require attention`
 		},
 		{
 			title: "Earnings",
 			value: earnings !== undefined ? `$${earnings.toFixed(2)}` : "$0.00",
-			change: "+$50.00",
-			changeType: "positive" as const,
+			change: trends?.earningsChange || "$0.00",
+			changeType: (trends?.earningsChange?.includes('+') ? "positive" : trends?.earningsChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
 			icon: Wallet,
 			description: "Available for withdrawal"
 		},
 		{
 			title: "Disputes",
 			value: disputes !== undefined ? String(disputes) : "0",
-			change: "No change",
+			change: trends?.disputesChange || "No change",
 			changeType: "neutral" as const,
 			icon: AlertTriangle,
-			description: `${disputes || 0} active case${(disputes || 0) !== 1 ? 's' : ''}`
+			description: `${additionalStats?.disputesActive || disputes || 0} active case${(additionalStats?.disputesActive || disputes || 0) !== 1 ? 's' : ''}`
 		}
 	];
 

@@ -1,3 +1,4 @@
+import uuid
 from rest_framework import serializers
 from .models import Product, ProductCategory, ProductSubCategory
 
@@ -111,6 +112,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     credentials_display = serializers.CharField(source='get_credentials_display', read_only=True)
     gallery_images = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
+
+    def get_final_price(self, obj):
+        """Calculate final price after discount"""
+        if obj.discount_percentage:
+            discount = obj.price * (obj.discount_percentage / 100)
+            return obj.price - discount
+        return obj.price
     
     def get_gallery_images(self, obj):
         """Convert gallery image paths to full URLs"""
@@ -157,12 +166,32 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'vendor_username', 'access_method', 'account_age', 'quantity_available',
             'delivery_method', 'special_features', 'region_restrictions',
             'tags', 'documents', 'main_images', 'auto_delivery_script',
-            'notes_for_buyer', 'discount_percentage', 'escrow_enabled', 'accepted_crypto'
+            'notes_for_buyer', 'discount_percentage', 'escrow_enabled', 'accepted_crypto',
+            'final_price', 'credentials'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
             'rating', 'review_count', 'created_at', 'vendor_username'
         ]
+        
+    def to_representation(self, instance):
+        """Custom logic to hide credentials for non-owners/non-buyers"""
+        # Logic to expose credentials if user is the vendor
+        rep = super().to_representation(instance)
+        request = self.context.get('request')
+        user = request.user if request else None
+        
+        # Only show credentials if user is the vendor or if credentials_visible is True (handled by model/other logic)
+        # The model field 'credentials_visible' is boolean toggle for public/buyer visibility after purchase
+        # But we want the vendor to always see it in the API response when editing/viewing details
+        if user and user.is_authenticated and instance.vendor == user:
+            pass # Keep credentials
+        elif not instance.credentials_visible: 
+             # Hide credentials for everyone else unless visible flag is strictly True
+             rep.pop('credentials', None)
+             
+        return rep
+
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
@@ -172,8 +201,8 @@ class ProductCreateSerializer(serializers.ModelSerializer):
     # Note: gallery_images and documents are handled manually in create() method
     # They are excluded from Meta fields to avoid validation issues with multiple file uploads
     account_age = serializers.CharField(required=False, allow_blank=True)
-    category = serializers.UUIDField(required=False)
-    sub_category = serializers.UUIDField(required=False)  # Sub-category ID
+    category = serializers.PrimaryKeyRelatedField(queryset=ProductCategory.objects.all(), required=False, allow_null=True)
+    sub_category = serializers.PrimaryKeyRelatedField(queryset=ProductSubCategory.objects.all(), required=False, allow_null=True)
     
     class Meta:
         model = Product
@@ -256,6 +285,29 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Vendor information is required")
         
+        # Ensure category and sub_category are instances if they are UUIDs
+        if 'category' in validated_data and validated_data['category']:
+            from .models import ProductCategory
+            if isinstance(validated_data['category'], (uuid.UUID, str)) and not isinstance(validated_data['category'], ProductCategory):
+                try:
+                    category_id = validated_data['category']
+                    if isinstance(category_id, str):
+                        category_id = uuid.UUID(category_id)
+                    validated_data['category'] = ProductCategory.objects.get(id=category_id)
+                except (ProductCategory.DoesNotExist, ValueError):
+                    pass
+
+        if 'sub_category' in validated_data and validated_data['sub_category']:
+            from .models import ProductSubCategory
+            if isinstance(validated_data['sub_category'], (uuid.UUID, str)) and not isinstance(validated_data['sub_category'], ProductSubCategory):
+                try:
+                    sub_id = validated_data['sub_category']
+                    if isinstance(sub_id, str):
+                        sub_id = uuid.UUID(sub_id)
+                    validated_data['sub_category'] = ProductSubCategory.objects.get(id=sub_id)
+                except (ProductSubCategory.DoesNotExist, ValueError):
+                    pass
+
         # Auto-set listing_title from headline
         if 'headline' in validated_data and not validated_data.get('listing_title'):
             validated_data['listing_title'] = validated_data['headline']

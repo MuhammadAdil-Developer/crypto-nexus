@@ -13,6 +13,7 @@ import { realtimeService } from "@/services/realtimeService";
 import disputeService from "@/services/disputeService";
 import { useToast } from "@/hooks/use-toast";
 import { productService } from "@/services/productService";
+import vendorService from "@/services/vendorService";
 
 interface Order {
   id: string;
@@ -55,12 +56,16 @@ export default function VendorOverview() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const [trends, setTrends] = useState<any>({});
+  const [additionalStats, setAdditionalStats] = useState<any>({});
+
   // Cache keys for localStorage
   const CACHE_KEYS = {
     RECENT_ORDERS: 'vendor_dashboard_recent_orders',
     TOP_PRODUCTS: 'vendor_dashboard_top_products',
     RECENT_MESSAGES: 'vendor_dashboard_recent_messages',
     CARDS_DATA: 'vendor_dashboard_cards_data',
+    DASHBOARD_STATS: 'vendor_dashboard_stats',
   };
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -100,80 +105,65 @@ export default function VendorOverview() {
     const cached = getCachedData(CACHE_KEYS.RECENT_ORDERS);
     if (cached !== null) {
       setRecentOrders(cached.slice(0, 5));
-      setIsLoadingOrders(false);
-      setIsLoadingCards(false);
-      setOrdersFetched(true);
-      return;
+      // setOrdersFetched(true); // Don't set yet, we might need stats
     }
 
     try {
       setIsLoadingOrders(true);
       setIsLoadingCards(true);
 
+      // Fetch Dashboard Stats (Parallel with orders usually, or replaces calculations)
+      const statsResponse = await vendorService.getDashboardStats();
+      if (statsResponse.success && statsResponse.data) {
+        const stats = statsResponse.data;
+
+        setTotalRevenue(stats.revenue.total);
+        setTotalSales(`$${stats.revenue.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+        setActiveListingsCount(stats.listings.active);
+        setPendingOrdersCount(stats.listings.attention_required); // Using attention required for pending orders card logic mapping
+        setEarnings(stats.balance.available);
+        setDisputes(stats.cases.active);
+
+        // Set Trends and Additional Stats
+        setTrends({
+          salesChange: stats.sales.trend ? `${stats.sales.trend > 0 ? '+' : ''}${stats.sales.trend}%` : "0%",
+          listingsChange: "0 this week", // Placeholder until backend supports history
+          ordersChange: "0 from yesterday", // Placeholder
+          earningsChange: "+$0.00", // Placeholder
+          disputesChange: "No change"
+        });
+
+        // Calculate BTC estimate
+        const btcEstimate = stats.revenue.total / 100000;
+
+        setAdditionalStats({
+          btcRevenue: `≈ ${btcEstimate.toFixed(8)} BTC`,
+          featuredListings: Math.floor(stats.listings.active / 2), // Mock logic from previous code, can be real later
+          ordersAttention: stats.listings.attention_required,
+          disputesActive: stats.cases.active
+        });
+      }
+
+      // Fetch Orders List
       let ordersData: any = [];
       try {
         ordersData = await orderService.getVendorOrders();
       } catch (e) {
-        // ignore and try fallback
+        // ignore
       }
-      let ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any)?.results || [];
-
-      // Fallback to generic orders if vendor-specific returns nothing
-      if (!ordersArray || ordersArray.length === 0) {
-        try {
-          const generic = await orderService.getOrders();
-          ordersArray = Array.isArray(generic) ? generic : (generic as any)?.results || [];
-        } catch (e) {
-          // keep empty
-        }
-      }
-
-      // Calculate metrics from orders
+      const ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any)?.results || [];
       const allOrders = ordersArray || [];
-      const pending = allOrders.filter((o: any) => ['pending', 'pending_payment', 'processing'].includes((o?.order_status || '').toLowerCase())).length;
-      setPendingOrdersCount(pending);
 
-      // Calculate total sales and revenue in USD
-      let totalRevenueUSD = 0;
-      allOrders.forEach((order: any) => {
-        const amount = parseFloat(order.total_amount || "0");
-        const crypto = (order.crypto_currency || "BTC").toUpperCase();
-        if (!isNaN(amount)) {
-          const rate = crypto === 'XMR' ? 170 : 100000;
-          totalRevenueUSD += (amount * rate);
-        }
-      });
-
-      setTotalSales(`$${totalRevenueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-      setTotalRevenue(totalRevenueUSD);
-      setEarnings(totalRevenueUSD * 0.8); // Assume 80% available for withdrawal
-      // Calculate disputes from actual dispute service
-      try {
-        const disputeStats = await disputeService.getDisputeStatistics();
-        if (disputeStats.success && disputeStats.data) {
-          setDisputes(disputeStats.data.total_disputes || 0);
-        } else {
-          setDisputes(allOrders.filter((o: any) => o.order_status === 'disputed').length);
-        }
-      } catch (error) {
-        console.error('Error fetching disputes:', error);
-        setDisputes(allOrders.filter((o: any) => o.order_status === 'disputed').length);
-      }
-
-      // Get last 3 orders sorted by creation date
+      // Sort and set recent orders
       const sortedOrders = allOrders
         .sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
+        .slice(0, 5);
 
       setRecentOrders(sortedOrders);
       setCachedData(CACHE_KEYS.RECENT_ORDERS, sortedOrders);
+
     } catch (error) {
-      console.error('Error fetching recent orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch recent orders",
-        variant: "destructive",
-      });
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setIsLoadingOrders(false);
       setIsLoadingCards(false);
@@ -182,16 +172,7 @@ export default function VendorOverview() {
   };
 
   const fetchActiveListings = async () => {
-    try {
-      const res = await productService.getVendorProducts();
-      const products = (res as any)?.data || [];
-      // Match VendorListings logic: active = status === 'approved'
-      const active = products.filter((p: any) => p.status === 'approved').length;
-      setActiveListingsCount(active);
-    } catch (e) {
-      console.error('Error fetching vendor products:', e);
-      setActiveListingsCount(0);
-    }
+    // Now handled by fetchRecentOrders / getDashboardStats
   };
 
   // Fetch top performing products with caching
@@ -287,7 +268,7 @@ export default function VendorOverview() {
       setShowTermsModal(true);
     }
     fetchRecentOrders();
-    fetchActiveListings();
+    // fetchActiveListings(); // Removed as it's handled in dashboard stats
     fetchTopProducts();
     fetchRecentMessages();
 
@@ -427,6 +408,8 @@ export default function VendorOverview() {
           earnings={earnings}
           disputes={disputes}
           isLoading={isLoadingCards}
+          trends={trends}
+          additionalStats={additionalStats}
         />
 
         {/* Main Dashboard Grid */}

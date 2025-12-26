@@ -131,12 +131,13 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         crypto_currency = data['crypto_currency']
         
         # Check if product is available
-        if product.status != 'approved':
+        # Allow 'reserved' status to pass through for specific error handling below, or block unapproved/rejected/deleted
+        if product.status not in ['approved', 'reserved']:
             raise serializers.ValidationError("Product is not available for purchase")
         
-        # Check if enough quantity is available
-        if product.quantity_available < quantity:
-            raise serializers.ValidationError(f"Only {product.quantity_available} units available")
+        # Check if enough quantity is available - Specific Out of Stock Message
+        if product.quantity_available < quantity or product.status == 'reserved':
+             raise serializers.ValidationError("This account is out of stock kindly talk with vender")
         
         # Convert USD price to Crypto amount
         # We store the crypto amount in unit_price as per model intention
@@ -192,8 +193,9 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         
         # Reserve product quantity
         product.quantity_available -= quantity
-        if product.quantity_available == 0:
-            product.status = 'reserved'
+        # Do NOT set status to 'reserved' so it stays visible in listings
+        # if product.quantity_available == 0:
+        #     product.status = 'reserved'
         product.save()
         
         # Create order

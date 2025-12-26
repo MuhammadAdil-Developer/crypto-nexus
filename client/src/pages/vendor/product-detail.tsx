@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/ToastContainer";
 import { getImageUrl } from "@/config/api";
+import placeholderImage from "@/assets/placeholder.png";
 
 export default function VendorProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -212,11 +213,11 @@ export default function VendorProductDetail() {
                 src={getImageUrl(product.main_image) ||
                   (product.main_images && product.main_images.length > 0
                     ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                    : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400")}
+                    : placeholderImage)}
                 alt={product.headline || product.listing_title || "Product"}
                 className="w-full h-64 object-cover rounded-lg"
                 onError={(e) => {
-                  e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                  e.currentTarget.src = placeholderImage;
                 }}
               />
             </CardContent>
@@ -324,7 +325,7 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <DollarSign className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Final Price:</span>
-                  <span className="text-theme-cyan font-bold">${product.final_price || 0}</span>
+                  <span className="text-theme-cyan font-bold">${product.final_price || product.price || 0}</span>
                 </div>
                 {(product.discount_percentage || 0) > 0 && (
                   <div className="flex items-center space-x-2">
@@ -508,7 +509,7 @@ export default function VendorProductDetail() {
                           alt={`Gallery image ${index + 1}`}
                           className="w-full h-24 object-cover rounded-lg border border-gray-600 group-hover:border-theme-cyan transition-colors"
                           onError={(e) => {
-                            e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                            e.currentTarget.src = placeholderImage;
                           }}
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">

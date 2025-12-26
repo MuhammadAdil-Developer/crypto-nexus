@@ -25,6 +25,37 @@ from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
+ 
+def smart_parse_price(price_str):
+    """
+    Intelligently parse price. 
+    If price < 0.1 or contains 'btc', assume it's BTC and convert to USD.
+    If contains 'xmr', convert using XMR rate (170).
+    Using fixed rate of 100,000 USD/BTC as per application standard.
+    """
+    try:
+        if not price_str:
+            return "0"
+        
+        price_lower = str(price_str).lower()
+        clean_price = price_lower.replace('btc', '').replace('xmr', '').replace('$', '').replace('usd', '').strip()
+        d_price = Decimal(clean_price)
+        
+        # Determine conversion rate
+        rate = Decimal('1')
+        if 'btc' in price_lower:
+            rate = Decimal('100000')
+        elif 'xmr' in price_lower:
+            rate = Decimal('170')
+        elif d_price < Decimal('0.1'):
+            # Auto-detect BTC if very small (less than 10 cents USD)
+            rate = Decimal('100000')
+            
+        d_price = d_price * rate
+        # Return as string (DRF DecimalField will handle the decimals)
+        return str(d_price)
+    except Exception as e:
+        return str(price_str)
 
 class IsAdminUser(BasePermission):
     """Custom permission to only allow admin users"""
@@ -64,9 +95,9 @@ def list_products(request):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         
-        # Start with approved products
+        # Start with approved and reserved (out of stock) products
         products = Product.objects.filter(
-            status='approved',
+            status__in=['approved', 'reserved'],
             is_active=True,
             is_deleted=False
         ).select_related('vendor', 'category', 'sub_category')
@@ -147,7 +178,7 @@ def get_popular_searches(request):
         # Get products ordered by views_count, favorites_count, and created_at
         # This gives us the most popular products which are likely to be searched
         products = Product.objects.filter(
-            status='approved',
+            status__in=['approved', 'reserved'],
             is_active=True,
             is_deleted=False
         ).order_by('-views_count', '-favorites_count', '-created_at')[:limit * 2]
@@ -317,10 +348,10 @@ def get_vendor_public_products(request, vendor_username):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         
-        # Get products by vendor username
+        # Get products by vendor username - Include reserved
         products = Product.objects.filter(
             vendor__username=vendor_username,
-            status='approved',
+            status__in=['approved', 'reserved'],
             is_active=True,
             is_deleted=False
         ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
@@ -981,14 +1012,19 @@ def bulk_upload_products(request):
                     'account_type': (row.get('account_type') or 'other').strip(),
                     'access_type': (row.get('access_type') or 'full_ownership').strip(),
                     'description': (row.get('description') or '').strip(),
-                    'price': (row.get('price') or '0').strip(),
+                    'price': smart_parse_price(row.get('price') or '0'),
                     'additional_info': (row.get('additional_info') or '').strip(),
                     'delivery_time': (row.get('delivery_time') or 'instant_auto').strip(),
                     'credentials': credentials,
                     'account_balance': account_balance,
                     'vendor': request.user.id,
-                    'category_id': 1,  # Default category
                 }
+                
+                # Set default category
+                from .models import ProductCategory
+                default_category = ProductCategory.objects.filter(is_active=True, is_deleted=False).first()
+                if default_category:
+                    product_data['category'] = default_category.id
                 
                 serializer = ProductCreateSerializer(data=product_data)
                 if serializer.is_valid():
@@ -1071,9 +1107,9 @@ def buyer_listings(request):
         min_price = request.GET.get('min_price', '')
         max_price = request.GET.get('max_price', '')
         
-        # Base queryset
+        # Base queryset - include reserved (out of stock)
         products_qs = Product.objects.filter(
-            status='approved',
+            status__in=['approved', 'reserved'],
             is_active=True,
             is_deleted=False
         ).select_related('vendor', 'category', 'sub_category')
@@ -1538,14 +1574,19 @@ def bulk_upload_csv(request):
                     'account_type': (row.get('account_type') or 'other').strip(),
                     'access_type': (row.get('access_type') or 'full_ownership').strip(),
                     'description': (row.get('description') or '').strip(),
-                    'price': (row.get('price') or '0').strip(),
+                    'price': smart_parse_price(row.get('price') or '0'),
                     'additional_info': (row.get('additional_info') or '').strip(),
                     'delivery_time': (row.get('delivery_time') or 'instant_auto').strip(),
                     'credentials': credentials,
                     'account_balance': account_balance,
                     'vendor': request.user.id,
-                    'category_id': 1,  # Default category
                 }
+                
+                # Set default category
+                from .models import ProductCategory
+                default_category = ProductCategory.objects.filter(is_active=True, is_deleted=False).first()
+                if default_category:
+                    product_data['category'] = default_category.id
                 
                 serializer = ProductCreateSerializer(data=product_data)
                 if serializer.is_valid():
@@ -1586,6 +1627,10 @@ def bulk_upload_simple(request):
             # Handle JSON with text_data field
             text_data = request.data['text_data']
             products_data = parse_text_format(text_data)
+        elif 'data' in request.data:
+            # Handle JSON with data field (common frontend name)
+            text_data = request.data['data']
+            products_data = parse_text_format(text_data)
         else:
             # If it's already an array, use it directly
             products_data = request.data.get('products', [])
@@ -1605,7 +1650,7 @@ def bulk_upload_simple(request):
                 from .models import ProductCategory
                 default_category = ProductCategory.objects.filter(is_active=True, is_deleted=False).first()
                 if default_category:
-                    product_data['category_id'] = default_category.id
+                    product_data['category'] = default_category.id
                 else:
                     errors.append("No active category found")
                     continue
@@ -1616,6 +1661,9 @@ def bulk_upload_simple(request):
                 
                 # Add vendor ID to product data
                 product_data['vendor'] = request.user.id
+                
+                # Default accepted crypto
+                product_data['accepted_crypto'] = ['BTC', 'XMR']
                 
                 # Create serializer with request context for vendor validation
                 serializer = ProductCreateSerializer(data=product_data, context={'request': request})
@@ -1649,13 +1697,19 @@ def parse_text_format(text_data):
     products = []
     lines = text_data.strip().split('\n')
     
-    for line in lines:
+    for i, line in enumerate(lines):
         line = line.strip()
         if not line:
             continue
         
         # Skip header lines and comments
-        if line.startswith('#') or line.startswith('##') or line.startswith('Format:'):
+        if (line.startswith('#') or line.startswith('##') or 
+            line.startswith('Format:') or line.startswith('Account Name |') or 
+            line.startswith('Product Name |') or line.startswith('Headline |')):
+            continue
+            
+        # Also skip if it seems to be exactly the header provided in instructions
+        if 'Account Name | Website | Account Type | Price | Description' in line:
             continue
             
         # Try different parsing methods
@@ -1674,7 +1728,7 @@ def parse_text_format(text_data):
                     'headline': parts[0],
                     'website': parts[1],
                     'account_type': parts[2],
-                    'price': parts[3],
+                    'price': smart_parse_price(parts[3]),
                     'description': parts[4],
                     'credentials': credentials,
                     'access_type': 'full_ownership',
@@ -1698,7 +1752,7 @@ def parse_text_format(text_data):
                     'headline': parts[0],
                     'website': parts[1],
                     'account_type': parts[2],
-                    'price': parts[3],
+                    'price': smart_parse_price(parts[3]),
                     'description': parts[4],
                     'credentials': credentials,
                     'access_type': 'full_ownership',

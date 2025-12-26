@@ -25,7 +25,8 @@ import bannerLeftArrow from "@/assets/banner/arrow_left.png";
 import bannerRightArrow from "@/assets/banner/arrow_right.png";
 
 // API Service
-import { API_BASE_URL } from '@/config/api';
+import { API_BASE_URL, getImageUrl } from '@/config/api';
+import placeholderImage from "@/assets/placeholder.png";
 
 interface Product {
   id: number;
@@ -765,16 +766,15 @@ function BuyerListingsContent() {
                         <tr key={product.id} className="hover:bg-gray-700/50 transition-colors">
                           <td className="p-4">
                             <div className="flex items-center space-x-3">
-                              <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                                {product.main_image ? (
-                                  <img
-                                    src={product.main_image}
-                                    alt={product.listing_title}
-                                    className="w-full h-full object-cover rounded-lg"
-                                  />
-                                ) : (
-                                  <span className="text-gray-400 text-lg">📦</span>
-                                )}
+                              <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                <img
+                                  src={getImageUrl(product.main_image) || placeholderImage}
+                                  alt={product.listing_title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = placeholderImage;
+                                  }}
+                                />
                               </div>
                               <div className="min-w-0">
                                 <p className="text-white font-medium truncate">{product.listing_title}</p>
@@ -793,7 +793,7 @@ function BuyerListingsContent() {
                           <td className="p-4">
                             <div>
                               <span className="text-white font-bold block">${parseFloat(product.price).toFixed(2)}</span>
-                              <span className="text-gray-400 text-xs font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                              <span className="text-gray-400 text-xs font-mono">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
                             </div>
                           </td>
                           <td className="p-4">

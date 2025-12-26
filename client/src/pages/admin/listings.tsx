@@ -17,8 +17,9 @@ import { Search, Filter, Check, X, Edit, Trash2, Eye, Star, MapPin, Calendar, Ch
 import { useToast } from "@/hooks/use-toast";
 
 // API Service
-import { API_BASE_URL, getApiUrl } from '@/config/api';
+import { API_BASE_URL, getApiUrl, getImageUrl } from '@/config/api';
 import authService from '@/services/authService';
+import placeholderImage from "@/assets/placeholder.png";
 
 interface Product {
   id: number;
@@ -1308,16 +1309,15 @@ export default function AdminListings() {
                               onCheckedChange={() => handleSelectProduct(product.id)}
                             />
                           )}
-                          <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
-                            {product.main_image ? (
-                              <img
-                                src={product.main_image}
-                                alt={product.headline || 'Product'}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                            ) : (
-                              <span className="text-gray-400 text-sm">📦</span>
-                            )}
+                          <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                            <img
+                              src={getImageUrl(product.main_image) || placeholderImage}
+                              alt={product.headline || 'Product'}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = placeholderImage;
+                              }}
+                            />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-white font-medium truncate">{product.headline || 'Untitled'}</p>
@@ -1348,7 +1348,7 @@ export default function AdminListings() {
                       </td>
                       <td className="p-4">
                         <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
-                        <span className="text-gray-400 text-xs font-mono ml-1">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                        <span className="text-gray-400 text-xs font-mono ml-1">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>
@@ -1660,7 +1660,7 @@ export default function AdminListings() {
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Price</Label>
                           <span className="text-white font-bold text-lg">${parseFloat(selectedListing.price).toFixed(2)}</span>
-                          <span className="text-gray-400 text-sm font-mono ml-2">≈ {(parseFloat(selectedListing.price) / 100000).toFixed(8)} BTC</span>
+                          <span className="text-gray-400 text-sm font-mono ml-2">≈ {parseFloat((parseFloat(selectedListing.price) / 100000).toFixed(8))} BTC</span>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Vendor</Label>

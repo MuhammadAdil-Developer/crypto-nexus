@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText, Download, Calculator } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, Save, Loader2, Upload, X, Image as ImageIcon, Plus, FileText, Download, Calculator, Shield } from "lucide-react";
 import vendorService, { VendorProduct } from "@/services/vendorService";
 import { productService } from "@/services/productService";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/ToastContainer";
 import { getImageUrl, getApiUrl } from "@/config/api";
 import authService from "@/services/authService";
+import placeholderImage from "@/assets/placeholder.png";
 
 export default function VendorEditProduct() {
   const { id } = useParams<{ id: string }>();
@@ -29,7 +31,7 @@ export default function VendorEditProduct() {
     if (product && product.price) {
       // Initialize BTC price from USD price
       // Rate: 100,000 USD/BTC
-      const btc = (parseFloat(product.price) / 100000).toFixed(8);
+      const btc = parseFloat((parseFloat(product.price) / 100000).toFixed(8)).toString();
       setLocalBtcPrice(btc);
     }
   }, [product]);
@@ -68,7 +70,10 @@ export default function VendorEditProduct() {
 
     // Status
     status: 'pending_approval',
-    accepted_crypto: ['BTC', 'XMR']
+    // Status
+    status: 'pending_approval',
+    accepted_crypto: ['BTC', 'XMR'],
+    escrow_enabled: false
   });
 
   // Image management state
@@ -128,11 +133,13 @@ export default function VendorEditProduct() {
             delivery_method: foundProduct.delivery_method || '',
             special_features: foundProduct.special_features || [],
             auto_delivery_script: foundProduct.auto_delivery_script || '',
-            notes_for_buyer: foundProduct.notes_for_buyer || '',
+            auto_delivery_script: foundProduct.auto_delivery_script || '',
 
             // Status
             status: foundProduct.status || 'pending_approval',
-            accepted_crypto: foundProduct.accepted_crypto || ['BTC', 'XMR']
+            status: foundProduct.status || 'pending_approval',
+            accepted_crypto: foundProduct.accepted_crypto || ['BTC', 'XMR'],
+            escrow_enabled: foundProduct.escrow_enabled || false
           });
 
           // Set existing images
@@ -326,7 +333,8 @@ export default function VendorEditProduct() {
         special_features: formData.special_features,
         notes_for_buyer: formData.notes_for_buyer,
         status: formData.status,
-        accepted_crypto: JSON.stringify(formData.accepted_crypto)
+        accepted_crypto: JSON.stringify(formData.accepted_crypto),
+        escrow_enabled: formData.escrow_enabled,
       };
 
       // Remove undefined fields
@@ -640,6 +648,36 @@ export default function VendorEditProduct() {
             </CardContent>
           </Card>
 
+          {/* Escrow Settings */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                <Shield className="w-5 h-5 text-theme-cyan" />
+                Escrow Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="escrow-toggle" className="text-base font-semibold text-white">Enable Escrow</Label>
+                    <Badge variant="outline" className="border-theme-cyan/50 text-theme-cyan text-[10px] h-5">
+                      Recommended
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    Protect your transaction by holing funds until the buyer confirms receipt.
+                  </p>
+                </div>
+                <Switch
+                  id="escrow-toggle"
+                  checked={formData.escrow_enabled}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, escrow_enabled: checked }))}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Main Image Upload */}
           <Card className="border border-gray-700 bg-gray-900">
             <CardHeader>
@@ -653,11 +691,11 @@ export default function VendorEditProduct() {
                     src={mainImagePreview || getImageUrl(product?.main_image) ||
                       (product?.main_images && product.main_images.length > 0
                         ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                        : '')}
+                        : placeholderImage)}
                     alt="Main product image"
                     className="w-full h-48 object-cover rounded-lg border border-gray-600"
                     onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                      e.currentTarget.src = placeholderImage;
                     }}
                   />
                   <Button
@@ -949,25 +987,6 @@ export default function VendorEditProduct() {
             </Card>
           )}
 
-          {/* Notes for Buyer */}
-          <Card className="border border-gray-700 bg-gray-900">
-            <CardHeader>
-              <CardTitle className="text-xl font-bold text-white">Notes for Buyer</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="notes_for_buyer" className="text-gray-300">Additional Notes</Label>
-                <Textarea
-                  id="notes_for_buyer"
-                  name="notes_for_buyer"
-                  value={formData.notes_for_buyer}
-                  onChange={handleInputChange}
-                  className="bg-gray-800 border-gray-600 text-white min-h-[100px]"
-                  placeholder="Enter any special instructions or notes for buyers..."
-                />
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Action Buttons */}
           <div className="flex space-x-4">
@@ -1034,12 +1053,12 @@ export default function VendorEditProduct() {
                   (product?.main_image
                     ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
                     : (product?.main_images && product.main_images.length > 0
-                      ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                      : "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300"))}
+                      ? getImageUrl(product.main_images[0])
+                      : placeholderImage))}
                 alt={formData.listing_title || formData.headline}
                 className="w-full h-48 object-cover rounded-lg"
                 onError={(e) => {
-                  e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=300";
+                  e.currentTarget.src = placeholderImage;
                 }}
               />
             </div>

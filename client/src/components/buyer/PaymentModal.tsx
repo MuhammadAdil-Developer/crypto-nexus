@@ -34,6 +34,7 @@ interface Product {
   accepted_crypto?: string[];
   escrow_available?: boolean;
   escrow_enabled?: boolean;
+  quantity_available?: number;
 }
 
 interface PaymentModalProps {
@@ -88,7 +89,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     vendor: { username: 'Multiple Vendors' },
     accepted_crypto: items[0]?.accepted_crypto || items[0]?.accepted_cryptocurrencies || ['BTC', 'XMR'],
     escrow_available: true,
-    escrow_enabled: false
+    escrow_enabled: false,
+    quantity_available: 1
   } as Product : null);
 
 
@@ -112,11 +114,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const createRealPayment = async () => {
     console.log('🚀 createRealPayment START', { product, items, selectedCrypto, paymentType, orderId });
 
-    // Prevent duplicate runs
+    // FIX: If orderId exists check if we can proceed or need to retry payment creation
     if (orderId && (!items || items.length === 0)) {
-      console.log('⚠️ Skipping: orderId already exists', orderId);
-      return;
+      if (realPaymentAddress || paymentAddress) {
+        console.log('✅ Order and payment address exist, moving to Step 3');
+        setStep(3);
+        return;
+      }
+      console.log('⚠️ Order exists but payment address missing. Retrying payment creation only.');
     }
+
     // Need either single product or items for bulk
     if ((!product || !product.id) && (!items || items.length === 0)) {
       console.log('⚠️ Skipping: No product or items');
@@ -198,35 +205,43 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       if (!product || !product.id) {
         throw new Error("Product is required");
       }
-      const orderData = {
-        product: product.id,
-        quantity: quantity,
-        crypto_currency: selectedCrypto,
-        use_escrow: useEscrow
-      };
 
-      const orderResponse = await fetch(getApiUrl("/orders/"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
-        },
-        body: JSON.stringify(orderData)
-      });
+      let orderIdGenerated = orderId;
 
-      if (!orderResponse.ok) {
-        throw new Error("Failed to create order");
+      // Only create order if we don't have one
+      if (!orderIdGenerated) {
+        const orderData = {
+          product: product.id,
+          quantity: quantity,
+          crypto_currency: selectedCrypto,
+          use_escrow: useEscrow
+        };
+
+        const orderResponse = await fetch(getApiUrl("/orders/"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
+          },
+          body: JSON.stringify(orderData)
+        });
+
+        if (!orderResponse.ok) {
+          throw new Error("Failed to create order");
+        }
+
+        const order = await orderResponse.json();
+        orderIdGenerated = order.order_id || order.data?.order_id;
+        const createdAt = new Date().toISOString();
+
+        console.log('✅ Order created successfully:', { orderIdGenerated, createdAt });
+
+        setOrderId(orderIdGenerated);
+        setOrderCreatedAt(createdAt);
+        window.dispatchEvent(new CustomEvent('order_created', { detail: { order_id: orderIdGenerated } }));
+      } else {
+        console.log('Using existing order ID:', orderIdGenerated);
       }
-
-      const order = await orderResponse.json();
-      const orderIdGenerated = order.order_id || order.data?.order_id;
-      const createdAt = new Date().toISOString();
-
-      console.log('✅ Order created successfully:', { orderIdGenerated, createdAt });
-
-      setOrderId(orderIdGenerated);
-      setOrderCreatedAt(createdAt);
-      window.dispatchEvent(new CustomEvent('order_created', { detail: { order_id: orderIdGenerated } }));
 
       // Then create payment address for single order
       console.log('💰 About to get crypto rate...', { totalPrice, selectedCrypto });
@@ -295,34 +310,70 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           const data = JSON.parse(stored);
           const { orderId: storedOrderId, orderCreatedAt: storedCreatedAt, paymentAddress: storedAddress, paymentAmount: storedAmount, selectedCrypto: storedCrypto } = data;
 
-          // Calculate remaining time
-          const createdAt = new Date(storedCreatedAt).getTime();
-          const expiresAt = createdAt + (120 * 60 * 1000); // 2 hours
-          const now = Date.now();
-          const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-
-          if (remainingSeconds > 0) {
-            // Order still valid, restore state
-            setOrderId(storedOrderId);
-            setOrderCreatedAt(storedCreatedAt);
-            setPaymentAddress(storedAddress);
-            setPaymentAmount(storedAmount);
-            setSelectedCrypto(storedCrypto);
-            setTimeRemaining(remainingSeconds);
-            setStep(3); // Go directly to payment step
-
-            // Restore payment address if available
-            if (storedAddress) {
-              setRealPaymentAddress({
-                payment_address: storedAddress,
-                expected_amount: storedAmount,
-                order_id: storedOrderId
-              } as PaymentAddress);
+          // Validate status before restoring blindly
+          // If the order is already paid, we should NOT show pending timer
+          paymentService.getPaymentStatus(storedOrderId).then((status) => {
+            if (status && (status.status === 'paid' || status.status === 'confirmed' || status.status === 'completed' || status.status === 'delivered')) {
+              console.log('Stored order is already paid. Clearing storage.', status);
+              localStorage.removeItem(storageKey);
+              // Do not restore step 3
+              setStep(1);
+              return;
             }
-          } else {
-            // Order expired, clear storage
-            localStorage.removeItem(storageKey);
-          }
+
+            // If valid and pending, then restore
+            // Calculate remaining time
+            const createdAt = new Date(storedCreatedAt).getTime();
+            const expiresAt = createdAt + (120 * 60 * 1000); // 2 hours
+            const now = Date.now();
+            const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
+
+            if (remainingSeconds > 0) {
+              // Order still valid, restore state
+              setOrderId(storedOrderId);
+              setOrderCreatedAt(storedCreatedAt);
+              setPaymentAddress(storedAddress);
+              setPaymentAmount(storedAmount);
+              setSelectedCrypto(storedCrypto);
+              setTimeRemaining(remainingSeconds);
+              setStep(3); // Go directly to payment step
+
+              // Restore payment address if available
+              if (storedAddress) {
+                setRealPaymentAddress({
+                  payment_address: storedAddress,
+                  expected_amount: storedAmount,
+                  order_id: storedOrderId
+                } as PaymentAddress);
+              }
+
+              // Restart polling since we restored a pending order
+              if (pollingInterval) clearInterval(pollingInterval);
+              const interval = paymentService.startPaymentPolling(storedOrderId, (status: PaymentStatus) => {
+                setRealPaymentStatus(status);
+                if (status.status === "paid" || status.status === "confirmed") {
+                  toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
+                  localStorage.removeItem(storageKey); // Clear on success
+                  setStep(4);
+                } else if (status.status === "expired") {
+                  toast({ title: "Payment Expired", description: "Payment window has expired.", variant: "destructive" });
+                  localStorage.removeItem(storageKey);
+                  setStep(1);
+                }
+              });
+              setPollingInterval(interval);
+
+            } else {
+              // Order expired, clear storage
+              localStorage.removeItem(storageKey);
+            }
+          }).catch(err => {
+            console.error("Error checking stored order status", err);
+            // If check fails, we might default to restoring or clearing. 
+            // Safest is to clear if we can't verify, or let standard expiry handle it.
+            // For now, let's let standard expiry handle it if API fails.
+          });
+
         } catch (error) {
           console.error('Error restoring order state:', error);
         }
@@ -653,7 +704,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                         <span className="text-white block font-mono">
                           {selectedCrypto === 'XMR'
                             ? `${(pricing.subtotal / 170).toFixed(4)} XMR`
-                            : `${(pricing.subtotal / 100000).toFixed(8)} BTC`}
+                            : `${parseFloat((pricing.subtotal / 100000).toFixed(8))} BTC`}
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.subtotal.toFixed(2)}</span>
                       </div>
@@ -670,7 +721,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                         <span className="text-white block font-mono">
                           {selectedCrypto === 'XMR'
                             ? `${(pricing.total / 170).toFixed(4)} XMR`
-                            : `${(pricing.total / 100000).toFixed(8)} BTC`}
+                            : `${parseFloat((pricing.total / 100000).toFixed(8))} BTC`}
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.total.toFixed(2)}</span>
                       </div>
@@ -842,13 +893,25 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </div>
               )}
 
-              <Button
-                onClick={handlePaymentMethodSubmit} disabled={isCreatingPayment}
-                className="w-full bg-theme-red hover:bg-theme-red-dark text-white py-3"
-                size="lg"
-              >
-                Continue
-              </Button>
+              <div onClick={() => {
+                const stock = effectiveProduct?.quantity_available !== undefined ? effectiveProduct.quantity_available : 1;
+                if (stock <= 0) {
+                  toast({
+                    title: "Out of Stock",
+                    description: "this account is currently out of stock kindly talk with vender",
+                    variant: "destructive"
+                  });
+                }
+              }}>
+                <Button
+                  onClick={handlePaymentMethodSubmit}
+                  disabled={isCreatingPayment || (effectiveProduct?.quantity_available !== undefined && effectiveProduct.quantity_available <= 0)}
+                  className="w-full bg-theme-red hover:bg-theme-red-dark text-white py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  size="lg"
+                >
+                  Continue
+                </Button>
+              </div>
             </div>
           )}
 

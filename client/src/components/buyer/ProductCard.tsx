@@ -8,6 +8,8 @@ import PaymentModal from './PaymentModal';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/contexts/CartContext';
 import wishlistService from '@/services/wishlistService';
+import placeholderImage from '@/assets/placeholder.png';
+import { getImageUrl } from '@/config/api';
 
 interface Product {
   id: number;
@@ -99,7 +101,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     if (product.main_images && product.main_images.length > 0) {
       return product.main_images[0];
     }
-    return null;
+    return placeholderImage;
   };
 
   const getAccountTypeColor = (type: string | null | undefined) => {
@@ -156,10 +158,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     if (product.quantity_available <= 0) {
       toast({
         title: "Out of Stock",
-        description: "This product is currently out of stock and cannot be purchased",
+        description: "this account is currently out of stock kindly talk with vender",
         variant: "destructive"
       });
-      return;
+      // Allow opening modal even if out of stock, as requested
     }
     if (redirectOnAction) {
       // Redirect to listings page with product name in search and open payment modal
@@ -319,11 +321,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             onKeyDown={(e) => e.key === 'Enter' && handleViewProduct()}
           >
             <div className="w-10 h-10 bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
-              {getProductImage() ? (
-                <img src={getProductImage() || undefined} alt={product.listing_title} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500 text-lg">📦</div>
-              )}
+              <img
+                src={getImageUrl(getProductImage()) || placeholderImage}
+                alt={product.listing_title}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = placeholderImage;
+                }}
+              />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -384,8 +389,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button
               onClick={handleBuyNow}
               size="sm"
-              disabled={product.quantity_available <= 0}
-              className={product.quantity_available > 0 ? 'bg-theme-red hover:bg-theme-red-dark text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
+              // disabled={product.quantity_available <= 0} // Allow click
+              className={product.quantity_available > 0 ? 'bg-theme-red hover:bg-theme-red-dark text-white' : 'bg-gray-700 text-gray-400'}
             >
               Buy
             </Button>
@@ -480,17 +485,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       <CardContent className="p-0 h-full flex flex-col">
         {/* Product Image - Small width and height like Netflix cards */}
         <div className="relative h-[170px] overflow-hidden flex items-center justify-center p-8" style={{ backgroundColor: '#0E1A26' }}>
-          {getProductImage() ? (
-            <img
-              src={getProductImage() || undefined}
-              alt={product.listing_title}
-              className="max-w-[140px] max-h-[140px] object-contain group-hover:scale-110 transition-transform duration-500"
-            />
-          ) : (
-            <div className="w-[120px] h-[120px] flex items-center justify-center">
-              <span className="text-gray-500 text-6xl">📦</span>
-            </div>
-          )}
+          <img
+            src={getImageUrl(getProductImage()) || placeholderImage}
+            alt={product.listing_title}
+            className="max-w-[140px] max-h-[140px] object-contain group-hover:scale-110 transition-transform duration-500"
+            onError={(e) => {
+              e.currentTarget.src = placeholderImage;
+            }}
+          />
 
           {/* Status Badges - Smaller */}
           <div className="absolute top-1 left-1 flex flex-col space-y-0.5">
@@ -595,10 +597,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button
               onClick={handleBuyNow}
               size="sm"
-              disabled={product.quantity_available <= 0}
+              // disabled={product.quantity_available <= 0} // Allow click to show modal + error
               className={`flex-1 text-[10px] font-bold uppercase tracking-widest py-2 h-9 min-w-0 px-2 transition-all active:scale-95 ${product.quantity_available > 0
                 ? 'bg-theme-red hover:bg-[#850231] text-white shadow-lg shadow-theme-red/20'
-                : 'bg-gray-800 text-gray-600'
+                : 'bg-gray-800 text-gray-400' // Still gray if out of stock, but clickable
                 }`}
             >
               <ShoppingCart className="w-3 h-3 mr-1" />

@@ -13,6 +13,7 @@ import vendorService from '@/services/vendorService';
 import wishlistService from '@/services/wishlistService';
 import PaymentModal from './PaymentModal';
 import { getImageUrl } from '@/config/api';
+import placeholderImage from "@/assets/placeholder.png";
 
 interface Product {
   id: number;
@@ -359,22 +360,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   {product.main_image || (product.main_images && product.main_images.length > 0) ? (
                     <img
                       src={
-                        product.main_image
-                          ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
-                          : (product.main_images && product.main_images.length > 0
-                            ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
-                            : '')
+                        getImageUrl(product.main_image) ||
+                        (product.main_images && product.main_images.length > 0
+                          ? getImageUrl(product.main_images[0])
+                          : placeholderImage)
                       }
                       alt={product.headline || 'Product'}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                        e.currentTarget.src = placeholderImage;
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-gray-400 text-2xl sm:text-4xl">📦</span>
-                    </div>
+                    <img
+                      src={placeholderImage}
+                      alt="Placeholder"
+                      className="w-full h-full object-cover"
+                    />
                   )}
                 </div>
 

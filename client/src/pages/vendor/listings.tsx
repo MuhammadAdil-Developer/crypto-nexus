@@ -40,6 +40,8 @@ import {
 import { useToast } from "@/components/ui/ToastContainer";
 import vendorService, { VendorProduct, VendorStats } from "@/services/vendorService";
 import wishlistService from "@/services/wishlistService";
+import placeholderImage from "@/assets/placeholder.png";
+import { getImageUrl } from "@/config/api";
 
 // Banner Assets
 import bannerPattern from "@/assets/banner/vendor/pattern.png";
@@ -528,16 +530,15 @@ export default function VendorListings() {
                 {getPaginatedProducts().map((product) => (
                   <div key={product.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                     <div className="flex items-start space-x-3 mb-3">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                        {product.main_image ? (
-                          <img
-                            src={product.main_image}
-                            alt={product.headline}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        ) : (
-                          <span className="text-gray-400 text-sm sm:text-base">📦</span>
-                        )}
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <img
+                          src={getImageUrl(product.main_image) || placeholderImage}
+                          alt={product.headline}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = placeholderImage;
+                          }}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-medium text-sm sm:text-base break-words mb-1">{product.headline}</p>
@@ -590,9 +591,9 @@ export default function VendorListings() {
                         <p className="text-white font-bold text-lg">${parseFloat(product.price).toFixed(2)}</p>
                         <p className="text-gray-400 text-xs font-mono">
                           {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
-                            <>≈ {(parseFloat(product.price) / 170).toFixed(4)} XMR</>
+                            <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
                           ) : (
-                            <>≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</>
+                            <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
                           )}
                         </p>
                       </div>
@@ -717,16 +718,15 @@ export default function VendorListings() {
                     <tr key={product.id} className="hover:bg-gray-800/50">
                       <td className="p-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
-                            {product.main_image ? (
-                              <img
-                                src={product.main_image}
-                                alt={product.headline}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                            ) : (
-                              <span className="text-gray-400 text-sm">📦</span>
-                            )}
+                          <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            <img
+                              src={getImageUrl(product.main_image) || placeholderImage}
+                              alt={product.headline}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = placeholderImage;
+                              }}
+                            />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-white font-medium truncate">{product.headline}</p>
@@ -778,9 +778,9 @@ export default function VendorListings() {
                         <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
                         <span className="text-gray-400 text-xs font-mono ml-2">
                           {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
-                            <>≈ {(parseFloat(product.price) / 170).toFixed(4)} XMR</>
+                            <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
                           ) : (
-                            <>≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</>
+                            <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
                           )}
                         </span>
                       </td>

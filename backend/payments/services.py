@@ -205,26 +205,31 @@ class BTCPayServerService:
                 wallet_info = wallet_response.json()
                 logger.info(f"Wallet info: {wallet_info}")
                 
-                # Check if we have sufficient CONFIRMED balance
-                # Using confirmed balance only for safety - waits for blockchain confirmations
-                # This prevents double-spend risks but adds 10-30 minute delay
-                available_balance = float(wallet_info.get('confirmedBalance', 0))
+                # Check if we have sufficient total balance
+                # Using total balance (confirmed + unconfirmed) to allow faster testing/payouts
+                total_balance = float(wallet_info.get('balance', 0))
+                confirmed_balance = float(wallet_info.get('confirmedBalance', 0))
                 required_amount = float(payout_data['amount'])
                 
-                logger.info(f"Available Confirmed Balance: {available_balance} BTC")
-                logger.info(f"Required Amount: {required_amount} BTC")
+                logger.info(f"Available Confirmed Balance: {confirmed_balance} BTC")
+                logger.info(f"Available Total Balance (including unconfirmed): {total_balance} BTC")
+                logger.info(f"Required Payout Amount: {required_amount} BTC")
                 
-                if available_balance < required_amount:
-                    # Not enough funds in BTCPay wallet to send this payout
-                    logger.error(
-                        f"INSUFFICIENT FUNDS: Need {required_amount} BTC but only have {available_balance} BTC"
+                # FORCE SWEEP LOGIC: If we are trying to send >= the total balance, we cap it at (Total - Buffer)
+                # This ensures we never try to send more than we have, AND we leave a tiny crumb to avoid "Sending Entire Balance" error
+                # The 'subtractFeesFromAmount=True' later will handle the actual mining fee deduction from this capped amount
+                if required_amount >= total_balance:
+                    logger.warning(
+                        f"FULL SWEEP TRIGGERED: Required {required_amount} >= Total {total_balance}. Cap at Total - Buffer."
                     )
-                    logger.error(
-                        f"Please add {required_amount - available_balance} BTC to the BTCPay wallet "
-                        f"or lower the withdrawal amount."
-                    )
-                    # Do NOT try to send a smaller or negative amount – just fail cleanly
-                    return None
+                    # Use 200 sat buffer. 
+                    safe_amount = max(0, total_balance - 0.00000200)
+                    payout_data['amount'] = "{:.8f}".format(safe_amount)
+                    logger.info(f"Adjusted payout amount to: {payout_data['amount']} (will have fees subtracted)")
+                    
+                    if safe_amount <= 0:
+                         logger.error("Balance too low to cover even dust buffer.")
+                         return None
                 
                 # Send transaction using wallet API
                 send_url = f"{self.base_url}/api/v1/stores/{self.store_id}/payment-methods/onchain/BTC/wallet/transactions"

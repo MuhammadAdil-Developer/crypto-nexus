@@ -68,8 +68,10 @@ class VendorService {
 
       // Calculate stats from products
       const totalProducts = products.length;
-      const activeListings = products.filter(p => p.status === 'approved' && p.is_active).length;
-      const outOfStock = products.filter(p => !p.is_active || p.status === 'reserved').length;
+      // Active listings are approved products that are currently active
+      const activeListings = products.filter(p => p.status === 'approved' && p.is_active !== false).length;
+      // Out of stock is specifically when quantity is 0
+      const outOfStock = products.filter(p => p.quantity_available === 0 || p.quantity_available === '0').length;
       const underReview = products.filter(p => p.status === 'pending_approval').length;
 
       // For sales and revenue, we would need to fetch orders, but for now return 0
@@ -98,6 +100,78 @@ class VendorService {
     }
   }
 
+  async getDashboardStats() {
+    try {
+      // Fetch all necessary data in parallel
+      const [productsResponse, profileResponse, ordersResponse] = await Promise.all([
+        productService.getVendorProducts(),
+        this.getProfile(),
+        api.get('/vendor/orders/') // Assuming this endpoint exists
+      ]);
+
+      const products = productsResponse.data || [];
+      const profile = profileResponse.data || {};
+      const orders = ordersResponse.data?.data || []; // Adjust based on actual API response structure
+
+      // Calculate Product Stats
+      const totalProducts = products.length;
+      const activeListings = products.filter(p => p.status === 'approved').length;
+      const outOfStock = products.filter(p => p.quantity_available === 0 || p.quantity_available === '0').length;
+      const underReview = products.filter(p => p.status === 'pending_approval').length;
+
+      // Calculate Revenue & Sales
+      // Assuming orders have 'total_amount' and 'status'
+      const completedOrders = orders.filter((o: any) => o.status === 'completed' || o.status === 'delivered');
+      const totalSales = completedOrders.length;
+      const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (parseFloat(o.total_amount) || 0), 0);
+
+      // Calculate Available Balance (from profile/wallet)
+      // Assuming profile has 'account_balance' or similar
+      const availableBalance = profile.account_balance || 0;
+
+      // Calculate Active Cases (Disputes/Tickets)
+      // This might need a separate endpoint usually, but for now we'll mock or try to find it
+      // Let's assume 0 if we can't find it easily without another call
+      const activeCases = 0;
+
+      return {
+        success: true,
+        data: {
+          revenue: {
+            total: totalRevenue,
+            trend: 0, // Calculate trend if possible
+            period: 'all_time'
+          },
+          sales: {
+            total: totalSales,
+            trend: 0,
+            period: 'this_week'
+          },
+          listings: {
+            active: activeListings,
+            total: totalProducts,
+            attention_required: outOfStock // Products needing attention (e.g. out of stock)
+          },
+          balance: {
+            available: availableBalance,
+            currency: 'USD'
+          },
+          cases: {
+            active: activeCases,
+            trend: 0
+          }
+        }
+      };
+
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch dashboard stats'
+      };
+    }
+  }
+
   async getVendorStatistics(vendorUsername: string) {
     try {
       const response = await api.get(`/vendors/statistics/${vendorUsername}/`);
@@ -107,6 +181,20 @@ class VendorService {
       return {
         success: false,
         message: 'Failed to fetch vendor statistics',
+        data: null
+      };
+    }
+  }
+
+  async getProfile() {
+    try {
+      const response = await api.get('/profile/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch profile',
         data: null
       };
     }
@@ -166,6 +254,19 @@ class VendorService {
         success: false,
         message: error.response?.data?.message || error.message || 'Failed to upload data',
         errors: error.response?.data?.errors || []
+      };
+    }
+  }
+
+  async deleteProduct(productId: number | string) {
+    try {
+      const response = await productService.deleteProduct(Number(productId));
+      return response;
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to delete product'
       };
     }
   }

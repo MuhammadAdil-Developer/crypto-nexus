@@ -33,8 +33,8 @@ export function formatUSD(amount: number | string): string {
  */
 export function formatBTC(amount: number | string): string {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (isNaN(num)) return '0.00000000 BTC';
-    return `${num.toFixed(8)} BTC`;
+    if (isNaN(num)) return '0 BTC';
+    return `${parseFloat(num.toFixed(8))} BTC`;
 }
 
 /**
@@ -44,8 +44,8 @@ export function formatBTC(amount: number | string): string {
  */
 export function formatXMR(amount: number | string): string {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (isNaN(num)) return '0.00000000 XMR';
-    return `${num.toFixed(8)} XMR`;
+    if (isNaN(num)) return '0 XMR';
+    return `${parseFloat(num.toFixed(8))} XMR`;
 }
 
 /**

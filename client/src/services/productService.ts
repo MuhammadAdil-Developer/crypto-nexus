@@ -59,6 +59,7 @@ export interface Product {
   updated_at: string;
   accepted_crypto?: string[];
   escrow_enabled?: boolean;
+  quantity_available: number;
 }
 
 export interface ProductListResponse {

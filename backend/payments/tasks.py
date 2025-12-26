@@ -187,6 +187,14 @@ def process_non_escrow_payout(order_id: str):
         platform_fee = amount * platform_fee_rate
         escrow_fee = amount * escrow_fee_rate
         
+        # Check if platform_fee is dust (approx 600 sats)
+        # If it is dust, we MUST sweep the whole amount to the vendor to avoid "not enough funds" / dusty change error
+        # 0.00000600 BTC is safe margin for dust
+        dust_threshold = Decimal('0.00000600')
+        if platform_fee > 0 and platform_fee < dust_threshold:
+            logger.info(f"Platform fee {platform_fee} is below dust threshold {dust_threshold}. Sweeping entire amount to vendor.")
+            platform_fee = Decimal('0')
+        
         # We no longer need manual fee reserve as BTCPay subtracts miner fees automatically
         net_amount = amount - platform_fee - escrow_fee
         

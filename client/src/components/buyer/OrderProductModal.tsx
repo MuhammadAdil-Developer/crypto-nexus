@@ -10,6 +10,7 @@ import vendorService from '@/services/vendorService';
 import { productService } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
 import { getImageUrl } from '@/config/api';
+import placeholderImage from "@/assets/placeholder.png";
 
 interface Order {
   order_id: string;
@@ -323,22 +324,23 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 {order.product.main_image || (order.product.main_images && order.product.main_images.length > 0) ? (
                   <img
                     src={
-                      order.product.main_image
-                        ? (order.product.main_image.startsWith('http') ? order.product.main_image : `http://localhost:8000${order.product.main_image}`)
-                        : (order.product.main_images && order.product.main_images.length > 0
-                          ? (order.product.main_images[0].startsWith('http') ? order.product.main_images[0] : `http://localhost:8000${order.product.main_images[0]}`)
-                          : '')
+                      getImageUrl(order.product.main_image) ||
+                      (order.product.main_images && order.product.main_images.length > 0
+                        ? getImageUrl(order.product.main_images[0])
+                        : placeholderImage)
                     }
                     alt={order.product.headline || 'Product'}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";
+                      e.currentTarget.src = placeholderImage;
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-gray-400 text-2xl sm:text-4xl">📦</span>
-                  </div>
+                  <img
+                    src={placeholderImage}
+                    alt="Placeholder"
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </div>
 
@@ -404,7 +406,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       return (
                         <>
                           <p className="text-2xl sm:text-3xl font-bold text-white font-mono">
-                            {btcAmt.toFixed(8)} <span className="text-sm sm:text-lg">{order.crypto_currency || 'BTC'}</span>
+                            {parseFloat(btcAmt.toFixed(8))} <span className="text-sm sm:text-lg">{order.crypto_currency || 'BTC'}</span>
                           </p>
                           <p className="text-xs sm:text-sm text-gray-400 mt-0.5 sm:mt-1 font-mono">
                             ≈ ${usdAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

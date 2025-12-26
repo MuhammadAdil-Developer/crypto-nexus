@@ -129,7 +129,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
                               Qty: {item.quantity}
                             </Badge>
                             <span className="text-gray-400 text-xs font-mono">
-                              @ {(parseFloat(item.price) / 100000).toFixed(8)} BTC each
+                              @ {parseFloat((parseFloat(item.price) / 100000).toFixed(8))} BTC each
                             </span>
                             <span className="text-gray-500 text-xs ml-1">
                               (≈ ${parseFloat(item.price).toFixed(2)})
@@ -138,7 +138,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
-                        <p className="text-white font-bold text-sm font-mono">{(itemTotal / 100000).toFixed(8)} BTC</p>
+                        <p className="text-white font-bold text-sm font-mono">{parseFloat((itemTotal / 100000).toFixed(8))} BTC</p>
                         <p className="text-gray-400 text-xs">≈ ${itemTotal.toFixed(2)}</p>
                       </div>
                     </div>
@@ -161,7 +161,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
             <div className="border-t border-gray-600 pt-2 mt-2 flex justify-between items-center">
               <span className="text-xl font-bold text-white">Total:</span>
               <div className="flex flex-col items-end">
-                <span className="text-2xl font-bold text-theme-cyan font-mono">{(calculatedTotal / 100000).toFixed(8)} BTC</span>
+                <span className="text-2xl font-bold text-theme-cyan font-mono">{parseFloat((calculatedTotal / 100000).toFixed(8))} BTC</span>
                 <span className="text-sm text-gray-400">≈ ${calculatedTotal.toFixed(2)}</span>
               </div>
             </div>

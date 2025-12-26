@@ -40,7 +40,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
   // Format BTC equivalent
   const formatBTCEquivalent = (price: number | string) => {
     const num = typeof price === 'string' ? parseFloat(price) : price;
-    return (num / 100000).toFixed(8);
+    return parseFloat((num / 100000).toFixed(8)).toString();
   };
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {

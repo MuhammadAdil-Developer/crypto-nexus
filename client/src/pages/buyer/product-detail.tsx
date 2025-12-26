@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import vendorService from '@/services/vendorService';
 import wishlistService from '@/services/wishlistService';
 import { API_BASE_URL, getImageUrl } from '@/config/api';
+import placeholderImage from "@/assets/placeholder.png";
 
 interface Product {
   id: number;
@@ -358,10 +359,10 @@ const ProductDetailPage: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-1 mt-2">
                   {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) && (
-                    <span className="text-gray-400 text-lg font-mono">≈ {(parseFloat(product.price) / 100000).toFixed(8)} BTC</span>
+                    <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
                   )}
                   {product.accepted_crypto?.includes('XMR') && (
-                    <span className="text-gray-400 text-lg font-mono">≈ {(parseFloat(product.price) / 170).toFixed(8)} XMR</span>
+                    <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</span>
                   )}
                 </div>
               </div>
@@ -500,18 +501,15 @@ const ProductDetailPage: React.FC = () => {
           <div className="space-y-4 lg:col-span-2">
             {/* Main Image */}
             <div className="w-full bg-gray-800 rounded-xl overflow-hidden shadow-2xl flex items-center justify-center" style={{ maxHeight: '400px' }}>
-              {selectedImage ? (
-                <img
-                  src={getFullUrl(selectedImage)}
-                  alt={product?.listing_title || 'Product'}
-                  className="w-full h-auto max-h-[400px] object-contain"
-                  style={{ maxWidth: '100%' }}
-                />
-              ) : (
-                <div className="w-full h-96 bg-gray-700 flex items-center justify-center">
-                  <span className="text-gray-400 text-6xl">📦</span>
-                </div>
-              )}
+              <img
+                src={selectedImage ? getFullUrl(selectedImage) : placeholderImage}
+                alt={product?.listing_title || 'Product'}
+                className="w-full h-auto max-h-[400px] object-contain"
+                style={{ maxWidth: '100%' }}
+                onError={(e) => {
+                  e.currentTarget.src = placeholderImage;
+                }}
+              />
             </div>
 
             {/* Gallery Images */}
@@ -526,9 +524,12 @@ const ProductDetailPage: React.FC = () => {
                       onClick={() => setSelectedImage(image)}
                     >
                       <img
-                        src={getFullUrl(image)}
+                        src={getFullUrl(image) || placeholderImage}
                         alt={`Gallery ${index + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = placeholderImage;
+                        }}
                       />
                     </div>
                   ))}

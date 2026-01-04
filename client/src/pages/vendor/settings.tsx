@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { User, Store, CreditCard, Bell, Shield, Save, Loader2, Settings as SettingsIcon } from "lucide-react";
+import { User, Store, CreditCard, Bell, Shield, Save, Loader2, Settings as SettingsIcon, Lock, Unlock, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageBanner } from "@/components/PageBanner";
+import { validateBTCAddress, validateXMRAddress } from "@/lib/utils";
 
 interface VendorProfile {
   business_name?: string;
@@ -36,6 +38,7 @@ interface NotificationSettings {
   payouts: boolean;
   marketing: boolean;
   reviews: boolean;
+  support_tickets: boolean;
 }
 
 interface SecuritySettings {
@@ -73,7 +76,8 @@ export default function VendorSettings() {
     disputes: true,
     payouts: true,
     marketing: false,
-    reviews: true
+    reviews: true,
+    support_tickets: true
   });
 
   const [security, setSecurity] = useState<SecuritySettings>({
@@ -87,6 +91,8 @@ export default function VendorSettings() {
   const { toast } = useToast();
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFAData, setTwoFAData] = useState<{ qr_code?: string; secret?: string; uri?: string } | null>(null);
+  const [editBTC, setEditBTC] = useState(false);
+  const [editXMR, setEditXMR] = useState(false);
 
   useEffect(() => {
     fetchVendorData();
@@ -116,45 +122,56 @@ export default function VendorSettings() {
           xmr_address: userData.xmr_payout_address || ""
         }));
 
+        // Set notification preferences from profile
+        setNotifications({
+          new_orders: userData.notify_new_orders ?? true,
+          messages: userData.notify_messages ?? true,
+          disputes: userData.notify_disputes ?? true,
+          reviews: userData.notify_reviews ?? true,
+          support_tickets: userData.notify_support_tickets ?? true,
+          payouts: userData.notify_payouts ?? true,
+          marketing: userData.notify_marketing ?? false
+        });
+
         // Set 2FA state from profile
         if (userData.two_factor_enabled !== undefined) {
           setSecurity(prev => ({
             ...prev,
-            two_factor_enabled: userData.two_factor_enabled || false
+            two_factor_enabled: userData.two_factor_enabled || false,
+            login_notifications: userData.notify_login_alerts ?? true
           }));
         }
       }
 
       // Fetch vendor application data for all profile fields
       try {
-        const vendorResponse = await api.get(`/vendors/applications/check/${response.data.data.username}/`);
+        const username = response.data.data.username;
+        const vendorResponse = await api.get(`/vendors/applications/check/${username}/`);
         if (vendorResponse.data && vendorResponse.data.success && vendorResponse.data.data.has_application) {
-          // Get full application details
-          const appResponse = await api.get(`/vendors/applications/`);
-          const apps = appResponse.data.data || [];
-          const myApp = apps.find((app: any) => app.vendor_username === response.data.data.username);
+          const app = vendorResponse.data.data;
+          console.log("Full Vendor Application Data fetched:", app);
 
-          if (myApp) {
-            setProfile(prev => ({
+          setProfile(prev => {
+            const newProfile = {
               ...prev,
-              contact: myApp.contact || "",
-              description: myApp.store_description || "",
-              category: myApp.category || "",
-              website: myApp.website || "",
-              location: myApp.business_address || "",
-              business_name: myApp.business_name || ""
-            }));
+              contact: app.contact || app.phone || prev.contact || "",
+              description: app.store_description || app.business_description || app.application_message || prev.description || "",
+              business_name: app.business_name || prev.business_name || ""
+            };
+            console.log("Updated Profile State:", newProfile);
+            return newProfile;
+          });
 
-            setPayment(prev => ({
-              ...prev,
-              btc_address: myApp.btc_address || "",
-              xmr_address: myApp.xmr_address || ""
-            }));
-          }
+          setPayment(prev => ({
+            ...prev,
+            btc_address: app.btc_address || prev.btc_address || "",
+            xmr_address: app.xmr_address || prev.xmr_address || ""
+          }));
+        } else {
+          console.log("No application found for this vendor or check failed.");
         }
       } catch (vendorError) {
         console.warn('Could not fetch vendor application data:', vendorError);
-        // Don't show error for this, just use empty addresses
       }
     } catch (error) {
       console.error('Error fetching vendor data:', error);
@@ -172,14 +189,43 @@ export default function VendorSettings() {
     try {
       setSaving(true);
 
+      // Immediate validation
+      if (payment.btc_address && !validateBTCAddress(payment.btc_address)) {
+        toast({
+          title: "Invalid BTC Address",
+          description: "Please enter a valid Bitcoin address (Legacy, P2SH, or Segwit)",
+          variant: "destructive"
+        });
+        setSaving(false);
+        return;
+      }
+
+      if (payment.xmr_address && !validateXMRAddress(payment.xmr_address)) {
+        toast({
+          title: "Invalid XMR Address",
+          description: "Please enter a valid Monero address (Standard, Integrated, or Subaddress)",
+          variant: "destructive"
+        });
+        setSaving(false);
+        return;
+      }
+
       // Check if 2FA is being enabled
       const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
 
-      // Update profile fields including payout addresses
+      // Update profile fields including payout addresses and notification preferences
       await api.put('/profile/update/', {
         two_factor_enabled: security.two_factor_enabled,
         btc_payout_address: payment.btc_address,
-        xmr_payout_address: payment.xmr_address
+        xmr_payout_address: payment.xmr_address,
+        notify_new_orders: notifications.new_orders,
+        notify_messages: notifications.messages,
+        notify_disputes: notifications.disputes,
+        notify_reviews: notifications.reviews,
+        notify_support_tickets: notifications.support_tickets,
+        notify_payouts: notifications.payouts,
+        notify_marketing: notifications.marketing,
+        notify_login_alerts: security.login_notifications
       });
 
       // Update vendor application with profile fields
@@ -195,6 +241,8 @@ export default function VendorSettings() {
         formData.append('business_address', profile.location || '');
         formData.append('btc_address', payment.btc_address || '');
         formData.append('xmr_address', payment.xmr_address || '');
+        // Ensure backend sees this as application_message if it's following that route
+        formData.append('application_message', profile.description || '');
 
         await api.post('/vendors/applications/create/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -233,6 +281,9 @@ export default function VendorSettings() {
         // Note: Disable endpoint requires password, so we'll just update the flag
         // User might need to disable through a separate flow if password is required
       }
+
+      setEditBTC(false);
+      setEditXMR(false);
 
       toast({
         title: "Success",
@@ -313,20 +364,16 @@ export default function VendorSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-theme-red/20 to-theme-cyan/20 rounded-xl p-6 text-white border border-theme-red/30 shadow-lg shadow-theme-red/10">
-        <div className="flex items-center space-x-3">
-          <SettingsIcon className="w-8 h-8 text-theme-cyan" />
-          <div>
-            <h1 className="text-2xl font-bold">Vendor Settings</h1>
-            <p className="text-gray-300">Manage your vendor account and business preferences</p>
-          </div>
-        </div>
-      </div>
+      {/* Header Banner */}
+      <PageBanner
+        title="Settings"
+        subtitle="Manage your vendor account and business preferences"
+        type="vendor"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Business Profile */}
-        <Card className="bg-gray-900 border-gray-700">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Store className="w-5 h-5 text-theme-cyan" />
@@ -388,7 +435,7 @@ export default function VendorSettings() {
         </Card>
 
         {/* Payment Settings */}
-        <Card className="bg-gray-900 border-gray-700">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-theme-cyan" />
@@ -397,24 +444,48 @@ export default function VendorSettings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="btcAddress" className="text-gray-300">Bitcoin Address</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="btcAddress" className="text-gray-300">Bitcoin Address</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditBTC(!editBTC)}
+                  className={`h-7 px-3 rounded-full transition-all duration-200 ${editBTC ? 'bg-theme-cyan text-black font-medium' : 'text-theme-cyan border border-theme-cyan/30 hover:bg-theme-cyan/20'}`}
+                >
+                  {editBTC ? <Unlock className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
+                  {editBTC ? "Unlocked" : "Edit"}
+                </Button>
+              </div>
               <Input
                 id="btcAddress"
                 value={payment.btc_address || ""}
                 onChange={(e) => setPayment({ ...payment, btc_address: e.target.value })}
-                className="bg-gray-800 border-gray-600 text-white"
+                className={`bg-gray-800 border-gray-600 text-white transition-all duration-300 ${!editBTC ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'border-theme-cyan/50 ring-1 ring-theme-cyan/20'}`}
                 placeholder="bc1q..."
+                readOnly={!editBTC}
               />
             </div>
 
             <div>
-              <Label htmlFor="xmrAddress" className="text-gray-300">Monero Address</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="xmrAddress" className="text-gray-300">Monero Address</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditXMR(!editXMR)}
+                  className={`h-7 px-3 rounded-full transition-all duration-200 ${editXMR ? 'bg-theme-cyan text-black font-medium' : 'text-theme-cyan border border-theme-cyan/30 hover:bg-theme-cyan/20'}`}
+                >
+                  {editXMR ? <Unlock className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
+                  {editXMR ? "Unlocked" : "Edit"}
+                </Button>
+              </div>
               <Input
                 id="xmrAddress"
                 value={payment.xmr_address || ""}
                 onChange={(e) => setPayment({ ...payment, xmr_address: e.target.value })}
-                className="bg-gray-800 border-gray-600 text-white"
+                className={`bg-gray-800 border-gray-600 text-white transition-all duration-300 ${!editXMR ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'border-theme-cyan/50 ring-1 ring-theme-cyan/20'}`}
                 placeholder="4A1BvXRJ..."
+                readOnly={!editXMR}
               />
             </div>
 
@@ -448,7 +519,7 @@ export default function VendorSettings() {
         </Card>
 
         {/* Notifications */}
-        <Card className="bg-gray-900 border-gray-700">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Bell className="w-5 h-5 text-theme-cyan" />
@@ -506,6 +577,30 @@ export default function VendorSettings() {
 
             <div className="flex items-center justify-between">
               <div>
+                <Label className="text-gray-300">Help & Support</Label>
+                <p className="text-sm text-gray-400">Get notified about support ticket updates</p>
+              </div>
+              <Switch
+                checked={notifications.support_tickets}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, support_tickets: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Payouts</Label>
+                <p className="text-sm text-gray-400">Get notified about payment activity</p>
+              </div>
+              <Switch
+                checked={notifications.payouts}
+                onCheckedChange={(checked) => setNotifications({ ...notifications, payouts: checked })}
+                className="data-[state=checked]:bg-theme-cyan"
+              />
+            </div>
+
+            {/* <div className="flex items-center justify-between">
+              <div>
                 <Label className="text-gray-300">Marketing</Label>
                 <p className="text-sm text-gray-400">Receive promotional emails</p>
               </div>
@@ -514,12 +609,12 @@ export default function VendorSettings() {
                 onCheckedChange={(checked) => setNotifications({ ...notifications, marketing: checked })}
                 className="data-[state=checked]:bg-theme-cyan"
               />
-            </div>
+            </div> */}
           </CardContent>
         </Card>
 
         {/* Security */}
-        <Card className="bg-gray-900 border-gray-700">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Shield className="w-5 h-5 text-theme-cyan" />
@@ -566,7 +661,7 @@ export default function VendorSettings() {
         </Card>
 
         {/* Change Password */}
-        <Card className="bg-gray-900 border-gray-700">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Shield className="w-5 h-5 text-theme-red" />
@@ -628,7 +723,7 @@ export default function VendorSettings() {
         </Card>
 
         {/* Save Button */}
-        <Card className="bg-gray-900 border-gray-700 lg:col-span-2">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden lg:col-span-2">
           <CardContent className="p-6">
             <Button
               onClick={handleSave}

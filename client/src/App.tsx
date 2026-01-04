@@ -16,6 +16,7 @@ import SignIn from './pages/auth/sign-in';
 import SignUp from './pages/auth/sign-up';
 import AdminSignIn from './pages/auth/admin-sign-in';
 import VenderSignIn from './pages/auth/vender-sign-in';
+import ForgotPassword from './pages/auth/forgot-password';
 import VendorApply from './pages/vendor/apply';
 import VendorApplySuccess from './pages/vendor/apply-success';
 import VendorPublicListings from './pages/vendor/public-listings';
@@ -30,6 +31,8 @@ import ProductDetailPage from "./pages/buyer/product-detail";
 import PaymentTest from "./pages/buyer/payment-test";
 import BuyerMyReviews from "./pages/buyer/my-reviews";
 import BuyerNotifications from "./pages/buyer/notifications";
+import { MaintenanceProvider } from './contexts/MaintenanceContext';
+import MaintenancePage from './pages/maintenance';
 import './index.css';
 
 // Lazy load admin dashboard to hide admin routes from initial bundle
@@ -44,8 +47,6 @@ function RouteDebugger() {
   useEffect(() => {
     // Only log in development mode
     if (import.meta.env.DEV) {
-      console.log('🔍 Route changed to:', location.pathname);
-      console.log('🔍 Full location:', location);
     }
   }, [location]);
 
@@ -57,93 +58,97 @@ function App() {
 
   return (
     <ToastProvider>
-      <MessagingProvider>
-        <CartProvider>
-          <Router>
-            <RouteDebugger />
-            <div className="App">
-              {/* Shadcn Toaster to ensure useToast toasts render */}
-              <Toaster />
-              {/* Token Expiration Modal - shows when session expires */}
-              <TokenExpirationModal />
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<MarketplaceHome />} />
-                <Route path="/sign-in" element={<SignIn />} />
-                <Route path="/sign-up" element={<SignUp />} />
-                <Route path="/6f2c9b681c3b4cf9a8c4-admin-access-control-panel-login" element={<AdminSignIn />} />
-                <Route path="/vender-sign-in" element={<VenderSignIn />} />
-                <Route path="/payment-test" element={<PaymentTest />} />
+      <Router>
+        <MaintenanceProvider>
+          <MessagingProvider>
+            <CartProvider>
+              <RouteDebugger />
+              <div className="App">
+                {/* Shadcn Toaster to ensure useToast toasts render */}
+                <Toaster />
+                {/* Token Expiration Modal - shows when session expires */}
+                <TokenExpirationModal />
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/maintenance" element={<MaintenancePage />} />
+                  <Route path="/" element={<MarketplaceHome />} />
+                  <Route path="/sign-in" element={<SignIn />} />
+                  <Route path="/sign-up" element={<SignUp />} />
+                  <Route path="/6f2c9b681c3b4cf9a8c4-admin-access-control-panel-login" element={<AdminSignIn />} />
+                  <Route path="/vender-sign-in" element={<VenderSignIn />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/payment-test" element={<PaymentTest />} />
 
-                {/* Buyer Dashboard Routes */}
-                <Route path="/buyer/*" element={
-                  <ProtectedRoute requiredUserType="buyer">
-                    <BuyerCountsProvider>
-                      <BuyerDashboard />
-                    </BuyerCountsProvider>
-                  </ProtectedRoute>
-                }>
-                  <Route index element={<BuyerHome />} />
-                  <Route path="dashboard" element={<BuyerHome />} />
-                  <Route path="home" element={<BuyerHome />} />
-                  <Route path="listings" element={<BuyerListings />} />
-                  <Route path="orders" element={<BuyerOrders />} />
-                  <Route path="messages" element={<BuyerMessages />} />
-                  <Route path="wishlist" element={<BuyerWishlist />} />
-                  <Route path="settings" element={<BuyerSettings />} />
-                  <Route path="support" element={<BuyerSupport />} />
-                  <Route path="notifications" element={<BuyerNotifications />} />
-                  <Route path="product/:id" element={<ProductDetailPage />} />
-                  <Route path="payment-test" element={<PaymentTest />} />
-                  <Route path="my-reviews" element={<BuyerMyReviews />} />
-                </Route>
+                  {/* Buyer Dashboard Routes */}
+                  <Route path="/buyer/*" element={
+                    <ProtectedRoute requiredUserType="buyer">
+                      <BuyerCountsProvider>
+                        <BuyerDashboard />
+                      </BuyerCountsProvider>
+                    </ProtectedRoute>
+                  }>
+                    <Route index element={<BuyerHome />} />
+                    <Route path="dashboard" element={<BuyerHome />} />
+                    <Route path="home" element={<BuyerHome />} />
+                    <Route path="listings" element={<BuyerListings />} />
+                    <Route path="orders" element={<BuyerOrders />} />
+                    <Route path="messages" element={<BuyerMessages />} />
+                    <Route path="wishlist" element={<BuyerWishlist />} />
+                    <Route path="settings" element={<BuyerSettings />} />
+                    <Route path="support" element={<BuyerSupport />} />
+                    <Route path="notifications" element={<BuyerNotifications />} />
+                    <Route path="product/:id" element={<ProductDetailPage />} />
+                    <Route path="payment-test" element={<PaymentTest />} />
+                    <Route path="my-reviews" element={<BuyerMyReviews />} />
+                  </Route>
 
-                {/* Vendor Apply Routes (Standalone) - MUST come BEFORE /vendor/* */}
-                <Route path="/vendor/apply" element={
-                  <ProtectedRoute requiredUserType="buyer">
-                    <VendorApply />
-                  </ProtectedRoute>
-                } />
-                <Route path="/vendor/apply/success" element={
-                  <ProtectedRoute>
-                    <VendorApplySuccess />
-                  </ProtectedRoute>
-                } />
+                  {/* Vendor Apply Routes (Standalone) - MUST come BEFORE /vendor/* */}
+                  <Route path="/vendor/apply" element={
+                    <ProtectedRoute requiredUserType="buyer">
+                      <VendorApply />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/vendor/apply/success" element={
+                    <ProtectedRoute>
+                      <VendorApplySuccess />
+                    </ProtectedRoute>
+                  } />
 
-                {/* Public Vendor Listings Route - MUST come BEFORE /vendor/* */}
-                <Route path="/vendor/public/:vendorUsername" element={<VendorPublicListings />} />
+                  {/* Public Vendor Listings Route - MUST come BEFORE /vendor/* */}
+                  <Route path="/vendor/public/:vendorUsername" element={<VendorPublicListings />} />
 
-                {/* Vendor Dashboard Routes (Nested) - MUST come AFTER specific routes */}
-                <Route path="/vendor/*" element={
-                  <ProtectedRoute requiredUserType="vendor">
-                    <VendorCountsProvider>
-                      <VendorDashboard />
-                    </VendorCountsProvider>
-                  </ProtectedRoute>
-                } />
+                  {/* Vendor Dashboard Routes (Nested) - MUST come AFTER specific routes */}
+                  <Route path="/vendor/*" element={
+                    <ProtectedRoute requiredUserType="vendor">
+                      <VendorCountsProvider>
+                        <VendorDashboard />
+                      </VendorCountsProvider>
+                    </ProtectedRoute>
+                  } />
 
-                {/* Admin Routes - Lazy loaded to hide from initial bundle */}
-                <Route path="/admin/*" element={
-                  <ProtectedRoute requiredUserType="admin">
-                    <AdminCountsProvider>
-                      <Suspense fallback={
-                        <div className="min-h-screen bg-black flex items-center justify-center">
-                          <div className="text-white">Loading...</div>
-                        </div>
-                      }>
-                        <AdminDashboard />
-                      </Suspense>
-                    </AdminCountsProvider>
-                  </ProtectedRoute>
-                } />
+                  {/* Admin Routes - Lazy loaded to hide from initial bundle */}
+                  <Route path="/admin/*" element={
+                    <ProtectedRoute requiredUserType="admin">
+                      <AdminCountsProvider>
+                        <Suspense fallback={
+                          <div className="min-h-screen bg-black flex items-center justify-center">
+                            <div className="text-white">Loading...</div>
+                          </div>
+                        }>
+                          <AdminDashboard />
+                        </Suspense>
+                      </AdminCountsProvider>
+                    </ProtectedRoute>
+                  } />
 
-                {/* Catch all route */}
-                <Route path="*" element={<MarketplaceHome />} />
-              </Routes>
-            </div>
-          </Router>
-        </CartProvider>
-      </MessagingProvider>
+                  {/* Catch all route */}
+                  <Route path="*" element={<MarketplaceHome />} />
+                </Routes>
+              </div>
+            </CartProvider>
+          </MessagingProvider>
+        </MaintenanceProvider>
+      </Router>
     </ToastProvider>
   );
 }

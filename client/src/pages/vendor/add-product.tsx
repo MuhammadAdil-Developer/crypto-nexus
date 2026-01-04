@@ -17,12 +17,12 @@ import vendorService from "@/services/vendorService";
 
 // API Service
 import { API_BASE_URL, getApiUrl } from '@/config/api';
+import { productService } from "@/services/productService";
 
 interface ProductFormData {
   // Step 1: Basic Listing Info
   listing_title: string;
   category: string;
-  sub_category: string;
   description: string;
 
   // Step 2: Account/Product Details
@@ -55,11 +55,9 @@ export default function VendorAddProduct() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
-  const [subCategories, setSubCategories] = useState<any[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [localBtcPrice, setLocalBtcPrice] = useState("");
 
   const [formData, setFormData] = useState({
     // Client Required Fields
@@ -90,7 +88,6 @@ export default function VendorAddProduct() {
     // Legacy fields for compatibility
     listing_title: "",
     category: "",
-    sub_category: "",
     verification_level: "",
     region_restrictions: "",
     discount_percentage: "",
@@ -104,6 +101,7 @@ export default function VendorAddProduct() {
   const [isVendorBlocked, setIsVendorBlocked] = useState(false);
   const [btcAddressSet, setBtcAddressSet] = useState(false);
   const [xmrAddressSet, setXmrAddressSet] = useState(false);
+  const [localBtcPrice, setLocalBtcPrice] = useState("");
 
   // Check if vendor is blocked from non-escrow listings
   useEffect(() => {
@@ -155,8 +153,8 @@ export default function VendorAddProduct() {
     if (!formData.website.trim()) {
       newErrors.website = 'Website is required';
     }
-    if (!formData.account_type) {
-      newErrors.account_type = 'Account type is required';
+    if (!formData.category) {
+      newErrors.category = 'Category is required';
     }
     if (!formData.access_type) {
       newErrors.access_type = 'Access type is required';
@@ -194,18 +192,9 @@ export default function VendorAddProduct() {
     const fetchCategories = async () => {
       try {
         setIsLoadingCategories(true);
-        const token = authService.getToken();
-        const response = await fetch(`${API_BASE_URL}/products/categories/`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          // Backend returns paginated response, extract results array
-          const categoriesData = data.data?.categories || data.results || data;
-          setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        const response = await productService.getCategories();
+        if (response.success && response.data) {
+          setCategories(Array.isArray(response.data) ? response.data : []);
         } else {
           toast({
             title: "Error",
@@ -214,6 +203,7 @@ export default function VendorAddProduct() {
           });
         }
       } catch (error) {
+        console.error('Error fetching categories:', error);
         toast({
           title: "Error",
           description: "Failed to load categories",
@@ -227,27 +217,6 @@ export default function VendorAddProduct() {
     fetchCategories();
   }, [toast]);
 
-  const loadSubCategories = async (categoryId: string) => {
-    try {
-      const token = authService.getToken();
-      const response = await fetch(`${API_BASE_URL}/products/categories/${categoryId}/subcategories/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Backend returns paginated response, extract results array
-        const subCategoriesData = data.data?.subcategories || data.results || data;
-        setSubCategories(Array.isArray(subCategoriesData) ? subCategoriesData : []);
-      } else {
-        setSubCategories([]);
-      }
-    } catch (error) {
-      setSubCategories([]);
-    }
-  };
 
   const addTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
@@ -310,6 +279,18 @@ export default function VendorAddProduct() {
     e.preventDefault();
 
     if (!validateForm()) {
+      return;
+    }
+
+    // Check for Preview Mode (Sticky Logic)
+    const isPreviewMode = (new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('preview') === 'true') ||
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('vendorPreviewMode') === 'true');
+    if (isPreviewMode) {
+      toast({
+        title: "Preview Mode",
+        description: "You cannot create active listings while in preview mode.",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -455,7 +436,7 @@ export default function VendorAddProduct() {
     switch (currentStep) {
       case 1:
         return (
-          <Card className="border border-gray-700 bg-[#1a1f2e]">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden group">
             <CardHeader>
               <CardTitle className="text-white">Basic Information</CardTitle>
               <CardDescription className="text-gray-400">
@@ -471,7 +452,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., Zoom Account, PIC"
                     value={formData.headline}
                     onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.headline ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.headline ? 'border-red-500' : ''}`}
                   />
                   {errors.headline && <p className="text-red-500 text-sm mt-1">{errors.headline}</p>}
                 </div>
@@ -483,7 +464,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., Zoom.com"
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.website ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.website ? 'border-red-500' : ''}`}
                   />
                   {errors.website && <p className="text-red-500 text-sm mt-1">{errors.website}</p>}
                 </div>
@@ -496,7 +477,7 @@ export default function VendorAddProduct() {
                     value={formData.account_type}
                     onValueChange={(value) => setFormData({ ...formData, account_type: value })}
                   >
-                    <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.account_type ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50">
                       <SelectValue placeholder="Select account type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -518,7 +499,7 @@ export default function VendorAddProduct() {
                     value={formData.access_type}
                     onValueChange={(value) => setFormData({ ...formData, access_type: value })}
                   >
-                    <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.access_type ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.access_type ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select access type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -531,15 +512,17 @@ export default function VendorAddProduct() {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="account_balance" className="text-white">Account Balance</Label>
-                <Input
-                  id="account_balance"
-                  placeholder="e.g., $15 welcome credit"
-                  value={formData.account_balance}
-                  onChange={(e) => setFormData({ ...formData, account_balance: e.target.value })}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="account_balance" className="text-white">Account Balance/Credit</Label>
+                  <Input
+                    id="account_balance"
+                    placeholder="e.g., $15 welcome credit"
+                    value={formData.account_balance}
+                    onChange={(e) => setFormData(prev => ({ ...prev, account_balance: e.target.value }))}
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
+                  />
+                </div>
               </div>
 
               <div>
@@ -549,7 +532,7 @@ export default function VendorAddProduct() {
                   placeholder="e.g., Aged Zoom Account from 2021 USA IP Female blabla..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.description ? 'border-red-500' : ''}`}
+                  className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.description ? 'border-red-500' : ''}`}
                   rows={4}
                 />
                 {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
@@ -560,7 +543,7 @@ export default function VendorAddProduct() {
 
       case 2:
         return (
-          <Card className="border border-gray-700 bg-[#1a1f2e]">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden group">
             <CardHeader>
               <CardTitle className="text-white">Pricing & Delivery</CardTitle>
               <CardDescription className="text-gray-400">
@@ -592,7 +575,7 @@ export default function VendorAddProduct() {
                         setFormData(prev => ({ ...prev, price: '' }));
                       }
                     }}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white font-mono ${errors.price ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white font-mono rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.price ? 'border-red-500' : ''}`}
                   />
 
                   <div className="flex justify-between items-start mt-2">
@@ -612,7 +595,7 @@ export default function VendorAddProduct() {
                     value={formData.delivery_time}
                     onValueChange={(value) => setFormData({ ...formData, delivery_time: value })}
                   >
-                    <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.delivery_time ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.delivery_time ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select delivery time" />
                     </SelectTrigger>
                     <SelectContent>
@@ -672,14 +655,14 @@ export default function VendorAddProduct() {
               </div>
 
               <div>
-                <Label htmlFor="additional_info" className="text-white bg-[#1a1f2e] border-gray-600">Additional Info</Label>
+                <Label htmlFor="additional_info" className="text-white">Additional Info</Label>
                 <Textarea
                   id="additional_info"
                   placeholder="e.g., Account is Shadowflagged by this and that"
                   value={formData.additional_info}
                   onChange={(e) => setFormData({ ...formData, additional_info: e.target.value })}
                   rows={3}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
               </div>
 
@@ -691,7 +674,7 @@ export default function VendorAddProduct() {
                   value={formData.credentials}
                   onChange={(e) => setFormData({ ...formData, credentials: e.target.value })}
                   rows={3}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
                 <p className="text-gray-400 text-sm mt-1">
                   Credentials will be hidden until payment is confirmed
@@ -703,7 +686,7 @@ export default function VendorAddProduct() {
 
       case 3:
         return (
-          <Card className="border border-gray-700 bg-[#1a1f2e]">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden group">
             <CardHeader>
               <CardTitle className="text-white">Optional Details</CardTitle>
               <CardDescription className="text-gray-400">
@@ -719,6 +702,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., 2021, 2 years old"
                     value={formData.account_age}
                     onChange={(e) => setFormData({ ...formData, account_age: e.target.value })}
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                   />
                 </div>
 
@@ -741,7 +725,7 @@ export default function VendorAddProduct() {
                   placeholder="e.g., 1, 5, 10"
                   value={formData.quantity_available}
                   onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
 
                 />
               </div>
@@ -751,7 +735,7 @@ export default function VendorAddProduct() {
 
       case 4:
         return (
-          <Card className="border border-gray-700 bg-[#1a1f2e]">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden group">
             <CardHeader>
               <CardTitle className="text-white">Media & Documents</CardTitle>
               <CardDescription className="text-gray-400">
@@ -766,7 +750,7 @@ export default function VendorAddProduct() {
                   type="file"
                   accept="image/*"
                   onChange={(e) => setFormData({ ...formData, main_image: e.target.files?.[0] || null })}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
               </div>
 
@@ -781,7 +765,7 @@ export default function VendorAddProduct() {
                     const files = Array.from(e.target.files || []);
                     setFormData({ ...formData, gallery_images: files });
                   }}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
               </div>
 
@@ -796,7 +780,7 @@ export default function VendorAddProduct() {
                     const files = Array.from(e.target.files || []);
                     setFormData({ ...formData, documents: files });
                   }}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
               </div>
             </CardContent>
@@ -805,7 +789,7 @@ export default function VendorAddProduct() {
 
       case 5:
         return (
-          <Card className="border border-gray-700 bg-[#1a1f2e]">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden group">
             <CardHeader>
               <CardTitle className="text-white">Tags & Keywords</CardTitle>
               <CardDescription className="text-gray-400">
@@ -833,7 +817,7 @@ export default function VendorAddProduct() {
                         }
                       }
                     }}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                   />
                   <Button
                     type="button"
@@ -883,12 +867,18 @@ export default function VendorAddProduct() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1f2e] text-white">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#0f121d] text-white relative overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full animate-pulse [animation-delay:2s]" />
+      </div>
+
+      <div className="container mx-auto px-4 py-8 relative z-10">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 hover:bg-gray-800 hover:text-white">
               <Link to="/vendor/listings">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -898,25 +888,25 @@ export default function VendorAddProduct() {
             </div>
             <div className="flex items-center space-x-3">
               <Link to="/vendor/listings/bulk-upload">
-                <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-800">
+                <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white">
                   <Upload className="w-4 h-4 mr-2" />
                   Bulk Upload
                 </Button>
               </Link>
             </div>
           </div>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">Add New Product</h1>
-            <p className="text-gray-400">Create a new account listing for the marketplace</p>
+          <div className="text-center relative z-10">
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">Add New Product</h1>
+            <p className="text-gray-400 italic">Create a new account listing for the marketplace</p>
           </div>
         </div>
 
         {/* Single Form */}
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-6">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-8">
           {/* Basic Information Card */}
-          <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden relative z-10">
             <CardHeader>
-              <CardTitle className="text-theme-red">Basic Information</CardTitle>
+              <CardTitle className="text-white">Basic Information</CardTitle>
               <CardDescription className="text-gray-400">
                 Essential details about your account listing
               </CardDescription>
@@ -930,7 +920,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., Zoom Account, PIC"
                     value={formData.headline}
                     onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.headline ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.headline ? 'border-red-500' : ''}`}
                   />
                   {errors.headline && <p className="text-red-500 text-sm mt-1">{errors.headline}</p>}
                 </div>
@@ -942,7 +932,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., Zoom.com"
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.website ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.website ? 'border-red-500' : ''}`}
                   />
                   {errors.website && <p className="text-red-500 text-sm mt-1">{errors.website}</p>}
                 </div>
@@ -950,34 +940,46 @@ export default function VendorAddProduct() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="account_type" className="text-white">Account Type *</Label>
+                  <Label htmlFor="category" className="text-white">Category *</Label>
                   <Select
-                    value={formData.account_type}
-                    onValueChange={(value) => setFormData({ ...formData, account_type: value })}
+                    value={formData.category}
+                    onValueChange={(value) => {
+                      const selectedCat = categories.find(c => c.id.toString() === value.toString());
+                      setFormData(prev => ({
+                        ...prev,
+                        category: value,
+                        account_type: selectedCat?.slug || 'other'
+                      }));
+                    }}
                   >
-                    <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.account_type ? 'border-red-500' : ''}`}>
-                      <SelectValue placeholder="Select account type" />
+                    <SelectTrigger className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.category ? 'border-red-500' : ''}`}>
+                      <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="messengers">Messengers</SelectItem>
-                      <SelectItem value="streaming">Streaming</SelectItem>
-                      <SelectItem value="gaming">Gaming</SelectItem>
-                      <SelectItem value="social">Social Media</SelectItem>
-                      <SelectItem value="trading">Trading/Exchange</SelectItem>
-                      <SelectItem value="software">Software</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      {isLoadingCategories ? (
+                        <div className="flex items-center justify-center p-2 text-white">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          <span>Loading...</span>
+                        </div>
+                      ) : categories.length > 0 ? (
+                        categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>{cat.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No categories found</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
-                  {errors.account_type && <p className="text-red-500 text-sm mt-1">{errors.account_type}</p>}
+                  {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
                 </div>
 
                 <div>
                   <Label htmlFor="access_type" className="text-white">Access Type *</Label>
                   <Select
                     value={formData.access_type}
-                    onValueChange={(value) => setFormData({ ...formData, access_type: value })}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, access_type: value }))}
                   >
-                    <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.access_type ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.access_type ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select access type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -990,14 +992,14 @@ export default function VendorAddProduct() {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="account_balance" className="text-white">Account Balance</Label>
+              <div className="mb-4">
+                <Label htmlFor="account_balance" className="text-white">Account Balance/Credit (Optional)</Label>
                 <Input
                   id="account_balance"
                   placeholder="e.g., $15 welcome credit"
                   value={formData.account_balance}
-                  onChange={(e) => setFormData({ ...formData, account_balance: e.target.value })}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  onChange={(e) => setFormData(prev => ({ ...prev, account_balance: e.target.value }))}
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
               </div>
 
@@ -1008,7 +1010,7 @@ export default function VendorAddProduct() {
                   placeholder="e.g., Aged Zoom Account from 2021 USA IP Female blabla..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.description ? 'border-red-500' : ''}`}
+                  className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.description ? 'border-red-500' : ''}`}
                   rows={4}
                 />
                 {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
@@ -1017,9 +1019,9 @@ export default function VendorAddProduct() {
           </Card>
 
           {/* Pricing & Delivery Card */}
-          <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden relative z-10">
             <CardHeader>
-              <CardTitle className="text-theme-red">Pricing & Delivery</CardTitle>
+              <CardTitle className="text-white">Pricing & Delivery</CardTitle>
               <CardDescription className="text-gray-400">
                 Set your price and delivery options
               </CardDescription>
@@ -1028,28 +1030,20 @@ export default function VendorAddProduct() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="flex justify-between items-center mb-1">
-                    <Label htmlFor="price" className="text-white">Price (BTC) *</Label>
-                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Input BTC, we save as USD</span>
+                    <Label htmlFor="price" className="text-white">Price (USD) *</Label>
+                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Set product price in stable USD</span>
                   </div>
                   <Input
                     id="price"
                     type="number"
-                    step="0.00000001"
-                    placeholder="e.g., 0.0001"
-                    value={localBtcPrice}
+                    step="0.01"
+                    placeholder="e.g., 10.00"
+                    value={formData.price}
                     onChange={(e) => {
                       const val = e.target.value;
-                      setLocalBtcPrice(val);
-                      const btc = parseFloat(val);
-                      if (!isNaN(btc)) {
-                        // Rate: 100,000 USD/BTC
-                        const usd = (btc * 100000).toFixed(2);
-                        setFormData({ ...formData, price: usd });
-                      } else {
-                        setFormData({ ...formData, price: '' });
-                      }
+                      setFormData({ ...formData, price: val });
                     }}
-                    className={`bg-[#1a1f2e] border-gray-600 text-white font-mono ${errors.price ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white font-mono rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.price ? 'border-red-500' : ''}`}
                   />
                   <div className="flex flex-col gap-2 mt-2">
                     <div className="flex-1">
@@ -1061,8 +1055,14 @@ export default function VendorAddProduct() {
                         <p className="text-green-400 font-bold font-mono text-sm">${formData.price || '0.00'}</p>
                       </div>
                       <div className="text-right bg-orange-500/10 px-3 py-1.5 rounded border border-orange-500/20">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">Monero (XMR)</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bitcoin (BTC)</p>
                         <p className="text-orange-400 font-bold font-mono text-sm">
+                          {formData.price ? (parseFloat(formData.price) / 100000).toFixed(8) : '0.00000000'}
+                        </p>
+                      </div>
+                      <div className="text-right bg-blue-500/10 px-3 py-1.5 rounded border border-blue-500/20">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">Monero (XMR)</p>
+                        <p className="text-blue-400 font-bold font-mono text-sm">
                           {formData.price ? (parseFloat(formData.price) / 170).toFixed(4) : '0.0000'}
                         </p>
                       </div>
@@ -1076,7 +1076,7 @@ export default function VendorAddProduct() {
                     value={formData.delivery_time}
                     onValueChange={(value) => setFormData({ ...formData, delivery_time: value })}
                   >
-                    <SelectTrigger className={`bg-[#1a1f2e] border-gray-600 text-white ${errors.delivery_time ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.delivery_time ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select delivery time" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1143,7 +1143,7 @@ export default function VendorAddProduct() {
                   value={formData.additional_info}
                   onChange={(e) => setFormData({ ...formData, additional_info: e.target.value })}
                   rows={3}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
               </div>
 
@@ -1155,7 +1155,7 @@ export default function VendorAddProduct() {
                   value={formData.credentials}
                   onChange={(e) => setFormData({ ...formData, credentials: e.target.value })}
                   rows={3}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                 />
                 <p className="text-gray-400 text-sm mt-1">
                   Credentials will be hidden until payment is confirmed
@@ -1202,9 +1202,9 @@ export default function VendorAddProduct() {
           </Card>
 
           {/* Optional Details Card */}
-          <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden relative z-10">
             <CardHeader>
-              <CardTitle className="text-theme-red">Optional Details</CardTitle>
+              <CardTitle className="text-white">Optional Details</CardTitle>
               <CardDescription className="text-gray-400">
                 Additional information to enhance your listing
               </CardDescription>
@@ -1218,7 +1218,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., 2021, 2 years old"
                     value={formData.account_age}
                     onChange={(e) => setFormData({ ...formData, account_age: e.target.value })}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                   />
                 </div>
 
@@ -1229,7 +1229,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., Email/Password, 2FA"
                     value={formData.access_method}
                     onChange={(e) => setFormData({ ...formData, access_method: e.target.value })}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
 
                   />
                 </div>
@@ -1242,7 +1242,7 @@ export default function VendorAddProduct() {
                     placeholder="e.g., 1, 5, 10"
                     value={formData.quantity_available}
                     onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
 
                   />
                 </div>
@@ -1251,9 +1251,9 @@ export default function VendorAddProduct() {
           </Card>
 
           {/* Media & Documents Card */}
-          <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden relative z-10">
             <CardHeader>
-              <CardTitle className="text-theme-red">Media & Documents</CardTitle>
+              <CardTitle className="text-white">Media & Documents</CardTitle>
               <CardDescription className="text-gray-400">
                 Upload images and documents to showcase your product
               </CardDescription>
@@ -1267,7 +1267,7 @@ export default function VendorAddProduct() {
                     type="file"
                     accept="image/*"
                     onChange={(e) => setFormData({ ...formData, main_image: e.target.files?.[0] || null })}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                   />
                 </div>
 
@@ -1282,7 +1282,7 @@ export default function VendorAddProduct() {
                       const files = Array.from(e.target.files || []);
                       setFormData({ ...formData, gallery_images: files });
                     }}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                   />
                 </div>
               </div>
@@ -1298,7 +1298,7 @@ export default function VendorAddProduct() {
                     const files = Array.from(e.target.files || []);
                     setFormData({ ...formData, documents: files });
                   }}
-                  className="bg-[#1a1f2e] border-gray-600 text-white"
+                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
 
                 />
               </div>
@@ -1306,9 +1306,9 @@ export default function VendorAddProduct() {
           </Card>
 
           {/* Tags Card */}
-          <Card className="border border-gray-700 bg-[#1a1f2e] backdrop-blur-sm relative z-10">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden relative z-10">
             <CardHeader>
-              <CardTitle className="text-theme-red">Tags & Keywords</CardTitle>
+              <CardTitle className="text-white">Tags & Keywords</CardTitle>
               <CardDescription className="text-gray-400">
                 Add tags to help buyers find your product
               </CardDescription>
@@ -1334,7 +1334,7 @@ export default function VendorAddProduct() {
                         }
                       }
                     }}
-                    className="bg-[#1a1f2e] border-gray-600 text-white"
+                    className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
                   />
                   <Button
                     type="button"

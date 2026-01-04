@@ -93,7 +93,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Create notifications for buyer, vendor, and admin
         try:
             from shared.models import Notification
-            from shared.admin_notifications import notify_admin_order_created
+            from shared.admin_notifications import notify_admin_order_created, send_user_notification
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
             
@@ -101,9 +101,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             notify_admin_order_created(order)
             
             # Notification for buyer
-            Notification.objects.create(
+            send_user_notification(
                 user=order.buyer,
-                type='order',
+                notification_type='order',
                 title='Order Created',
                 message=f'Your order {order.order_id} for "{order.product.headline}" has been created. Payment pending.',
                 data={
@@ -115,9 +115,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
             
             # Notification for vendor
-            Notification.objects.create(
+            send_user_notification(
                 user=order.vendor,
-                type='order',
+                notification_type='order',
                 title='New Order Received',
                 message=f'New order {order.order_id} from {order.buyer.username} for "{order.product.headline}". Payment pending.',
                 data={
@@ -133,38 +133,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             try:
                 channel_layer = get_channel_layer()
                 if channel_layer:
-                    # Send to buyer
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{order.buyer.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'order_id': order.order_id,
-                                'type': 'order_created',
-                                'title': 'Order Created',
-                                'message': f'Your order {order.order_id} for "{order.product.headline}" has been created. Payment pending.',
-                                'product_headline': order.product.headline
-                            }
-                        }
-                    )
-                    
-                    # Send to vendor
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{order.vendor.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'order_id': order.order_id,
-                                'type': 'order_created',
-                                'title': 'New Order Received',
-                                'message': f'New order {order.order_id} from {order.buyer.username} for "{order.product.headline}". Payment pending.',
-                                'buyer_username': order.buyer.username,
-                                'product_headline': order.product.headline,
-                                'count_refresh': True  # Trigger count refresh
-                            }
-                        }
-                    )
-                    
                     # Trigger count refresh for all users (admin/vendor/buyer) when order is created
                     # Send count refresh notifications to buyer, vendor, and all admins
                     try:
@@ -487,7 +455,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Create notifications for buyer, vendor, and admin
             try:
                 from shared.models import Notification
-                from shared.admin_notifications import notify_admin_order_expired
+                from shared.admin_notifications import notify_admin_order_expired, send_user_notification
                 from asgiref.sync import async_to_sync
                 from channels.layers import get_channel_layer
                 
@@ -495,9 +463,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                 notify_admin_order_expired(order)
                 
                 # Notification for buyer
-                Notification.objects.create(
+                # Notify buyer
+                send_user_notification(
                     user=order.buyer,
-                    type='order',
+                    notification_type='order_status_changed',
                     title='Order Expired',
                     message=f'Your order {order.order_id} for "{order.product.headline}" has expired because payment was not completed within the time limit. You can create a new order.',
                     data={
@@ -508,10 +477,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                     }
                 )
                 
-                # Notification for vendor
-                Notification.objects.create(
+                # Notify vendor
+                send_user_notification(
                     user=order.vendor,
-                    type='order',
+                    notification_type='order_status_changed',
                     title='Order Expired',
                     message=f'Order {order.order_id} from {order.buyer.username} for "{order.product.headline}" has expired because the buyer did not complete payment within the time limit.',
                     data={
@@ -522,43 +491,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                         'action_url': f'/vendor/orders'
                     }
                 )
-                
-                # Send real-time notifications
-                try:
-                    channel_layer = get_channel_layer()
-                    if channel_layer:
-                        # Send to buyer
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{order.buyer.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'order_id': order.order_id,
-                                    'type': 'order_expired',
-                                    'title': 'Order Expired',
-                                    'message': f'Your order {order.order_id} for "{order.product.headline}" has expired because payment was not completed within the time limit.',
-                                    'product_headline': order.product.headline
-                                }
-                            }
-                        )
-                        
-                        # Send to vendor
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{order.vendor.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'order_id': order.order_id,
-                                    'type': 'order_expired',
-                                    'title': 'Order Expired',
-                                    'message': f'Order {order.order_id} from {order.buyer.username} for "{order.product.headline}" has expired because the buyer did not complete payment within the time limit.',
-                                    'buyer_username': order.buyer.username,
-                                    'product_headline': order.product.headline
-                                }
-                            }
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to send real-time expiration notifications: {str(e)}")
                 
                 logger.info(f"Order expiration notifications created for order {order.order_id}")
             except Exception as e:
@@ -625,37 +557,232 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def admin_dashboard(self, request):
-        """Admin dashboard with order statistics"""
+        """Admin dashboard with comprehensive statistics"""
         if not (request.user.is_staff or request.user.user_type == 'admin'):
             return Response(
                 {"error": "Admin access required"},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get order statistics
-        total_orders = Order.objects.count()
-        pending_payments = Order.objects.filter(
-            order_status=OrderStatus.PENDING_PAYMENT.value
-        ).count()
-        paid_orders = Order.objects.filter(
-            order_status=OrderStatus.PAID.value
-        ).count()
-        disputed_orders = Order.objects.filter(
-            order_status=OrderStatus.DISPUTED.value
-        ).count()
-        
-        # Recent orders
-        recent_orders = Order.objects.order_by('-created_at')[:10]
-        
-        return Response({
-            'statistics': {
-                'total_orders': total_orders,
-                'pending_payments': pending_payments,
-                'paid_orders': paid_orders,
-                'disputed_orders': disputed_orders,
-            },
-            'recent_orders': OrderSerializer(recent_orders, many=True).data
-        })
+        try:
+            from django.apps import apps
+            from django.db.models import Sum, Count, F
+            from django.db.models.functions import TruncDate
+            
+            # Use get_model to avoid circular import issues
+            User = apps.get_model('users', 'User')
+            VendorApplication = apps.get_model('vendors', 'VendorApplication')
+            Product = apps.get_model('products', 'Product')
+            
+            # Get chart range from request (default 30 days)
+            try:
+                days_range = int(request.query_params.get('days', 30))
+                if days_range not in [7, 30, 90]:
+                    days_range = 30
+            except ValueError:
+                days_range = 30
+            
+            now = timezone.now()
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            yesterday_start = today_start - timedelta(days=1)
+            last_month_start = today_start - timedelta(days=30)
+            prev_month_start = last_month_start - timedelta(days=30)
+            
+            # --- 1. Statistics Cards Data ---
+            
+            # Users Stats (Matching Admin Users Page logic)
+            user_base_qs = User.objects.filter(is_deleted=False)
+            total_users = user_base_qs.count()
+            users_last_month = user_base_qs.filter(date_joined__gte=last_month_start).count()
+            users_prev_month = user_base_qs.filter(date_joined__gte=prev_month_start, date_joined__lt=last_month_start).count()
+            user_growth = 0
+            if users_prev_month > 0:
+                user_growth = ((users_last_month - users_prev_month) / users_prev_month) * 100
+            elif users_last_month > 0:
+                user_growth = 100
+                
+            # Vendor Stats
+            active_vendors = VendorApplication.objects.filter(status='approved').count()
+            vendors_last_month = VendorApplication.objects.filter(status='approved', updated_at__gte=last_month_start).count()
+            vendors_prev_month = VendorApplication.objects.filter(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start).count()
+            
+            # Buyer vs Vendor breakdown for detailed stats
+            total_buyers_count = User.objects.filter(user_type='buyer', is_deleted=False).count()
+            total_vendors_count = User.objects.filter(user_type='vendor', is_deleted=False).count()
+            
+            vendor_growth = 0
+            if vendors_prev_month > 0:
+                vendor_growth = ((vendors_last_month - vendors_prev_month) / vendors_prev_month) * 100
+            elif vendors_last_month > 0:
+                vendor_growth = 100
+
+            # Listing Stats (Active and Approved listings only)
+            live_listings = Product.objects.filter(status='approved', is_active=True, is_deleted=False).count()
+            listings_last_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=last_month_start).count()
+            listings_prev_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=prev_month_start, created_at__lt=last_month_start).count()
+            listing_growth = 0
+            if listings_prev_month > 0:
+                listing_growth = ((listings_last_month - listings_prev_month) / listings_prev_month) * 100
+            elif listings_last_month > 0:
+                listing_growth = 100
+                
+            # Order Stats (Today vs Yesterday)
+            orders_today = Order.objects.filter(created_at__gte=today_start).count()
+            orders_yesterday = Order.objects.filter(created_at__gte=yesterday_start, created_at__lt=today_start).count()
+            order_growth_daily = 0
+            if orders_yesterday > 0:
+                order_growth_daily = ((orders_today - orders_yesterday) / orders_yesterday) * 100
+            elif orders_today > 0:
+                order_growth_daily = 100
+
+            # --- 2. Chart Data (Dynamically Aggregated) ---
+            
+            # Calculate start date for chart
+            chart_start_date = today_start - timedelta(days=days_range - 1)
+            
+            # Helper to get daily counts
+            def get_daily_counts(model_class, date_field):
+                qs = model_class.objects.filter(**{f"{date_field}__gte": chart_start_date})
+                return qs.annotate(
+                    date=TruncDate(date_field)
+                ).values('date').annotate(
+                    count=Count('id')
+                ).order_by('date')
+
+            # Fetch stats
+            order_stats = get_daily_counts(Order, 'created_at')
+            user_stats = get_daily_counts(User, 'date_joined')
+            product_stats = get_daily_counts(Product, 'created_at') # New listings
+            
+            # Convert to dicts
+            order_dict = {str(stat['date']): stat['count'] for stat in order_stats}
+            user_dict = {str(stat['date']): stat['count'] for stat in user_stats}
+            product_dict = {str(stat['date']): stat['count'] for stat in product_stats}
+            
+            chart_data = []
+            for i in range(days_range - 1, -1, -1):
+                date = today_start - timedelta(days=i)
+                date_str = date.strftime('%Y-%m-%d')
+                
+                chart_data.append({
+                    'date': date_str,
+                    'orders': order_dict.get(date_str, 0),
+                    'users': user_dict.get(date_str, 0),
+                    'listings': product_dict.get(date_str, 0)
+                })
+                
+            # --- 3. Escrow Overview ---
+            
+            escrow_orders = Order.objects.filter(
+                use_escrow=True
+            ).exclude(
+                order_status__in=[
+                    OrderStatus.CONFIRMED.value, 
+                    OrderStatus.CANCELLED.value, 
+                    OrderStatus.REFUNDED.value,
+                    OrderStatus.PENDING_PAYMENT.value
+                ]
+            )
+            
+            # Calculate totals
+            total_escrow_btc = 0.0
+            total_escrow_xmr = 0.0
+            
+            for order in escrow_orders:
+                try:
+                    amount = float(order.total_amount)
+                    if order.crypto_currency == 'BTC':
+                        total_escrow_btc += amount
+                    elif order.crypto_currency == 'XMR':
+                        total_escrow_xmr += amount
+                except (ValueError, TypeError):
+                    continue
+                    
+            pending_releases = Order.objects.filter(
+                use_escrow=True,
+                order_status=OrderStatus.CONFIRMED.value
+            ).count()
+            
+            auto_release_orders = Order.objects.filter(
+                use_escrow=True,
+                order_status=OrderStatus.DELIVERED.value
+            ).count()
+            
+            disputed_orders = Order.objects.filter(order_status=OrderStatus.DISPUTED.value).count()
+            
+            # Recent orders - LIMITED TO 6
+            recent_orders = Order.objects.order_by('-created_at')[:6]
+            
+            # --- Extended Stats for Admin/Orders Page ---
+            # Total Orders (All time)
+            total_orders_all_time = Order.objects.count()
+            
+            # Completed Today (Paid/Delivered/Confirmed today)
+            completed_today = Order.objects.filter(
+                Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
+                Q(payment_status='paid'),
+                created_at__gte=today_start
+            ).count()
+            
+            # Pending Payments (In Escrow or Pending Payment)
+            pending_payments_count = Order.objects.filter(
+                Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
+                Q(payment_status='pending') |
+                (Q(use_escrow=True) & ~Q(order_status__in=[
+                    OrderStatus.CONFIRMED.value, 
+                    OrderStatus.CANCELLED.value, 
+                    OrderStatus.REFUNDED.value
+                ]))
+            ).count()
+            
+            # Active Escrow Orders (Strictly funds held)
+            active_escrow_count = escrow_orders.count()
+            
+            return Response({
+                'statistics': {
+                    'users': {
+                        'total': total_users,
+                        'buyers': total_buyers_count,
+                        'vendors': total_vendors_count,
+                        'growth_pct': round(user_growth, 1)
+                    },
+                    'vendors': {
+                        'total': active_vendors,
+                        'growth_pct': round(vendor_growth, 1)
+                    },
+                    'listings': {
+                        'total': live_listings,
+                        'growth_pct': round(listing_growth, 1)
+                    },
+                    'orders': {
+                        'today': orders_today,
+                        'yesterday': orders_yesterday,
+                        'growth_pct': round(order_growth_daily, 1)
+                    },
+                    # Add compatibility fields for Admin Orders Page
+                    'total_orders': total_orders_all_time,
+                    'paid_orders': completed_today,
+                    'pending_payments': pending_payments_count,
+                    'active_escrow_orders': active_escrow_count,
+                    'disputed_orders': disputed_orders
+                },
+                'chart_data': chart_data,
+                'escrow_stats': {
+                    'btc_total': total_escrow_btc,
+                    'xmr_total': total_escrow_xmr,
+                    'pending_releases': pending_releases,
+                    'auto_release_orders': auto_release_orders,
+                    'disputed_orders': disputed_orders
+                },
+                'recent_orders': OrderSerializer(recent_orders, many=True).data
+            })
+            
+        except Exception as e:
+            logger.error(f"Error generating admin dashboard stats: {str(e)}")
+            return Response(
+                {"error": f"Failed to generate dashboard statistics: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     def _get_payment_service(self, crypto_currency):
         """Get appropriate payment service"""
@@ -926,12 +1053,11 @@ class RefundRequestAPIView(APIView):
                 status='pending'
             )
             
-            # Send admin notification
+            # Send admin notification via central helper
             try:
-                from shared.models import Notification
-                Notification.objects.create(
-                    user_id=1,
-                    type='refund',
+                from shared.admin_notifications import send_admin_notification
+                send_admin_notification(
+                    notification_type='refund',
                     title='New Refund Request',
                     message=f'Vendor {request.user.username} requested a {refund_type} refund for order {order.order_id}',
                     data={
@@ -940,7 +1066,8 @@ class RefundRequestAPIView(APIView):
                         'vendor_username': request.user.username,
                         'amount': str(refund_amount),
                         'action_url': '/admin/refunds'
-                    }
+                    },
+                    priority='normal'
                 )
             except Exception as e:
                 logger.error(f"Failed to send admin notification for refund: {str(e)}")

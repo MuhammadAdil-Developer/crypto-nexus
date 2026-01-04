@@ -27,6 +27,7 @@ export default function BulkUpload() {
   const [simpleData, setSimpleData] = useState('');
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<BulkUploadResult | null>(null);
+  const [nonEscrowBlocked, setNonEscrowBlocked] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -89,6 +90,10 @@ export default function BulkUpload() {
         const userData = profileResponse.data;
         const btcAddress = userData.btc_payout_address || userData.btc_address;
         const xmrAddress = userData.xmr_payout_address || userData.xmr_address;
+
+        if (userData.non_escrow_blocked) {
+          setNonEscrowBlocked(true);
+        }
 
         if (!btcAddress || !xmrAddress) {
           showToast({
@@ -188,8 +193,8 @@ export default function BulkUpload() {
             Back to Listings
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-white">Bulk Upload Accounts</h1>
-            <p className="text-gray-400">Upload multiple accounts at once</p>
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">Bulk Upload Accounts</h1>
+            <p className="text-gray-400 italic">Upload multiple accounts at once</p>
           </div>
         </div>
       </div>
@@ -250,7 +255,7 @@ export default function BulkUpload() {
                     />
                     <Button
                       variant="outline"
-                      className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
                       onClick={(e) => {
                         e.stopPropagation();
                         document.getElementById('csv-upload')?.click();
@@ -293,7 +298,19 @@ export default function BulkUpload() {
                     rows={10}
                   />
                   <p className="text-sm text-gray-400">
-                    Format: Account Name | Website | Account Type | Price (USD/BTC) | Description
+                    Format: Account Name | Website | Account Type | Price (USD) | Description | Credentials | Quantity | Escrow (true/false)
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {nonEscrowBlocked && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-red-400 font-semibold text-sm">Escrow Only Mode</h4>
+                  <p className="text-red-400/80 text-xs">
+                    You can only upload escrow accounts. Please ensure "escrow_enabled" is set to "true" in your data.
                   </p>
                 </div>
               </div>
@@ -337,8 +354,10 @@ export default function BulkUpload() {
                     <li>• Access Type (required)</li>
                     <li>• Description (required)</li>
                     <li>• Price (required)</li>
-                    <li>• Credentials (required) - JSON format: {`{"username":"value","password":"value"}`}</li>
+                    <li>• Credentials (required) - JSON format: {`{"username":"v","password":"v"}`}</li>
                     <li>• Delivery Time (required)</li>
+                    <li>• Account Quantity (optional, default: 1)</li>
+                    <li>• Escrow Enabled (optional, default: false)</li>
                     <li>• Additional Info (optional)</li>
                     <li>• Account Balance (optional)</li>
                   </ul>
@@ -361,8 +380,8 @@ export default function BulkUpload() {
                   <p className="text-sm text-gray-400 mb-2">
                     Enter one account per line using this format:
                   </p>
-                  <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono">
-                    Account Name | Website | Account Type | Price (USD or BTC) | Description | Credentials (required)
+                  <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap">
+                    Account Name | Website | Account Type | Price | Description | Credentials | Quantity | Escrow
                   </code>
                 </div>
                 <div>
@@ -371,7 +390,7 @@ export default function BulkUpload() {
                     <li>• Account Name (required)</li>
                     <li>• Website (required)</li>
                     <li>• Account Type (required)</li>
-                    <li>• Price (required) - e.g. 15.00 (USD) or 0.0001 (BTC)</li>
+                    <li>• Price (required) - e.g. 15.00 (USD price is preferred)</li>
                     <li>• Description (required)</li>
                     <li>• Credentials (required) - JSON format: {`{"username":"value","password":"value"}`}</li>
                   </ul>
@@ -379,7 +398,7 @@ export default function BulkUpload() {
                 <div>
                   <h4 className="font-semibold text-white mb-2">Example:</h4>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap break-words">
-                    Premium Netflix Account | netflix.com | streaming | 15.00 | 4K Ultra HD Netflix account with premium features | {`{"username":"netflix_user","password":"netflix_pass"}`}
+                    Premium Netflix | netflix.com | streaming | 15.00 | 4K Ultra HD | {`{"u":"n","p":"pw"}`} | 5 | true
                   </code>
                 </div>
                 <div>

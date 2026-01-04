@@ -43,11 +43,7 @@ import wishlistService from "@/services/wishlistService";
 import placeholderImage from "@/assets/placeholder.png";
 import { getImageUrl } from "@/config/api";
 
-// Banner Assets
-import bannerPattern from "@/assets/banner/vendor/pattern.png";
-import bannerLogo from "@/assets/banner/vendor/logo.png";
-import bannerLeftArrow from "@/assets/banner/arrow_left.png";
-import bannerRightArrow from "@/assets/banner/arrow_right.png";
+import { PageBanner } from "@/components/PageBanner";
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -90,6 +86,14 @@ export default function VendorListings() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [products, setProducts] = useState<VendorProduct[]>([]);
+
+  // Check if preview mode is active
+  const isPreviewMode = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('preview') === 'true';
+
+  // Helper to append preview param to urls
+  const getLinkUrl = (path: string) => {
+    return isPreviewMode ? `${path}${path.includes('?') ? '&' : '?'}preview=true` : path;
+  };
   const [stats, setStats] = useState<VendorStats>({
     totalProducts: 0,
     activeListings: 0,
@@ -329,80 +333,28 @@ export default function VendorListings() {
           </Card>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-4 mb-6">
+        <PageBanner
+          title="My Listings"
+          subtitle="Manage your account portfolio"
+          type="vendor"
+        />
+
+        <div className="flex flex-col sm:flex-row justify-end gap-3 mb-8">
           <Button
             variant="outline"
-            size="sm"
-            className="border-border text-gray-300 hover:bg-surface-2 text-xs sm:text-base w-full sm:w-auto"
-            onClick={() => navigate('/vendor/listings/bulk-upload')}
+            onClick={() => navigate(getLinkUrl('/vendor/listings/bulk-upload'))}
+            className="bg-gray-800/50 border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-xl h-12 px-6 font-semibold shadow-sm backdrop-blur-sm"
           >
-            <Upload className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-            <span className="sm:inline">Bulk Upload</span>
-            <span className="sm:hidden">Bulk</span>
+            <Upload className="w-5 h-5 mr-2" />
+            Bulk Actions
           </Button>
           <Button
-            className="bg-theme-red text-white hover:bg-theme-red-dark text-xs sm:text-base w-full sm:w-auto shadow-lg shadow-theme-red/20"
-            onClick={() => navigate('/vendor/listings/add')}
+            onClick={() => navigate(getLinkUrl('/vendor/listings/add'))}
+            className="bg-theme-red hover:bg-theme-red-dark text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg w-full sm:w-auto shadow-lg shadow-theme-red/20 rounded-xl font-bold transition-all"
           >
-            <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-            Add Product
+            <Plus className="w-5 h-5 mr-2" />
+            Add New Account
           </Button>
-        </div>
-
-        {/* Full Width Banner at the Top */}
-        <div className="relative w-full h-[120px] md:h-[150px] overflow-hidden rounded-xl bg-black mb-6 border border-gray-800 shadow-2xl">
-          {/* Pattern Background */}
-          <div
-            className="absolute inset-0 w-full h-full"
-            style={{
-              backgroundImage: `url(${bannerPattern})`,
-              backgroundRepeat: 'repeat-x',
-              backgroundSize: 'auto 100%'
-            }}
-          />
-
-          {/* Left Arrow (Pinned Left) */}
-          <img
-            src={bannerLeftArrow}
-            alt=""
-            className="absolute left-0 top-0 h-full z-10 select-none pointer-events-none object-cover sm:object-fill"
-            style={{ maxWidth: '30%' }}
-          />
-
-          {/* Right Arrow (Pinned Right) */}
-          <img
-            src={bannerRightArrow}
-            alt=""
-            className="absolute right-0 top-0 h-full z-10 select-none pointer-events-none object-cover sm:object-fill"
-            style={{ maxWidth: '30%' }}
-          />
-
-          {/* Center Logo (Always Centered) */}
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 h-[80%] md:h-[90%] aspect-square flex items-center justify-center">
-            <img
-              src={bannerLogo}
-              alt="Logo"
-              className="h-full w-auto object-contain drop-shadow-[0_0_15px_rgba(0,0,0,0.8)] scale-110"
-            />
-          </div>
-
-          {/* Brand Text (Left Half) */}
-          <div className="absolute left-[8%] md:left-[12%] top-1/2 transform -translate-y-1/2 z-20 hidden sm:block" style={{ maxWidth: '40%' }}>
-            <h1
-              className="text-2xl md:text-4xl lg:text-5xl font-black tracking-tighter uppercase"
-              style={{
-                fontFamily: "'Orbitron', sans-serif",
-                filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
-              }}
-            >
-              <span className="text-white">Accountz</span>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-theme-red to-theme-cyan ml-1">Club</span>
-            </h1>
-            <p className="text-gray-400 text-[10px] md:text-xs tracking-[0.3em] mt-1 ml-1 uppercase font-bold" style={{ fontFamily: "'Space Age', 'Orbitron', sans-serif" }}>
-              Vendor Panel
-            </p>
-          </div>
         </div>
 
         {/* Small Fee Info */}
@@ -423,96 +375,112 @@ export default function VendorListings() {
 
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-cyan/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-theme-cyan text-xs sm:text-sm font-semibold">T</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                  <span className="text-blue-500 font-bold text-lg">T</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Total Products</p>
-                  <p className="text-base sm:text-lg font-bold text-white">{stats.totalProducts}</p>
-                </div>
+                <Badge variant="outline" className="border-blue-500/20 text-blue-400 bg-blue-500/5">Total</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{stats.totalProducts}</h3>
+                <p className="text-gray-400 text-sm font-medium">All Products</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-cyan/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-theme-cyan text-xs sm:text-sm font-semibold">A</span>
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                  <span className="text-emerald-500 font-bold text-lg">A</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Active Listings</p>
-                  <p className="text-base sm:text-lg font-bold text-white">{stats.activeListings}</p>
-                </div>
+                <Badge variant="outline" className="border-emerald-500/20 text-emerald-400 bg-emerald-500/5">Active</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{stats.activeListings}</h3>
+                <p className="text-gray-400 text-sm font-medium">Live Listings</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-red/10 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-theme-red text-xs sm:text-sm font-semibold">R</span>
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                  <span className="text-amber-500 font-bold text-lg">R</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Under Review</p>
-                  <p className="text-base sm:text-lg font-bold text-white">{stats.underReview}</p>
-                </div>
+                <Badge variant="outline" className="border-amber-500/20 text-amber-400 bg-amber-500/5">Pending</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{stats.underReview}</h3>
+                <p className="text-gray-400 text-sm font-medium">Under Review</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-theme-red/20 rounded-lg flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                  <span className="text-theme-red text-xs sm:text-sm font-semibold">O</span>
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-rose-500/10 rounded-xl">
+                  <span className="text-rose-500 font-bold text-lg">O</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs text-gray-400 truncate">Out of Stock</p>
-                  <p className="text-base sm:text-lg font-bold text-white">{stats.outOfStock}</p>
-                </div>
+                <Badge variant="outline" className="border-rose-500/20 text-rose-400 bg-rose-500/5">Stock</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{stats.outOfStock}</h3>
+                <p className="text-gray-400 text-sm font-medium">Out of Stock</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        {/* Filters */}
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden mb-8">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
               <div className="flex-1 min-w-0">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4 group-focus-within:text-purple-500 transition-colors" />
                   <Input
-                    placeholder="Search listings..."
+                    placeholder="Search your listings..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:border-theme-cyan focus:ring-theme-cyan text-sm sm:text-base"
+                    className="pl-10 bg-gray-800/50 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl h-11 transition-all"
                   />
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-40 bg-surface-2 border-border text-white text-sm sm:text-base">
-                    <SelectValue placeholder="Status" />
+                  <SelectTrigger className="w-full sm:w-48 bg-gray-800/50 border-gray-700/50 text-white rounded-xl h-11 focus:border-purple-500/50">
+                    <SelectValue placeholder="All Status" />
                   </SelectTrigger>
-                  <SelectContent className="bg-surface-2 border-border">
-                    <SelectItem value="all" className="text-white">All Status</SelectItem>
-                    <SelectItem value="approved" className="text-white">Active</SelectItem>
-                    <SelectItem value="pending_approval" className="text-white">Under Review</SelectItem>
-                    <SelectItem value="rejected" className="text-white">Rejected</SelectItem>
-                    <SelectItem value="draft" className="text-white">Draft</SelectItem>
+                  <SelectContent className="bg-gray-900 border-gray-700 rounded-xl overflow-hidden">
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="approved">Active</SelectItem>
+                    <SelectItem value="pending_approval">Under Review</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className="border-border hover:bg-surface-2 text-xs sm:text-sm w-full sm:w-auto">
-                  <Filter className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Filter</span>
-                </Button>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-48 bg-gray-800/50 border-gray-700/50 text-white rounded-xl h-11 focus:border-purple-500/50">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 rounded-xl overflow-hidden">
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="digital">Digital Goods</SelectItem>
+                    <SelectItem value="services">Services</SelectItem>
+                    <SelectItem value="physical">Physical Goods</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>
@@ -521,170 +489,120 @@ export default function VendorListings() {
         {/* Products Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">Products ({filteredProducts.length})</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-bold text-white">Products ({filteredProducts.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               {/* Mobile Card View */}
               <div className="block lg:hidden space-y-3 sm:space-y-4 p-4 sm:p-6">
                 {getPaginatedProducts().map((product) => (
-                  <div key={product.id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                    <div className="flex items-start space-x-3 mb-3">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <div key={product.id} className="group bg-gray-900/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 sm:p-5 hover:bg-gray-800/60 transition-all duration-300 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:from-white/10 transition-colors" />
+
+                    <div className="flex items-start gap-4 mb-4 relative z-10">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-950/50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-800 shadow-inner">
                         <img
                           src={getImageUrl(product.main_image) || placeholderImage}
                           alt={product.headline}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           onError={(e) => {
                             e.currentTarget.src = placeholderImage;
                           }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium text-sm sm:text-base break-words mb-1">{product.headline}</p>
-                        <p className="text-gray-400 text-xs sm:text-sm truncate">{product.website}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mb-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge className={`${getStatusColor(product.status)} text-[10px] sm:text-xs`}>
-                                {getStatusDisplayName(product.status)}
-                              </Badge>
-                            </TooltipTrigger>
-                            {product.status === 'rejected' && product.rejection_reason && (
-                              <TooltipContent className="max-w-xs">
-                                <p className="font-semibold mb-1">Rejection Reason:</p>
-                                <p className="text-sm">{product.rejection_reason}</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
-                        {product.status === 'rejected' && product.rejection_reason && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRejectionProduct(product);
-                              setRejectionDialogOpen(true);
-                            }}
-                            className="h-6 w-6 p-0 text-theme-red hover:text-theme-red-light hover:bg-theme-red/10"
-                          >
-                            <Info className="w-3 h-3" />
-                          </Button>
-                        )}
-                        {product.escrow_enabled && (
-                          <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 text-[9px] sm:text-xs px-1.5 py-0.5">
-                            <Lock className="w-2.5 h-2.5 mr-0.5" />
-                            ESCROW
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <Badge className={`${getStatusColor(product.status)} text-[10px] sm:text-xs font-bold uppercase tracking-wider`}>
+                            {getStatusDisplayName(product.status)}
                           </Badge>
-                        )}
+                          {product.escrow_enabled && (
+                            <Badge className="bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-yellow-500 border-yellow-500/30 text-[10px] sm:text-xs px-2 py-0.5 font-bold">
+                              <Lock className="w-3 h-3 mr-1" />
+                              ESCROW
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="text-white font-bold text-base sm:text-lg leading-tight mb-1 line-clamp-2">{product.headline}</h3>
+                        <p className="text-gray-400 text-xs sm:text-sm truncate font-medium">{product.category?.name || 'Uncategorized'}</p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mb-3 text-xs sm:text-sm">
-                      <div>
-                        <span className="text-gray-400">Price:</span>
-                        <p className="text-white font-bold text-lg">${parseFloat(product.price).toFixed(2)}</p>
-                        <p className="text-gray-400 text-xs font-mono">
-                          {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
-                            <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
-                          ) : (
-                            <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Views:</span>
-                        <p className="text-white">{product.views_count || 0}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Wishlist:</span>
-                        <div className="flex items-center space-x-1">
-                          <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-theme-red" />
-                          <span className="text-white">{wishlistCounts[product.id] || 0}</span>
+                    <div className="grid grid-cols-2 gap-3 mb-4 text-sm relative z-10">
+                      <div className="bg-gray-950/30 p-2.5 rounded-lg">
+                        <span className="text-gray-500 text-xs font-bold uppercase block mb-0.5">Price</span>
+                        <div className="flex flex-col">
+                          <span className="text-white font-black text-base">${parseFloat(product.price).toFixed(2)}</span>
+                          <span className="text-gray-500 text-[10px] font-mono">
+                            {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
+                              <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
+                            ) : (
+                              <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
+                            )}
+                          </span>
                         </div>
                       </div>
-                      <div>
-                        <span className="text-gray-400">Stock:</span>
-                        <p className={product.quantity_available > 0 ? 'text-theme-cyan' : 'text-theme-red'}>
-                          {product.quantity_available || 0}
-                        </p>
+                      <div className="bg-gray-950/30 p-2.5 rounded-lg">
+                        <span className="text-gray-500 text-xs font-bold uppercase block mb-0.5">Stock</span>
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold text-base ${product.quantity_available > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {product.quantity_available || 0}
+                          </span>
+                          <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${product.quantity_available > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                            {product.quantity_available > 0 ? 'In Stock' : 'Sold Out'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="bg-gray-950/30 p-2.5 rounded-lg">
+                        <span className="text-gray-500 text-xs font-bold uppercase block mb-0.5">Performance</span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center text-gray-300">
+                            <Eye className="w-3.5 h-3.5 mr-1 text-blue-400" />
+                            <span className="font-bold">{product.views_count || 0}</span>
+                          </div>
+                          <div className="flex items-center text-gray-300">
+                            <Heart className="w-3.5 h-3.5 mr-1 text-rose-400" />
+                            <span className="font-bold">{wishlistCounts[product.id] || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-950/30 p-2.5 rounded-lg flex items-center justify-center">
+                        <span className="text-gray-500 text-xs font-bold uppercase text-center">{new Date(product.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
 
-                    <div className="text-xs sm:text-sm text-gray-400 mb-3">
-                      Created: {new Date(product.created_at).toLocaleDateString()}
-                    </div>
-
-                    <div className="flex items-center space-x-2 pt-3 border-t border-gray-700">
+                    <div className="flex items-center gap-2 pt-3 border-t border-gray-700/50 relative z-10">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="text-gray-400 hover:text-white flex-1 text-xs sm:text-sm"
-                        onClick={() => navigate(`/vendor/listings/${product.id}`)}
+                        className="flex-1 border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700/50 h-9 text-xs font-semibold rounded-lg"
+                        onClick={() => navigate(getLinkUrl(`/vendor/listings/edit/${product.id}`))}
                       >
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">View</span>
+                        <Edit className="w-3.5 h-3.5 mr-2" />
+                        Edit
                       </Button>
                       <Button
-                        variant="ghost"
                         size="sm"
-                        className="text-gray-400 hover:text-white flex-1 text-xs sm:text-sm"
-                        onClick={() => navigate(`/vendor/listings/edit/${product.id}`)}
+                        className="flex-1 bg-theme-red hover:bg-theme-red-dark text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg w-full sm:w-auto shadow-lg shadow-theme-red/20 h-9"
+                        onClick={() => navigate(getLinkUrl(`/vendor/listings/${product.id}`))}
                       >
-                        <Edit className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Edit</span>
+                        <Eye className="w-3.5 h-3.5 mr-2" />
+                        Manage
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white h-8 w-8 p-0">
-                            <MoreVertical className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-lg hover:bg-gray-800">
+                            <MoreVertical className="w-4 h-4 text-gray-400" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-surface-2 border-border w-[90vw] sm:w-auto">
-                          <DropdownMenuItem
-                            className="text-white hover:bg-surface-3"
-                            onClick={() => navigate(`/vendor/listings/${product.id}`)}
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
+                        <DropdownMenuContent className="bg-gray-900 border-gray-700 rounded-xl shadow-xl w-48">
+                          <DropdownMenuItem className="focus:bg-gray-800 focus:text-white cursor-pointer" onClick={() => navigate(getLinkUrl(`/vendor/listings/${product.id}`))}>
+                            <Eye className="w-4 h-4 mr-2" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-white hover:bg-surface-3"
-                            onClick={() => navigate(`/vendor/products/edit/${product.id}`)}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Product
+                          <DropdownMenuItem className="focus:bg-gray-800 focus:text-white cursor-pointer" onClick={() => navigate(getLinkUrl(`/vendor/listings/edit/${product.id}`))}>
+                            <Edit className="w-4 h-4 mr-2" /> Quick Edit
                           </DropdownMenuItem>
-                          {product.status === 'rejected' && (
-                            <DropdownMenuItem
-                              className="text-theme-cyan hover:bg-theme-cyan/10"
-                              onClick={() => {
-                                showToast({
-                                  type: 'info',
-                                  title: 'Edit Required',
-                                  message: 'Please edit the product to address the rejection reason before resubmitting.',
-                                });
-                                navigate(`/vendor/listings/edit/${product.id}`);
-                              }}
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit & Resubmit
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            className="text-red-400 hover:bg-red-500/10"
-                            onClick={() => {
-                              setProductToDelete(product);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Product
+                          <DropdownMenuItem className="focus:bg-red-900/20 focus:text-red-400 text-red-400 cursor-pointer" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete Product
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

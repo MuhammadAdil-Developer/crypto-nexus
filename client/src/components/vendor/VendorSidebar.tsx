@@ -163,6 +163,15 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
     return category.items.some(item => getCount(item.countKey) > 0);
   };
 
+  // Check if preview mode is active
+  const isPreviewMode = (new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('preview') === 'true') ||
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('vendorPreviewMode') === 'true');
+
+  // Helper to append preview param to urls
+  const getLinkUrl = (path: string) => {
+    return isPreviewMode ? `${path}?preview=true` : path;
+  };
+
   return (
     <div
       className={cn(
@@ -237,7 +246,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                     const isMessage = item.title === "Messages";
 
                     return (
-                      <Link key={item.href} to={item.href}>
+                      <Link key={item.href} to={getLinkUrl(item.href)}>
                         <div
                           className={cn(
                             "relative group flex items-center px-3 py-2.5 rounded-md transition-all duration-200 cursor-pointer overflow-hidden",
@@ -281,7 +290,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
                 const hasCount = hasCategoryCount(category);
 
                 return (
-                  <Link key={item.href} to={item.href}>
+                  <Link key={item.href} to={getLinkUrl(item.href)}>
                     <div
                       className={cn(
                         "relative group flex items-center px-3 py-3 rounded-lg transition-all duration-200 cursor-pointer",

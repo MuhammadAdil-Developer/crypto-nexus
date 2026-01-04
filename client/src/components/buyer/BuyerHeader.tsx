@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw, Star, AlertTriangle, Loader2, MoreVertical, Menu } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Bell, ChevronDown, Settings, LogOut, User, RefreshCw, Star, AlertTriangle, Loader2, MoreVertical, Menu, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,46 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
       handleSearchSubmit(e as any);
     }
   };
+
+  // State for lazy loading notifications
+  const [visibleCount, setVisibleCount] = useState(10);
+  const observerRef = useRef<HTMLDivElement>(null);
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    if (!notificationDropdownOpen || visibleCount >= allNotifications.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 10, allNotifications.length));
+        }
+      },
+      {
+        threshold: 0.1,
+        root: document.querySelector('.notifications-scroll-area')
+      }
+    );
+
+    // Wait a bit for the dropdown to render and sentinel to be available
+    const timer = setTimeout(() => {
+      if (observerRef.current) {
+        observer.observe(observerRef.current);
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [notificationDropdownOpen, visibleCount, allNotifications.length]);
+
+  // Reset count when dropdown closes
+  useEffect(() => {
+    if (!notificationDropdownOpen) {
+      setVisibleCount(10);
+    }
+  }, [notificationDropdownOpen]);
 
   useEffect(() => {
     fetchUserData();
@@ -204,7 +244,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
               </div>
 
               {/* Notifications List */}
-              <div className="max-h-[320px] overflow-y-auto">
+              <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
                 {isLoadingNotifications && allNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-2" />
@@ -219,72 +259,77 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                   </div>
                 ) : (
                   (() => {
-                    // Sort by time (latest first) and show only top 3
+                    // Sort by time (latest first)
                     const sortedNotifications = [...allNotifications].sort((a, b) => {
                       const timeA = new Date(a.time || 0).getTime();
                       const timeB = new Date(b.time || 0).getTime();
-                      return timeB - timeA; // Descending order (latest first)
+                      return timeB - timeA;
                     });
-                    const displayedNotifications = sortedNotifications.slice(0, 3);
-                    const hasMore = sortedNotifications.length > 3;
+
+                    const displayedNotifications = sortedNotifications.slice(0, visibleCount);
 
                     return (
-                      <>
-                        {displayedNotifications.map((notification) => (
-                          <DropdownMenuItem
-                            key={notification.id}
-                            className="p-3 cursor-pointer focus:bg-gray-800 transition-colors"
-                            onClick={() => handleNotificationClick(notification)}
-                          >
-                            <div className="flex items-start space-x-3 w-full">
-                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${notification.unread
-                                ? notification.type === 'message'
-                                  ? 'bg-green-500'
-                                  : notification.type === 'order'
-                                    ? 'bg-blue-500'
-                                    : notification.type === 'review'
-                                      ? 'bg-yellow-500'
-                                      : notification.type === 'vendor_invitation'
-                                        ? 'bg-purple-500'
-                                        : 'bg-blue-500'
-                                : 'bg-gray-300'
-                                }`} />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-sm text-white truncate">{notification.title}</p>
-                                  {notification.type === 'review' && (
-                                    <Star className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                                  )}
+                      <div className="notifications-scroll-area max-h-[380px] overflow-y-auto custom-scrollbar">
+                        <div className="divide-y divide-gray-800/50">
+                          {displayedNotifications.map((notification) => (
+                            <DropdownMenuItem
+                              key={notification.id}
+                              className="p-3 cursor-pointer focus:bg-gray-800 transition-colors"
+                              onClick={() => handleNotificationClick(notification)}
+                            >
+                              <div className="flex items-start space-x-3 w-full">
+                                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${notification.unread
+                                  ? notification.type === 'message'
+                                    ? 'bg-green-500'
+                                    : notification.type === 'order'
+                                      ? 'bg-blue-500'
+                                      : notification.type === 'review'
+                                        ? 'bg-yellow-500'
+                                        : notification.type === 'security'
+                                          ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                                          : notification.type === 'vendor_invitation'
+                                            ? 'bg-purple-500'
+                                            : 'bg-blue-500'
+                                  : 'bg-gray-800'
+                                  }`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm text-white truncate">{notification.title}</p>
+                                    {notification.type === 'review' && (
+                                      <Star className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                                    )}
+                                    {notification.type === 'security' && (
+                                      <Shield className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 mt-1">{notification.time}</p>
                                 </div>
-                                <p className={`text-xs text-gray-400 mt-1 ${notification.type === 'vendor_invitation' ? '' : notification.type === 'message' ? 'line-clamp-2' : 'line-clamp-2'}`}>
-                                  {notification.message}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                                {notification.type === 'review' && (
-                                  <p className="text-xs text-yellow-400 mt-1">⭐ Click to leave review</p>
-                                )}
-                                {notification.type === 'vendor_invitation' && (
-                                  <p className="text-xs text-purple-400 mt-1">👈 Click to apply as vendor</p>
-                                )}
                               </div>
+                            </DropdownMenuItem>
+                          ))}
+
+                          {/* Sentinel for infinite scroll */}
+                          {visibleCount < allNotifications.length && (
+                            <div ref={observerRef} className="p-4 flex justify-center">
+                              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                             </div>
-                          </DropdownMenuItem>
-                        ))}
-                        {hasMore && (
-                          <DropdownMenuSeparator />
-                        )}
-                        {hasMore && (
-                          <DropdownMenuItem
-                            className="p-3 text-center justify-center cursor-pointer"
-                            onClick={() => {
-                              setNotificationDropdownOpen(false);
-                              navigate('/buyer/notifications');
-                            }}
+                          )}
+                        </div>
+
+                        <div className="p-2 border-t border-gray-700 bg-gray-900/50 sticky bottom-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs text-blue-400 hover:text-blue-300 hover:bg-transparent"
+                            onClick={() => navigate('/buyer/notifications')}
                           >
-                            <span className="text-sm text-blue-400 hover:text-grey-200">View All ({sortedNotifications.length})</span>
-                          </DropdownMenuItem>
-                        )}
-                      </>
+                            View All Notifications ({allNotifications.length})
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })()
                 )}
@@ -305,22 +350,32 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                 <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-theme-red transition-colors" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="p-3 border-b">
-                <p className="font-medium text-white">{userData.username}</p>
-                <p className="text-sm text-gray-400">{userData.email}</p>
+            <DropdownMenuContent align="end" className="w-64 bg-[#0E1A26]/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl p-2 mt-2">
+              <div className="px-4 py-3 border-b border-white/5 mb-2">
+                <p className="font-bold text-white tracking-wide">{userData.username}</p>
+                <p className="text-xs text-gray-500 truncate mt-0.5">{userData.email}</p>
               </div>
-              <DropdownMenuItem onClick={() => navigate('/buyer/settings')}>
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+
               <DropdownMenuItem
-                className="text-red-400"
+                onClick={() => navigate('/buyer/settings')}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-theme-red/20 transition-colors">
+                  <Settings className="w-4 h-4 group-hover:text-theme-red" />
+                </div>
+                <span className="text-sm font-medium">Account Settings</span>
+              </DropdownMenuItem>
+
+              <div className="my-2 h-px bg-white/5" />
+
+              <DropdownMenuItem
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400/80 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer group"
                 onClick={() => setShowLogoutDialog(true)}
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
+                <div className="w-8 h-8 rounded-lg bg-red-400/5 flex items-center justify-center group-hover:bg-red-400/10 transition-colors">
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-medium">Logout</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/v1/tickets/', include('tickets.urls')),
     path('api/v1/wishlist/', include('wishlist.urls')),
     path('api/v1/', include('admin.urls')),
+    path('api/v1/system/', include('shared.urls')),  # System/Maintenance endpoints
 ]
 
 # Serve media files in development

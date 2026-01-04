@@ -5,122 +5,284 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bitcoin, Wallet, RefreshCw, Settings, Lock, Unlock, AlertTriangle, CheckCircle } from "lucide-react";
+import { Bitcoin, Wallet, RefreshCw, Settings, Lock, Unlock, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import paymentService from "@/services/paymentService";
+import { API_BASE_URL_WITHOUT_API } from "@/config/api";
+import { useState, useEffect, useMemo } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function AdminCrypto() {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [cryptoNodes, setCryptoNodes] = useState<any[]>([]);
+  const [escrowWallets, setEscrowWallets] = useState<any[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [securityStatus, setSecurityStatus] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [logsContent, setLogsContent] = useState<string | null>(null);
+  const [isLogsOpen, setIsLogsOpen] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("nodes");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterCurrency, setFilterCurrency] = useState("all");
 
-  const cryptoNodes = [
-    {
-      id: 1,
-      name: "Bitcoin Node",
-      symbol: "BTC",
-      status: "Connected",
-      statusType: "success" as const,
-      blockHeight: "820,847",
-      lastSync: "2 min ago",
-      peers: 8,
-      mempool: "4.2 MB",
-      version: "v25.0"
-    },
-    {
-      id: 2,
-      name: "Monero Node", 
-      symbol: "XMR",
-      status: "Connected",
-      statusType: "success" as const,
-      blockHeight: "3,021,456",
-      lastSync: "1 min ago",
-      peers: 12,
-      mempool: "2.1 MB",
-      version: "v0.18.3.1"
+  const fetchCryptoStatus = async () => {
+    try {
+      setIsLoading(true);
+      const data = await paymentService.getAdminCryptoStatus();
+      if (data) {
+        setCryptoNodes(data.nodes || []);
+        setEscrowWallets(data.wallets || []);
+        setRecentTransactions(data.transactions || []);
+        setSecurityStatus(data.security || []);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch crypto status", error);
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Could not fetch live crypto data. Please check your connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
-  const escrowWallets = [
-    {
-      currency: "BTC",
-      balance: "12.84739281",
-      usdValue: "$525,847",
-      pendingOrders: 23,
-      autoReleaseOrders: 156,
-      disputedOrders: 3
-    },
-    {
-      currency: "XMR",
-      balance: "847.23841567",
-      usdValue: "$145,623",
-      pendingOrders: 8,
-      autoReleaseOrders: 67,
-      disputedOrders: 1
+  const handleNodeAction = async (symbol: string, action: string) => {
+    try {
+      const result = await paymentService.performNodeAction(symbol, action);
+      toast({
+        title: `${action.charAt(0).toUpperCase() + action.slice(1)} Successful`,
+        description: result.message,
+      });
+      if (action === 'logs' && result.logs) {
+        setLogsContent(result.logs);
+        setSelectedNode(symbol);
+        setIsLogsOpen(true);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Action Failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
-  ];
+  };
 
-  const recentTransactions = [
-    {
-      id: 1,
-      txHash: "a1b2c3d4e5f6...9876543210",
-      type: "Deposit",
-      amount: "0.0012 BTC",
-      status: "Confirmed",
-      statusType: "success" as const,
-      confirmations: 6,
-      timestamp: "5 min ago",
-      orderId: "ORD-2847"
-    },
-    {
-      id: 2,
-      txHash: "9f8e7d6c5b4a...1234567890",
-      type: "Escrow Release",
-      amount: "0.0008 BTC", 
-      status: "Confirmed",
-      statusType: "success" as const,
-      confirmations: 3,
-      timestamp: "12 min ago",
-      orderId: "ORD-2846"
-    },
-    {
-      id: 3,
-      txHash: "5a4b3c2d1e0f...abcdef1234",
-      type: "Refund",
-      amount: "1.24 XMR",
-      status: "Pending",
-      statusType: "warning" as const,
-      confirmations: 1,
-      timestamp: "1 hour ago",
-      orderId: "ORD-2845"
+  const handleBulkAction = async (action: string) => {
+    // Check if there's any data for report export
+    if (action === 'export_report' && recentTransactions.length === 0) {
+      toast({
+        title: "No Data",
+        description: "There are no escrow records available to generate a report.",
+        variant: "warning",
+      });
+      return;
     }
-  ];
+
+    try {
+      const result = await paymentService.performBulkEscrowAction(action);
+      toast({
+        title: "Action Successful",
+        description: result.message,
+      });
+
+      if (result.downloadUrl) {
+        const filename = result.downloadUrl.split('/').pop() || 'report.csv';
+        await paymentService.downloadAuthenticatedFile(result.downloadUrl, filename);
+      }
+
+      if (action === 'release_expired' || action === 'release') {
+        setTimeout(() => {
+          navigate('/admin/payouts');
+        }, 1500); // Small delay so they can see the success toast
+      }
+    } catch (error: any) {
+      toast({
+        title: "Action Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchCryptoStatus();
+  }, []);
+
+  const filteredTransactions = useMemo(() => {
+    return recentTransactions.filter(tx => {
+      const matchesSearch = searchTerm ?
+        (tx.txHash?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          tx.orderId?.toLowerCase().includes(searchTerm.toLowerCase())) : true;
+      const matchesType = filterType === 'all' || tx.type?.toLowerCase().includes(filterType.toLowerCase());
+      const matchesCurrency = filterCurrency === 'all' || tx.currency === filterCurrency;
+
+      return matchesSearch && matchesType && matchesCurrency;
+    });
+  }, [recentTransactions, searchTerm, filterType, filterCurrency]);
+
+  const handleGlobalSettings = () => {
+    toast({
+      title: "Global Crypto Settings",
+      description: "Opening system-wide payment gateway configuration...",
+    });
+  };
+
+  // Loading Skeleton Component
+  const NodeSkeleton = () => (
+    <Card className="crypto-card">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Skeleton className="w-8 h-8 rounded-full" />
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </div>
+      </CardHeader>
+      <CardContent className="p-6 pt-0">
+        <div className="grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i}>
+              <Skeleton className="h-3 w-20 mb-2" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
+        <div className="flex space-x-2 mt-6">
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="h-8 w-20" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const WalletSkeleton = () => (
+    <Card className="crypto-card">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-6 w-6 rounded-full" />
+        </div>
+      </CardHeader>
+      <CardContent className="p-6 pt-0">
+        <div className="space-y-6">
+          <div className="flex flex-col items-center space-y-2">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col items-center">
+                <Skeleton className="h-8 w-12 mb-2" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 flex-1" />
+            <Skeleton className="h-9 flex-1" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const TransactionSkeleton = () => (
+    <>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <tr key={i} className="border-b border-border/50">
+          <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+          <td className="p-4"><Skeleton className="h-4 w-20" /></td>
+          <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+          <td className="p-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+          <td className="p-4 hidden md:table-cell"><Skeleton className="h-4 w-8" /></td>
+          <td className="p-4 hidden lg:table-cell"><Skeleton className="h-4 w-24" /></td>
+          <td className="p-4 hidden sm:table-cell"><Skeleton className="h-4 w-32" /></td>
+        </tr>
+      ))}
+    </>
+  );
 
   return (
-    
-      <main className="flex-1 overflow-y-auto bg-bg p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Crypto Management</h1>
-            <p className="text-gray-300 mt-1">Monitor blockchain nodes, wallets, and transactions</p>
+    <>
+      {/* Logs Dialog */}
+      <Dialog open={isLogsOpen} onOpenChange={setIsLogsOpen}>
+        <DialogContent className="max-w-4xl bg-surface border-border text-white">
+          <DialogHeader>
+            <DialogTitle>{selectedNode} Node Logs</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Real-time synchronization and system logs
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-bg p-4 rounded-lg font-mono text-sm overflow-y-auto max-h-[60vh] whitespace-pre-wrap border border-border text-accent">
+            {logsContent || "No logs available."}
           </div>
-          <div className="flex space-x-3">
-            <Button variant="outline" className="border-border text-gray-300 hover:bg-surface-2">
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => handleNodeAction(selectedNode, 'logs')} className="border-border text-gray-300">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Sync Nodes
+              Refresh
             </Button>
-            <Button className="bg-accent text-bg hover:bg-accent-2">
+            <Button onClick={() => setIsLogsOpen(false)} className="bg-accent text-bg hover:bg-accent-2">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <main className="flex-1 overflow-y-auto bg-bg p-6 pb-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Crypto & Escrow</h1>
+            <p className="text-gray-400 mt-1">Blockchain node status and automated payment management</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchCryptoStatus}
+              disabled={isLoading}
+              className="border-border text-gray-300 hover:text-white"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              {isLoading ? "Syncing..." : "Sync Nodes"}
+            </Button>
+            {/* <Button
+              className="bg-accent text-bg hover:bg-accent-2"
+              onClick={handleGlobalSettings}
+            >
               <Settings className="w-4 h-4 mr-2" />
               Settings
-            </Button>
+            </Button> */}
           </div>
         </div>
 
-        <Tabs defaultValue="nodes" className="w-full">
-          <TabsList className="bg-surface-2 mb-6">
-            <TabsTrigger value="nodes" className="text-gray-300 data-[state=active]:text-white">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="bg-surface-2 mb-8 w-full justify-start overflow-x-auto h-auto p-1 scrollbar-hide">
+            <TabsTrigger value="nodes" className="text-gray-300 data-[state=active]:text-white min-w-[120px] py-2.5">
               Blockchain Nodes
             </TabsTrigger>
-            <TabsTrigger value="wallets" className="text-gray-300 data-[state=active]:text-white">
+            <TabsTrigger value="wallets" className="text-gray-300 data-[state=active]:text-white min-w-[120px] py-2.5">
               Escrow Wallets
             </TabsTrigger>
-            <TabsTrigger value="transactions" className="text-gray-300 data-[state=active]:text-white">
+            <TabsTrigger value="transactions" className="text-gray-300 data-[state=active]:text-white min-w-[120px] py-2.5">
               Transaction Logs
             </TabsTrigger>
           </TabsList>
@@ -128,62 +290,87 @@ export default function AdminCrypto() {
           <TabsContent value="nodes">
             {/* Node Status Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {cryptoNodes.map((node) => (
-                <Card key={node.id} className="crypto-card" data-testid={`node-${node.symbol.toLowerCase()}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        {node.symbol === "BTC" ? (
-                          <Bitcoin className="w-8 h-8 text-warning mr-3" />
-                        ) : (
-                          <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-3">
-                            <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z"/>
-                            </svg>
+              {isLoading ? (
+                <>
+                  <NodeSkeleton />
+                  <NodeSkeleton />
+                </>
+              ) : (
+                cryptoNodes.map((node) => (
+                  <Card key={node.id} className="crypto-card" data-testid={`node-${node.symbol.toLowerCase()}`}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          {node.symbol === "BTC" ? (
+                            <Bitcoin className="w-8 h-8 text-warning mr-3" />
+                          ) : (
+                            <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-3">
+                              <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
+                              </svg>
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="text-lg font-semibold text-white">{node.name}</h3>
+                            <p className="text-sm text-gray-400">{node.symbol} • {node.version}</p>
                           </div>
-                        )}
+                        </div>
+                        <StatusBadge status={node.status} type={node.statusType} />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-white">{node.name}</h3>
-                          <p className="text-sm text-gray-400">{node.symbol} • {node.version}</p>
+                          <p className="text-sm text-gray-400">Block Height</p>
+                          <p className="text-white font-mono">{node.blockHeight}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Last Sync</p>
+                          <p className="text-white">{node.lastSync}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Connected Peers</p>
+                          <p className="text-white">{node.peers}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Mempool Size</p>
+                          <p className="text-white">{node.mempool}</p>
                         </div>
                       </div>
-                      <StatusBadge status={node.status} type={node.statusType} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-0">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-400">Block Height</p>
-                        <p className="text-white font-mono">{node.blockHeight}</p>
+
+                      <div className="flex space-x-2 mt-6">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                          data-testid={`restart-node-${node.symbol.toLowerCase()}`}
+                          onClick={() => handleNodeAction(node.symbol, 'restart')}
+                        >
+                          Restart
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                          data-testid={`settings-node-${node.symbol.toLowerCase()}`}
+                          onClick={() => handleNodeAction(node.symbol, 'configure')}
+                        >
+                          Configure
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                          data-testid={`logs-node-${node.symbol.toLowerCase()}`}
+                          onClick={() => handleNodeAction(node.symbol, 'logs')}
+                        >
+                          View Logs
+                        </Button>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Last Sync</p>
-                        <p className="text-white">{node.lastSync}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Connected Peers</p>
-                        <p className="text-white">{node.peers}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400">Mempool Size</p>
-                        <p className="text-white">{node.mempool}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-2 mt-6">
-                      <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface-2" data-testid={`restart-node-${node.symbol.toLowerCase()}`}>
-                        Restart
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface-2" data-testid={`settings-node-${node.symbol.toLowerCase()}`}>
-                        Configure
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-border text-gray-300 hover:bg-surface-2" data-testid={`logs-node-${node.symbol.toLowerCase()}`}>
-                        View Logs
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
 
             {/* Node Management Actions */}
@@ -192,37 +379,59 @@ export default function AdminCrypto() {
                 <CardTitle className="text-white">Node Management</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   <div className="space-y-4">
                     <h4 className="text-lg font-medium text-white">Security Settings</h4>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                        <span className="text-gray-300">RPC Authentication</span>
-                        <StatusBadge status="Enabled" type="success" />
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                        <span className="text-gray-300">SSL/TLS Encryption</span>
-                        <StatusBadge status="Enabled" type="success" />
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                        <span className="text-gray-300">IP Whitelist</span>
-                        <StatusBadge status="Active" type="success" />
-                      </div>
+                      {securityStatus.length > 0 ? (
+                        securityStatus.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 hover:text-white hover:bg-surface-2/50 rounded-lg">
+                            <span className="text-gray-300">{item.name}</span>
+                            <StatusBadge status={item.status} type={item.type} />
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between p-3 hover:text-white hover:bg-surface-2/50 rounded-lg">
+                            <span className="text-gray-300">RPC Authentication</span>
+                            <StatusBadge status="Fetching..." type="warning" />
+                          </div>
+                          <div className="flex items-center justify-between p-3 hover:text-white hover:bg-surface-2/50 rounded-lg">
+                            <span className="text-gray-300">SSL/TLS Encryption</span>
+                            <StatusBadge status="Fetching..." type="warning" />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <h4 className="text-lg font-medium text-white">Node Actions</h4>
                     <div className="space-y-3">
-                      <Button variant="outline" className="w-full border-border text-gray-300 hover:bg-surface-2 justify-start" data-testid="backup-wallets">
+                      <Button
+                        variant="outline"
+                        className="w-full border-border text-gray-300 hover:text-white hover:bg-surface-2/50 justify-start"
+                        data-testid="backup-wallets"
+                        onClick={() => handleNodeAction('BTC', 'backup')}
+                      >
                         <Lock className="w-4 h-4 mr-2" />
                         Backup Wallet Files
                       </Button>
-                      <Button variant="outline" className="w-full border-border text-gray-300 hover:bg-surface-2 justify-start" data-testid="rotate-keys">
+                      <Button
+                        variant="outline"
+                        className="w-full border-border text-gray-300 hover:text-white hover:bg-surface-2/50 justify-start"
+                        data-testid="rotate-keys"
+                        onClick={() => handleNodeAction('BTC', 'rotate_keys')}
+                      >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Rotate API Keys
                       </Button>
-                      <Button variant="outline" className="w-full border-border text-gray-300 hover:bg-surface-2 justify-start" data-testid="rescan-blockchain">
+                      <Button
+                        variant="outline"
+                        className="w-full border-border text-gray-300 hover:text-white hover:bg-surface-2/50 justify-start"
+                        data-testid="rescan-blockchain"
+                        onClick={() => handleNodeAction('BTC', 'rescan')}
+                      >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Rescan Blockchain
                       </Button>
@@ -236,50 +445,69 @@ export default function AdminCrypto() {
           <TabsContent value="wallets">
             {/* Escrow Wallet Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {escrowWallets.map((wallet) => (
-                <Card key={wallet.currency} className="crypto-card" data-testid={`wallet-${wallet.currency.toLowerCase()}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white">{wallet.currency} Escrow Wallet</h3>
-                      <Wallet className="w-6 h-6 text-accent" />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-0">
-                    <div className="space-y-4">
-                      <div className="text-center p-4 bg-surface-2 rounded-xl">
-                        <p className="text-3xl font-bold text-white font-mono">{wallet.balance}</p>
-                        <p className="text-sm text-gray-400">{wallet.currency}</p>
-                        <p className="text-lg text-accent mt-2">{wallet.usdValue}</p>
+              {isLoading ? (
+                <>
+                  <WalletSkeleton />
+                  <WalletSkeleton />
+                </>
+              ) : (
+                escrowWallets.map((wallet) => (
+                  <Card key={wallet.currency} className="crypto-card" data-testid={`wallet-${wallet.currency.toLowerCase()}`}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-white">{wallet.currency} Escrow Wallet</h3>
+                        <Wallet className="w-6 h-6 text-accent" />
                       </div>
-                      
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <p className="text-2xl font-bold text-white">{wallet.pendingOrders}</p>
-                          <p className="text-xs text-gray-400">Pending Release</p>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0">
+                      <div className="space-y-4">
+                        <div className="text-center p-4 hover:text-white hover:bg-surface-2/50 rounded-xl">
+                          <p className="text-3xl font-bold text-white font-mono">{wallet.balance}</p>
+                          <p className="text-sm text-gray-400">{wallet.currency}</p>
+                          <p className="text-lg text-accent mt-2">{wallet.usdValue}</p>
                         </div>
-                        <div>
-                          <p className="text-2xl font-bold text-white">{wallet.autoReleaseOrders}</p>
-                          <p className="text-xs text-gray-400">Auto-Release</p>
+
+                        <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                          <div>
+                            <p className="text-xl sm:text-2xl font-bold text-white">{wallet.fundedEscrows || 0}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-400">In Escrow</p>
+                          </div>
+                          <div>
+                            <p className="text-xl sm:text-2xl font-bold text-white">{wallet.pendingOrders || 0}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-400">Awaiting Pay</p>
+                          </div>
+                          <div>
+                            <p className="text-xl sm:text-2xl font-bold text-white">{wallet.disputedOrders || 0}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-400">Disputed</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-2xl font-bold text-white">{wallet.disputedOrders}</p>
-                          <p className="text-xs text-gray-400">Disputed</p>
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                            data-testid={`release-funds-${wallet.currency.toLowerCase()}`}
+                            onClick={() => handleBulkAction('release_expired')}
+                          >
+                            <Unlock className="w-4 h-4 mr-2" />
+                            Release Funds
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                            data-testid={`view-transactions-${wallet.currency.toLowerCase()}`}
+                            onClick={() => setActiveTab("transactions")}
+                          >
+                            View History
+                          </Button>
                         </div>
                       </div>
-                      
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" className="flex-1 border-border text-gray-300 hover:bg-surface-2" data-testid={`release-funds-${wallet.currency.toLowerCase()}`}>
-                          <Unlock className="w-4 h-4 mr-2" />
-                          Release Funds
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex-1 border-border text-gray-300 hover:bg-surface-2" data-testid={`view-transactions-${wallet.currency.toLowerCase()}`}>
-                          View History
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
 
             {/* Escrow Management Actions */}
@@ -291,33 +519,49 @@ export default function AdminCrypto() {
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-lg font-medium text-white mb-4">Bulk Actions</h4>
-                    <div className="flex flex-wrap gap-3">
-                      <Button variant="outline" className="border-border text-gray-300 hover:bg-surface-2" data-testid="release-all-expired">
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                      <Button
+                        variant="outline"
+                        className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50 flex-1 sm:flex-none"
+                        data-testid="release-all-expired"
+                        onClick={() => handleBulkAction('release_expired')}
+                      >
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Release All Expired (48h)
                       </Button>
-                      <Button variant="outline" className="border-border text-gray-300 hover:bg-surface-2" data-testid="export-escrow-report">
+                      <Button
+                        variant="outline"
+                        className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50 flex-1 sm:flex-none"
+                        data-testid="export-escrow-report"
+                        onClick={() => handleBulkAction('export_report')}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
                         Export Escrow Report
                       </Button>
-                      <Button variant="outline" className="border-border text-gray-300 hover:bg-surface-2" data-testid="backup-escrow-keys">
+                      <Button
+                        variant="outline"
+                        className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                        data-testid="backup-escrow-keys"
+                        onClick={() => handleBulkAction('backup_keys')}
+                      >
                         <Lock className="w-4 h-4 mr-2" />
                         Backup Escrow Keys
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h4 className="text-lg font-medium text-white mb-4">Security Alerts</h4>
                     <div className="space-y-3">
-                      <div className="flex items-center p-3 bg-surface-2 rounded-lg">
+                      <div className="flex items-center p-3 hover:text-white hover:bg-surface-2/50 rounded-lg">
                         <CheckCircle className="w-5 h-5 text-success mr-3" />
                         <span className="text-gray-300">All escrow wallets are secure and synced</span>
                       </div>
-                      <div className="flex items-center p-3 bg-surface-2 rounded-lg">
+                      <div className="flex items-center p-3 hover:text-white hover:bg-surface-2/50 rounded-lg">
                         <CheckCircle className="w-5 h-5 text-success mr-3" />
                         <span className="text-gray-300">Multi-signature verification active</span>
                       </div>
-                      <div className="flex items-center p-3 bg-surface-2 rounded-lg">
+                      <div className="flex items-center p-3 hover:text-white hover:bg-surface-2/50 rounded-lg">
                         <CheckCircle className="w-5 h-5 text-success mr-3" />
                         <span className="text-gray-300">Cold storage backup completed</span>
                       </div>
@@ -334,23 +578,33 @@ export default function AdminCrypto() {
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1">
-                    <Input 
-                      placeholder="Search by transaction hash or order ID..." 
-                      className="bg-surface-2 border-border text-white"
+                    <Input
+                      placeholder="Search by transaction hash or order ID..."
+                      className="border-border text-white bg-black/40 focus-visible:ring-1 focus-visible:ring-accent placeholder:text-gray-500"
                       data-testid="search-transactions"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div className="flex space-x-3">
-                    <select className="bg-surface-2 border border-border rounded-md px-3 py-2 text-white">
-                      <option value="all">All Types</option>
-                      <option value="deposit">Deposits</option>
-                      <option value="release">Escrow Releases</option>
-                      <option value="refund">Refunds</option>
+                    <select
+                      className="border border-border bg-black/40 rounded-md px-3 py-2 text-white outline-none focus:ring-1 focus:ring-accent appearance-none cursor-pointer min-w-[140px] text-sm"
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                    >
+                      <option value="all" className="bg-surface-2">All Types</option>
+                      <option value="Deposit" className="bg-surface-2">Deposits</option>
+                      <option value="Escrow Release" className="bg-surface-2">Escrow Releases</option>
+                      <option value="Refund" className="bg-surface-2">Refunds</option>
                     </select>
-                    <select className="bg-surface-2 border border-border rounded-md px-3 py-2 text-white">
-                      <option value="all">All Currencies</option>
-                      <option value="btc">BTC</option>
-                      <option value="xmr">XMR</option>
+                    <select
+                      className="border border-border bg-black/40 rounded-md px-3 py-2 text-white outline-none focus:ring-1 focus:ring-accent appearance-none cursor-pointer min-w-[140px] text-sm"
+                      value={filterCurrency}
+                      onChange={(e) => setFilterCurrency(e.target.value)}
+                    >
+                      <option value="all" className="bg-surface-2">All Currencies</option>
+                      <option value="BTC" className="bg-surface-2">BTC</option>
+                      <option value="XMR" className="bg-surface-2">XMR</option>
                     </select>
                   </div>
                 </div>
@@ -371,51 +625,49 @@ export default function AdminCrypto() {
                         <th className="text-left p-4 text-sm font-medium text-gray-300">Type</th>
                         <th className="text-left p-4 text-sm font-medium text-gray-300">Amount</th>
                         <th className="text-left p-4 text-sm font-medium text-gray-300">Status</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Confirmations</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Order ID</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-300">Timestamp</th>
+                        <th className="text-left p-4 text-sm font-medium text-gray-300 hidden md:table-cell">Confirmations</th>
+                        <th className="text-left p-4 text-sm font-medium text-gray-300 hidden lg:table-cell">Order ID</th>
+                        <th className="text-left p-4 text-sm font-medium text-gray-300 hidden sm:table-cell">Timestamp</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {recentTransactions.map((tx) => (
-                        <tr key={tx.id} className="hover:bg-surface-2/50" data-testid={`transaction-${tx.id}`}>
-                          <td className="p-4">
-                            <span className="font-mono text-accent text-sm">{tx.txHash}</span>
-                          </td>
-                          <td className="p-4">
-                            <Badge 
-                              variant={
-                                tx.type === "Deposit" ? "secondary" :
-                                tx.type === "Escrow Release" ? "default" :
-                                "outline"
-                              }
-                              className="text-xs"
-                            >
-                              {tx.type}
-                            </Badge>
-                          </td>
-                          <td className="p-4">
-                            <span className="font-mono text-white">{tx.amount}</span>
-                          </td>
-                          <td className="p-4">
-                            <StatusBadge status={tx.status} type={tx.statusType} />
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center">
-                              <span className="text-white mr-2">{tx.confirmations}</span>
-                              {tx.confirmations >= 3 ? (
-                                <CheckCircle className="w-4 h-4 text-success" />
-                              ) : (
-                                <AlertTriangle className="w-4 h-4 text-warning" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <span className="font-mono text-accent">{tx.orderId}</span>
-                          </td>
-                          <td className="p-4 text-gray-300">{tx.timestamp}</td>
-                        </tr>
-                      ))}
+                      {isLoading ? (
+                        <TransactionSkeleton />
+                      ) : (
+                        filteredTransactions.length > 0 ? (
+                          filteredTransactions.map((tx) => (
+                            <tr key={tx.id} className="hover:bg-surface-2/50" data-testid={`transaction-${tx.id}`}>
+                              <td className="p-4">
+                                <span className="font-mono text-accent text-sm">{tx.txHash}</span>
+                              </td>
+                              <td className="p-4">
+                                <span className="text-gray-300 text-sm whitespace-nowrap">{tx.type}</span>
+                              </td>
+                              <td className="p-4">
+                                <span className="text-white font-medium text-sm whitespace-nowrap">{tx.amount}</span>
+                              </td>
+                              <td className="p-4">
+                                <StatusBadge status={tx.status} type={tx.statusType} />
+                              </td>
+                              <td className="p-4 hidden md:table-cell text-sm text-gray-400">
+                                {tx.confirmations}
+                              </td>
+                              <td className="p-4 hidden lg:table-cell text-sm text-gray-400 font-mono">
+                                {tx.orderId}
+                              </td>
+                              <td className="p-4 hidden sm:table-cell text-sm text-gray-300">
+                                {tx.timestamp}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td className="p-8 text-center" colSpan={7}>
+                              <p className="text-gray-400">No transactions to display.</p>
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -424,6 +676,6 @@ export default function AdminCrypto() {
           </TabsContent>
         </Tabs>
       </main>
-    
+    </>
   );
 }

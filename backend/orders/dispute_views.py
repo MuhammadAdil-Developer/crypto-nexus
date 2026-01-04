@@ -135,10 +135,11 @@ def buyer_open_dispute(request):
                 priority='urgent'
             )
             
-            # Notify vendor
-            Notification.objects.create(
+            # Notify vendor via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=refund.vendor,
-                type='dispute',
+                notification_type='dispute',
                 title='Dispute Opened',
                 message=f'Buyer {request.user.username} opened a dispute for order {order.order_id}',
                 data={
@@ -146,30 +147,11 @@ def buyer_open_dispute(request):
                     'refund_id': str(refund.id),
                     'order_id': order.order_id,
                     'action_url': '/vendor/orders'
-                }
+                },
+                priority='high'
             )
             
-            # Real-time notification to vendor
-            channel_layer = get_channel_layer()
-            if channel_layer:
-                try:
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{refund.vendor.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'type': 'dispute_opened',
-                                'title': 'Dispute Opened',
-                                'message': f'A dispute has been opened for order {order.order_id}',
-                                'dispute_id': str(dispute.id),
-                                'order_id': order.order_id,
-                                'priority': 'high',
-                                'action_url': '/vendor/orders'
-                            }
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending real-time notification to vendor: {e}")
+
         
         return Response({
             'success': True,
@@ -329,10 +311,11 @@ def admin_resolve_dispute(request, dispute_id):
                 refund.admin_decision_amount = refund.amount
                 refund.save()
                 
-                # Notify vendor (red notification - urgent)
-                Notification.objects.create(
+                # Notify vendor via central helper (respects preferences)
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=refund.vendor,
-                    type='dispute',
+                    notification_type='dispute',
                     title='Dispute Resolved - Refund Required',
                     message=f'Admin resolved dispute in buyer\'s favor for order {order.order_id}. You must refund {refund.amount} {order.crypto_currency} to the buyer.',
                     data={
@@ -342,36 +325,14 @@ def admin_resolve_dispute(request, dispute_id):
                         'amount': str(refund.amount),
                         'deadline': refund.vendor_refund_deadline.isoformat(),
                         'action_url': '/vendor/orders'
-                    }
+                    },
+                    priority='urgent'
                 )
                 
-                # Real-time notification to vendor (red/urgent)
-                channel_layer = get_channel_layer()
-                if channel_layer:
-                    try:
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{refund.vendor.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'type': 'dispute_resolved_refund_required',
-                                    'title': 'Refund Required - Dispute Resolved',
-                                    'message': f'You must refund {refund.amount} {order.crypto_currency} for order {order.order_id}',
-                                    'dispute_id': str(dispute.id),
-                                    'refund_id': str(refund.id),
-                                    'order_id': order.order_id,
-                                    'priority': 'urgent',
-                                    'action_url': '/vendor/orders'
-                                }
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(f"Error sending real-time notification to vendor: {e}")
-                
-                # Notify buyer
-                Notification.objects.create(
+                # Notify buyer via central helper (respects preferences)
+                send_user_notification(
                     user=refund.buyer,
-                    type='dispute',
+                    notification_type='dispute',
                     title='Dispute Resolved in Your Favor',
                     message=f'Admin resolved dispute in your favor for order {order.order_id}. Vendor will process refund.',
                     data={
@@ -381,37 +342,17 @@ def admin_resolve_dispute(request, dispute_id):
                         'action_url': '/buyer/orders'
                     }
                 )
-                
-                # Real-time notification to buyer
-                if channel_layer:
-                    try:
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{refund.buyer.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'type': 'dispute_resolved_buyer_wins',
-                                    'title': 'Dispute Resolved in Your Favor',
-                                    'message': f'Dispute resolved in your favor. Vendor will process refund.',
-                                    'dispute_id': str(dispute.id),
-                                    'order_id': order.order_id,
-                                    'priority': 'normal',
-                                    'action_url': '/buyer/orders'
-                                }
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(f"Error sending real-time notification to buyer: {e}")
             
             elif resolution == 'vendor_wins':
                 # Vendor keeps money, no refund
                 refund.status = 'admin_rejected'
                 refund.save()
                 
-                # Notify vendor
-                Notification.objects.create(
+                # Notify vendor via central helper (respects preferences)
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=refund.vendor,
-                    type='dispute',
+                    notification_type='dispute',
                     title='Dispute Resolved in Your Favor',
                     message=f'Admin resolved dispute in your favor for order {order.order_id}. No refund required.',
                     data={
@@ -422,10 +363,10 @@ def admin_resolve_dispute(request, dispute_id):
                     }
                 )
                 
-                # Notify buyer
-                Notification.objects.create(
+                # Notify buyer via central helper (respects preferences)
+                send_user_notification(
                     user=refund.buyer,
-                    type='dispute',
+                    notification_type='dispute',
                     title='Dispute Resolved - Vendor Wins',
                     message=f'Admin resolved dispute in vendor\'s favor for order {order.order_id}. No refund will be issued.',
                     data={
@@ -459,10 +400,11 @@ def admin_resolve_dispute(request, dispute_id):
                 refund.completed_at = timezone.now()
                 refund.save()
                 
-                # Notify both parties
-                Notification.objects.create(
+                # Notify parties via central helper (respects preferences)
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=refund.buyer,
-                    type='dispute',
+                    notification_type='dispute',
                     title='Dispute Resolved - Partial Refund',
                     message=f'Admin resolved dispute with partial refund of {resolution_amount} {order.crypto_currency} for order {order.order_id}. Amount credited to wallet.',
                     data={
@@ -474,9 +416,9 @@ def admin_resolve_dispute(request, dispute_id):
                     }
                 )
                 
-                Notification.objects.create(
+                send_user_notification(
                     user=refund.vendor,
-                    type='dispute',
+                    notification_type='dispute',
                     title='Dispute Resolved - Partial Refund',
                     message=f'Admin resolved dispute with partial refund of {resolution_amount} {order.crypto_currency} for order {order.order_id}.',
                     data={
@@ -668,10 +610,11 @@ def vendor_process_refund(request, refund_id):
                 }
             )
             
-            # Notify buyer
-            Notification.objects.create(
+            # Notify buyer via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=refund.buyer,
-                type='refund',
+                notification_type='refund',
                 title='Refund Processed',
                 message=f'Vendor processed refund for order {order.order_id}. The refund has been sent to your payout wallet.',
                 data={
@@ -681,28 +624,6 @@ def vendor_process_refund(request, refund_id):
                     'action_url': '/buyer/orders'
                 }
             )
-            
-            # Real-time notification to buyer
-            channel_layer = get_channel_layer()
-            if channel_layer:
-                try:
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{refund.buyer.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'type': 'refund_processed',
-                                'title': 'Refund Processed',
-                                'message': f'Refund for order {order.order_id} has been processed. Amount credited to wallet.',
-                                'refund_id': str(refund.id),
-                                'order_id': order.order_id,
-                                'priority': 'normal',
-                                'action_url': '/buyer/orders'
-                            }
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending real-time notification to buyer: {e}")
             
             # Notify admin
             send_admin_notification(

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2 } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
 import { Order, orderService } from "@/services/orderService";
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
+import { formatCryptoAmountInString } from "@/lib/utils";
 import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
 import { RequestRefundModal } from "./RequestRefundModal";
@@ -550,614 +551,220 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                   day: '2-digit'
                 });
 
+                // Refund & Dispute Logic
+                const existingRefund = refundRequests[order.order_id];
+                const isRefunded = order.order_status === 'refunded';
+                const hasPendingRefund = existingRefund &&
+                  (existingRefund.status === 'pending_vendor' ||
+                    existingRefund.status === 'pending_admin' ||
+                    existingRefund.status === 'disputed');
+
+                const canRequestRefund = (order.order_status === "paid" ||
+                  order.order_status === "delivered" ||
+                  order.order_status === "confirmed" ||
+                  order.order_status === "processing") &&
+                  !isRefunded &&
+                  !hasPendingRefund;
+
+                const canCreateDispute = (order.order_status === "paid" || order.order_status === "delivered") &&
+                  !order.dispute_opened;
+
                 return (
                   <div
-                    key={order.order_id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors duration-200"
+                    key={order.id}
+                    className="group relative overflow-hidden bg-gray-800/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 sm:p-5 hover:bg-gray-800/60 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/5"
                   >
-                    <div className="flex items-start sm:items-center space-x-4 flex-1 min-w-0">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusColor(order.order_status)}`}>
-                        {getStatusIcon(order.order_status)}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-white truncate">
-                          {order.product.headline}
-                        </h4>
-                        <p className="text-sm text-gray-400">
-                          {order.vendor.username} • {formattedDate}
-                        </p>
-
-                        {/* Payment Address - Show for orders with payment address */}
-                        {order.payment_address && (
-                          <div className="mt-2 flex items-center gap-2 group">
-                            <Wallet className="w-3 h-3 text-gray-500" />
-                            <span className="text-xs text-gray-500">Payment Address:</span>
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs font-mono text-gray-400 truncate max-w-[120px] group-hover:max-w-none transition-all">
-                                {order.payment_address}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const text = order.payment_address;
-                                  if (!navigator.clipboard && document.execCommand) {
-                                    // Fallback
-                                    const textArea = document.createElement("textarea");
-                                    textArea.value = text;
-                                    textArea.style.position = "fixed";
-                                    document.body.appendChild(textArea);
-                                    textArea.focus();
-                                    textArea.select();
-                                    try {
-                                      const successful = document.execCommand('copy');
-                                      if (successful) {
-                                        toast({
-                                          title: "Copied!",
-                                          description: "Payment address copied.",
-                                        });
-                                      }
-                                    } catch (err) {
-                                      // Fail silently or toast
-                                    }
-                                    document.body.removeChild(textArea);
-                                  } else {
-                                    navigator.clipboard.writeText(text).then(() => {
-                                      toast({
-                                        title: "Copied!",
-                                        description: "Payment address copied to clipboard",
-                                      });
-                                    });
-                                  }
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-600 rounded"
-                                title="Copy payment address"
-                              >
-                                <Copy className="w-3 h-3 text-gray-400 hover:text-white" />
-                              </button>
+                    <div className="flex flex-col space-y-4">
+                      {/* --- HEADER ROW --- */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-4 min-w-0">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${getStatusColor(order.order_status)}`}>
+                            {getStatusIcon(order.order_status)}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-white text-base sm:text-lg truncate group-hover:text-blue-400 transition-colors">
+                              {order.product?.headline || "Product Details"}
+                            </h4>
+                            <div className="flex items-center text-xs text-gray-400 mt-1 space-x-2">
+                              <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {order.vendor?.username || "Unknown"}</span>
+                              <span>•</span>
+                              <span className="flex items-center"><Calendar className="w-3 h-3 mr-1" /> {formattedDate}</span>
                             </div>
                           </div>
-                        )}
+                        </div>
 
-                        {/* Timer for pending orders */}
-                        {(order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
-                          (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
-                          !expiredOrders.has(order.id.toString()) && (
-                            <div className="mt-2 flex items-center space-x-2">
-                              <Timer className="w-4 h-4 text-yellow-400" />
-                              <span className={`text-sm font-semibold ${(timers[order.id.toString()] || 0) <= 300
-                                ? 'text-red-400 animate-pulse'
-                                : 'text-yellow-400'
-                                }`}>
-                                {formatTime(timers[order.id.toString()] || calculateTimeRemaining(order))}
-                              </span>
-                              <span className="text-xs text-gray-500">remaining to pay</span>
-                            </div>
-                          )}
-
-                        {/* Expired indicator */}
-                        {expiredOrders.has(order.id.toString()) && (
-                          <div className="mt-2 flex items-center space-x-2">
-                            <XCircle className="w-4 h-4 text-red-400" />
-                            <span className="text-sm font-semibold text-red-400">Order Expired</span>
-                          </div>
-                        )}
-
-                        {/* Credentials Display - For paid, confirmed, and delivered orders */}
-                        {order.product_credentials && Object.keys(order.product_credentials).length > 0 &&
-                          (order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered' || order.order_status === 'completed') && (
-                            <div className="mt-2">
-                              <button
-                                onClick={() => {
-                                  // Extract credentials data
-                                  const credentialsData = order.product_credentials.credentials || 'No credentials available';
-                                  const releaseDate = order.product_credentials.released_at || order.created_at;
-                                  const productHeadline = order.product.headline || 'product';
-
-                                  // Create modal element
-                                  const modal = document.createElement('div');
-                                  modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
-                                  modal.style.animation = 'fadeIn 0.2s ease-out';
-
-                                  // Add CSS animation
-                                  const style = document.createElement('style');
-                                  style.textContent = `
-                                  @keyframes fadeIn {
-                                    from { opacity: 0; }
-                                    to { opacity: 1; }
-                                  }
-                                  .credentials-hidden { 
-                                    filter: blur(4px); 
-                                    transition: all 0.3s ease; 
-                                  }
-                                  .credentials-visible { 
-                                    filter: none; 
-                                    transition: all 0.3s ease; 
-                                  }
-                                `;
-                                  document.head.appendChild(style);
-
-                                  modal.innerHTML = `
-                                  <div class="bg-gray-900 border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-                                    <div class="flex items-center justify-between p-6 border-b border-gray-600/20">
-                                      <div>
-                                        <h2 class="text-xl font-bold text-white">Product Credentials</h2>
-                                        <p class="text-sm text-gray-400 mt-1">${productHeadline}</p>
-                                      </div>
-                                      <button id="closeModal" class="p-2 hover:bg-gray-700/50 rounded-lg transition-colors">
-                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                      </button>
-                                    </div>
-                                    
-                                    <div class="p-6 overflow-y-auto max-h-[60vh]">
-                                      <div class="space-y-6">
-                                        <div class="bg-theme-cyan-dim border border-theme-cyan/30 rounded-lg p-4">
-                                          <div class="flex items-center space-x-2 mb-2">
-                                            <svg class="w-4 h-4 text-theme-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0V6a2 2 0 012-2h4a2 2 0 012 2v1M8 7h8m-8 0l-2 14h12l-2-14M8 7v1a2 2 0 002 2h4a2 2 0 002-2V7"></path>
-                                            </svg>
-                                            <span class="text-sm font-medium text-theme-cyan">Release:</span>
-                                          </div>
-                                          <p class="text-sm text-gray-300">
-                                            <span class="text-gray-400">Released on:</span> 
-                                            ${new Date(releaseDate).toLocaleString('en-US', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                          </p>
-                                        </div>
-
-                                        <!-- Credentials Section -->
-                                        <div class="bg-gray-800/50 rounded-lg p-4">
-                                          <div class="flex items-center justify-between mb-4">
-                                            <div class="flex items-center space-x-2">
-                                              <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m0 0a2 2 0 012 2 2 2 0 01-2 2m-2-4a2 2 0 00-2-2m0 0a2 2 0 00-2 2m0 0a2 2 0 002 2m0 0a2 2 0 002-2m0 0a2 2 0 00-2-2m0 0a2 2 0 00-2 2"></path>
-                                              </svg>
-                                              <span class="text-sm font-medium text-green-300">Account Credentials</span>
-                                            </div>
-                                            <button id="toggleVisibility" class="flex items-center space-x-2 px-3 py-1 bg-green-600/20 hover:bg-green-600/30 border border-green-600/30 rounded-lg transition-colors text-green-400 hover:text-green-300">
-                                              <svg id="eyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                              </svg>
-                                              <span id="toggleText">Show</span>
-                                            </button>
-                                          </div>
-                                          
-                                          <div class="relative">
-                                            <pre id="credentialsText" class="text-white font-mono text-sm whitespace-pre-wrap break-all p-4 bg-gray-900/50 rounded-lg border border-gray-700/50 credentials-hidden min-h-[100px] overflow-auto">${credentialsData}</pre>
-                                            <div id="blurOverlay" class="absolute inset-0 flex items-center justify-center">
-                                              <span class="text-gray-400 font-medium">Click "Show" to reveal credentials</span>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <!-- Action Buttons -->
-                                        <div class="flex justify-center space-x-4">
-                                          <button id="copyBtn" class="flex items-center space-x-2 px-4 py-2 bg-theme-red hover:bg-theme-red-dark text-white rounded-lg transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                                            </svg>
-                                            <span>Copy</span>
-                                          </button>
-                                          
-                                          <button id="downloadBtn" class="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                            </svg>
-                                            <span>Download</span>
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                `;
-
-                                  document.body.appendChild(modal);
-
-                                  // Add functionality
-                                  let isVisible = false;
-                                  const credentialsText = modal.querySelector('#credentialsText');
-                                  const blurOverlay = modal.querySelector('#blurOverlay');
-                                  const toggleBtn = modal.querySelector('#toggleVisibility');
-                                  const eyeIcon = modal.querySelector('#eyeIcon');
-                                  const toggleText = modal.querySelector('#toggleText');
-                                  const copyBtn = modal.querySelector('#copyBtn');
-                                  const downloadBtn = modal.querySelector('#downloadBtn');
-                                  const closeBtn = modal.querySelector('#closeModal');
-
-                                  // Toggle visibility
-                                  toggleBtn?.addEventListener('click', () => {
-                                    isVisible = !isVisible;
-
-                                    if (isVisible) {
-                                      credentialsText?.classList.remove('credentials-hidden');
-                                      credentialsText?.classList.add('credentials-visible');
-                                      (blurOverlay as HTMLElement).style.display = 'none';
-                                      (toggleText as HTMLElement).textContent = 'Hide';
-                                      (eyeIcon as HTMLElement).innerHTML = `
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
-                                    `;
-                                    } else {
-                                      credentialsText?.classList.remove('credentials-visible');
-                                      credentialsText?.classList.add('credentials-hidden');
-                                      (blurOverlay as HTMLElement).style.display = 'flex';
-                                      (toggleText as HTMLElement).textContent = 'Show';
-                                      (eyeIcon as HTMLElement).innerHTML = `
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    `;
-                                    }
-                                  });
-
-                                  // Copy functionality
-                                  copyBtn?.addEventListener('click', async () => {
-                                    try {
-                                      await navigator.clipboard.writeText(credentialsData);
-                                      copyBtn.innerHTML = `
-                                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                      </svg>
-                                      <span>Copied!</span>
-                                    `;
-                                      setTimeout(() => {
-                                        copyBtn.innerHTML = `
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                                        </svg>
-                                        <span>Copy</span>
-                                      `;
-                                      }, 2000);
-                                    } catch (err) {
-                                      console.error('Copy failed:', err);
-                                    }
-                                  });
-
-                                  // Download functionality
-                                  downloadBtn?.addEventListener('click', () => {
-                                    const timestamp = new Date().toISOString().slice(0, 10);
-                                    const filename = `${productHeadline.replace(/[^a-z0-9]/gi, '_')}_credentials_${timestamp}.txt`;
-                                    const content = `Product: ${productHeadline}\\nOrder ID: ${order.order_id}\\nReleased: ${new Date(releaseDate).toLocaleString()}\\n\\nCredentials:\\n${credentialsData}`;
-
-                                    const blob = new Blob([content], { type: 'text/plain' });
-                                    const url = window.URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = filename;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    window.URL.revokeObjectURL(url);
-
-                                    downloadBtn.innerHTML = `
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                    <span>Downloaded!</span>
-                                  `;
-                                    setTimeout(() => {
-                                      downloadBtn.innerHTML = `
-                                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                      </svg>
-                                      <span>Download</span>
-                                    `;
-                                    }, 2000);
-                                  });
-
-                                  // Close functionality
-                                  closeBtn?.addEventListener('click', () => {
-                                    modal.remove();
-                                    style.remove();
-                                  });
-
-                                  // Click outside to close
-                                  modal.addEventListener('click', (e: Event) => {
-                                    if (e.target === modal) {
-                                      modal.remove();
-                                      style.remove();
-                                    }
-                                  });
-
-                                  // Escape key to close
-                                  const handleEscape = (e: KeyboardEvent) => {
-                                    if (e.key === 'Escape') {
-                                      modal.remove();
-                                      style.remove();
-                                      document.removeEventListener('keydown', handleEscape);
-                                    }
-                                  };
-                                  document.addEventListener('keydown', handleEscape);
-                                }}
-                                className="text-xs text-green-400 hover:text-green-300 underline cursor-pointer"
-                              >
-                                View credentials
-                              </button>
-                            </div>
-                          )}
-
-                        {/* Escrow Badge */}
-                        {order.use_escrow && (
-                          <div className="mt-2">
-                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 shadow-lg">
-                              <Lock className="w-3 h-3 mr-1" />
-                              ESCROW PROTECTED
-                            </Badge>
-                          </div>
-                        )}
-
-                        {/* Escrow Approval Button - Only for escrow orders in paid status */}
-                        {order.use_escrow && order.order_status === 'paid' && (
-                          <div className="mt-2 p-2 bg-green-500/5 border border-green-500/20 rounded max-w-md">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center space-x-1">
-                                <Lock className="w-3 h-3 text-green-400" />
-                                <span className="text-xs font-medium text-green-300">Escrow Active</span>
-                              </div>
-                              <Button
-                                onClick={() => handleApproveOrderClick(order)}
-                                disabled={isApproving === order.order_id}
-                                className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-6"
-                              >
-                                {isApproving === order.order_id ? (
-                                  <Clock className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Approve
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                            <p className="text-xs text-gray-400">
-                              Test your product and approve to release payment
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center sm:space-x-4 sm:flex-row flex-col w-full sm:w-auto">
-                      <div className="text-right w-full sm:w-auto">
-                        {(() => {
-                          const { crypto: displayCrypto, usd: displayUsd, currency } = getCorrectedAmounts(order);
-                          const decimals = currency === 'XMR' ? 4 : 8;
-                          return (
-                            <>
-                              <p className="font-semibold text-white">
-                                {displayCrypto.toFixed(decimals).replace(/\.?0+$/, "")} {currency}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                ≈ ${displayUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                            </>
-                          );
-                        })()}
-                        <Badge
-                          className={`text-xs mt-2 ${getStatusColor(order.order_status)}`}
-                          variant="secondary"
-                        >
-                          {getStatusDisplay(order.order_status)}
-                        </Badge>
-                        {/* Quick Review Button for completed orders */}
-                        {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
-                          <Button
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border ${getStatusColor(order.order_status)}`}
                             variant="outline"
-                            size="sm"
-                            className="mt-2 w-full sm:w-auto border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
-                            onClick={() => handleLeaveReview(order)}
                           >
-                            <Star className="w-3 h-3 mr-1" />
-                            Review
-                          </Button>
-                        )}
-                        {/* Cancel Button for Pending Orders */}
-                        {(order.order_status === "pending_payment" || order.order_status === "pending") && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="mt-2 w-full sm:w-auto hover:bg-red-700"
-                            onClick={() => handleCancelOrderClick(order)}
-                          >
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
+                            {getStatusDisplay(order.order_status)}
+                          </Badge>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="self-end sm:self-auto">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewDetails(order)}>View Details</DropdownMenuItem>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Package className="w-4 h-4 mr-2" />
-                                Update Status
-                              </DropdownMenuItem>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-gray-700">
+                                <MoreVertical className="w-4 h-4 text-gray-400" />
+                              </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-48">
-                              {(() => {
-                                const currentStatus = order.order_status?.toLowerCase() || order.payment_status?.toLowerCase() || 'pending_payment';
-                                const allowedTransitions: { [key: string]: string[] } = {
-                                  'pending_payment': ['payment_received', 'cancelled'],
-                                  'payment_received': ['paid', 'cancelled'],
-                                  'paid': ['delivered', 'disputed'],
-                                  'delivered': ['confirmed', 'disputed'],
-                                  'processing': ['paid', 'delivered', 'cancelled'],
-                                  'pending': ['processing', 'cancelled']
-                                };
+                            <DropdownMenuContent align="end" className="w-48 bg-gray-900 border-gray-700">
+                              <DropdownMenuItem onClick={() => handleViewDetails(order)} className="text-gray-300">
+                                <Info className="w-4 h-4 mr-2" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleLeaveReview(order)} className="text-gray-300">
+                                <Star className="w-4 h-4 mr-2" /> Leave Review
+                              </DropdownMenuItem>
 
-                                const nextStatuses = allowedTransitions[currentStatus] || [];
-                                const statusLabels: { [key: string]: string } = {
-                                  'payment_received': 'Payment Received',
-                                  'paid': 'Paid',
-                                  'delivered': 'Delivered',
-                                  'confirmed': 'Confirmed',
-                                  'cancelled': 'Cancelled',
-                                  'disputed': 'Disputed'
-                                };
+                              {canRequestRefund && (
+                                <DropdownMenuItem onClick={() => handleRequestRefund(order)} className="text-blue-400">
+                                  <RefreshCw className="w-4 h-4 mr-2" /> Request Refund
+                                </DropdownMenuItem>
+                              )}
 
-                                if (nextStatuses.length === 0) {
-                                  return (
-                                    <DropdownMenuItem disabled className="text-gray-500">
-                                      No status updates available
-                                    </DropdownMenuItem>
-                                  );
-                                }
+                              {isRefunded && (
+                                <DropdownMenuItem disabled className="text-gray-500 opacity-50">
+                                  <RefreshCw className="w-4 h-4 mr-2" /> Already Refunded
+                                </DropdownMenuItem>
+                              )}
 
-                                return nextStatuses.map((status) => (
-                                  <DropdownMenuItem
-                                    key={status}
-                                    onClick={async () => {
-                                      setUpdatingOrderId(order.id.toString());
-                                      try {
-                                        await orderService.updateOrderStatus(order.id.toString(), {
-                                          order_status: status
-                                        });
-                                        toast({
-                                          title: "Status Updated",
-                                          description: `Order status updated to ${statusLabels[status] || status}`,
-                                          variant: "default"
-                                        });
-                                        if (onOrderUpdate) {
-                                          onOrderUpdate();
-                                        }
-                                      } catch (error: any) {
-                                        // Extract full error message with proper formatting
-                                        let errorMsg = 'Failed to update order status';
+                              {hasPendingRefund && (
+                                <DropdownMenuItem disabled className="text-yellow-500/70">
+                                  <RefreshCw className="w-4 h-4 mr-2" /> Refund Status: {existingRefund.status}
+                                </DropdownMenuItem>
+                              )}
 
-                                        if (error.response?.data) {
-                                          if (error.response.data.order_status) {
-                                            if (Array.isArray(error.response.data.order_status)) {
-                                              errorMsg = error.response.data.order_status.join(', ');
-                                            } else if (typeof error.response.data.order_status === 'string') {
-                                              errorMsg = error.response.data.order_status;
-                                            } else {
-                                              errorMsg = JSON.stringify(error.response.data.order_status);
-                                            }
-                                          } else if (error.response.data.detail) {
-                                            errorMsg = error.response.data.detail;
-                                          } else if (typeof error.response.data === 'string') {
-                                            errorMsg = error.response.data;
-                                          } else if (error.response.data.error) {
-                                            errorMsg = error.response.data.error;
-                                          } else {
-                                            errorMsg = JSON.stringify(error.response.data);
-                                          }
-                                        } else if (error.message) {
-                                          errorMsg = error.message;
-                                        }
-
-                                        toast({
-                                          title: "Update Failed",
-                                          description: errorMsg,
-                                          variant: "destructive",
-                                          duration: 5000
-                                        });
-                                      } finally {
-                                        setUpdatingOrderId(null);
-                                      }
-                                    }}
-                                    disabled={updatingOrderId === order.id.toString()}
-                                  >
-                                    {updatingOrderId === order.id.toString() ? (
-                                      <span className="flex items-center">
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Updating...
-                                      </span>
-                                    ) : (
-                                      statusLabels[status] || status
-                                    )}
-                                  </DropdownMenuItem>
-                                ));
-                              })()}
+                              {canCreateDispute && (
+                                <DropdownMenuItem onClick={() => handleCreateDispute(order)} className="text-orange-500">
+                                  <AlertTriangle className="w-4 h-4 mr-2" /> Create Dispute
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
-                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
-                            <DropdownMenuItem onClick={() => handleLeaveReview(order)}>
-                              <Star className="w-4 h-4 mr-2" />
-                              Leave Review
-                            </DropdownMenuItem>
+                        </div>
+                      </div>
+
+                      {/* --- DETAILS GRID --- */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-3 border-y border-gray-700/30">
+                        {/* LEFT COL: Payment Info */}
+                        <div className="space-y-3">
+                          {order.payment_address && (
+                            <div className="flex flex-col space-y-1.5 p-3 bg-black/20 rounded-xl border border-gray-700/30">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center">
+                                  <Wallet className="w-3 h-3 mr-1" /> Payment Address
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const text = order.payment_address;
+                                    navigator.clipboard.writeText(text).then(() => {
+                                      toast({ title: "Copied!", description: "Address copied to clipboard" });
+                                    });
+                                  }}
+                                  className="p-1 hover:bg-gray-600 rounded-md transition-colors"
+                                >
+                                  <Copy className="w-3 h-3 text-gray-400 hover:text-white" />
+                                </button>
+                              </div>
+                              <span className="text-xs font-mono text-blue-400 break-all leading-relaxed">
+                                {order.payment_address}
+                              </span>
+                            </div>
                           )}
+
+                          {/* Timer indicator */}
+                          {(order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
+                            (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
+                            !expiredOrders.has(order.id.toString()) && (
+                              <div className="flex items-center space-x-2 px-3 py-2 bg-yellow-500/10 rounded-xl border border-yellow-500/20">
+                                <Timer className="w-4 h-4 text-yellow-400 animate-pulse" />
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-yellow-500/70 font-bold uppercase tracking-widest">Expires In</span>
+                                  <span className={`text-sm font-black ${(timers[order.id.toString()] || 0) <= 300 ? 'text-red-400' : 'text-yellow-400'}`}>
+                                    {formatTime(timers[order.id.toString()] || calculateTimeRemaining(order))}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                        </div>
+
+                        {/* RIGHT COL: Amount Info */}
+                        <div className="flex flex-col justify-center items-end sm:items-end space-y-1">
                           {(() => {
-                            const existingRefund = refundRequests[order.order_id];
-                            const isRefunded = order.order_status === 'refunded';
-                            const hasPendingRefund = existingRefund &&
-                              (existingRefund.status === 'pending_vendor' ||
-                                existingRefund.status === 'pending_admin' ||
-                                existingRefund.status === 'disputed');
-                            const canRequestRefund = (order.order_status === "paid" ||
-                              order.order_status === "delivered" ||
-                              order.order_status === "confirmed" ||
-                              order.order_status === "processing") &&
-                              !isRefunded &&
-                              !hasPendingRefund;
-
-                            if (isRefunded) {
-                              return (
-                                <DropdownMenuItem disabled className="text-gray-500 cursor-not-allowed">
-                                  <RefreshCw className="w-4 h-4 mr-2" />
-                                  Already Refunded
-                                </DropdownMenuItem>
-                              );
-                            }
-
-                            if (hasPendingRefund) {
-                              return (
-                                <DropdownMenuItem disabled className="text-yellow-400 cursor-not-allowed">
-                                  <RefreshCw className="w-4 h-4 mr-2" />
-                                  Refund Pending
-                                </DropdownMenuItem>
-                              );
-                            }
-
-                            if (canRequestRefund) {
-                              return (
-                                <DropdownMenuItem onClick={() => handleRequestRefund(order)} className="text-blue-400">
-                                  <RefreshCw className="w-4 h-4 mr-2" />
-                                  Request Refund
-                                </DropdownMenuItem>
-                              );
-                            }
-
-                            return null;
+                            const { crypto: displayCrypto, usd: displayUsd, currency } = getCorrectedAmounts(order);
+                            const decimals = currency === 'XMR' ? 4 : 8;
+                            const formattedCrypto = formatCryptoAmountInString(`${displayCrypto.toFixed(decimals)} ${currency}`);
+                            return (
+                              <div className="text-right">
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Total Amount</span>
+                                <p className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                                  {formattedCrypto}
+                                </p>
+                                <p className="text-sm font-medium text-theme-cyan/80">
+                                  ≈ ${displayUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                              </div>
+                            );
                           })()}
-                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                if (order.order_status === 'confirmed' || order.order_status === 'completed') {
-                                  toast({
-                                    title: "Dispute Not Available",
-                                    description: "You cannot create a dispute for confirmed/completed orders. Please contact the vendor directly for any issues.",
-                                    variant: "destructive",
-                                  });
-                                } else {
-                                  handleCreateDispute(order);
-                                }
-                              }}
-                              disabled={order.order_status === 'confirmed' || order.order_status === 'completed'}
-                              className="text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        </div>
+                      </div>
+
+                      {/* --- FOOTER ACTIONS --- */}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {order.use_escrow && (
+                          <Badge className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-1 text-[10px] rounded-lg">
+                            <Shield className="w-3 h-3 mr-1" /> ESCROW PROTECTED
+                          </Badge>
+                        )}
+
+                        <div className="flex-1" />
+
+                        <div className="flex items-center space-x-2 w-full sm:w-auto mt-2 sm:mt-0">
+                          {/* Cancel Button */}
+                          {(order.order_status === "pending_payment" || order.order_status === "pending") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-1 sm:flex-initial text-red-400 hover:text-red-300 hover:bg-red-400/10 border border-red-400/20 rounded-xl font-bold text-xs"
+                              onClick={() => handleCancelOrderClick(order)}
                             >
-                              <AlertTriangle className="w-4 h-4 mr-2" />
-                              Create Dispute
-                            </DropdownMenuItem>
+                              <XCircle className="w-3 h-3 mr-2" /> Cancel
+                            </Button>
                           )}
-                          {(order.order_status === "processing" || order.order_status === "pending") && (
-                            <DropdownMenuItem className="text-red-600">Cancel Order</DropdownMenuItem>
+
+                          {/* Review Button */}
+                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 sm:flex-initial border-theme-cyan/40 text-theme-cyan hover:bg-theme-cyan hover:text-black rounded-xl font-bold text-xs shadow-lg shadow-theme-cyan/5"
+                              onClick={() => handleLeaveReview(order)}
+                            >
+                              <Star className="w-3 h-3 mr-2" /> Review
+                            </Button>
                           )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+
+                          {/* Escrow Approve Button */}
+                          {order.use_escrow && order.order_status === 'paid' && (
+                            <Button
+                              onClick={() => handleApproveOrderClick(order)}
+                              disabled={isApproving === order.order_id}
+                              className="flex-1 sm:flex-initial bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-green-500/20"
+                            >
+                              {isApproving === order.order_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-2" /> Approve Escrow</>}
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-bold text-xs"
+                            onClick={() => handleViewDetails(order)}
+                          >
+                            Details
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1168,179 +775,189 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
       </Card>
 
       {/* Product Detail Modal */}
-      {isModalOpen && selectedProduct && (
-        <OrderProductModal
-          order={selectedProduct}
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-        />
-      )}
+      {
+        isModalOpen && selectedProduct && (
+          <OrderProductModal
+            order={selectedProduct}
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+          />
+        )
+      }
 
       {/* Review Modal */}
-      {isReviewOpen && reviewProductId && (
-        <ReviewModal
-          productId={reviewProductId}
-          isOpen={isReviewOpen}
-          onClose={() => {
-            setIsReviewOpen(false);
-            setReviewProductId(null);
-          }}
-          onSuccess={() => {
-            setIsReviewOpen(false);
-            setReviewProductId(null);
-            toast({
-              title: "Review Submitted!",
-              description: "Thank you for your feedback. The vendor will be notified.",
-            });
-          }}
-        />
-      )}
+      {
+        isReviewOpen && reviewProductId && (
+          <ReviewModal
+            productId={reviewProductId}
+            isOpen={isReviewOpen}
+            onClose={() => {
+              setIsReviewOpen(false);
+              setReviewProductId(null);
+            }}
+            onSuccess={() => {
+              setIsReviewOpen(false);
+              setReviewProductId(null);
+              toast({
+                title: "Review Submitted!",
+                description: "Thank you for your feedback. The vendor will be notified.",
+              });
+            }}
+          />
+        )
+      }
 
       {/* Order Confirmation Modal */}
-      {confirmModalOpen && orderToConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Confirm Order Approval</h3>
-                <p className="text-sm text-gray-400">Release escrow payment to vendor</p>
-              </div>
-            </div>
-
-            {orderToConfirm.use_escrow && (
-              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400" />
-                  <span className="text-red-300 font-semibold text-sm">Final Confirmation Required</span>
+      {
+        confirmModalOpen && orderToConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
                 </div>
-                <p className="text-red-200 text-sm mb-2">
-                  By confirming this order, you acknowledge that you have received the product in satisfactory condition.
-                </p>
-                <p className="text-red-200 text-sm font-semibold mb-2">
-                  After confirmation, you will not be able to:
-                </p>
-                <ul className="text-red-200 text-sm space-y-1 list-disc list-inside mb-2">
-                  <li>Request a refund through the platform</li>
-                  <li>Open a dispute</li>
-                </ul>
-                <p className="text-red-200 text-xs">
-                  The transaction will be considered complete. Any further arrangements must be made directly with the vendor.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Vendor:</span>
-                <span className="text-white font-semibold">{orderToConfirm.product?.vendor?.username}</span>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Confirm Order Approval</h3>
+                  <p className="text-sm text-gray-400">Release escrow payment to vendor</p>
+                </div>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Order ID:</span>
-                <span className="text-white font-mono">{orderToConfirm.order_id}</span>
+              {orderToConfirm.use_escrow && (
+                <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    <span className="text-red-300 font-semibold text-sm">Final Confirmation Required</span>
+                  </div>
+                  <p className="text-red-200 text-sm mb-2">
+                    By confirming this order, you acknowledge that you have received the product in satisfactory condition.
+                  </p>
+                  <p className="text-red-200 text-sm font-semibold mb-2">
+                    After confirmation, you will not be able to:
+                  </p>
+                  <ul className="text-red-200 text-sm space-y-1 list-disc list-inside mb-2">
+                    <li>Request a refund through the platform</li>
+                    <li>Open a dispute</li>
+                  </ul>
+                  <p className="text-red-200 text-xs">
+                    The transaction will be considered complete. Any further arrangements must be made directly with the vendor.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Vendor:</span>
+                  <span className="text-white font-semibold">{orderToConfirm.product?.vendor?.username}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Order ID:</span>
+                  <span className="text-white font-mono">{orderToConfirm.order_id}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Product:</span>
+                  <span className="text-white">{orderToConfirm.product?.headline}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Amount:</span>
+                  <span className="text-green-400 font-bold">
+                    {orderToConfirm.total_amount} {orderToConfirm.crypto_currency}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Product:</span>
-                <span className="text-white">{orderToConfirm.product?.headline}</span>
+              <div className="flex space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmModalOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                  onClick={confirmOrderApproval}
+                  disabled={isApproving === orderToConfirm.order_id}
+                >
+                  {isApproving === orderToConfirm.order_id ? (
+                    <Clock className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                  )}
+                  Confirm Release
+                </Button>
               </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Amount:</span>
-                <span className="text-green-400 font-bold">
-                  {orderToConfirm.total_amount} {orderToConfirm.crypto_currency}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setConfirmModalOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                onClick={confirmOrderApproval}
-                disabled={isApproving === orderToConfirm.order_id}
-              >
-                {isApproving === orderToConfirm.order_id ? (
-                  <Clock className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                )}
-                Confirm Release
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Refund Request Modal */}
-      {orderForRefund && (
-        <RequestRefundModal
-          open={refundModalOpen}
-          onClose={() => {
-            setRefundModalOpen(false);
-            setOrderForRefund(null);
-          }}
-          orderId={orderForRefund.order_id}
-          orderAmount={orderForRefund.total_amount}
-          currency={orderForRefund.crypto_currency}
-          onSuccess={handleRefundSuccess}
-        />
-      )}
+      {
+        orderForRefund && (
+          <RequestRefundModal
+            open={refundModalOpen}
+            onClose={() => {
+              setRefundModalOpen(false);
+              setOrderForRefund(null);
+            }}
+            orderId={orderForRefund.order_id}
+            orderAmount={orderForRefund.total_amount}
+            currency={orderForRefund.crypto_currency}
+            onSuccess={handleRefundSuccess}
+          />
+        )
+      }
 
       {/* Cancel Confirmation Modal */}
-      {cancelModalOpen && orderToCancel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
-                <XCircle className="w-6 h-6 text-red-500" />
+      {
+        cancelModalOpen && orderToCancel && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Cancel Order?</h3>
+                  <p className="text-sm text-gray-400">Are you sure you want to cancel this order?</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Cancel Order?</h3>
-                <p className="text-sm text-gray-400">Are you sure you want to cancel this order?</p>
+
+              <p className="text-gray-300 text-sm mb-6">
+                Order <span className="font-mono text-white">#{orderToCancel.order_id}</span> will be cancelled. This action cannot be undone.
+                Any reserved stock will be released back to the marketplace.
+              </p>
+
+              <div className="flex space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setCancelModalOpen(false)}
+                  className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+                  disabled={isCancelling}
+                >
+                  Keep Order
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={confirmCancelOrder}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="w-4 h-4 mr-2" />
+                  )}
+                  Confirm Cancel
+                </Button>
               </div>
-            </div>
-
-            <p className="text-gray-300 text-sm mb-6">
-              Order <span className="font-mono text-white">#{orderToCancel.order_id}</span> will be cancelled. This action cannot be undone.
-              Any reserved stock will be released back to the marketplace.
-            </p>
-
-            <div className="flex space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setCancelModalOpen(false)}
-                className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
-                disabled={isCancelling}
-              >
-                Keep Order
-              </Button>
-              <Button
-                variant="destructive"
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                onClick={confirmCancelOrder}
-                disabled={isCancelling}
-              >
-                {isCancelling ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <XCircle className="w-4 h-4 mr-2" />
-                )}
-                Confirm Cancel
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
     </>
   );
 }

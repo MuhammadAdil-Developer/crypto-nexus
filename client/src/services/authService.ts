@@ -39,18 +39,18 @@ api.interceptors.response.use(
     const hasToken =
       !!localStorage.getItem('accessToken') ||
       !!localStorage.getItem('refreshToken');
-    
+
     // If this is an auth request or there is no token at all,
     // don't try refresh or show session modal (normal login errors)
     if (status === 401 && (isAuthEndpoint || !hasToken)) {
       return Promise.reject(error);
     }
-    
+
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       console.log('🔐 401 Unauthorized - attempting token refresh');
-      
+
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
@@ -58,14 +58,14 @@ api.interceptors.response.use(
           const response = await api.post('/auth/refresh/', {
             refresh: refreshToken
           });
-          
+
           if (response.data.success) {
             const { access, refresh } = response.data.data.tokens;
             localStorage.setItem('accessToken', access);
             localStorage.setItem('refreshToken', refresh);
-            
+
             console.log('🔐 Token refreshed successfully');
-            
+
             // Retry the original request with new token
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${access}`;
@@ -80,18 +80,18 @@ api.interceptors.response.use(
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('userId');
-        
+
         // Trigger token expiration modal
         window.dispatchEvent(
           new CustomEvent('token_expired', {
             detail: { userType: user.user_type },
           })
         );
-        
+
         return Promise.reject(refreshError);
       }
     }
-    
+
     // Log other errors for debugging
     if (status === 401 && hasToken && !isAuthEndpoint) {
       console.log('🔐 401 Error - Token might be invalid:', {
@@ -100,7 +100,7 @@ api.interceptors.response.use(
         tokenPreview:
           localStorage.getItem('accessToken')?.substring(0, 20) + '...',
       });
-      
+
       // If no retry attempted and token exists, try refresh first
       // Otherwise, show expiration modal
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -115,7 +115,7 @@ api.interceptors.response.use(
         );
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -143,6 +143,7 @@ export interface User {
   two_factor_enabled: boolean;
   is_active: boolean;
   date_joined: string;
+  recovery_phrase?: string;
 }
 
 export interface AuthResponse {
@@ -169,14 +170,14 @@ class AuthService {
   async register(userData: UserRegistrationData): Promise<ApiResponse<AuthResponse>> {
     try {
       const response = await api.post<ApiResponse<AuthResponse>>('/auth/register/', userData);
-      
+
       if (response.data.success) {
         // Store tokens and user data
         localStorage.setItem('accessToken', response.data.data.tokens.access);
         localStorage.setItem('refreshToken', response.data.data.tokens.refresh);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
       }
-      
+
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -194,22 +195,22 @@ class AuthService {
         password: '***',
         captcha_token: userData.captcha_token
       });
-      
+
       const response = await api.post<ApiResponse<AuthResponse>>('/auth/login/', userData);
-      
+
       if (response.data.success) {
         // Store tokens and user data
         localStorage.setItem('accessToken', response.data.data.tokens.access);
         localStorage.setItem('refreshToken', response.data.data.tokens.refresh);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
         localStorage.setItem('userId', response.data.data.user.id.toString());
-        
+
         // Dispatch event to trigger WebSocket connection
         window.dispatchEvent(new CustomEvent('user_logged_in', {
           detail: { userId: response.data.data.user.id.toString() }
         }));
       }
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ AuthService login error:', error);
@@ -262,6 +263,19 @@ class AuthService {
     return localStorage.getItem('accessToken');
   }
 
+  // Get user profile
+  async getProfile(): Promise<ApiResponse<User>> {
+    try {
+      const response = await api.get<ApiResponse<User>>('/profile/');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
   // Validate token (check if it's expired)
   isTokenValid(): boolean {
     const token = localStorage.getItem('accessToken');
@@ -312,20 +326,7 @@ class AuthService {
   // Update user profile
   async updateProfile(profileData: Partial<User>): Promise<ApiResponse<User>> {
     try {
-      const response = await api.put<ApiResponse<User>>('/auth/profile/', profileData);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      throw error;
-    }
-  }
-
-  // Get user profile
-  async getProfile(): Promise<ApiResponse<User>> {
-    try {
-      const response = await api.get<ApiResponse<User>>('/auth/profile/');
+      const response = await api.put<ApiResponse<User>>('/profile/update/', profileData);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -351,11 +352,13 @@ class AuthService {
     }
   }
 
-  // Forgot password
-  async forgotPassword(email: string): Promise<ApiResponse<void>> {
+  // Recover account using recovery phrase
+  async recoverAccount(username: string, recoveryPhrase: string, newPassword: string): Promise<ApiResponse<void>> {
     try {
-      const response = await api.post<ApiResponse<void>>('/auth/forgot-password/', {
-        email
+      const response = await api.post<ApiResponse<void>>('/auth/recover/', {
+        username,
+        recovery_phrase: recoveryPhrase,
+        new_password: newPassword
       });
       return response.data;
     } catch (error: any) {
@@ -527,6 +530,33 @@ class AuthService {
       const response = await api.delete<ApiResponse<void>>('/auth/delete-account/', {
         data: { password }
       });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Impersonate user (Admin only)
+  async impersonateUser(userId: string): Promise<ApiResponse<AuthResponse>> {
+    try {
+      const response = await api.post<ApiResponse<AuthResponse>>(`/users/${userId}/login-as/`);
+
+      if (response.data.success) {
+        // Store tokens and user data
+        localStorage.setItem('accessToken', response.data.data.tokens.access);
+        localStorage.setItem('refreshToken', response.data.data.tokens.refresh);
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        localStorage.setItem('userId', response.data.data.user.id.toString());
+
+        // Dispatch event to trigger WebSocket connection
+        window.dispatchEvent(new CustomEvent('user_logged_in', {
+          detail: { userId: response.data.data.user.id.toString() }
+        }));
+      }
+
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {

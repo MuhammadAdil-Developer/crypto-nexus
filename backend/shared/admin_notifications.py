@@ -7,8 +7,132 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 import logging
 
+from decimal import Decimal
+import logging
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+def format_crypto_amount(amount):
+    """Format a crypto amount to 8 decimal places and remove trailing zeros"""
+    if amount is None:
+        return "0"
+    try:
+        # Format to 8 decimal places
+        formatted = "{:.8f}".format(float(amount))
+        # Remove trailing zeros and possible trailing dot
+        return formatted.rstrip('0').rstrip('.') if '.' in formatted else formatted
+    except (ValueError, TypeError):
+        return str(amount)
+
+
+def send_user_notification(
+    user,
+    notification_type: str,
+    title: str,
+    message: str,
+    data: dict = None,
+    priority: str = 'normal'
+):
+    """
+    Send notification to a specific user, respecting their preferences
+    """
+    try:
+        # Check user preferences
+        preference_map = {
+            'order': 'notify_new_orders',
+            'order_status_changed': 'notify_new_orders',
+            'order_created': 'notify_new_orders',
+            'message': 'notify_messages',
+            'dispute': 'notify_disputes',
+            'dispute_message': 'notify_disputes',
+            'dispute_resolved': 'notify_disputes',
+            'dispute_lost': 'notify_disputes',
+            'review': 'notify_reviews',
+            'ticket_assigned': 'notify_support_tickets',
+            'ticket_response': 'notify_support_tickets',
+            'ticket_resolved': 'notify_support_tickets',
+            'payment': 'notify_payouts',
+            'payment_confirmed': 'notify_new_orders',
+            'payment_received': 'notify_new_orders',
+            'payment_failed': 'notify_new_orders',
+            'payout_created': 'notify_payouts',
+            'payout_status_changed': 'notify_payouts',
+            'listing_approval': 'notify_support_tickets', # Map listing stuff to support/system if no specific toggle
+            'listing_rejection': 'notify_support_tickets',
+            'marketing': 'notify_marketing',
+            'wishlist': 'notify_marketing',
+            'refund': 'notify_disputes',
+            'review_prompt': 'notify_reviews',
+            'security': 'notify_login_alerts',
+            'login_alert': 'notify_login_alerts',
+        }
+
+        pref_field = preference_map.get(notification_type)
+        if pref_field and not getattr(user, pref_field, True):
+            logger.info(f"🔕 Notification suppressed for user {user.username} (type: {notification_type}, field: {pref_field})")
+            return None
+
+        # Create database notification
+        notification = Notification.objects.create(
+            user=user,
+            type=notification_type if notification_type in [t[0] for t in Notification.NOTIFICATION_TYPES] else 'system',
+            title=title,
+            message=message,
+            is_read=False,
+            data=data or {}
+        )
+
+        # Send real-time notification via WebSocket
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            try:
+                # Use same format as admin notifications for consistency
+                async_to_sync(channel_layer.group_send)(
+                    f'realtime_{user.id}',
+                    {
+                        'type': 'order_notification',
+                        'data': {
+                            'id': str(notification.id),
+                            'type': notification_type,
+                            'title': title,
+                            'message': message,
+                            'is_read': False,
+                            'data': data or {},
+                            'action_url': (data or {}).get('action_url', '/'),
+                            'created_at': notification.created_at.isoformat(),
+                            'priority': priority
+                        }
+                    }
+                )
+                logger.info(f"✅ Sent real-time notification to user {user.id}")
+            except Exception as e:
+                logger.error(f"Error sending real-time notification to user {user.id}: {e}")
+
+        return notification
+    except Exception as e:
+        logger.error(f"Error in send_user_notification: {e}")
+        return None
+
+
+def notify_user_login(user, ip_address):
+    """Notify user about a successful login"""
+    from django.utils import timezone
+    now = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    send_user_notification(
+        user=user,
+        notification_type='security',
+        title='Login Alert',
+        message=f'Successful login to your account from IP: {ip_address} at {now}. If this was not you, please change your password immediately.',
+        data={
+            'ip_address': ip_address,
+            'timestamp': now,
+            'action_url': '/settings'
+        },
+        priority='high'
+    )
 
 
 def send_admin_notification(
@@ -92,17 +216,18 @@ def send_admin_notification(
 
 def notify_admin_order_created(order):
     """Notify admin when a new order is created"""
+    formatted_amount = format_crypto_amount(order.total_amount)
     send_admin_notification(
         notification_type='order',
         title='New Order Created',
-        message=f'Order #{order.order_id} created by {order.buyer.username} for "{order.product.headline}" - Amount: {order.total_amount} {order.crypto_currency}',
+        message=f'Order #{order.order_id} created by {order.buyer.username} for "{order.product.headline}" - Amount: {formatted_amount} {order.crypto_currency}',
         data={
             'order_id': order.order_id,
             'buyer_username': order.buyer.username,
             'vendor_username': order.vendor.username if hasattr(order, 'vendor') else 'N/A',
             'product_id': str(order.product.id),
             'product_headline': order.product.headline,
-            'amount': str(order.total_amount),
+            'amount': formatted_amount,
             'crypto_currency': order.crypto_currency,
             'action_url': f'/admin/orders'
         },
@@ -130,14 +255,15 @@ def notify_admin_order_expired(order):
 
 def notify_admin_payment_received(order, payment):
     """Notify admin when payment is received"""
+    formatted_amount = format_crypto_amount(order.total_amount)
     send_admin_notification(
         notification_type='payment',
         title='Payment Received',
-        message=f'Payment received for Order #{order.order_id} - {order.total_amount} {order.crypto_currency} from {order.buyer.username}',
+        message=f'Payment received for Order #{order.order_id} - {formatted_amount} {order.crypto_currency} from {order.buyer.username}',
         data={
             'order_id': order.order_id,
             'buyer_username': order.buyer.username,
-            'amount': str(order.total_amount),
+            'amount': formatted_amount,
             'crypto_currency': order.crypto_currency,
             'payment_id': str(payment.id) if hasattr(payment, 'id') else None,
             'action_url': f'/admin/orders'
@@ -292,118 +418,40 @@ def notify_admin_ticket_submitted(ticket):
 
 def notify_user_ticket_response(ticket, admin_user, is_admin_response=True):
     """Notify buyer/vendor when admin responds to their ticket"""
-    from shared.models import Notification
-    from asgiref.sync import async_to_sync
-    from channels.layers import get_channel_layer
+    action_url = f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
     
-    try:
-        channel_layer = get_channel_layer()
-        action_url = f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
-        
-        # Create notification for the ticket owner
-        notification = Notification.objects.create(
-            user=ticket.user,
-            type='system',
-            title='Ticket Response',
-            message=f'Admin {admin_user.username} responded to your ticket: "{ticket.subject}"',
-            is_read=False,
-            data={
-                'ticket_id': str(ticket.id),
-                'ticket_id_display': ticket.ticket_id,
-                'admin_username': admin_user.username,
-                'subject': ticket.subject,
-                'action_url': action_url
-            }
-        )
-        
-        # Send real-time notification
-        if channel_layer:
-            try:
-                async_to_sync(channel_layer.group_send)(
-                    f'realtime_{ticket.user.id}',
-                    {
-                        'type': 'order_notification',
-                        'data': {
-                            'id': str(notification.id),
-                            'type': 'system',
-                            'title': 'Ticket Response',
-                            'message': f'Admin {admin_user.username} responded to your ticket: "{ticket.subject}"',
-                            'is_read': False,
-                            'data': {
-                                'ticket_id': str(ticket.id),
-                                'ticket_id_display': ticket.ticket_id,
-                                'admin_username': admin_user.username,
-                                'subject': ticket.subject,
-                                'action_url': action_url
-                            },
-                            'action_url': action_url,
-                            'created_at': notification.created_at.isoformat(),
-                            'priority': 'normal'
-                        }
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error sending real-time notification to user {ticket.user.id}: {e}")
-    except Exception as e:
-        logger.error(f"Error notifying user about ticket response: {e}")
+    send_user_notification(
+        user=ticket.user,
+        notification_type='ticket_response',
+        title='Ticket Response',
+        message=f'Admin {admin_user.username} responded to your ticket: "{ticket.subject}"',
+        data={
+            'ticket_id': str(ticket.id),
+            'ticket_id_display': ticket.ticket_id,
+            'admin_username': admin_user.username,
+            'subject': ticket.subject,
+            'action_url': action_url
+        }
+    )
 
 
 def notify_user_ticket_resolved(ticket, admin_user):
     """Notify buyer/vendor when their ticket is resolved"""
-    from shared.models import Notification
-    from asgiref.sync import async_to_sync
-    from channels.layers import get_channel_layer
+    action_url = f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
     
-    try:
-        channel_layer = get_channel_layer()
-        action_url = f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
-        
-        # Create notification for the ticket owner
-        notification = Notification.objects.create(
-            user=ticket.user,
-            type='system',
-            title='Ticket Resolved',
-            message=f'Your ticket "{ticket.subject}" has been resolved',
-            is_read=False,
-            data={
-                'ticket_id': str(ticket.id),
-                'ticket_id_display': ticket.ticket_id,
-                'admin_username': admin_user.username,
-                'subject': ticket.subject,
-                'action_url': action_url
-            }
-        )
-        
-        # Send real-time notification
-        if channel_layer:
-            try:
-                async_to_sync(channel_layer.group_send)(
-                    f'realtime_{ticket.user.id}',
-                    {
-                        'type': 'order_notification',
-                        'data': {
-                            'id': str(notification.id),
-                            'type': 'system',
-                            'title': 'Ticket Resolved',
-                            'message': f'Your ticket "{ticket.subject}" has been resolved',
-                            'is_read': False,
-                            'data': {
-                                'ticket_id': str(ticket.id),
-                                'ticket_id_display': ticket.ticket_id,
-                                'admin_username': admin_user.username,
-                                'subject': ticket.subject,
-                                'action_url': action_url
-                            },
-                            'action_url': action_url,
-                            'created_at': notification.created_at.isoformat(),
-                            'priority': 'normal'
-                        }
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error sending real-time notification to user {ticket.user.id}: {e}")
-    except Exception as e:
-        logger.error(f"Error notifying user about ticket resolution: {e}")
+    send_user_notification(
+        user=ticket.user,
+        notification_type='ticket_response',
+        title='Ticket Resolved',
+        message=f'Your ticket "{ticket.subject}" has been resolved',
+        data={
+            'ticket_id': str(ticket.id),
+            'ticket_id_display': ticket.ticket_id,
+            'admin_username': admin_user.username,
+            'subject': ticket.subject,
+            'action_url': action_url
+        }
+    )
 
 
 def notify_admin_suspicious_login(username, ip_address, reason, attempts=None):
@@ -461,128 +509,44 @@ def notify_admin_product_resubmitted(product):
 
 def notify_user_vendor_application_approved(application, admin_user):
     """Notify buyer when their vendor application is approved"""
-    from shared.models import Notification
-    from asgiref.sync import async_to_sync
-    from channels.layers import get_channel_layer
-    
     try:
-        # Get the user by vendor_username
         user = User.objects.get(username=application.vendor_username)
-        
-        channel_layer = get_channel_layer()
-        action_url = f'/vendor/dashboard'
-        
-        # Create notification for the user
-        notification = Notification.objects.create(
+        send_user_notification(
             user=user,
-            type='system',
+            notification_type='system',
             title='Vendor Application Approved',
             message=f'Congratulations! Your vendor application for "{application.business_name}" has been approved. You can now start listing products.',
-            is_read=False,
             data={
                 'application_id': str(application.id),
                 'business_name': application.business_name,
                 'admin_username': admin_user.username,
-                'action_url': action_url
+                'action_url': '/vendor/dashboard'
             }
         )
-        
-        # Send real-time notification
-        if channel_layer:
-            try:
-                async_to_sync(channel_layer.group_send)(
-                    f'realtime_{user.id}',
-                    {
-                        'type': 'order_notification',
-                        'data': {
-                            'id': str(notification.id),
-                            'type': 'system',
-                            'title': 'Vendor Application Approved',
-                            'message': f'Congratulations! Your vendor application for "{application.business_name}" has been approved. You can now start listing products.',
-                            'is_read': False,
-                            'data': {
-                                'application_id': str(application.id),
-                                'business_name': application.business_name,
-                                'admin_username': admin_user.username,
-                                'action_url': action_url
-                            },
-                            'action_url': action_url,
-                            'created_at': notification.created_at.isoformat(),
-                            'priority': 'normal'
-                        }
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error sending real-time notification to user {user.id}: {e}")
     except User.DoesNotExist:
         logger.error(f"User with username {application.vendor_username} not found")
-    except Exception as e:
-        logger.error(f"Error notifying user about vendor application approval: {e}")
 
 
 def notify_user_vendor_application_rejected(application, admin_user, rejection_reason=None):
     """Notify buyer when their vendor application is rejected"""
-    from shared.models import Notification
-    from asgiref.sync import async_to_sync
-    from channels.layers import get_channel_layer
-    
     try:
-        # Get the user by vendor_username
         user = User.objects.get(username=application.vendor_username)
-        
-        channel_layer = get_channel_layer()
-        action_url = f'/vendor/apply'
-        
         reason_text = f' Reason: {rejection_reason}' if rejection_reason else ''
-        
-        # Create notification for the user
-        notification = Notification.objects.create(
+        send_user_notification(
             user=user,
-            type='system',
+            notification_type='system',
             title='Vendor Application Rejected',
             message=f'Your vendor application for "{application.business_name}" has been rejected.{reason_text}',
-            is_read=False,
             data={
                 'application_id': str(application.id),
                 'business_name': application.business_name,
                 'admin_username': admin_user.username,
                 'rejection_reason': rejection_reason,
-                'action_url': action_url
+                'action_url': '/vendor/apply'
             }
         )
-        
-        # Send real-time notification
-        if channel_layer:
-            try:
-                async_to_sync(channel_layer.group_send)(
-                    f'realtime_{user.id}',
-                    {
-                        'type': 'order_notification',
-                        'data': {
-                            'id': str(notification.id),
-                            'type': 'system',
-                            'title': 'Vendor Application Rejected',
-                            'message': f'Your vendor application for "{application.business_name}" has been rejected.{reason_text}',
-                            'is_read': False,
-                            'data': {
-                                'application_id': str(application.id),
-                                'business_name': application.business_name,
-                                'admin_username': admin_user.username,
-                                'rejection_reason': rejection_reason,
-                                'action_url': action_url
-                            },
-                            'action_url': action_url,
-                            'created_at': notification.created_at.isoformat(),
-                            'priority': 'normal'
-                        }
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error sending real-time notification to user {user.id}: {e}")
     except User.DoesNotExist:
         logger.error(f"User with username {application.vendor_username} not found")
-    except Exception as e:
-        logger.error(f"Error notifying user about vendor application rejection: {e}")
 
 
 def notify_admin_ticket_message(ticket, sender_user, message):
@@ -606,249 +570,122 @@ def notify_admin_ticket_message(ticket, sender_user, message):
 
 def notify_payout_created(payout):
     """Notify buyer, vendor, and admin when a payout is created"""
-    from shared.models import Notification
-    from asgiref.sync import async_to_sync
-    from channels.layers import get_channel_layer
+    formatted_amount = format_crypto_amount(payout.net_amount)
     
-    try:
-        channel_layer = get_channel_layer()
-        
-        # Notify vendor
-        vendor_notification = Notification.objects.create(
-            user=payout.vendor,
-            type='system',
-            title='New Payout Created',
-            message=f'Payout for order {payout.order.order_id} has been created. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-            is_read=False,
-            data={
-                'payout_id': str(payout.id),
-                'order_id': payout.order.order_id,
-                'amount': str(payout.net_amount),
-                'crypto_currency': payout.crypto_currency.symbol,
-                'status': payout.status,
-                'action_url': f'/vendor/payouts'
-            }
-        )
-        
-        # Notify buyer
-        buyer_notification = Notification.objects.create(
-            user=payout.buyer,
-            type='system',
-            title='Payout Created',
-            message=f'Payout for order {payout.order.order_id} has been created. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-            is_read=False,
-            data={
-                'payout_id': str(payout.id),
-                'order_id': payout.order.order_id,
-                'amount': str(payout.net_amount),
-                'crypto_currency': payout.crypto_currency.symbol,
-                'status': payout.status,
-                'action_url': f'/buyer/orders'
-            }
-        )
-        
-        # Notify admin
-        send_admin_notification(
-            notification_type='system',
-            title='New Payout Created',
-            message=f'Payout created for order {payout.order.order_id} - Vendor: {payout.vendor.username}, Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-            data={
-                'payout_id': str(payout.id),
-                'order_id': payout.order.order_id,
-                'vendor_username': payout.vendor.username,
-                'buyer_username': payout.buyer.username,
-                'amount': str(payout.net_amount),
-                'crypto_currency': payout.crypto_currency.symbol,
-                'status': payout.status,
-                'action_url': f'/admin/payouts'
-            },
-            priority='normal'
-        )
-        
-        # Send real-time notifications
-        if channel_layer:
-            # Notify vendor
-            async_to_sync(channel_layer.group_send)(
-                f'realtime_{payout.vendor.id}',
-                {
-                    'type': 'order_notification',
-                    'data': {
-                        'id': str(vendor_notification.id),
-                        'type': 'system',
-                        'title': 'New Payout Created',
-                        'message': f'Payout for order {payout.order.order_id} has been created. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-                        'is_read': False,
-                        'data': {
-                            'payout_id': str(payout.id),
-                            'order_id': payout.order.order_id,
-                            'amount': str(payout.net_amount),
-                            'crypto_currency': payout.crypto_currency.symbol,
-                            'status': payout.status,
-                            'action_url': f'/vendor/payouts'
-                        },
-                        'action_url': f'/vendor/payouts',
-                        'created_at': vendor_notification.created_at.isoformat(),
-                        'priority': 'normal'
-                    }
-                }
-            )
-            
-            # Notify buyer
-            async_to_sync(channel_layer.group_send)(
-                f'realtime_{payout.buyer.id}',
-                {
-                    'type': 'order_notification',
-                    'data': {
-                        'id': str(buyer_notification.id),
-                        'type': 'system',
-                        'title': 'Payout Created',
-                        'message': f'Payout for order {payout.order.order_id} has been created. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-                        'is_read': False,
-                        'data': {
-                            'payout_id': str(payout.id),
-                            'order_id': payout.order.order_id,
-                            'amount': str(payout.net_amount),
-                            'crypto_currency': payout.crypto_currency.symbol,
-                            'status': payout.status,
-                            'action_url': f'/buyer/orders'
-                        },
-                        'action_url': f'/buyer/orders',
-                        'created_at': buyer_notification.created_at.isoformat(),
-                        'priority': 'normal'
-                    }
-                }
-            )
-    except Exception as e:
-        logger.error(f"Error notifying about payout creation: {e}")
+    # Notify vendor
+    send_user_notification(
+        user=payout.vendor,
+        notification_type='payment',
+        title='New Payout Created',
+        message=f'Payout for order {payout.order.order_id} has been created. Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        data={
+            'payout_id': str(payout.id),
+            'order_id': payout.order.order_id,
+            'amount': formatted_amount,
+            'crypto_currency': payout.crypto_currency.symbol,
+            'status': payout.status,
+            'action_url': f'/vendor/payouts'
+        }
+    )
+    
+    # Notify buyer
+    send_user_notification(
+        user=payout.buyer,
+        notification_type='payment',
+        title='Payout Created',
+        message=f'Payout for order {payout.order.order_id} has been created. Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        data={
+            'payout_id': str(payout.id),
+            'order_id': payout.order.order_id,
+            'amount': formatted_amount,
+            'crypto_currency': payout.crypto_currency.symbol,
+            'status': payout.status,
+            'action_url': f'/buyer/orders'
+        }
+    )
+    
+    # Notify admin
+    send_admin_notification(
+        notification_type='system',
+        title='New Payout Created',
+        message=f'Payout created for order {payout.order.order_id} - Vendor: {payout.vendor.username}, Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        data={
+            'payout_id': str(payout.id),
+            'order_id': payout.order.order_id,
+            'vendor_username': payout.vendor.username,
+            'buyer_username': payout.buyer.username,
+            'amount': formatted_amount,
+            'crypto_currency': payout.crypto_currency.symbol,
+            'status': payout.status,
+            'action_url': f'/admin/payouts'
+        },
+        priority='normal'
+    )
 
 
 def notify_payout_status_changed(payout, old_status, new_status):
     """Notify buyer, vendor, and admin when payout status changes"""
-    from shared.models import Notification
-    from asgiref.sync import async_to_sync
-    from channels.layers import get_channel_layer
+    status_messages = {
+        'processing': 'is being processed',
+        'completed': 'has been completed',
+        'failed': 'has failed',
+        'cancelled': 'has been cancelled'
+    }
+    message = status_messages.get(new_status, f'status changed to {new_status}')
     
-    try:
-        channel_layer = get_channel_layer()
-        status_messages = {
-            'processing': 'is being processed',
-            'completed': 'has been completed',
-            'failed': 'has failed',
-            'cancelled': 'has been cancelled'
+    formatted_amount = format_crypto_amount(payout.net_amount)
+    
+    # Notify vendor
+    send_user_notification(
+        user=payout.vendor,
+        notification_type='payment',
+        title='Payout Status Updated',
+        message=f'Payout for order {payout.order.order_id} {message}. Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        data={
+            'payout_id': str(payout.id),
+            'order_id': payout.order.order_id,
+            'amount': formatted_amount,
+            'crypto_currency': payout.crypto_currency.symbol,
+            'old_status': old_status,
+            'status': new_status,
+            'action_url': f'/vendor/payouts'
         }
-        message = status_messages.get(new_status, f'status changed to {new_status}')
-        
-        # Notify vendor
-        vendor_notification = Notification.objects.create(
-            user=payout.vendor,
-            type='system',
-            title='Payout Status Updated',
-            message=f'Payout for order {payout.order.order_id} {message}. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-            is_read=False,
-            data={
-                'payout_id': str(payout.id),
-                'order_id': payout.order.order_id,
-                'amount': str(payout.net_amount),
-                'crypto_currency': payout.crypto_currency.symbol,
-                'old_status': old_status,
-                'status': new_status,
-                'action_url': f'/vendor/payouts'
-            }
-        )
-        
-        # Notify buyer
-        buyer_notification = Notification.objects.create(
-            user=payout.buyer,
-            type='system',
-            title='Payout Status Updated',
-            message=f'Payout for order {payout.order.order_id} {message}. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-            is_read=False,
-            data={
-                'payout_id': str(payout.id),
-                'order_id': payout.order.order_id,
-                'amount': str(payout.net_amount),
-                'crypto_currency': payout.crypto_currency.symbol,
-                'old_status': old_status,
-                'status': new_status,
-                'action_url': f'/buyer/orders'
-            }
-        )
-        
-        # Notify admin
-        send_admin_notification(
-            notification_type='system',
-            title='Payout Status Updated',
-            message=f'Payout for order {payout.order.order_id} {message} - Vendor: {payout.vendor.username}, Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-            data={
-                'payout_id': str(payout.id),
-                'order_id': payout.order.order_id,
-                'vendor_username': payout.vendor.username,
-                'buyer_username': payout.buyer.username,
-                'amount': str(payout.net_amount),
-                'crypto_currency': payout.crypto_currency.symbol,
-                'old_status': old_status,
-                'status': new_status,
-                'action_url': f'/admin/payouts'
-            },
-            priority='high' if new_status in ['completed', 'failed'] else 'normal'
-        )
-        
-        # Send real-time notifications
-        if channel_layer:
-            # Notify vendor
-            async_to_sync(channel_layer.group_send)(
-                f'realtime_{payout.vendor.id}',
-                {
-                    'type': 'order_notification',
-                    'data': {
-                        'id': str(vendor_notification.id),
-                        'type': 'system',
-                        'title': 'Payout Status Updated',
-                        'message': f'Payout for order {payout.order.order_id} {message}. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-                        'is_read': False,
-                        'data': {
-                            'payout_id': str(payout.id),
-                            'order_id': payout.order.order_id,
-                            'amount': str(payout.net_amount),
-                            'crypto_currency': payout.crypto_currency.symbol,
-                            'old_status': old_status,
-                            'status': new_status,
-                            'action_url': f'/vendor/payouts'
-                        },
-                        'action_url': f'/vendor/payouts',
-                        'created_at': vendor_notification.created_at.isoformat(),
-                        'priority': 'high' if new_status in ['completed', 'failed'] else 'normal'
-                    }
-                }
-            )
-            
-            # Notify buyer
-            async_to_sync(channel_layer.group_send)(
-                f'realtime_{payout.buyer.id}',
-                {
-                    'type': 'order_notification',
-                    'data': {
-                        'id': str(buyer_notification.id),
-                        'type': 'system',
-                        'title': 'Payout Status Updated',
-                        'message': f'Payout for order {payout.order.order_id} {message}. Amount: {payout.net_amount} {payout.crypto_currency.symbol}',
-                        'is_read': False,
-                        'data': {
-                            'payout_id': str(payout.id),
-                            'order_id': payout.order.order_id,
-                            'amount': str(payout.net_amount),
-                            'crypto_currency': payout.crypto_currency.symbol,
-                            'old_status': old_status,
-                            'status': new_status,
-                            'action_url': f'/buyer/orders'
-                        },
-                        'action_url': f'/buyer/orders',
-                        'created_at': buyer_notification.created_at.isoformat(),
-                        'priority': 'high' if new_status in ['completed', 'failed'] else 'normal'
-                    }
-                }
-            )
-    except Exception as e:
-        logger.error(f"Error notifying about payout status change: {e}")
+    )
+    
+    # Notify buyer
+    send_user_notification(
+        user=payout.buyer,
+        notification_type='payment',
+        title='Payout Status Updated',
+        message=f'Payout for order {payout.order.order_id} {message}. Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        data={
+            'payout_id': str(payout.id),
+            'order_id': payout.order.order_id,
+            'amount': formatted_amount,
+            'crypto_currency': payout.crypto_currency.symbol,
+            'old_status': old_status,
+            'status': new_status,
+            'action_url': f'/buyer/orders'
+        }
+    )
+    
+    # Notify admin
+    send_admin_notification(
+        notification_type='system',
+        title='Payout Status Updated',
+        message=f'Payout for order {payout.order.order_id} {message} - Vendor: {payout.vendor.username}, Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        data={
+            'payout_id': str(payout.id),
+            'order_id': payout.order.order_id,
+            'vendor_username': payout.vendor.username,
+            'buyer_username': payout.buyer.username,
+            'amount': formatted_amount,
+            'crypto_currency': payout.crypto_currency.symbol,
+            'old_status': old_status,
+            'status': new_status,
+            'action_url': f'/admin/payouts'
+        },
+        priority='high' if new_status in ['completed', 'failed'] else 'normal'
+    )
 
 

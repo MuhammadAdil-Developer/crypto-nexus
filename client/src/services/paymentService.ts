@@ -108,6 +108,58 @@ class PaymentService {
     }
   }
 
+  async getAdminCryptoStatus(): Promise<{ nodes: any[]; wallets: any[]; transactions: any[] }> {
+    try {
+      const response = await api.get('/payments/admin/crypto-status/');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Failed to get crypto status');
+    }
+  }
+
+  async performNodeAction(symbol: string, action: string): Promise<{ message: string; logs?: string }> {
+    try {
+      const response = await api.post('/payments/admin/node-action/', { symbol, action });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || `Failed to perform ${action} on ${symbol}`);
+    }
+  }
+
+  async performBulkEscrowAction(action: string): Promise<{ message: string; downloadUrl?: string }> {
+    try {
+      const response = await api.post('/payments/admin/bulk-escrow-action/', { action });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || `Failed to perform bulk action: ${action}`);
+    }
+  }
+
+  async downloadAuthenticatedFile(url: string, filename: string): Promise<void> {
+    try {
+      // If URL already contains the full API path, strip it to avoid doubling up with baseURL
+      let cleanUrl = url;
+      const apiPrefix = '/api/v1';
+      if (cleanUrl.startsWith(apiPrefix)) {
+        cleanUrl = cleanUrl.substring(apiPrefix.length);
+      }
+
+      const response = await api.get(cleanUrl, {
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error: any) {
+      throw new Error('Failed to download file. Please check your permissions.');
+    }
+  }
+
   // Polling for payment updates
   startPaymentPolling(orderId: string, callback: (status: PaymentStatus) => void, intervalMs: number = 5000): ReturnType<typeof setInterval> {
     const pollInterval = setInterval(async () => {

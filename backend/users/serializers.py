@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import User
+from shared.utils import validate_btc_address, validate_xmr_address
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -33,6 +34,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             # Auto-approve users on registration
             validated_data['is_verified'] = True
             
+            # Generate recovery phrase
+            from .utils import generate_mnemonic
+            validated_data['recovery_phrase'] = generate_mnemonic()
+            
             # Create user
             user = User.objects.create_user(**validated_data)
             
@@ -63,13 +68,27 @@ class UserLoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """User serializer for basic user information - no PII"""
+    total_orders = serializers.SerializerMethodField()
+
+    def get_total_orders(self, obj):
+        # Check if already annotated for performance
+        if hasattr(obj, 'buyer_order_count') and hasattr(obj, 'vendor_order_count'):
+            return obj.buyer_order_count + obj.vendor_order_count
+        
+        # Fallback for individual lookups
+        if obj.user_type == 'vendor':
+            return getattr(obj, 'vendor_orders_new', obj.vendor_orders_new.get_queryset() if hasattr(obj, 'vendor_orders_new') else None).count() if hasattr(obj, 'vendor_orders_new') else 0
+        return getattr(obj, 'buyer_orders', obj.buyer_orders.get_queryset() if hasattr(obj, 'buyer_orders') else None).count() if hasattr(obj, 'buyer_orders') else 0
     
     class Meta:
         model = User
         fields = [
             'id', 'username', 'user_type', 'is_verified', 
             'two_factor_enabled', 'is_active', 'date_joined',
-            'btc_payout_address', 'xmr_payout_address', 'non_escrow_blocked', 'escrow_enabled'
+            'btc_payout_address', 'xmr_payout_address', 'non_escrow_blocked', 'escrow_enabled',
+            'total_orders', 'notify_new_orders', 'notify_messages', 'notify_disputes',
+            'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts',
+            'recovery_phrase'
         ]
         read_only_fields = ['id', 'date_joined']
         extra_kwargs = {
@@ -82,8 +101,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['two_factor_enabled', 'btc_payout_address', 'xmr_payout_address']
+        fields = [
+            'two_factor_enabled', 'btc_payout_address', 'xmr_payout_address',
+            'notify_new_orders', 'notify_messages', 'notify_disputes',
+            'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts'
+        ]
         read_only_fields = ['id', 'username', 'date_joined', 'user_type', 'is_verified']
+
+    def validate_btc_payout_address(self, value):
+        if value and not validate_btc_address(value):
+            raise serializers.ValidationError("Invalid Bitcoin address format")
+        return value
+
+    def validate_xmr_payout_address(self, value):
+        if value and not validate_xmr_address(value):
+            raise serializers.ValidationError("Invalid Monero address format")
+        return value
 
 
 class PayoutAddressSerializer(serializers.ModelSerializer):
@@ -92,6 +125,16 @@ class PayoutAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['btc_payout_address', 'xmr_payout_address']
+
+    def validate_btc_payout_address(self, value):
+        if value and not validate_btc_address(value):
+            raise serializers.ValidationError("Invalid Bitcoin address format")
+        return value
+
+    def validate_xmr_payout_address(self, value):
+        if value and not validate_xmr_address(value):
+            raise serializers.ValidationError("Invalid Monero address format")
+        return value
 
 
 class AdminUserUpdateSerializer(serializers.ModelSerializer):

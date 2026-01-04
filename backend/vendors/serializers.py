@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import VendorApplication
 from django.utils import timezone
+from shared.utils import validate_btc_address, validate_xmr_address
 
 from django.contrib.auth import get_user_model
 
@@ -162,6 +163,16 @@ class VendorApplicationCreateSerializer(serializers.ModelSerializer):
         # Check if email is already used
         if VendorApplication.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already registered.")
+        return value
+
+    def validate_btc_address(self, value):
+        if value and not validate_btc_address(value):
+            raise serializers.ValidationError("Invalid Bitcoin address format")
+        return value
+
+    def validate_xmr_address(self, value):
+        if value and not validate_xmr_address(value):
+            raise serializers.ValidationError("Invalid Monero address format")
         return value
     
     def create(self, validated_data):

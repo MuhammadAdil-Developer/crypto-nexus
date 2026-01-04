@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Lock, User, Shield, Crown, Database, Server, Key } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Loader2, Eye, EyeOff, Lock, User, Shield, Crown, Database, Server, Key } from "lucide-react";
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 import { CloudflareTurnstile, CloudflareTurnstileHandle } from "@/components/security/CloudflareTurnstile";
@@ -41,6 +42,11 @@ export default function AdminSignIn() {
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
 
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isSubmitting2FA, setIsSubmitting2FA] = useState(false);
+
   // Reset CAPTCHA state on page load
   useEffect(() => {
     setCaptchaVerified(false);
@@ -48,6 +54,17 @@ export default function AdminSignIn() {
     setShowCaptchaModal(false);
     setPendingLoginAttempt(false);
   }, []);
+
+  // Auto-submit when 6 digits are entered in 2FA
+  useEffect(() => {
+    if (requires2FA && twoFactorCode.length === 6 && !isLoading && !isSubmitting2FA) {
+      const timer = setTimeout(() => {
+        handle2FASubmit();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [twoFactorCode, requires2FA, isLoading, isSubmitting2FA]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -160,6 +177,16 @@ export default function AdminSignIn() {
       const response = await authService.login(loginData as any);
       console.log('🔐 Admin login response:', response);
 
+      // Check for 2FA required
+      if (response.requires_2fa || response.error_code === '2FA_REQUIRED') {
+        console.log('🔐 2FA Required for admin login');
+        setRequires2FA(true);
+        setSessionToken(response.session_token || null);
+        setErrors({});
+        setIsLoading(false);
+        return;
+      }
+
       if (response.success) {
         // Check if user is admin (only admins can login from admin-sign-in page)
         if (response.data?.user?.user_type === 'admin') {
@@ -186,6 +213,15 @@ export default function AdminSignIn() {
     } catch (error: any) {
       console.error('❌ Admin login error:', error);
 
+      // Check for 2FA required in error
+      if (error.response?.data?.requires_2fa || error.response?.data?.error_code === '2FA_REQUIRED') {
+        setRequires2FA(true);
+        setSessionToken(error.response?.data?.session_token || null);
+        setErrors({});
+        setIsLoading(false);
+        return;
+      }
+
       // Check if captcha is required in error response
       if (error.response?.data?.captcha_required || error.response?.data?.error_code === 'CAPTCHA_REQUIRED') {
         setShowCaptchaModal(true);
@@ -199,6 +235,83 @@ export default function AdminSignIn() {
       setIsLoading(false);
       setTurnstileToken(null);
       setTurnstileResetKey(prev => prev + 1);
+    }
+  };
+
+  const handle2FASubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    if (twoFactorCode.length !== 6) {
+      setErrors({ general: 'Please enter a valid 6-digit code' });
+      return;
+    }
+
+    if (isSubmitting2FA || isLoading) {
+      return;
+    }
+
+    setIsSubmitting2FA(true);
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const finalToken = captchaToken;
+
+      const loginData = {
+        username: formData.username,
+        password: formData.password,
+        two_factor_code: twoFactorCode,
+        session_token: sessionToken,
+        ...(finalToken && { captcha_token: finalToken })
+      };
+
+      const response = await authService.login(loginData as any);
+      console.log('🔐 Admin 2FA verification response:', response);
+
+      if (response.success) {
+        // Check if user is admin
+        if (response.data?.user?.user_type === 'admin') {
+          console.log('✅ Admin login (2FA) successful, redirecting to /admin');
+          navigate('/admin/dashboard');
+        } else {
+          setErrors({ general: 'Invalid username or password' });
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+        }
+      } else {
+        if (response.error_code === 'INVALID_2FA_CODE') {
+          setErrors({ general: 'Invalid 2FA code. Please try again.' });
+          setTwoFactorCode("");
+        } else if (response.error_code === 'INVALID_2FA_SESSION') {
+          setErrors({ general: 'Session expired. Please login again.' });
+          setRequires2FA(false);
+          setSessionToken(null);
+          setTwoFactorCode("");
+        } else {
+          setErrors({ general: response.message || 'Verification failed. Please try again.' });
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Admin 2FA verification error:', error);
+      if (error.response?.data?.error_code === 'INVALID_2FA_CODE') {
+        setErrors({ general: 'Invalid 2FA code. Please try again.' });
+        setTwoFactorCode("");
+      } else if (error.response?.data?.error_code === 'INVALID_2FA_SESSION') {
+        setErrors({ general: 'Session expired. Please login again.' });
+        setRequires2FA(false);
+        setSessionToken(null);
+        setTwoFactorCode("");
+      } else {
+        setErrors({
+          general: error.response?.data?.message || error.message || 'An unexpected error occurred. Please try again.'
+        });
+      }
+    } finally {
+      setIsLoading(false);
+      setIsSubmitting2FA(false);
     }
   };
 
@@ -324,99 +437,175 @@ export default function AdminSignIn() {
           </div>
 
           <Card className="border border-red-800/30 bg-black/80 backdrop-blur-md shadow-2xl shadow-red-900/20">
-            <CardHeader className="text-center pb-4">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#AD0539' }}>
-                <Key className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-white">Administrative Login</CardTitle>
-            </CardHeader>
+            {!requires2FA && (
+              <CardHeader className="text-center pb-4">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#AD0539' }}>
+                  <Key className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-white">Administrative Login</CardTitle>
+              </CardHeader>
+            )}
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-gray-300">Admin Username</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <Input
-                      id="username"
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      placeholder="Enter admin username"
-                      className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500 transition-colors"
-                      required
-                      disabled={isLoading}
-                    />
-                    {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+              {!requires2FA ? (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-gray-300">Admin Username</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Input
+                        id="username"
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        placeholder="Enter admin username"
+                        className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500 transition-colors"
+                        required
+                        disabled={isLoading}
+                      />
+                      {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-gray-300">Admin Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Enter admin password"
-                      className="pl-10 pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500 transition-colors"
-                      required
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                      disabled={isLoading}
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-gray-300">Admin Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder="Enter admin password"
+                        className="pl-10 pr-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500 transition-colors"
+                        required
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                        disabled={isLoading}
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                   </div>
-                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-gray-600 bg-gray-700 text-red-500 focus:ring-red-500" />
-                    <span className="text-sm text-gray-300">Remember access</span>
-                  </label>
-                  <span className="text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer">
-                    Reset access
-                  </span>
-                </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" className="rounded border-gray-600 bg-gray-700 text-red-500 focus:ring-red-500" />
+                      <span className="text-sm text-gray-300">Remember access</span>
+                    </label>
+                    <span className="text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer">
+                      Reset access
+                    </span>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
-                  <CloudflareTurnstile
-                    ref={turnstileRef}
-                    action="admin_login"
-                    theme="dark"
-                    size="flexible"
-                    retryKey={turnstileResetKey}
-                    onVerify={handleTurnstileVerify}
-                    onExpire={handleTurnstileExpire}
-                    onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
-                    className="mt-1"
-                  />
-                  {turnstileError && <p className="text-red-400 text-sm">{turnstileError}</p>}
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-300 text-sm">Cloudflare Protection</Label>
+                    <CloudflareTurnstile
+                      ref={turnstileRef}
+                      action="admin_login"
+                      theme="dark"
+                      size="flexible"
+                      retryKey={turnstileResetKey}
+                      onVerify={handleTurnstileVerify}
+                      onExpire={handleTurnstileExpire}
+                      onError={(msg) => setTurnstileError(msg || 'Security check failed. Please refresh and try again.')}
+                      className="mt-1"
+                    />
+                    {turnstileError && <p className="text-red-400 text-sm">{turnstileError}</p>}
+                  </div>
 
-                <Button
-                  type="submit"
-                  className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
-                  style={{ backgroundColor: '#AD0539' }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Authenticating...' : 'Sign In'}
-                </Button>
+                  <Button
+                    type="submit"
+                    className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                    style={{ backgroundColor: '#AD0539' }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Authenticating...
+                      </>
+                    ) : 'Sign In'}
+                  </Button>
 
-                {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
-                {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
+                  {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
+                  {errors.captcha && <p className="text-red-500 text-center">{errors.captcha}</p>}
 
-              </form>
+                </form>
+              ) : (
+                <form onSubmit={handle2FASubmit} className="space-y-6">
+                  <div className="text-center mb-4 pt-4">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#AD0539' }}>
+                      <Shield className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Two-Factor Authentication</h3>
+                    <p className="text-gray-400">
+                      Enter the 6-digit security code from your authenticator app.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-center">
+                      <div className="bg-gray-800/50 p-4 rounded-xl border border-red-800/20">
+                        <InputOTP
+                          maxLength={6}
+                          value={twoFactorCode}
+                          onChange={(value) => {
+                            setTwoFactorCode(value);
+                          }}
+                        >
+                          <InputOTPGroup className="gap-2">
+                            <InputOTPSlot index={0} className="bg-gray-700 border-gray-600 text-white focus:border-red-500 w-12 h-12 text-lg" />
+                            <InputOTPSlot index={1} className="bg-gray-700 border-gray-600 text-white focus:border-red-500 w-12 h-12 text-lg" />
+                            <InputOTPSlot index={2} className="bg-gray-700 border-gray-600 text-white focus:border-red-500 w-12 h-12 text-lg" />
+                            <InputOTPSlot index={3} className="bg-gray-700 border-gray-600 text-white focus:border-red-500 w-12 h-12 text-lg" />
+                            <InputOTPSlot index={4} className="bg-gray-700 border-gray-600 text-white focus:border-red-500 w-12 h-12 text-lg" />
+                            <InputOTPSlot index={5} className="bg-gray-700 border-gray-600 text-white focus:border-red-500 w-12 h-12 text-lg" />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+                    </div>
+
+                    {errors.general && <p className="text-red-500 text-center text-sm">{errors.general}</p>}
+
+                    <div className="space-y-3">
+                      <Button
+                        type="submit"
+                        className="w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
+                        style={{ backgroundColor: '#AD0539' }}
+                        disabled={isLoading || twoFactorCode.length !== 6}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : 'Verify & Sign In'}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full text-gray-400 hover:text-white"
+                        onClick={() => {
+                          setRequires2FA(false);
+                          setTwoFactorCode("");
+                          setSessionToken(null);
+                        }}
+                        disabled={isLoading}
+                      >
+                        Back to Login
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              )}
             </CardContent>
           </Card>
 
@@ -435,7 +624,7 @@ export default function AdminSignIn() {
         onError={handleCaptchaError}
         siteKey="admin-login-captcha"
         title="Security prompt"
-        instruction="Please click into the open circle to continue."
+        instruction="find and click inside the open circle (the circle with a gap or opening) to verify you are human."
       />
     </div>
   );

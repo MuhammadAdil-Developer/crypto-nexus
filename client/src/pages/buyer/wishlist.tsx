@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import wishlistService, { WishlistItem, WishlistStats } from "@/services/wishlistService";
+import { PageBanner } from "@/components/PageBanner";
 
 // Helper functions for price formatting
 const formatUSD = (price: string) => {
@@ -186,22 +187,12 @@ export default function BuyerWishlist() {
   return (
     <BuyerLayout>
       <div className="min-h-screen bg-gray-950 -m-6 p-6 space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Heart className="w-8 h-8 text-theme-red" />
-              <div>
-                <h1 className="text-2xl font-bold">Your Wishlist</h1>
-                <p className="text-gray-300">{wishlistItems.length} items saved for later</p>
-              </div>
-            </div>
-            <Button variant="outline" className="text-white border-gray-500 hover:bg-gray-600">
-              <Share2 className="w-4 h-4 mr-2" />
-              Share Wishlist
-            </Button>
-          </div>
-        </div>
+        {/* Header Banner */}
+        <PageBanner
+          title="Wishlist"
+          subtitle={`${wishlistItems.length} items saved for later`}
+          type="buyer"
+        />
 
         {/* Wishlist Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -283,10 +274,6 @@ export default function BuyerWishlist() {
 
               {selectedItems.length > 0 && (
                 <>
-                  <Button variant="outline" size="sm" className="bg-theme-cyan text-black hover:bg-theme-cyan/90 border-theme-cyan">
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Add to Cart
-                  </Button>
                   <Button size="sm" className="bg-theme-red hover:bg-theme-red-dark text-white" onClick={removeSelectedItems}>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Remove
@@ -383,7 +370,7 @@ export default function BuyerWishlist() {
                       </div>
                       <div className="flex items-center space-x-1 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">
                         <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                        <span className="text-yellow-400 text-xs font-bold">4.5</span>
+                        <span className="text-yellow-400 text-xs font-bold">{item.product_data?.rating || '0.0'}</span>
                       </div>
                     </div>
                   </div>

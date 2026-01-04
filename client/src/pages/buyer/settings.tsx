@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, User, Lock, Bell, Save, Loader2, Wallet, RefreshCcw } from "lucide-react";
+import { Settings as SettingsIcon, User, Lock, Bell, Save, Loader2, Wallet, RefreshCcw, Edit2 } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageBanner } from "@/components/PageBanner";
+import { validateBTCAddress, validateXMRAddress } from "@/lib/utils";
 
 interface UserProfile {
   username: string;
   phone?: string;
+  date_joined?: string;
+  user_type?: string;
+  is_verified?: boolean;
 }
 
 interface NotificationSettings {
@@ -41,12 +46,14 @@ export default function BuyerSettings() {
     confirm_password: ""
   });
 
-  const [notifications, setNotifications] = useState<NotificationSettings>({
+  const [notifications, setNotifications] = useState({
     order_updates: true,
-    price_alerts: true,
+    vendor_messages: true,
+    disputes: true,
+    reviews: true,
+    support_tickets: true,
+    payouts: true,
     marketing_emails: false,
-    security_alerts: true,
-    vendor_messages: true
   });
 
   const [security, setSecurity] = useState<SecuritySettings>({
@@ -65,6 +72,10 @@ export default function BuyerSettings() {
     btc_payout_address: "",
     xmr_payout_address: ""
   });
+  const [editingWallet, setEditingWallet] = useState({
+    btc: false,
+    xmr: false
+  });
 
   useEffect(() => {
     fetchUserData();
@@ -76,20 +87,36 @@ export default function BuyerSettings() {
       const response = await api.get('/profile/');
 
       if (response.data && response.data.success) {
+        const userData = response.data.data;
         setProfile({
-          username: response.data.data.username || "",
-          phone: response.data.data.phone || ""
+          username: userData.username || "",
+          phone: userData.phone || "",
+          date_joined: userData.date_joined || "",
+          user_type: userData.user_type || "buyer",
+          is_verified: userData.is_verified || false
         });
         setPayoutAddresses({
-          btc_payout_address: response.data.data.btc_payout_address || "",
-          xmr_payout_address: response.data.data.xmr_payout_address || ""
+          btc_payout_address: userData.btc_payout_address || "",
+          xmr_payout_address: userData.xmr_payout_address || ""
         });
 
-        // Set 2FA state from profile
-        if (response.data.data.two_factor_enabled !== undefined) {
+        // Set notification preferences from backend
+        setNotifications({
+          order_updates: userData.notify_new_orders ?? true,
+          vendor_messages: userData.notify_messages ?? true,
+          disputes: userData.notify_disputes ?? true,
+          reviews: userData.notify_reviews ?? true,
+          support_tickets: userData.notify_support_tickets ?? true,
+          payouts: userData.notify_payouts ?? true,
+          marketing_emails: userData.notify_marketing ?? false,
+        });
+
+        // Set 2FA and login alerts state from profile
+        if (userData.two_factor_enabled !== undefined) {
           setSecurity(prev => ({
             ...prev,
-            two_factor_enabled: response.data.data.two_factor_enabled || false
+            two_factor_enabled: userData.two_factor_enabled || false,
+            login_alerts: userData.notify_login_alerts ?? true
           }));
         }
       }
@@ -110,14 +137,22 @@ export default function BuyerSettings() {
       setSaving(true);
 
       // Check if 2FA is being enabled
-      const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
+      const previousProfile = await api.get('/profile/').then(r => r.data.data).catch(() => null);
+      const previous2FAState = previousProfile?.two_factor_enabled || false;
 
-      // Update profile
+      // Update profile with notification preferences
       await api.put('/profile/update/', {
         username: profile.username,
-        phone: profile.phone,
-        // Include 2FA setting
-        two_factor_enabled: security.two_factor_enabled
+        two_factor_enabled: security.two_factor_enabled,
+        // Map notification settings back to backend field names
+        notify_new_orders: notifications.order_updates,
+        notify_messages: notifications.vendor_messages,
+        notify_disputes: notifications.disputes,
+        notify_reviews: notifications.reviews,
+        notify_support_tickets: notifications.support_tickets,
+        notify_payouts: notifications.payouts,
+        notify_marketing: notifications.marketing_emails,
+        notify_login_alerts: security.login_alerts
       });
 
       // If 2FA is being enabled (was false, now true), call enable endpoint to generate QR code
@@ -170,6 +205,25 @@ export default function BuyerSettings() {
       return;
     }
 
+    // Immediate validation
+    if (payoutAddresses.btc_payout_address && !validateBTCAddress(payoutAddresses.btc_payout_address)) {
+      toast({
+        title: "Invalid BTC Address",
+        description: "Please enter a valid Bitcoin address (Legacy, P2SH, or Segwit)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (payoutAddresses.xmr_payout_address && !validateXMRAddress(payoutAddresses.xmr_payout_address)) {
+      toast({
+        title: "Invalid XMR Address",
+        description: "Please enter a valid Monero address (Standard, Integrated, or Subaddress)",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setPayoutSaving(true);
       await api.put('/profile/payout/', {
@@ -181,6 +235,7 @@ export default function BuyerSettings() {
         title: "Success",
         description: "Payout addresses updated"
       });
+      setEditingWallet({ btc: false, xmr: false });
     } catch (error: any) {
       console.error('Error saving payout addresses:', error);
       toast({
@@ -288,286 +343,276 @@ export default function BuyerSettings() {
 
   return (
     <BuyerLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
-          <div className="flex items-center space-x-3">
-            <SettingsIcon className="w-8 h-8" />
-            <div>
-              <h1 className="text-2xl font-bold">Account Settings</h1>
-              <p className="text-gray-300">Manage your account preferences and security</p>
-            </div>
-          </div>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <PageBanner
+          title="Settings"
+          subtitle="Manage your account preferences and security."
+          type="buyer"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Wallet / Payout Addresses */}
-          <Card className="bg-gray-900 border-gray-700 lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-theme-cyan" />
-                Withdrawal Wallets
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-400">
-                Set the default BTC and XMR wallet addresses where you want to receive withdrawals and refunds.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="btcAddress" className="text-gray-300">BTC Payout Address</Label>
-                  <Input
-                    id="btcAddress"
-                    value={payoutAddresses.btc_payout_address}
-                    onChange={(e) => setPayoutAddresses(prev => ({ ...prev, btc_payout_address: e.target.value }))}
-                    placeholder="bc1q..."
-                    className="bg-gray-800 border-gray-600 text-white font-mono"
-                  />
+          <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 sm:p-8 shadow-2xl lg:col-span-2">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-theme-cyan/10 border border-theme-cyan/20 rounded-2xl">
+                <Wallet className="w-6 h-6 text-theme-cyan" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Settlement Wallets</h3>
+                <p className="text-gray-400 text-xs font-medium italic">Configure your primary withdrawal channels</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="btcAddress" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-1">Bitcoin Payout Link</Label>
+                  <div className="relative group">
+                    <Bitcoin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 group-focus-within:text-theme-cyan transition-colors w-4 h-4" />
+                    <Input
+                      id="btcAddress"
+                      value={payoutAddresses.btc_payout_address}
+                      onChange={(e) => setPayoutAddresses(prev => ({ ...prev, btc_payout_address: e.target.value }))}
+                      placeholder="bc1q..."
+                      className={cn(
+                        "pl-12 h-12 bg-black/40 border-gray-700/50 text-white font-mono rounded-2xl focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all",
+                        !editingWallet.btc && "opacity-50 cursor-not-allowed"
+                      )}
+                      readOnly={!editingWallet.btc}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 text-gray-500 hover:text-white"
+                      onClick={() => setEditingWallet(prev => ({ ...prev, btc: !prev.btc }))}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="xmrAddress" className="text-gray-300">XMR Payout Address</Label>
-                  <Input
-                    id="xmrAddress"
-                    value={payoutAddresses.xmr_payout_address}
-                    onChange={(e) => setPayoutAddresses(prev => ({ ...prev, xmr_payout_address: e.target.value }))}
-                    placeholder="4xxxxxxxx..."
-                    className="bg-gray-800 border-gray-600 text-white font-mono"
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="xmrAddress" className="text-xs font-black uppercase tracking-widest text-gray-500 ml-1">Monero Payout Link</Label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 group-focus-within:text-theme-cyan transition-colors text-[10px] font-black font-mono">XMR</div>
+                    <Input
+                      id="xmrAddress"
+                      value={payoutAddresses.xmr_payout_address}
+                      onChange={(e) => setPayoutAddresses(prev => ({ ...prev, xmr_payout_address: e.target.value }))}
+                      placeholder="4xxxxxxxx..."
+                      className={cn(
+                        "pl-12 h-12 bg-black/40 border-gray-700/50 text-white font-mono rounded-2xl focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all",
+                        !editingWallet.xmr && "opacity-50 cursor-not-allowed"
+                      )}
+                      readOnly={!editingWallet.xmr}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 text-gray-500 hover:text-white"
+                      onClick={() => setEditingWallet(prev => ({ ...prev, xmr: !prev.xmr }))}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
               <Button
                 onClick={handleSavePayoutAddresses}
                 disabled={payoutSaving}
-                className="bg-theme-cyan hover:bg-theme-cyan/90 text-black border border-theme-cyan"
+                className="h-12 px-6 bg-theme-cyan hover:bg-theme-cyan-dark text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-theme-cyan/20 transition-all"
               >
                 {payoutSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCcw className="w-4 h-4 mr-2" />
-                    Save Payout Addresses
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-          {/* Profile Settings */}
-          <Card className="bg-gray-900 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <User className="w-5 h-5 text-theme-cyan" />
-                Profile Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="username" className="text-gray-300">Username</Label>
-                <Input
-                  id="username"
-                  value={profile.username}
-                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              {/* <div>
-                <Label htmlFor="phone" className="text-gray-300">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={profile.phone || ""}
-                  onChange={(e) => setProfile({...profile, phone: e.target.value})}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div> */}
-            </CardContent>
-          </Card>
-
-          {/* Notification Settings */}
-          <Card className="bg-gray-900 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Bell className="w-5 h-5 text-theme-cyan" />
-                Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Order Updates</Label>
-                  <p className="text-sm text-gray-400">Get notified about order status changes</p>
-                </div>
-                <Switch
-                  checked={notifications.order_updates}
-                  onCheckedChange={(checked) => setNotifications({ ...notifications, order_updates: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Price Alerts</Label>
-                  <p className="text-sm text-gray-400">Get notified when wishlist items go on sale</p>
-                </div>
-                <Switch
-                  checked={notifications.price_alerts}
-                  onCheckedChange={(checked) => setNotifications({ ...notifications, price_alerts: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Vendor Messages</Label>
-                  <p className="text-sm text-gray-400">Get notified about new messages from vendors</p>
-                </div>
-                <Switch
-                  checked={notifications.vendor_messages}
-                  onCheckedChange={(checked) => setNotifications({ ...notifications, vendor_messages: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Security Alerts</Label>
-                  <p className="text-sm text-gray-400">Get notified about security events</p>
-                </div>
-                <Switch
-                  checked={notifications.security_alerts}
-                  onCheckedChange={(checked) => setNotifications({ ...notifications, security_alerts: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Marketing Emails</Label>
-                  <p className="text-sm text-gray-400">Receive promotional emails and updates</p>
-                </div>
-                <Switch
-                  checked={notifications.marketing_emails}
-                  onCheckedChange={(checked) => setNotifications({ ...notifications, marketing_emails: checked })}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Security Settings */}
-          <Card className="bg-gray-900 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Lock className="w-5 h-5 text-theme-cyan" />
-                Security
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Two-Factor Authentication</Label>
-                  <p className="text-sm text-gray-400">Add an extra layer of security to your account</p>
-                </div>
-                <Switch
-                  checked={security.two_factor_enabled}
-                  onCheckedChange={(checked) => setSecurity({ ...security, two_factor_enabled: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-gray-300">Login Alerts</Label>
-                  <p className="text-sm text-gray-400">Get notified when someone logs into your account</p>
-                </div>
-                <Switch
-                  checked={security.login_alerts}
-                  onCheckedChange={(checked) => setSecurity({ ...security, login_alerts: checked })}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Change Password */}
-          <Card className="bg-gray-900 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Lock className="w-5 h-5 text-theme-cyan" />
-                Change Password
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="currentPassword" className="text-gray-300">Current Password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={passwordData.current_password}
-                  onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="newPassword" className="text-gray-300">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwordData.new_password}
-                  onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="confirmPassword" className="text-gray-300">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordData.confirm_password}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                  className="bg-gray-800 border-gray-600 text-white"
-                />
-              </div>
-
-              <Button
-                onClick={handleChangePassword}
-                disabled={saving}
-                className="w-full bg-theme-red hover:bg-theme-red-dark text-white border border-theme-red"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Changing...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-4 h-4 mr-2" />
-                    Change Password
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Save Button */}
-          <Card className="bg-gray-900 border-gray-700">
-            <CardContent className="p-6">
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full bg-theme-cyan hover:bg-theme-cyan/90 text-black border border-theme-cyan"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Save Changes
+                    Commit Wallet Protocol
                   </>
                 )}
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+          {/* Profile Settings */}
+          <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-theme-cyan/10 border border-theme-cyan/20 rounded-2xl">
+                <User className="w-6 h-6 text-theme-cyan" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tighter">Identity Core</h3>
+                <p className="text-gray-400 text-[10px] font-medium italic">Immutable identification parameters</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Alias</Label>
+                <Input
+                  value={profile.username}
+                  readOnly
+                  className="h-11 bg-black/20 border-gray-700/50 text-gray-500 cursor-not-allowed rounded-xl font-bold"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Origin Date</Label>
+                <div className="h-11 px-4 bg-black/20 border border-gray-700/50 rounded-xl text-gray-400 flex items-center text-sm font-medium">
+                  {profile.date_joined ? new Date(profile.date_joined).toLocaleDateString() : 'N/A'}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Account Class</Label>
+                <div className="h-11 px-4 bg-black/20 border border-gray-700/50 rounded-xl text-theme-cyan flex items-center text-sm font-black uppercase tracking-tight">
+                  {profile.user_type || 'Buyer'}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Standing</Label>
+                <div className="h-11 px-4 bg-black/20 border border-gray-700/50 rounded-xl flex items-center">
+                  <div className={cn(
+                    "flex items-center gap-2 text-xs font-bold uppercase",
+                    profile.is_verified ? "text-emerald-400" : "text-yellow-500"
+                  )}>
+                    <div className={cn("w-1.5 h-1.5 rounded-full", profile.is_verified ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-yellow-500")} />
+                    {profile.is_verified ? "Verified" : "Unverified"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notification Settings */}
+          <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-theme-cyan/10 border border-theme-cyan/20 rounded-2xl">
+                <Bell className="w-6 h-6 text-theme-cyan" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tighter">Signal Matrix</h3>
+                <p className="text-gray-400 text-[10px] font-medium italic">Configure notification relay protocols</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                { label: 'Order Updates', desc: 'Real-time acquisition status changes', key: 'order_updates' },
+                { label: 'Vendor Messages', desc: 'Encrypted communication alerts', key: 'vendor_messages' },
+                { label: 'Dispute Alerts', desc: 'Case intelligence status updates', key: 'disputes' },
+                { label: 'Support Tickets', desc: 'Nexus support response notifications', key: 'support_tickets' },
+                { label: 'Refund Alerts', desc: 'Financial resolution status', key: 'payouts' },
+                { label: 'Review Reminders', desc: 'Feedback protocol opportunities', key: 'reviews' },
+                { label: 'Marketing Streams', desc: 'Nexus updates and transmissions', key: 'marketing_emails' }
+              ].map((item) => (
+                <div key={item.key} className="flex items-center justify-between p-3 rounded-2xl bg-black/20 border border-white/5 hover:bg-black/40 transition-all">
+                  <div>
+                    <Label className="text-sm font-bold text-gray-200">{item.label}</Label>
+                    <p className="text-[10px] text-gray-500 italic">{item.desc}</p>
+                  </div>
+                  <Switch
+                    checked={(notifications as any)[item.key]}
+                    onCheckedChange={(checked) => setNotifications({ ...notifications, [item.key]: checked })}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Security & Password Container */}
+          <div className="space-y-6">
+            {/* Security Switches */}
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-theme-cyan/10 border border-theme-cyan/20 rounded-2xl">
+                  <Lock className="w-6 h-6 text-theme-cyan" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tighter">Security Protocols</h3>
+                  <p className="text-gray-400 text-[10px] font-medium italic">Advanced protection mechanisms</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-black/20 border border-white/5">
+                  <div>
+                    <Label className="text-sm font-bold text-gray-200">2FA Encryption</Label>
+                    <p className="text-[10px] text-gray-500 italic">Multifactor authentication sequence</p>
+                  </div>
+                  <Switch
+                    checked={security.two_factor_enabled}
+                    onCheckedChange={(checked) => setSecurity({ ...security, two_factor_enabled: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-black/20 border border-white/5">
+                  <div>
+                    <Label className="text-sm font-bold text-gray-200">Access Alerts</Label>
+                    <p className="text-[10px] text-gray-500 italic">Login attempt notifications</p>
+                  </div>
+                  <Switch
+                    checked={security.login_alerts}
+                    onCheckedChange={(checked) => setSecurity({ ...security, login_alerts: checked })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Change Password */}
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-6 ml-1">Credential Rotation</h4>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Current Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordData.current_password}
+                    onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                    className="h-11 bg-black/20 border-gray-700/50 text-white rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">New Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordData.new_password}
+                    onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                    className="h-11 bg-black/20 border-gray-700/50 text-white rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Confirm Protocol</Label>
+                  <Input
+                    type="password"
+                    value={passwordData.confirm_password}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                    className="h-11 bg-black/20 border-gray-700/50 text-white rounded-xl"
+                  />
+                </div>
+                <Button
+                  onClick={handleChangePassword}
+                  disabled={saving}
+                  className="w-full h-11 bg-theme-red hover:bg-theme-red-dark text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-theme-red/20 transition-all text-xs"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Rotate Credentials'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Global Action Bar */}
+          <div className="lg:col-span-2">
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl">
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full h-12 bg-theme-cyan hover:bg-theme-cyan-dark text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-theme-cyan/20 transition-all"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Synchronize Account Settings
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 

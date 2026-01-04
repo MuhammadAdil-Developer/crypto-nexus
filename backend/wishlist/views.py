@@ -53,10 +53,11 @@ def wishlist_view(request):
             )
             
             if created:
-                # Notify vendor about new wishlist addition
-                Notification.objects.create(
+                # Notify vendor about new wishlist addition via central helper
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=product.vendor,
-                    type='wishlist',
+                    notification_type='wishlist',
                     title='Product Added to Wishlist',
                     message=f"{request.user.username} added your product '{product.headline}' to their wishlist",
                     data={'product_id': str(product.id), 'buyer_id': str(request.user.id)}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { Package, Filter, Calendar, Download, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Package, Filter, Calendar, Download, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CheckCircle, Clock, XCircle } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { OrdersTable } from "@/components/buyer/OrdersTable";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/hooks/use-toast";
+import { PageBanner } from "@/components/PageBanner";
 
 interface OrderStats {
   totalOrders: number;
@@ -249,10 +250,10 @@ export default function BuyerOrders() {
   };
 
   const orderStats = [
-    { label: "Total Orders", value: stats.totalOrders.toString(), color: "from-[#A6033E] to-[#70022a]" },
-    { label: "Delivered", value: stats.delivered.toString(), color: "from-green-500 to-emerald-600" },
-    { label: "In Progress", value: stats.inProgress.toString(), color: "from-yellow-500 to-orange-600" },
-    { label: "Cancelled", value: stats.cancelled.toString(), color: "from-red-500 to-pink-600" }
+    { label: "Total Orders", value: stats.totalOrders.toString(), color: "from-blue-600 to-indigo-700", icon: <Package className="w-6 h-6" /> },
+    { label: "Delivered", value: stats.delivered.toString(), color: "from-emerald-500 to-teal-600", icon: <CheckCircle className="w-6 h-6" /> },
+    { label: "In Progress", value: stats.inProgress.toString(), color: "from-amber-500 to-orange-600", icon: <Clock className="w-6 h-6" /> },
+    { label: "Cancelled", value: stats.cancelled.toString(), color: "from-rose-500 to-red-600", icon: <XCircle className="w-6 h-6" /> }
   ];
 
   const getTimeAgo = (date: Date) => {
@@ -273,33 +274,32 @@ export default function BuyerOrders() {
   return (
     <BuyerLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
-          <div className="flex items-start sm:items-center sm:flex-row flex-col gap-3 sm:gap-0 sm:space-x-3">
-            <Package className="w-8 h-8" />
-            <div>
-              <h1 className="text-2xl font-bold">Your Orders</h1>
-              <p className="text-gray-300">Track and manage your purchases</p>
-            </div>
-          </div>
-        </div>
+        {/* Header Banner */}
+        <PageBanner
+          title="Orders"
+          subtitle="Track and manage your purchases"
+          type="buyer"
+        />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
           {orderStats.map((stat, index) => (
             <div
               key={stat.label}
-              className="bg-gray-900 rounded-xl p-6 border border-gray-700 hover:shadow-xl transition-shadow"
+              className="group bg-gray-900/40 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50 hover:border-gray-600 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5 overflow-hidden relative"
             >
-              <div className="flex items-center justify-between">
+              <div className="relative z-10 flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
-                  <p className="text-2xl font-bold text-white">{stat.value}</p>
+                  <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
+                  <p className="text-xl sm:text-3xl font-black text-white">{stat.value}</p>
                 </div>
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
-                  <Package className="w-6 h-6 text-white" />
+                <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <div className="text-white">
+                    {stat.icon}
+                  </div>
                 </div>
               </div>
+              <div className={`absolute -right-4 -bottom-4 w-24 h-24 bg-gradient-to-br ${stat.color} opacity-[0.03] group-hover:opacity-[0.08] rounded-full transition-opacity duration-300`} />
             </div>
           ))}
         </div>

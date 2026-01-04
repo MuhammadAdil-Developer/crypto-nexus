@@ -5,10 +5,14 @@ from .models import Product, ProductCategory, ProductSubCategory
 
 class ProductCategorySerializer(serializers.ModelSerializer):
     """Serializer for product categories"""
+    product_count = serializers.SerializerMethodField()
     
     class Meta:
         model = ProductCategory
-        fields = ['id', 'name', 'slug', 'description', 'icon']
+        fields = ['id', 'name', 'slug', 'description', 'icon', 'product_count']
+
+    def get_product_count(self, obj):
+        return obj.products.filter(status='approved', is_active=True, is_deleted=False).count()
 
 
 class ProductSubCategorySerializer(serializers.ModelSerializer):
@@ -43,7 +47,8 @@ class ProductSerializer(serializers.ModelSerializer):
         if obj.category:
             return {
                 'id': obj.category.id,
-                'name': obj.category.name
+                'name': obj.category.name,
+                'slug': obj.category.slug
             }
         return None
     

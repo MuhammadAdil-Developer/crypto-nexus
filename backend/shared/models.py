@@ -1,6 +1,6 @@
 from django.db import models
 import uuid
-
+from django.utils import timezone
 
 class BaseModel(models.Model):
     """Base model with common fields for all models"""
@@ -214,6 +214,7 @@ class Notification(BaseModel):
         ('listing_rejection', 'Listing Rejection'),
         ('ticket_assigned', 'Ticket Assigned'),
         ('ticket_response', 'Ticket Response'),
+        ('security', 'Security Alert'),
     )
 
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='notifications')
@@ -228,6 +229,38 @@ class Notification(BaseModel):
 
     def __str__(self):
         return f"Notification for {self.user.email}: {self.title}"
+
+
+class Announcement(BaseModel):
+    """System-wide announcements"""
+    AUDIENCE_CHOICES = (
+        ('all', 'All Users'),
+        ('buyer', 'Buyers Only'),
+        ('vendor', 'Vendors Only'),
+        ('admin', 'Admins Only'),
+    )
+
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default='all')
+    is_active = models.BooleanField(default=True)
+    start_date = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Priority for display (e.g., 'high', 'normal', 'low')
+    priority = models.CharField(max_length=20, default='normal', choices=[
+        ('high', 'High'),
+        ('normal', 'Normal'),
+        ('low', 'Low'),
+    ])
+
+    class Meta:
+        db_table = 'announcements'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
 
 
 class Payment(BaseModel):
@@ -257,30 +290,6 @@ class Payment(BaseModel):
 
     def __str__(self):
         return f"Payment {self.id} for Order {self.order.id}"
-
-
-# Old Dispute model removed - using orders.OrderDispute and disputes.Dispute instead
-# class Dispute(BaseModel):
-#     """Dispute model for order issues"""
-#     DISPUTE_STATUS = (
-#         ('open', 'Open'),
-#         ('investigating', 'Investigating'),
-#         ('resolved', 'Resolved'),
-#         ('closed', 'Closed'),
-#     )
-#
-#     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='disputes')
-#     initiator = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='initiated_disputes')
-#     reason = models.TextField()
-#     status = models.CharField(max_length=20, choices=DISPUTE_STATUS, default='open')
-#     admin_notes = models.TextField(blank=True)
-#     resolution = models.TextField(blank=True)
-#
-#     class Meta:
-#         db_table = 'disputes'
-#
-#     def __str__(self):
-#         return f"Dispute for Order {self.order.id}"
 
 
 class UserActivity(BaseModel):

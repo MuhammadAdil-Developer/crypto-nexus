@@ -6,6 +6,7 @@ urlpatterns = [
     path('auth/register/', views.user_registration, name='user_registration'),
     path('auth/login/', views.user_login, name='user_login'),
     path('auth/logout/', views.logout, name='logout'),
+    path('auth/recover/', views.recover_account, name='recover_account'),
     
     # User profile endpoints
     path('profile/', views.user_profile, name='user_profile'),

@@ -875,23 +875,37 @@ export default function AdminListings() {
     <main className="flex-1 overflow-y-auto bg-bg p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Product Listings</h1>
-            <p className="text-gray-300 mt-1">Manage all marketplace product listings</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="flex-shrink-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Product Listings</h1>
+            <p className="text-gray-400 mt-2 text-sm sm:text-base">Manage all marketplace product listings</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => {
-              setEditingCategory(null);
-              setCategoryName('');
-              setCategoryDescription('');
-              setCategorySortOrder(0);
-              setCategoryModalOpen(true);
-            }}>
-              <Tag className="mr-2 h-4 w-4" /> Manage Categories
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingCategory(null);
+                setCategoryName('');
+                setCategoryDescription('');
+                setCategorySortOrder(0);
+                setCategoryModalOpen(true);
+              }}
+              className="border-border text-gray-300 hover:bg-surface-2 hover:border-accent transition-colors"
+            >
+              <Tag className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Manage Categories</span>
+              <span className="sm:hidden">Categories</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setCreateListingModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add Product
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreateListingModalOpen(true)}
+              className="border-accent/30 text-accent hover:bg-accent/10 hover:border-accent transition-colors"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Add Product</span>
+              <span className="sm:hidden">Add</span>
             </Button>
 
             <Dialog open={createListingModalOpen} onOpenChange={setCreateListingModalOpen}>
@@ -914,7 +928,7 @@ export default function AdminListings() {
                       onChange={(e) => setVendorSearch(e.target.value)}
                       className="bg-surface-2 border-border text-white text-sm mt-1"
                     />
-                    <div className="mt-2 max-h-40 overflow-y-auto bg-surface-2 border border-border rounded">
+                    <div className="mt-2 max-h-40 overflow-y-auto border border-border rounded">
                       {vendorLoading ? (
                         <div className="p-3 text-gray-400 text-sm">Searching vendors...</div>
                       ) : vendors.length === 0 ? (
@@ -972,7 +986,7 @@ export default function AdminListings() {
                         <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
                           <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
-                        <SelectContent className="bg-surface-2 border-border">
+                        <SelectContent className="bg-gray-800 border-gray-700 text-white">
                           {categories.map((cat) => (
                             <SelectItem key={cat.id} value={cat.id}>
                               {cat.name}
@@ -989,7 +1003,7 @@ export default function AdminListings() {
                           <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-surface-2 border-border">
+                          <SelectContent className="bg-gray-800 border-gray-700 text-white">
                             <SelectItem value="messengers">Messengers</SelectItem>
                             <SelectItem value="streaming">Streaming</SelectItem>
                             <SelectItem value="gaming">Gaming</SelectItem>
@@ -1007,7 +1021,7 @@ export default function AdminListings() {
                           <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-surface-2 border-border">
+                          <SelectContent className="bg-gray-800 border-gray-700 text-white">
                             <SelectItem value="full_ownership">Full Ownership</SelectItem>
                             <SelectItem value="access">Access</SelectItem>
                             <SelectItem value="shared">Shared</SelectItem>
@@ -1023,7 +1037,7 @@ export default function AdminListings() {
                           <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-surface-2 border-border">
+                          <SelectContent className="bg-gray-800 border-gray-700 text-white">
                             <SelectItem value="instant_auto">Instant Auto-delivery</SelectItem>
                             <SelectItem value="manual_24h">Manual delivery within 24hrs</SelectItem>
                           </SelectContent>
@@ -1036,7 +1050,7 @@ export default function AdminListings() {
                           <SelectTrigger className="bg-surface-2 border-border text-white text-sm mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-surface-2 border-border">
+                          <SelectContent className="bg-gray-800 border-gray-700 text-white">
                             <SelectItem value="email_password">Email & Password</SelectItem>
                             <SelectItem value="url_token">URL & Token</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
@@ -1206,7 +1220,7 @@ export default function AdminListings() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Search products..."
-                    className="pl-10 bg-surface-2 border-border text-white placeholder:text-gray-400"
+                    className="pl-10  border-border text-white placeholder:text-gray-400"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -1226,7 +1240,7 @@ export default function AdminListings() {
                 </Select>
                 <Select value={selectedCategoryFilter} onValueChange={(value: any) => setSelectedCategoryFilter(value)}>
                   <SelectTrigger className="w-48 bg-surface-2 border-border text-white">
-                    <SelectValue placeholder="Category" />
+                    <SelectValue placeholder="Category" className="truncate" />
                   </SelectTrigger>
                   <SelectContent className="bg-surface-2 border-border">
                     <SelectItem value="all" className="text-white">All Categories</SelectItem>
@@ -1724,12 +1738,8 @@ export default function AdminListings() {
                           <p className="text-white font-medium">{selectedListing.access_method}</p>
                         </div>
                       )}
-                      {selectedListing.credentials_display && (
-                        <div>
-                          <Label className="text-sm font-medium text-gray-400">Credentials</Label>
-                          <p className="text-white font-medium">{selectedListing.credentials_display}</p>
-                        </div>
-                      )}
+
+                      {/* Credentials display REMOVED for admin security per user request */}
                     </div>
                   </div>
 
@@ -2000,7 +2010,7 @@ export default function AdminListings() {
 
         {/* Category Management Modal */}
         <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
-          <DialogContent className="max-w-2xl bg-card text-white border border-gray-600/30">
+          <DialogContent className="max-w-2xl bg-card text-white border border-gray-600/30 max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-white">
                 {editingCategory ? 'Edit Category' : 'Create Category'}

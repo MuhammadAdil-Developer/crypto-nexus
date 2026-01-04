@@ -107,8 +107,8 @@ def release_escrow_task(order_id: str, released_by_id: str = None):
         return {'success': False, 'error': str(e)}
 
 
-@shared_task
-def process_non_escrow_payout(order_id: str):
+@shared_task(bind=True, max_retries=12, default_retry_delay=300)  # Retry up to 12 times, 5 min apart
+def process_non_escrow_payout(self, order_id: str):
     """Process non-escrow order payout - calculate fees and send to vendor"""
     try:
         from orders.models import Order
@@ -223,12 +223,30 @@ def process_non_escrow_payout(order_id: str):
             logger.info(f"Successfully processed non-escrow payout for order {order_id}")
             return f"Non-escrow payout processed for order {order_id}"
         else:
-            logger.error(f"Failed to send payout to vendor for order {order_id}. Manual intervention may be required.")
-            return f"Failed to send payout to vendor for order {order_id}"
+            # Payout failed - trigger retry if attempts remaining
+            direct_payment.status = 'pending'  # Reset to pending for retry
+            direct_payment.save()
+            
+            logger.warning(f"Payout failed for order {order_id}. Retry {self.request.retries + 1}/{self.max_retries}")
+            
+            # If we still have retries left, schedule a retry
+            if self.request.retries < self.max_retries:
+                raise self.retry(exc=Exception(f"Payout failed, retrying in 5 minutes"))
+            else:
+                # All retries exhausted - mark as failed for manual intervention
+                direct_payment.status = 'failed'
+                direct_payment.save()
+                logger.error(f"All retries exhausted for order {order_id}. Manual intervention required.")
+                return f"Failed to send payout to vendor for order {order_id} after {self.max_retries} retries"
             
     except Order.DoesNotExist:
         logger.error(f"Order not found: {order_id}")
         return f"Order not found: {order_id}"
     except Exception as e:
         logger.error(f"Error processing non-escrow payout for order {order_id}: {str(e)}")
-        return f"Error processing non-escrow payout: {str(e)}"
+        
+        # For unexpected errors, also retry
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=300)
+        else:
+            return f"Error processing non-escrow payout: {str(e)}"

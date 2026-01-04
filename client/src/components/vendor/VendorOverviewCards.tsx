@@ -1,4 +1,4 @@
-import { TrendingUp, Package, ShoppingCart, Wallet, AlertTriangle } from "lucide-react";
+import { ShoppingBag, Package, ShoppingCart, Wallet, AlertTriangle, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import React from "react";
 
@@ -22,6 +22,7 @@ interface VendorOverviewCountsProps {
 		featuredListings?: number;
 		ordersAttention?: number;
 		disputesActive?: number;
+		avgResponseTime?: string;
 	};
 }
 
@@ -39,19 +40,19 @@ export function VendorOverviewCards({
 	const overviewData = [
 		{
 			title: "Total Sales",
-			value: totalSales || "$0.00",
-			change: trends?.salesChange || "0%",
-			changeType: (trends?.salesChange?.includes('+') ? "positive" : trends?.salesChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
-			icon: TrendingUp,
-			description: additionalStats?.btcRevenue || "≈ 0 BTC"
+			value: totalSales || "0",
+			change: trends?.salesChange || "0 orders",
+			changeType: "neutral" as const,
+			icon: ShoppingBag,
+			description: "Total orders processed"
 		},
 		{
 			title: "Active Listings",
 			value: activeListings !== undefined ? String(activeListings) : "0",
 			change: trends?.listingsChange || "0 this week",
-			changeType: (trends?.listingsChange?.includes('+') ? "positive" : trends?.listingsChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
+			changeType: (trends?.listingsChange?.startsWith('+') ? 'positive' : 'neutral') as any,
 			icon: Package,
-			description: `${additionalStats?.featuredListings || 0} featured listings`
+			description: "Published products"
 		},
 		{
 			title: "Pending Orders",
@@ -63,11 +64,11 @@ export function VendorOverviewCards({
 		},
 		{
 			title: "Earnings",
-			value: earnings !== undefined ? `$${earnings.toFixed(2)}` : "$0.00",
-			change: trends?.earningsChange || "$0.00",
-			changeType: (trends?.earningsChange?.includes('+') ? "positive" : trends?.earningsChange?.includes('-') ? "negative" : "neutral") as "positive" | "negative" | "neutral",
+			value: earnings !== undefined ? `$${earnings.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "$0.00",
+			change: trends?.earningsChange || "+$0.00",
+			changeType: "positive" as const,
 			icon: Wallet,
-			description: "Available for withdrawal"
+			description: "Lifetime USD volume"
 		},
 		{
 			title: "Disputes",
@@ -95,7 +96,7 @@ export function VendorOverviewCards({
 	);
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+		<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
 			{isLoading ? (
 				// Show skeleton loaders while loading
 				Array.from({ length: 5 }).map((_, index) => (

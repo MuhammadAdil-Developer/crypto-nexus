@@ -274,6 +274,21 @@ class BTCPayServerService:
             logger.error(f"Error creating BTCPay payout: {str(e)}")
             return None
 
+    def get_wallet_balance(self) -> dict:
+        """Get BTCPay wallet balance"""
+        try:
+            url = f"{self.base_url}/api/v1/stores/{self.store_id}/payment-methods/onchain/BTC/wallet"
+            response = requests.get(url, headers=self.headers, timeout=10)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Failed to get BTC wallet balance: {response.status_code}")
+                return None
+        except Exception as e:
+            logger.error(f"BTCPay wallet balance error: {str(e)}")
+            return None
+
 
 class MoneroRPCService:
     """Service for Monero wallet RPC integration"""
@@ -507,10 +522,48 @@ class MoneroRPCService:
         if result and 'result' in result:
             return result['result'].get('height', 0)
         return 0
+        
+    def get_node_info(self) -> dict:
+        """Get basic node info (simulated or real)"""
+        try:
+            height = self.get_wallet_height()
+            if height > 0:
+                return {
+                    'status': 'Connected',
+                    'height': height,
+                    'version': 'v0.18.3.1'  # Hardcoded or fetch if available
+                }
+        except Exception:
+            pass
+        return {'status': 'Disconnected', 'height': 0}
     
     def send_transaction(self, destinations: list, priority: int = 1) -> Optional[dict]:
         """Send XMR transaction to specified destinations"""
         try:
+            # Check unlocked balance BEFORE attempting transfer
+            balance_info = self.get_balance()
+            if not balance_info:
+                logger.error("Failed to get wallet balance before transfer")
+                return None
+            
+            unlocked_balance = balance_info.get('unlocked_balance', 0)
+            balance = balance_info.get('balance', 0)
+            
+            # Calculate total amount needed
+            total_amount_needed = sum(dest.get('amount', 0) for dest in destinations)
+            
+            logger.info(f"Monero Balance Check: Unlocked={unlocked_balance}, Total={balance}, Required={total_amount_needed}")
+            
+            if unlocked_balance < total_amount_needed:
+                locked_amount = balance - unlocked_balance
+                logger.error(
+                    f"INSUFFICIENT UNLOCKED BALANCE: Required {total_amount_needed} atomic units, "
+                    f"but only {unlocked_balance} are unlocked. "
+                    f"{locked_amount} atomic units are still locked (waiting for confirmations). "
+                    f"Monero requires 10 confirmations (~20 minutes) before funds can be spent."
+                )
+                return None
+            
             # Priority: 1=normal, 2=elevated, 3=priority, 4=flash
             priority_map = {1: 1, 2: 2, 3: 3, 4: 4}
             
@@ -968,10 +1021,11 @@ class PaymentService:
                         try:
                             order = Order.objects.get(order_id=payment_address.order_id)
                             
-                            # Notification for buyer
-                            Notification.objects.create(
+                            # Send notification via central helper (respects preferences)
+                            from shared.admin_notifications import send_user_notification
+                            send_user_notification(
                                 user=order.buyer,
-                                type='order',
+                                notification_type='payment_failed',
                                 title='Payment Failed' if mapped_status == 'cancelled' else 'Payment Expired',
                                 message=f'Payment for order {order.order_id} - "{order.product.headline}" has been {mapped_status}. Please create a new order.',
                                 data={
@@ -982,25 +1036,7 @@ class PaymentService:
                                 }
                             )
                             
-                            # Send real-time notification
-                            try:
-                                channel_layer = get_channel_layer()
-                                if channel_layer:
-                                    async_to_sync(channel_layer.group_send)(
-                                        f'realtime_{order.buyer.id}',
-                                        {
-                                            'type': 'order_notification',
-                                            'data': {
-                                                'order_id': order.order_id,
-                                                'type': 'payment_failed',
-                                                'title': 'Payment Failed' if mapped_status == 'cancelled' else 'Payment Expired',
-                                                'message': f'Payment for order {order.order_id} - "{order.product.headline}" has been {mapped_status}.',
-                                                'product_headline': order.product.headline
-                                            }
-                                        }
-                                    )
-                            except Exception as e:
-                                logger.error(f"Failed to send real-time payment failed notification: {str(e)}")
+                            logger.info(f"Payment failed notification sent for order {order.order_id}")
                             
                             logger.info(f"Payment failed notification created for order {order.order_id}")
                         except Order.DoesNotExist:
@@ -1205,10 +1241,12 @@ class PaymentService:
                             else:
                                 credentials_info = f"Your order credentials are ready."
                     
+                    from shared.admin_notifications import send_user_notification
+                    
                     # Notification for buyer
-                    Notification.objects.create(
+                    send_user_notification(
                         user=order.buyer,
-                        type='order',
+                        notification_type='payment_confirmed',
                         title='Payment Confirmed',
                         message=f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
                         data={
@@ -1222,9 +1260,9 @@ class PaymentService:
                     
                     # Notification for vendor
                     escrow_note = " (Escrow)" if order.use_escrow else ""
-                    Notification.objects.create(
+                    send_user_notification(
                         user=order.vendor,
-                        type='order',
+                        notification_type='payment_received',
                         title='Payment Received',
                         message=f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
                         data={
@@ -1237,122 +1275,83 @@ class PaymentService:
                         }
                     )
                     
-                    # Send real-time notifications
+                    # Trigger count refresh for all users (admin/vendor/buyer) when payment is confirmed
                     try:
-                        channel_layer = get_channel_layer()
-                        if channel_layer:
-                            # Send to buyer
+                        # Send to buyer
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{order.buyer.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'id': f'count_refresh_payment_{order.id}',
+                                    'type': 'system',
+                                    'title': 'Count Refresh',
+                                    'message': 'Order count updated',
+                                    'is_read': False,
+                                    'data': {
+                                        'action': 'refresh_counts',
+                                        'type': 'order'
+                                    },
+                                    'action_url': '',
+                                    'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                    'priority': 'low'
+                                }
+                            }
+                        )
+                        
+                        # Send to vendor
+                        async_to_sync(channel_layer.group_send)(
+                            f'realtime_{order.vendor.id}',
+                            {
+                                'type': 'order_notification',
+                                'data': {
+                                    'id': f'count_refresh_payment_{order.id}',
+                                    'type': 'system',
+                                    'title': 'Count Refresh',
+                                    'message': 'Order count updated',
+                                    'is_read': False,
+                                    'data': {
+                                        'action': 'refresh_counts',
+                                        'type': 'order'
+                                    },
+                                    'action_url': '',
+                                    'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                    'priority': 'low'
+                                }
+                            }
+                        )
+                        
+                        # Send to all admins
+                        from django.contrib.auth import get_user_model
+                        User = get_user_model()
+                        admin_users = User.objects.filter(user_type='admin', is_active=True)
+                        for admin_user in admin_users:
                             async_to_sync(channel_layer.group_send)(
-                                f'realtime_{order.buyer.id}',
+                                f'realtime_{admin_user.id}',
                                 {
                                     'type': 'order_notification',
                                     'data': {
-                                        'order_id': order.order_id,
-                                        'type': 'payment_confirmed',
-                                        'title': 'Payment Confirmed',
-                                        'message': f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
-                                        'product_headline': order.product.headline,
-                                        'has_credentials': bool(order.product_credentials)
+                                        'id': f'count_refresh_payment_{order.id}',
+                                        'type': 'system',
+                                        'title': 'Count Refresh',
+                                        'message': 'Order count updated',
+                                        'is_read': False,
+                                        'data': {
+                                            'action': 'refresh_counts',
+                                            'type': 'order'
+                                        },
+                                        'action_url': '',
+                                        'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                        'priority': 'low'
                                     }
                                 }
                             )
-                            
-                            # Send to vendor
-                            async_to_sync(channel_layer.group_send)(
-                                f'realtime_{order.vendor.id}',
-                                {
-                                    'type': 'order_notification',
-                                    'data': {
-                                        'order_id': order.order_id,
-                                        'type': 'payment_received',
-                                        'title': 'Payment Received',
-                                        'message': f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
-                                        'buyer_username': order.buyer.username,
-                                        'product_headline': order.product.headline,
-                                        'use_escrow': order.use_escrow
-                                    }
-                                }
-                            )
-                            
-                            # Trigger count refresh for all users (admin/vendor/buyer) when payment is confirmed
-                            try:
-                                # Send to buyer
-                                async_to_sync(channel_layer.group_send)(
-                                    f'realtime_{order.buyer.id}',
-                                    {
-                                        'type': 'order_notification',
-                                        'data': {
-                                            'id': f'count_refresh_payment_{order.id}',
-                                            'type': 'system',
-                                            'title': 'Count Refresh',
-                                            'message': 'Order count updated',
-                                            'is_read': False,
-                                            'data': {
-                                                'action': 'refresh_counts',
-                                                'type': 'order'
-                                            },
-                                            'action_url': '',
-                                            'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                            'priority': 'low'
-                                        }
-                                    }
-                                )
-                                
-                                # Send to vendor
-                                async_to_sync(channel_layer.group_send)(
-                                    f'realtime_{order.vendor.id}',
-                                    {
-                                        'type': 'order_notification',
-                                        'data': {
-                                            'id': f'count_refresh_payment_{order.id}',
-                                            'type': 'system',
-                                            'title': 'Count Refresh',
-                                            'message': 'Order count updated',
-                                            'is_read': False,
-                                            'data': {
-                                                'action': 'refresh_counts',
-                                                'type': 'order'
-                                            },
-                                            'action_url': '',
-                                            'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                            'priority': 'low'
-                                        }
-                                    }
-                                )
-                                
-                                # Send to all admins
-                                from django.contrib.auth import get_user_model
-                                User = get_user_model()
-                                admin_users = User.objects.filter(user_type='admin', is_active=True)
-                                for admin_user in admin_users:
-                                    async_to_sync(channel_layer.group_send)(
-                                        f'realtime_{admin_user.id}',
-                                        {
-                                            'type': 'order_notification',
-                                            'data': {
-                                                'id': f'count_refresh_payment_{order.id}',
-                                                'type': 'system',
-                                                'title': 'Count Refresh',
-                                                'message': 'Order count updated',
-                                                'is_read': False,
-                                                'data': {
-                                                    'action': 'refresh_counts',
-                                                    'type': 'order'
-                                                },
-                                                'action_url': '',
-                                                'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                                'priority': 'low'
-                                            }
-                                        }
-                                    )
-                            except Exception as e:
-                                logger.error(f"Error sending count refresh notification: {e}")
                     except Exception as e:
-                        logger.error(f"Failed to send real-time payment notifications: {str(e)}")
-                    
-                    logger.info(f"Payment confirmation notifications created for order {order_id}")
+                        logger.error(f"Error sending count refresh notification: {e}")
                 except Exception as e:
-                    logger.error(f"Failed to create payment confirmation notifications for order {order_id}: {str(e)}")
+                    logger.error(f"Failed to send real-time payment notifications: {str(e)}")
+                
+                logger.info(f"Payment confirmation notifications created for order {order_id}")
             
             order.save()
             

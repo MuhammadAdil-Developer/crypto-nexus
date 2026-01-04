@@ -18,26 +18,18 @@ def send_review_prompt_task(buyer_id, product_id, order_id):
         buyer = User.objects.get(id=buyer_id)
         product = Product.objects.get(id=product_id)
         
-        # Create database notification
-        Notification.objects.create(
+        # Send notification via central helper (respects preferences)
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=buyer,
-            type='system',
+            notification_type='review_prompt',
             title='Share your review',
             message=f"Please review your purchase: {product.headline}",
-            data={'order_id': order_id, 'product_id': product.id}
-        )
-        
-        # Send real-time notification
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f'realtime_{buyer.id}',
-            {
-                'type': 'review_prompt',
-                'data': {
-                    'order_id': order_id,
-                    'product_id': product.id,
-                    'product_title': product.headline
-                }
+            data={
+                'order_id': order_id, 
+                'product_id': str(product.id),
+                'product_title': product.headline,
+                'action_url': f'/buyer/orders'
             }
         )
         
@@ -83,10 +75,11 @@ def send_daily_refund_reminders():
                     if last_reminder_date == today:
                         continue  # Skip if already sent today
                 
-                # Create database notification (red/urgent)
-                Notification.objects.create(
+                # Send notification via central helper (respects preferences)
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=vendor,
-                    type='refund',
+                    notification_type='refund',
                     title='Pending Refund Required',
                     message=f'You have a pending refund for order {order.order_id}. Please refund the buyer the order amount of {refund.amount} {order.crypto_currency}.',
                     data={
@@ -96,29 +89,9 @@ def send_daily_refund_reminders():
                         'deadline': refund.vendor_refund_deadline.isoformat() if refund.vendor_refund_deadline else None,
                         'is_overdue': refund.is_vendor_refund_overdue,
                         'action_url': '/vendor/orders'
-                    }
+                    },
+                    priority='high'
                 )
-                
-                # Send real-time notification (red/urgent)
-                if channel_layer:
-                    try:
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{vendor.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'type': 'pending_refund_reminder',
-                                    'title': 'Pending Refund Required',
-                                    'message': f'You have a pending refund for order {order.order_id}. Please refund the buyer the order amount.',
-                                    'refund_id': str(refund.id),
-                                    'order_id': order.order_id,
-                                    'priority': 'urgent',  # Red/urgent notification
-                                    'action_url': '/vendor/orders'
-                                }
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(f"Error sending real-time reminder to vendor {vendor.id}: {e}")
                 
                 # Update last reminder sent timestamp
                 refund.last_reminder_sent = timezone.now()
@@ -174,10 +147,11 @@ def check_vendor_decision_deadlines():
                     priority='high'
                 )
                 
-                # Notify buyer
-                Notification.objects.create(
+                # Notify buyer via central helper (respects preferences)
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=refund.buyer,
-                    type='refund',
+                    notification_type='refund',
                     title='Refund Escalated to Admin',
                     message=f'Your refund request for order {refund.order.order_id} has been escalated to admin for review.',
                     data={

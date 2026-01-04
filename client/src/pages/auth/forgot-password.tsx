@@ -1,267 +1,225 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, ArrowLeft, Shield, Key, Clock, CheckCircle } from "lucide-react";
-import CircleCaptcha from "@/components/captcha/CircleCaptcha";
+import { User, Key, ArrowLeft, Shield, Lock, CheckCircle, RefreshCcw } from "lucide-react";
+import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
+import { authService } from "@/services/authService";
+import { toast } from "sonner";
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    username: "",
+    recovery_phrase: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaVerified, setCaptchaVerified] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; captcha?: string; general?: string }>({});
+  const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+  const [errors, setErrors] = useState<{
+    username?: string;
+    recovery_phrase?: string;
+    new_password?: string;
+    confirm_password?: string;
+    general?: string;
+  }>({});
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
+    if (!formData.username) newErrors.username = "Username is required";
+    if (!formData.recovery_phrase) newErrors.recovery_phrase = "Recovery phrase is required";
+    if (!formData.new_password) {
+      newErrors.new_password = "New password is required";
+    } else if (formData.new_password.length < 8) {
+      newErrors.new_password = "Password must be at least 8 characters";
+    }
+    if (formData.new_password !== formData.confirm_password) {
+      newErrors.confirm_password = "Passwords do not match";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form
-    const newErrors: { email?: string; captcha?: string } = {};
-    
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-    
-    if (!captchaVerified) {
-      newErrors.captcha = 'Please complete the security verification';
-    }
-    
-    setErrors(newErrors);
-    
-    if (Object.keys(newErrors).length === 0) {
-      // Handle forgot password logic
-      console.log("Forgot password for:", email, "with captcha:", captchaToken);
-      setIsSubmitted(true);
+    if (validateForm()) {
+      setShowCaptchaModal(true);
     }
   };
 
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token);
-    setCaptchaVerified(true);
-    // Clear captcha error when verified
-    if (errors.captcha) {
-      setErrors(prev => ({ ...prev, captcha: undefined }));
-    }
-  };
+  const handleCaptchaVerify = async (token: string) => {
+    setShowCaptchaModal(false);
+    setIsLoading(true);
+    setErrors({});
 
-  const handleCaptchaError = (error: string) => {
-    setErrors(prev => ({ ...prev, captcha: error }));
-    setCaptchaVerified(false);
-    setCaptchaToken(null);
+    try {
+      const response = await authService.recoverAccount(
+        formData.username,
+        formData.recovery_phrase.trim(),
+        formData.new_password
+      );
+
+      if (response.success) {
+        setIsSubmitted(true);
+        toast.success("Password reset successful!");
+      } else {
+        setErrors({ general: response.message || "Recovery failed. Please check your username and phrase." });
+      }
+    } catch (error: any) {
+      setErrors({ general: "An unexpected error occurred. Please try again later." });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex relative">
-      {/* Seamless Gradient Overlay for Smooth Transition */}
-      <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/95 via-gray-900/80 to-transparent z-10 pointer-events-none hidden lg:block"></div>
-      
-      {/* Left Side - Forgot Password Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-20">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">Reset Password</h2>
-            <p className="text-gray-400">Enter your email to receive a reset link</p>
-          </div>
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-block mb-4">
+            <img src="/images/logo.png" alt="Logo" className="h-10 w-auto mx-auto" />
+          </Link>
+          <h2 className="text-3xl font-bold text-white mb-2">Account Recovery</h2>
+          <p className="text-gray-400">Regain access using your 12-word recovery phrase</p>
+          {/* <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg max-w-sm mx-auto">
+            <p className="text-blue-300 text-xs leading-relaxed">
+              <strong>Anonymous Recovery:</strong> Since we don't collect emails, your recovery phrase is the only way to reset your password.
+            </p>
+          </div> */}
+        </div>
 
-          {!isSubmitted ? (
-            <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
-              <CardHeader className="text-center pb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Key className="w-8 h-8 text-white" />
+        {!isSubmitted ? (
+          <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-white text-center">Reset Password</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Username */}
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-gray-300 font-bold uppercase tracking-wider text-xs">Username</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      id="username"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleInputChange}
+                      placeholder="Enter your username"
+                      className="pl-10 bg-gray-900/50 border-gray-700 text-white"
+                    />
+                  </div>
+                  {errors.username && <p className="text-red-400 text-xs">{errors.username}</p>}
                 </div>
-                <CardTitle className="text-white">Forgot Your Password?</CardTitle>
-                <p className="text-gray-400 text-sm mt-2">
-                  No worries! Enter your email and we'll send you a secure reset link.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
+
+                {/* Recovery Phrase */}
+                <div className="space-y-2">
+                  <Label htmlFor="recovery_phrase" className="text-gray-300 font-bold uppercase tracking-wider text-xs">Recovery Phrase (12 words)</Label>
+                  <div className="relative">
+                    <RefreshCcw className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
+                    <textarea
+                      id="recovery_phrase"
+                      name="recovery_phrase"
+                      value={formData.recovery_phrase}
+                      onChange={handleInputChange}
+                      placeholder="Enter your 12-word recovery phrase..."
+                      className="w-full min-h-[100px] pl-10 pr-4 py-2 bg-gray-900/50 border border-gray-700 rounded-md text-white text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+                    />
+                  </div>
+                  {errors.recovery_phrase && <p className="text-red-400 text-xs">{errors.recovery_phrase}</p>}
+                </div>
+
+                {/* New Password */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-gray-300">Email Address</Label>
+                    <Label htmlFor="new_password" className="text-gray-300 font-bold uppercase tracking-wider text-xs">New Password</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your registered email"
-                        className="pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 transition-colors"
-                        required
+                        id="new_password"
+                        name="new_password"
+                        type={showPassword ? "text" : "password"}
+                        value={formData.new_password}
+                        onChange={handleInputChange}
+                        className="pl-10 bg-gray-900/50 border-gray-700 text-white"
                       />
                     </div>
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                    {errors.new_password && <p className="text-red-400 text-xs">{errors.new_password}</p>}
                   </div>
-
-                  {/* Captcha Section */}
                   <div className="space-y-2">
-                    <CircleCaptcha
-                      onVerify={handleCaptchaVerify}
-                      onError={handleCaptchaError}
-                      siteKey="forgot-password-captcha"
-                      theme="dark"
-                      size="compact"
-                      className="w-full"
-                    />
-                    {errors.captcha && <p className="text-red-500 text-xs mt-1">{errors.captcha}</p>}
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
-                  >
-                    Send Reset Link
-                  </Button>
-
-                  <div className="text-center">
-                    <Link href="/sign-in">
-                      <span className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-semibold flex items-center justify-center space-x-2">
-                        <ArrowLeft className="w-4 h-4" />
-                        <span>Back to Sign In</span>
-                      </span>
-                    </Link>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm">
-              <CardHeader className="text-center pb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-white" />
-                </div>
-                <CardTitle className="text-white">Reset Link Sent!</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center space-y-4">
-                <p className="text-gray-300">
-                  We've sent a password reset link to <span className="text-blue-400 font-semibold">{email}</span>
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Check your email and click the link to reset your password. The link will expire in 24 hours.
-                </p>
-                
-                <div className="bg-gray-700/50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center space-x-3 text-sm text-gray-300">
-                    <Clock className="w-4 h-4 text-yellow-400" />
-                    <span>Link expires in 24 hours</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-sm text-gray-300">
-                    <Shield className="w-4 h-4 text-green-400" />
-                    <span>Check your spam folder if not received</span>
+                    <Label htmlFor="confirm_password" className="text-gray-300 font-bold uppercase tracking-wider text-xs">Confirm</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        id="confirm_password"
+                        name="confirm_password"
+                        type={showPassword ? "text" : "password"}
+                        value={formData.confirm_password}
+                        onChange={handleInputChange}
+                        className="pl-10 bg-gray-900/50 border-gray-700 text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-4">
-                  <Button 
-                    onClick={() => setIsSubmitted(false)}
-                    variant="outline"
-                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
-                  >
-                    Send Another Link
-                  </Button>
-                  
-                  <Link href="/sign-in">
-                    <Button variant="ghost" className="w-full text-blue-400 hover:text-blue-300 hover:bg-blue-500/10">
-                      Back to Sign In
-                    </Button>
+                {errors.general && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md">
+                    <p className="text-red-400 text-sm text-center">{errors.general}</p>
+                  </div>
+                )}
+
+                <Button type="submit" disabled={isLoading} className="w-full bg-[#c02053ff] hover:bg-[#a01a45ff] text-white">
+                  {isLoading ? "Processing..." : "Reset Password"}
+                </Button>
+
+                <div className="text-center">
+                  <Link to="/sign-in" className="inline-flex items-center text-sm text-gray-400 hover:text-white transition-colors">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Login
                   </Link>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="mt-6 text-center text-xs text-gray-500">
-            Didn't receive the email? Check your spam folder or contact support
-          </div>
-        </div>
+              </form>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border border-gray-700 bg-gray-800/50 backdrop-blur-sm text-center py-8">
+            <CardContent className="space-y-6">
+              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
+              <div>
+                <CardTitle className="text-white mb-2">Success!</CardTitle>
+                <p className="text-gray-400">Your password has been reset successfully. You can now log in with your new credentials.</p>
+              </div>
+              <Button onClick={() => navigate("/sign-in")} className="w-full bg-blue-600 hover:bg-blue-700">
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Right Side - Professional Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`
-          }}
-        ></div>
-        
-        {/* Soft Gradient Overlay for Seamless Blend */}
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-blue-900/60 to-blue-900/80"></div>
-        
-        {/* Secondary Gradient for Depth */}
-        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-cyan-900/40 to-black/60"></div>
-
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
-          {/* Floating Security Elements */}
-          <div className="absolute top-20 right-20 w-16 h-16 bg-blue-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce border border-blue-400/30">
-            <Shield className="w-8 h-8 text-blue-400" />
-          </div>
-          <div className="absolute bottom-32 left-20 w-14 h-14 bg-cyan-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse border border-cyan-400/30">
-            <Key className="w-7 h-7 text-cyan-400" />
-          </div>
-          <div className="absolute top-1/3 left-16 w-12 h-12 bg-green-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce delay-500 border border-green-400/30">
-            <CheckCircle className="w-6 h-6 text-green-400" />
-          </div>
-
-          {/* Security Info Container */}
-          <div className="w-80 h-40 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex flex-col items-center justify-center mb-8 p-6">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-blue-400 mb-2">Advanced Security</div>
-              <div className="text-sm text-gray-300 mb-4">Password Recovery System</div>
-              <div className="flex items-center justify-center space-x-6 text-xs text-gray-400">
-                <div className="flex items-center space-x-1">
-                  <Shield className="w-3 h-3" />
-                  <span>Encrypted Links</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span>24hr Expiry</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="max-w-lg mx-auto text-center">
-            <h1 className="text-5xl lg:text-6xl font-black mb-6 bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent leading-none tracking-tight font-sans">
-              Secure<br />
-              <span className="bg-gradient-to-r from-blue-400 via-cyan-500 to-purple-600 bg-clip-text text-transparent">
-                Recovery
-              </span>
-            </h1>
-            <p className="text-lg text-blue-100/90 leading-relaxed font-medium font-sans">
-              Your account security is our top priority. Reset your password safely with our encrypted recovery system.
-            </p>
-          </div>
-          
-          {/* Security Features */}
-          <div className="space-y-4 text-blue-200 mt-8">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
-                <Shield className="w-5 h-5 text-blue-400" />
-              </div>
-              <span className="text-lg">Military-grade encryption</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-cyan-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-cyan-500/30">
-                <Key className="w-5 h-5 text-cyan-400" />
-              </div>
-              <span className="text-lg">Secure reset tokens</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-green-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-green-500/30">
-                <Clock className="w-5 h-5 text-green-400" />
-              </div>
-              <span className="text-lg">Time-limited access</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <CircleCaptchaModal
+        isOpen={showCaptchaModal}
+        onClose={() => setShowCaptchaModal(false)}
+        onVerify={handleCaptchaVerify}
+        siteKey="recovery-captcha"
+        title="Security Verification"
+        instruction="find and click inside the open circle (the circle with a gap or opening) to verify you are human."
+      />
     </div>
   );
 }

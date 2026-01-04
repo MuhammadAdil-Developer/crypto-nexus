@@ -541,82 +541,33 @@ def create_product(request):
                 logger.error(f"Failed to notify admin about product: {e}")
             
             # Notify the vendor (if different from creator) about the new listing
-            try:
-                from shared.models import Notification
-                from asgiref.sync import async_to_sync
-                from channels.layers import get_channel_layer
+            from shared.admin_notifications import send_user_notification
+            vendor_user = getattr(product, 'vendor', None)
+            
+            if vendor_user:
+                send_user_notification(
+                    user=vendor_user,
+                    notification_type='listing_approval',
+                    title='New product listing created',
+                    message=f'An admin created a new listing "{product.headline}" for your vendor account. Please review your listing.',
+                    data={
+                        'product_id': str(product.id),
+                        'action_url': '/vendor/listings'
+                    }
+                )
 
-                vendor_user = getattr(product, 'vendor', None)
-                # Create DB notification for vendor
-                if vendor_user:
-                    Notification.objects.create(
-                        user=vendor_user,
-                        type='listing_approval',
-                        title='New product listing created',
-                        message=f'An admin created a new listing "{product.headline}" for your vendor account. Please review your listing.',
-                        data={'product_id': str(product.id), 'action_url': '/vendor/listings'}
-                    )
-
-                # Create a confirmation notification for the admin who created it
-                try:
-                    Notification.objects.create(
-                        user=request.user,
-                        type='system',
-                        title='Product created',
-                        message=f'You created the product "{product.headline}" successfully.',
-                        data={'product_id': str(product.id), 'action_url': '/admin/listings'}
-                    )
-                except Exception:
-                    pass
-
-                # Send realtime events to vendor and admin creator
-                try:
-                    channel_layer = get_channel_layer()
-                    if channel_layer and vendor_user:
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{vendor_user.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'id': f'prod_{product.id}',
-                                    'type': 'listing_approval',
-                                    'title': 'New product listing',
-                                    'message': f'An admin created "{product.headline}" for your vendor account',
-                                    'is_read': False,
-                                    'data': {'product_id': str(product.id), 'action_url': '/vendor/listings'},
-                                    'action_url': '/vendor/listings',
-                                    'created_at': product.created_at.isoformat(),
-                                    'priority': 'normal'
-                                }
-                            }
-                        )
-
-                    # Notify the creating admin specifically (single user)
-                    try:
-                        if channel_layer:
-                            async_to_sync(channel_layer.group_send)(
-                                f'realtime_{request.user.id}',
-                                {
-                                    'type': 'order_notification',
-                                    'data': {
-                                        'id': f'prod_admin_{product.id}',
-                                        'type': 'system',
-                                        'title': 'Product created',
-                                        'message': f'You created the product "{product.headline}" successfully',
-                                        'is_read': False,
-                                        'data': {'product_id': str(product.id), 'action_url': '/admin/listings'},
-                                        'action_url': '/admin/listings',
-                                        'created_at': product.created_at.isoformat(),
-                                        'priority': 'low'
-                                    }
-                                }
-                            )
-                    except Exception:
-                        pass
-                except Exception as e:
-                    logger.error(f"Error sending real-time notifications for product create: {e}")
-            except Exception as e:
-                logger.error(f"Failed to notify vendor/admin about product creation: {e}")
+            # Create a confirmation notification for the admin who created it
+            send_user_notification(
+                user=request.user,
+                notification_type='system',
+                title='Product created',
+                message=f'You created the product "{product.headline}" successfully.',
+                data={
+                    'product_id': str(product.id),
+                    'action_url': '/admin/listings'
+                },
+                priority='low'
+            )
             
             return Response({
                 'success': True,
@@ -1098,7 +1049,7 @@ def buyer_listings(request):
     """Get products for buyer with sophisticated rotating sorting (like Fiverr)"""
     try:
         from orders.models import Order
-        from django.db.models import Sum, Count
+        from django.db.models import Sum
         
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 50))  # Increased page size
@@ -1106,6 +1057,7 @@ def buyer_listings(request):
         crypto = request.GET.get('crypto', '')
         min_price = request.GET.get('min_price', '')
         max_price = request.GET.get('max_price', '')
+        category = request.GET.get('category', '')
         
         # Base queryset - include reserved (out of stock)
         products_qs = Product.objects.filter(
@@ -1116,7 +1068,6 @@ def buyer_listings(request):
 
         # Apply search filter
         if search:
-            from django.db.models import Q
             products_qs = products_qs.filter(
                 Q(listing_title__icontains=search) |
                 Q(description__icontains=search) |
@@ -1130,11 +1081,16 @@ def buyer_listings(request):
 
         # Apply price filters
         if min_price:
-            from decimal import Decimal
             products_qs = products_qs.filter(price__gte=Decimal(min_price))
         if max_price:
-            from decimal import Decimal
             products_qs = products_qs.filter(price__lte=Decimal(max_price))
+
+        # Apply category filter
+        if category:
+            products_qs = products_qs.filter(
+                Q(category__name__icontains=category) | 
+                Q(category__slug__icontains=category)
+            )
 
         # Get unique vendor IDs
         vendor_ids = list(set([p.vendor_id for p in products_qs]))
@@ -1322,6 +1278,15 @@ def buyer_listings(request):
         elif sort_mode == 'random':
             import random
             random.shuffle(products_list)
+
+        elif sort_mode == 'price-low':
+            products_list.sort(key=lambda p: float(p.price))
+
+        elif sort_mode == 'price-high':
+            products_list.sort(key=lambda p: -float(p.price))
+
+        elif sort_mode == 'popular':
+            products_list.sort(key=lambda p: -(p.review_count or 0))
 
         # Pagination
         total_count = len(products_list)
@@ -1559,27 +1524,70 @@ def bulk_upload_csv(request):
                         else:
                             row[header] = ''
                 
+                # Robustly get values from row
+                def get_val(row, *keys):
+                    for k in keys:
+                        # Direct match
+                        if k in row: return (row[k] or '').strip()
+                        # Normalize key for comparison
+                        nk = k.lower().replace('_', '').replace(' ', '')
+                        for rk in row.keys():
+                            nrk = str(rk).lower().replace('\ufeff', '').replace('_', '').replace(' ', '')
+                            if nrk == nk:
+                                return (row[rk] or '').strip()
+                    return ''
+
+                headline = get_val(row, 'headline', 'title', 'listing_title')
+                website = get_val(row, 'website', 'domain')
+                account_type = get_val(row, 'account_type', 'type')
+                access_type = get_val(row, 'access_type', 'access')
+                description = get_val(row, 'description', 'desc')
+                price_val = get_val(row, 'price', 'cost')
+                additional_info = get_val(row, 'additional_info', 'extra_info')
+                delivery_time = get_val(row, 'delivery_time', 'delivery')
+                credentials = get_val(row, 'credentials', 'creds', 'login')
+                account_balance = get_val(row, 'account_balance', 'balance')
+                
                 # Handle credentials field - replace \n with actual newlines
-                credentials = (row.get('credentials') or '').strip()
                 if credentials:
                     credentials = credentials.replace('\\n', '\n')
                 
-                # Handle account balance
-                account_balance = (row.get('account_balance') or '').strip()
-                
-                # Map CSV columns to product fields
+                # Quantity available
+                qty_val = get_val(row, 'account_quantity', 'quantity', 'quantity_available')
+                try:
+                    quantity_available = int(qty_val) if qty_val else 1
+                except ValueError:
+                    quantity_available = 1
+
+                # Escrow enabled
+                escrow_val = get_val(row, 'escrow_enabled', 'escrow').lower()
+                escrow_enabled = escrow_val in ['true', '1', 'yes', 'on']
+
+                # Validation: if vendor is blocked from non-escrow listings
+                if request.user.non_escrow_blocked and not escrow_enabled:
+                    errors.append(f"Row {row_num}: You can only upload escrow accounts. Please enable escrow for this product.")
+                    continue
+
+                # Default delivery_time if empty
+                if not delivery_time:
+                    delivery_time = 'instant_auto'
+
+                # Map to product fields
                 product_data = {
-                    'headline': (row.get('headline') or '').strip(),
-                    'website': (row.get('website') or '').strip(),
-                    'account_type': (row.get('account_type') or 'other').strip(),
-                    'access_type': (row.get('access_type') or 'full_ownership').strip(),
-                    'description': (row.get('description') or '').strip(),
-                    'price': smart_parse_price(row.get('price') or '0'),
-                    'additional_info': (row.get('additional_info') or '').strip(),
-                    'delivery_time': (row.get('delivery_time') or 'instant_auto').strip(),
+                    'headline': headline,
+                    'website': website,
+                    'account_type': account_type or 'other',
+                    'access_type': access_type or 'full_ownership',
+                    'description': description,
+                    'price': smart_parse_price(price_val or '0'),
+                    'additional_info': additional_info,
+                    'delivery_time': delivery_time,
                     'credentials': credentials,
                     'account_balance': account_balance,
+                    'quantity_available': quantity_available,
+                    'escrow_enabled': escrow_enabled,
                     'vendor': request.user.id,
+                    'accepted_crypto': ['BTC', 'XMR']
                 }
                 
                 # Set default category
@@ -1662,6 +1670,15 @@ def bulk_upload_simple(request):
                 # Add vendor ID to product data
                 product_data['vendor'] = request.user.id
                 
+                # Handle escrow block
+                escrow_enabled = product_data.get('escrow_enabled', False)
+                if isinstance(escrow_enabled, str):
+                    escrow_enabled = escrow_enabled.lower() in ['true', '1', 'yes', 'on']
+                
+                if request.user.non_escrow_blocked and not escrow_enabled:
+                    errors.append(f"Product '{product_data.get('headline')}': You can only upload escrow accounts. Please enable escrow for this product.")
+                    continue
+
                 # Default accepted crypto
                 product_data['accepted_crypto'] = ['BTC', 'XMR']
                 
@@ -1671,7 +1688,7 @@ def bulk_upload_simple(request):
                     serializer.save()
                     products_created += 1
                 else:
-                    errors.append(f"Product validation failed: {serializer.errors}")
+                    errors.append(f"Product '{product_data.get('headline')}': validation failed: {serializer.errors}")
                     
             except Exception as e:
                 errors.append(f"Error creating product: {str(e)}")
@@ -1724,6 +1741,15 @@ def parse_text_format(text_data):
                 # Handle credentials field (6th field if present)
                 credentials = parts[5] if len(parts) > 5 and parts[5].strip() else 'Credentials will be provided after purchase'
                 
+                # Handle optional fields: quantity and escrow
+                quantity = 1
+                if len(parts) > 6 and parts[6].strip().isdigit():
+                    quantity = int(parts[6].strip())
+                
+                escrow = False
+                if len(parts) > 7:
+                    escrow = parts[7].strip().lower() in ['true', '1', 'yes', 'on']
+                
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
@@ -1731,6 +1757,8 @@ def parse_text_format(text_data):
                     'price': smart_parse_price(parts[3]),
                     'description': parts[4],
                     'credentials': credentials,
+                    'quantity_available': quantity,
+                    'escrow_enabled': escrow,
                     'access_type': 'full_ownership',
                     'delivery_time': 'instant_auto',
                     'additional_info': '',
@@ -1748,6 +1776,15 @@ def parse_text_format(text_data):
                 # Handle credentials field (6th field if present)
                 credentials = parts[5] if len(parts) > 5 and parts[5].strip() else 'Credentials will be provided after purchase'
                 
+                # Handle optional fields: quantity and escrow
+                quantity = 1
+                if len(parts) > 6 and parts[6].strip().isdigit():
+                    quantity = int(parts[6].strip())
+                
+                escrow = False
+                if len(parts) > 7:
+                    escrow = parts[7].strip().lower() in ['true', '1', 'yes', 'on']
+
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
@@ -1755,6 +1792,8 @@ def parse_text_format(text_data):
                     'price': smart_parse_price(parts[3]),
                     'description': parts[4],
                     'credentials': credentials,
+                    'quantity_available': quantity,
+                    'escrow_enabled': escrow,
                     'access_type': 'full_ownership',
                     'delivery_time': 'instant_auto',
                     'additional_info': '',
@@ -1818,11 +1857,11 @@ def get_bulk_upload_template(request):
         template = {
             'headers': [
                 'headline', 'website', 'account_type', 'access_type', 
-                'description', 'price', 'credentials', 'delivery_time', 'additional_info', 'account_balance'
+                'description', 'price', 'credentials', 'delivery_time', 'account_quantity', 'escrow_enabled', 'additional_info', 'account_balance'
             ],
             'sample_data': [
                 'Sample Product', 'example.com', 'social', 'full_ownership',
-                'Sample description', '10.00', '{"username":"sample_user","password":"sample_pass"}', 'instant_auto', 'Additional info', '100.00'
+                'Sample description', '10.00', '{"username":"sample_user","password":"sample_pass"}', 'instant_auto', '5', 'true', 'Additional info', '100.00'
             ]
         }
         
@@ -2062,38 +2101,23 @@ def create_review(request, product_id):
         except Exception:
             pass
 
-        # Notify vendor (DB notification)
+        # Notify vendor
         try:
-            Notification.objects.create(
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=product.vendor,
-                type='system',
+                notification_type='review',
                 title='New product review',
                 message=f"{getattr(request.user,'username','Buyer')} reviewed {product.headline}",
-                data={'product_id': product.id, 'rating': rating}
-            )
-        except Exception as _:
-            pass
-
-        # Realtime notify vendor via channel layer
-        try:
-            from asgiref.sync import async_to_sync
-            from channels.layers import get_channel_layer
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                f'realtime_{product.vendor.id}',
-                {
-                    'type': 'new_review',
-                    'data': {
-                        'product_id': product.id,
-                        'product_title': product.headline,
-                        'rating': rating,
-                        'comment': comment,
-                        'buyer_username': getattr(request.user,'username','Buyer')
-                    }
+                data={
+                    'product_id': str(product.id),
+                    'rating': rating,
+                    'comment': comment,
+                    'buyer_username': getattr(request.user, 'username', 'Buyer')
                 }
             )
-        except Exception as _:
-            pass
+        except Exception as e:
+            logger.error(f"Error notifying vendor about review: {e}")
 
         # Notify admin about review submission
         try:
@@ -2238,9 +2262,10 @@ def reply_to_review(request, review_id):
         notification_title = 'Vendor replied to your review response' if is_chain_reply else 'Vendor replied to your review'
         notification_message = f'Vendor replied to your review conversation for "{review.product.headline}"' if is_chain_reply else f'Vendor replied to your review for "{review.product.headline}"'
         
-        Notification.objects.create(
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=review.user,
-            type='message',
+            notification_type='review',
             title=notification_title,
             message=notification_message,
             data={
@@ -2318,9 +2343,10 @@ def buyer_reply_to_vendor(request, review_id):
         notification_title = 'Buyer replied to your review response' if is_chain_reply else 'Buyer replied to your review'
         notification_message = f'Buyer replied to your review conversation for "{review.product.headline}"' if is_chain_reply else f'Buyer replied to your response on review for "{review.product.headline}"'
         
-        Notification.objects.create(
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=review.product.vendor,
-            type='message',
+            notification_type='review',
             title=notification_title,
             message=notification_message,
             data={

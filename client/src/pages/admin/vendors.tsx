@@ -42,7 +42,7 @@ interface VendorApplication {
   updated_at: string;
   non_escrow_blocked?: boolean; // Admin can block vendor from creating non-escrow listings
   vendor_user_id?: string | null;
-  
+
   // Enhanced fields
   sub_category?: string;
   business_type?: string;
@@ -69,7 +69,7 @@ export default function AdminVendors() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  
+
   // Modal State
   const [selectedApplication, setSelectedApplication] = useState<VendorApplication | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,16 +86,16 @@ export default function AdminVendors() {
   const [loadingBuyers, setLoadingBuyers] = useState(false);
   const [selectedBuyers, setSelectedBuyers] = useState<string[]>([]);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Image Viewer Modal State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
-  
+
   // Selection state for bulk operations
   const [selectedApplications, setSelectedApplications] = useState<number[]>([]);
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
-  
+
   // Confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmDialogVendor, setConfirmDialogVendor] = useState<VendorApplication | null>(null);
@@ -154,7 +154,7 @@ export default function AdminVendors() {
       setLoading(true);
       const apiUrl = getApiUrl('/vendors/applications/');
       console.log('🔍 Fetching applications from:', apiUrl);
-      
+
       // Get authentication token
       const token = authService.getToken();
       if (!token) {
@@ -166,7 +166,7 @@ export default function AdminVendors() {
         });
         return;
       }
-      
+
       const response = await fetch(apiUrl, {
         headers: {
           'Content-Type': 'application/json',
@@ -175,15 +175,15 @@ export default function AdminVendors() {
       });
       console.log('🔍 Response status:', response.status);
       console.log('🔍 Response ok:', response.ok);
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('🔍 Raw API response:', data);
-        
+
         // Extract data from results array
         const applicationsData = data.results || data;
         console.log('🔍 Extracted applications data:', applicationsData);
-        
+
         setApplications(Array.isArray(applicationsData) ? applicationsData : []);
         console.log('🔍 Final applications state:', applicationsData);
       } else if (response.status === 401) {
@@ -228,7 +228,7 @@ export default function AdminVendors() {
 
   const handleConfirmAction = async () => {
     if (!confirmApplication || !confirmAction) return;
-    
+
     try {
       // Get authentication token
       const token = authService.getToken();
@@ -241,11 +241,11 @@ export default function AdminVendors() {
         });
         return;
       }
-      
+
       const endpoint = confirmAction === 'approve' ? 'approve' : 'reject';
       const response = await fetch(getApiUrl(`/vendors/applications/${confirmApplication.id}/${endpoint}/`), {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -258,17 +258,17 @@ export default function AdminVendors() {
           title: `Application ${confirmAction === 'approve' ? 'Approved' : 'Rejected'}`,
           description: `Vendor application "${confirmApplication.business_name}" has been ${confirmAction === 'approve' ? 'approved' : 'rejected'} successfully`,
         });
-        
+
         // Close confirmation modal
         setIsConfirmModalOpen(false);
         setConfirmAction(null);
         setConfirmApplication(null);
-        
+
         // Close review modal if open
         if (isModalOpen) {
           closeModal();
         }
-        
+
         // Refresh applications list
         fetchApplications();
       } else if (response.status === 401) {
@@ -353,7 +353,7 @@ export default function AdminVendors() {
       // Determine vendor user ID. Prefer API-provided ID to avoid search issues.
       let vendorUserId = vendor.vendor_user_id;
       let vendorUserRecord = null;
-      
+
       if (!vendorUserId) {
         // Try search endpoint
         const searchResponse = await fetch(`${API_BASE_URL}/users/?search=${vendor.vendor_username}&user_type=vendor`, {
@@ -404,7 +404,7 @@ export default function AdminVendors() {
       // Toggle non_escrow_blocked - use current vendor state from the list
       const currentBlockedStatus = vendor.non_escrow_blocked || false;
       const newValue = !currentBlockedStatus;
-      
+
       console.log('Blocking vendor:', {
         vendor_username: vendor.vendor_username,
         user_id: vendorUserId,
@@ -435,18 +435,18 @@ export default function AdminVendors() {
 
       // Refresh applications to get updated state from backend
       await fetchApplications();
-      
+
       // Also update local state immediately for better UX
-      setApplications(prev => prev.map(app => 
-        app.id === vendor.id 
+      setApplications(prev => prev.map(app =>
+        app.id === vendor.id
           ? { ...app, non_escrow_blocked: newValue, vendor_user_id: vendorUserId }
           : app
       ));
 
       toast({
         title: "Success",
-        description: newValue 
-          ? "Vendor is now blocked from creating non-escrow listings" 
+        description: newValue
+          ? "Vendor is now blocked from creating non-escrow listings"
           : "Vendor can now create non-escrow listings",
       });
     } catch (error: any) {
@@ -486,7 +486,7 @@ export default function AdminVendors() {
       }
 
       // Using API_BASE_URL from config
-      
+
       // Send single request with all usernames
       const response = await fetch(`${API_BASE_URL}/vendors/invite/`, {
         method: 'POST',
@@ -529,7 +529,7 @@ export default function AdminVendors() {
   // Bulk selection functions
   const handleSelectAll = () => {
     const pendingApplications = applications?.filter(app => app.status === "pending") || [];
-    
+
     if (isSelectAll) {
       // Deselect all
       setSelectedApplications([]);
@@ -549,7 +549,7 @@ export default function AdminVendors() {
     } else {
       const newSelected = [...selectedApplications, applicationId];
       setSelectedApplications(newSelected);
-      
+
       // Check if all pending applications are now selected
       const pendingApplications = applications?.filter(app => app.status === "pending") || [];
       setIsSelectAll(newSelected.length === pendingApplications.length);
@@ -558,10 +558,10 @@ export default function AdminVendors() {
 
   const handleApproveAllSelected = async () => {
     if (selectedApplications.length === 0) return;
-    
+
     try {
       setIsApprovingAll(true);
-      
+
       // Get authentication token
       const token = authService.getToken();
       if (!token) {
@@ -578,7 +578,7 @@ export default function AdminVendors() {
       const approvePromises = selectedApplications.map(async (applicationId) => {
         const response = await fetch(getApiUrl(`/vendors/applications/${applicationId}/approve/`), {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
@@ -626,7 +626,7 @@ export default function AdminVendors() {
 
   const handleApproveFromModal = async () => {
     if (!selectedApplication) return;
-    
+
     try {
       // Get authentication token
       const token = authService.getToken();
@@ -639,10 +639,10 @@ export default function AdminVendors() {
         });
         return;
       }
-      
+
       const response = await fetch(getApiUrl(`/vendors/applications/${selectedApplication.id}/approve/`), {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -676,7 +676,7 @@ export default function AdminVendors() {
 
   const handleRejectFromModal = async () => {
     if (!selectedApplication) return;
-    
+
     try {
       // Get authentication token
       const token = authService.getToken();
@@ -689,10 +689,10 @@ export default function AdminVendors() {
         });
         return;
       }
-      
+
       const response = await fetch(getApiUrl(`/vendors/applications/${selectedApplication.id}/reject/`), {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -756,7 +756,7 @@ export default function AdminVendors() {
             <h1 className="text-2xl font-bold text-white">Vendor Management</h1>
             <p className="text-gray-300 mt-1">Manage vendor applications and shop settings</p>
           </div>
-          <Button 
+          <Button
             className="bg-accent text-bg hover:bg-accent-2 cursor-pointer"
             onClick={() => {
               setInviteUsername("");
@@ -782,7 +782,7 @@ export default function AdminVendors() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="crypto-card">
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -794,7 +794,7 @@ export default function AdminVendors() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="crypto-card">
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -806,7 +806,7 @@ export default function AdminVendors() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="crypto-card">
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -841,16 +841,16 @@ export default function AdminVendors() {
                   <div className="flex-1">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input 
-                        placeholder="Search vendors by shop name..." 
-                        className="pl-10 bg-surface-2 border-border text-white"
+                      <Input
+                        placeholder="Search vendors by shop name..."
+                        className="pl-10 border-border text-white"
                         data-testid="search-vendors"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
                   </div>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  {/* <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
@@ -866,7 +866,7 @@ export default function AdminVendors() {
                       <SelectItem value="Business Tools">Business Tools</SelectItem>
                       <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
-                  </Select>
+                  </Select> */}
                 </div>
               </CardContent>
             </Card>
@@ -892,22 +892,22 @@ export default function AdminVendors() {
                     <tbody className="divide-y divide-border">
                       {applications?.filter(app => {
                         if (app.status !== "approved") return false;
-                        
+
                         // Apply search filter
                         if (searchTerm && searchTerm.trim().length > 0) {
                           const searchLower = searchTerm.toLowerCase();
                           if (!app.business_name?.toLowerCase().includes(searchLower) &&
-                              !app.vendor_username?.toLowerCase().includes(searchLower) &&
-                              !app.category?.toLowerCase().includes(searchLower)) {
+                            !app.vendor_username?.toLowerCase().includes(searchLower) &&
+                            !app.category?.toLowerCase().includes(searchLower)) {
                             return false;
                           }
                         }
-                        
+
                         // Apply category filter
                         if (categoryFilter !== "all" && app.category !== categoryFilter) {
                           return false;
                         }
-                        
+
                         return true;
                       }).map((vendor) => (
                         <tr key={vendor.id} className="hover:bg-surface-2/50" data-testid={`approved-vendor-${vendor.id}`}>
@@ -932,19 +932,19 @@ export default function AdminVendors() {
                           <td className="p-4 text-gray-300">{vendor.business_type_display || 'Not specified'}</td>
                           <td className="p-4">
                             <div className="flex items-center space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="border-border text-gray-300 whitespace-nowrap" 
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-border text-gray-300 whitespace-nowrap"
                                 data-testid={`view-approved-vendor-${vendor.id}`}
                                 onClick={() => handleReview(vendor)}
                               >
                                 <Eye className="w-4 h-4 mr-1" />
                                 View Details
                               </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 className={`border-border whitespace-nowrap ${vendor.non_escrow_blocked ? 'text-red-400 border-red-500' : 'text-gray-300'}`}
                                 onClick={() => handleToggleNonEscrowBlock(vendor)}
                                 title={vendor.non_escrow_blocked ? 'Unblock non-escrow listings' : 'Block non-escrow listings'}
@@ -956,7 +956,7 @@ export default function AdminVendors() {
                           </td>
                         </tr>
                       ))}
-                      
+
                       {applications?.filter(app => app.status === "approved").length === 0 && (
                         <tr>
                           <td colSpan={6} className="text-center py-12">
@@ -1014,25 +1014,25 @@ export default function AdminVendors() {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                      {applications?.filter(app => {
-                        if (app.status !== "pending") return false;
-                        
-                        // Apply search filter
-                        if (searchTerm && searchTerm.trim().length > 0) {
-                          const searchLower = searchTerm.toLowerCase();
-                          if (!app.business_name?.toLowerCase().includes(searchLower) &&
-                              !app.vendor_username?.toLowerCase().includes(searchLower)) {
-                            return false;
-                          }
-                        }
-                        
-                        // Apply category filter
-                        if (categoryFilter !== "all" && app.category !== categoryFilter) {
-                          return false;
-                        }
-                        
-                        return true;
-                      }).map((application) => (
+                  {applications?.filter(app => {
+                    if (app.status !== "pending") return false;
+
+                    // Apply search filter
+                    if (searchTerm && searchTerm.trim().length > 0) {
+                      const searchLower = searchTerm.toLowerCase();
+                      if (!app.business_name?.toLowerCase().includes(searchLower) &&
+                        !app.vendor_username?.toLowerCase().includes(searchLower)) {
+                        return false;
+                      }
+                    }
+
+                    // Apply category filter
+                    if (categoryFilter !== "all" && app.category !== categoryFilter) {
+                      return false;
+                    }
+
+                    return true;
+                  }).map((application) => (
                     <div key={application.id} className="border border-border rounded-lg p-6 bg-gray-800/50" data-testid={`pending-vendor-${application.id}`}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3 mb-4">
@@ -1053,19 +1053,19 @@ export default function AdminVendors() {
                                 <p className="text-sm text-gray-400">Applied {application.created_at_formatted}</p>
                               </div>
                             </div>
-                            
+
                             {/* Basic Details Section */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <p className="text-sm text-gray-400">Category</p>
-                              <p className="text-white font-medium">{application.category_display}</p>
+                              <div>
+                                <p className="text-sm text-gray-400">Category</p>
+                                <p className="text-white font-medium">{application.category_display}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-400">Commission Rate</p>
+                                <p className="text-white font-medium">5%</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm text-gray-400">Commission Rate</p>
-                              <p className="text-white font-medium">5%</p>
-                            </div>
-                          </div>
-                          
+
                             {/* Business Description */}
                             <div>
                               <p className="text-sm text-gray-400">Business Description</p>
@@ -1075,29 +1075,29 @@ export default function AdminVendors() {
                             </div>
                           </div>
                         </div>
-                        
+
                         {/* Action Buttons */}
                         <div className="flex flex-col space-y-2 ml-6">
-                          <Button 
-                            className="bg-transparent hover:bg-green-500 text-white text-sm px-4 py-2" 
+                          <Button
+                            className="bg-transparent hover:bg-green-500 text-white text-sm px-4 py-2"
                             data-testid={`approve-vendor-${application.id}`}
                             onClick={() => handleApprove(application.id)}
                           >
                             <Check className="w-4 h-4 mr-2" />
                             Approve
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            className="hover:bg-red-500 hover:text-white text-sm px-4 py-2" 
+                          <Button
+                            variant="outline"
+                            className="hover:bg-red-500 hover:text-white text-sm px-4 py-2"
                             data-testid={`reject-vendor-${application.id}`}
                             onClick={() => handleReject(application.id)}
                           >
                             <X className="w-4 h-4 mr-2" />
                             Reject
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            className="border-gray-600 text-gray-100 hover:bg-gray-700 text-sm px-4 py-2" 
+                          <Button
+                            variant="outline"
+                            className="border-gray-600 text-gray-100 hover:bg-gray-700 text-sm px-4 py-2"
                             data-testid={`review-vendor-${application.id}`}
                             onClick={() => handleReview(application)}
                           >
@@ -1107,7 +1107,7 @@ export default function AdminVendors() {
                       </div>
                     </div>
                   ))}
-                  
+
                   {applications?.filter(app => app.status === "pending").length === 0 && (
                     <div className="text-center py-12">
                       <Store className="w-12 h-12 text-gray-500 mx-auto mb-4" />
@@ -1127,8 +1127,8 @@ export default function AdminVendors() {
                   <div className="flex-1">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input 
-                        placeholder="Search vendors by shop name..." 
+                      <Input
+                        placeholder="Search vendors by shop name..."
                         className="pl-10 bg-surface-2 border-border text-white"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -1175,22 +1175,22 @@ export default function AdminVendors() {
                     <tbody className="divide-y divide-border">
                       {applications?.filter(app => {
                         if (app.status !== "rejected") return false;
-                        
+
                         // Apply search filter
                         if (searchTerm && searchTerm.trim().length > 0) {
                           const searchLower = searchTerm.toLowerCase();
                           if (!app.business_name?.toLowerCase().includes(searchLower) &&
-                              !app.vendor_username?.toLowerCase().includes(searchLower) &&
-                              !app.category?.toLowerCase().includes(searchLower)) {
+                            !app.vendor_username?.toLowerCase().includes(searchLower) &&
+                            !app.category?.toLowerCase().includes(searchLower)) {
                             return false;
                           }
                         }
-                        
+
                         // Apply category filter
                         if (categoryFilter !== "all" && app.category !== categoryFilter) {
                           return false;
                         }
-                        
+
                         return true;
                       }).map((vendor) => (
                         <tr key={vendor.id} className="hover:bg-surface-2/50" data-testid={`rejected-vendor-${vendor.id}`}>
@@ -1215,20 +1215,20 @@ export default function AdminVendors() {
                           <td className="p-4 text-gray-300">{vendor.reviewed_at_formatted || 'Not specified'}</td>
                           <td className="p-4">
                             <div className="flex items-center space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="border-border text-gray-300" 
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-border text-gray-300"
                                 data-testid={`view-rejected-vendor-${vendor.id}`}
                                 onClick={() => handleReview(vendor)}
                               >
                                 <Eye className="w-4 h-4 mr-1" />
                                 View Details
                               </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white" 
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                                 data-testid={`reconsider-rejected-vendor-${vendor.id}`}
                               >
                                 <Check className="w-4 h-4 mr-1" />
@@ -1238,7 +1238,7 @@ export default function AdminVendors() {
                           </td>
                         </tr>
                       ))}
-                      
+
                       {applications?.filter(app => app.status === "rejected").length === 0 && (
                         <tr>
                           <td colSpan={6} className="text-center py-12">
@@ -1278,17 +1278,17 @@ export default function AdminVendors() {
                 {/* Basic Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Basic Information</h3>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Business Name</Label>
                     <p className="text-white font-medium mt-2">{selectedApplication.business_name}</p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Vendor Username</Label>
                     <p className="text-white mt-2">@{selectedApplication.vendor_username}</p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Email Address</Label>
                     <p className="text-white flex items-center mt-2">
@@ -1296,7 +1296,7 @@ export default function AdminVendors() {
                       {selectedApplication.email}
                     </p>
                   </div>
-                  
+
                   {selectedApplication.phone && (
                     <div>
                       <Label className="text-sm font-medium text-gray-400">Phone Number</Label>
@@ -1306,7 +1306,7 @@ export default function AdminVendors() {
                       </p>
                     </div>
                   )}
-                  
+
                   {selectedApplication.website && (
                     <div>
                       <Label className="text-sm font-medium text-gray-400">Website</Label>
@@ -1316,7 +1316,7 @@ export default function AdminVendors() {
                       </p>
                     </div>
                   )}
-                  
+
                   {selectedApplication.social_media && (
                     <div>
                       <Label className="text-sm font-medium text-gray-400">Social Media</Label>
@@ -1331,7 +1331,7 @@ export default function AdminVendors() {
                 {/* Store Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Store Information</h3>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Category</Label>
                     <div className="mt-2">
@@ -1350,21 +1350,21 @@ export default function AdminVendors() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Business Type</Label>
                     <p className="text-white mt-2">
                       {selectedApplication.business_type_display || 'Not specified'}
                     </p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Years in Business</Label>
                     <p className="text-white mt-2">
                       {selectedApplication.years_in_business_display || 'Not specified'}
                     </p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Application Date</Label>
                     <p className="text-white flex items-center mt-2">
@@ -1372,7 +1372,7 @@ export default function AdminVendors() {
                       {selectedApplication.created_at_formatted}
                     </p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm font-medium text-gray-400">Status</Label>
                     <div className="mt-2">
@@ -1388,7 +1388,7 @@ export default function AdminVendors() {
               {(selectedApplication.target_market || selectedApplication.business_plan) && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Strategy</h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {selectedApplication.target_market && (
                       <div>
@@ -1400,7 +1400,7 @@ export default function AdminVendors() {
                         </div>
                       </div>
                     )}
-                    
+
                     {selectedApplication.business_plan && (
                       <div>
                         <Label className="text-sm font-medium text-gray-400">Business Plan</Label>
@@ -1429,7 +1429,7 @@ export default function AdminVendors() {
               {(selectedApplication.btc_address || selectedApplication.xmr_address || selectedApplication.preferred_payment) && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Payment Information</h3>
-                  
+
                   {selectedApplication.preferred_payment && (
                     <div className="mb-4">
                       <Label className="text-sm font-medium text-gray-400">Preferred Payment Method</Label>
@@ -1438,7 +1438,7 @@ export default function AdminVendors() {
                       </Badge>
                     </div>
                   )}
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedApplication.btc_address && (
                       <div>
@@ -1451,7 +1451,7 @@ export default function AdminVendors() {
                         </p>
                       </div>
                     )}
-                    
+
                     {selectedApplication.xmr_address && (
                       <div>
                         <Label className="text-sm font-medium text-gray-400 flex items-center">
@@ -1471,7 +1471,7 @@ export default function AdminVendors() {
               {(selectedApplication.business_address || selectedApplication.business_license || selectedApplication.tax_id || selectedApplication.insurance) && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Details</h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedApplication.business_address && (
                       <div>
@@ -1483,7 +1483,7 @@ export default function AdminVendors() {
                         </div>
                       </div>
                     )}
-                    
+
                     {selectedApplication.business_license && (
                       <div>
                         <Label className="text-sm font-medium text-gray-400">Business License</Label>
@@ -1492,7 +1492,7 @@ export default function AdminVendors() {
                         </p>
                       </div>
                     )}
-                    
+
                     {selectedApplication.tax_id && (
                       <div>
                         <Label className="text-sm font-medium text-gray-400">Tax ID</Label>
@@ -1501,7 +1501,7 @@ export default function AdminVendors() {
                         </p>
                       </div>
                     )}
-                    
+
                     {selectedApplication.insurance && (
                       <div>
                         <Label className="text-sm font-medium text-gray-400">Insurance</Label>
@@ -1518,23 +1518,23 @@ export default function AdminVendors() {
               {(selectedApplication.logo || selectedApplication.images) && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Logo & Images</h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <Label className="text-sm font-medium text-gray-400">Business Logo</Label>
                       {selectedApplication.logo ? (
                         <div className="mt-2">
                           <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.logo)}>
-                            <img 
-                              src={selectedApplication.logo} 
-                              alt="Business Logo" 
+                            <img
+                              src={selectedApplication.logo}
+                              alt="Business Logo"
                               className="w-32 h-32 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                                 e.currentTarget.nextElementSibling.style.display = 'block';
                               }}
                             />
-                            
+
                             {/* Hover Overlay with View Icon */}
                             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
                               <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
@@ -1543,7 +1543,7 @@ export default function AdminVendors() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             <div className="hidden w-32 h-32 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
                               <span className="text-gray-400 text-sm">Logo not available</span>
                             </div>
@@ -1553,7 +1553,7 @@ export default function AdminVendors() {
                         <p className="mt-2 text-sm text-gray-500">Not provided</p>
                       )}
                     </div>
-                    
+
                     <div>
                       <Label className="text-sm font-medium text-gray-400">Additional Images</Label>
                       {selectedApplication.images ? (
@@ -1564,16 +1564,16 @@ export default function AdminVendors() {
                             <div className="grid grid-cols-2 gap-2">
                               {selectedApplication.images.map((image, index) => (
                                 <div key={index} className="relative group cursor-pointer" onClick={() => openImageViewer(image)}>
-                                  <img 
-                                    src={image} 
-                                    alt={`Business Image ${index + 1}`} 
+                                  <img
+                                    src={image}
+                                    alt={`Business Image ${index + 1}`}
                                     className="w-full h-24 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none';
                                       e.currentTarget.nextElementSibling.style.display = 'block';
                                     }}
                                   />
-                                  
+
                                   {/* Hover Overlay with View Icon */}
                                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
                                     <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
@@ -1582,7 +1582,7 @@ export default function AdminVendors() {
                                       </div>
                                     </div>
                                   </div>
-                                  
+
                                   <div className="hidden absolute inset-0 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
                                     <span className="text-gray-400 text-xs">Image not available</span>
                                   </div>
@@ -1592,16 +1592,16 @@ export default function AdminVendors() {
                           ) : (
                             // If it's a single string
                             <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.images)}>
-                              <img 
-                                src={selectedApplication.images} 
-                                alt="Business Image" 
+                              <img
+                                src={selectedApplication.images}
+                                alt="Business Image"
                                 className="w-full h-24 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
                                   e.currentTarget.nextElementSibling.style.display = 'block';
                                 }}
                               />
-                              
+
                               {/* Hover Overlay with View Icon */}
                               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
                                 <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
@@ -1610,7 +1610,7 @@ export default function AdminVendors() {
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <div className="hidden absolute inset-0 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
                                 <span className="text-gray-400 text-xs">Image not available</span>
                               </div>
@@ -1628,7 +1628,7 @@ export default function AdminVendors() {
               {/* Documents */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Documents</h3>
-                
+
                 {selectedApplication.documents ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Handle both array and single string */}
@@ -1711,7 +1711,7 @@ export default function AdminVendors() {
                 >
                   Cancel
                 </Button>
-                
+
                 {/* Only show Approve/Reject buttons for pending applications */}
                 {selectedApplication.status === "pending" && (
                   <>
@@ -1727,7 +1727,7 @@ export default function AdminVendors() {
                       <X className="w-4 h-4 mr-2" />
                       Reject Application
                     </Button>
-                    
+
                     <Button
                       className="bg-green-600 hover:bg-green-700 text-white"
                       onClick={() => {
@@ -1759,7 +1759,7 @@ export default function AdminVendors() {
             >
               <X className="w-8 h-8" />
             </button>
-            
+
             {/* Image Container with Proper Constraints */}
             <div className="max-w-4xl max-h-[80vh] overflow-hidden rounded-lg">
               <img
@@ -1768,14 +1768,14 @@ export default function AdminVendors() {
                 className="w-full h-auto max-h-[80vh] object-contain rounded-lg shadow-2xl bg-transparent"
               />
             </div>
-            
+
             {/* Image Info */}
             <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
               <p className="text-sm">
                 {selectedImage.split('/').pop() || 'Image'}
               </p>
             </div>
-            
+
             {/* Download Button */}
             <Button
               onClick={() => window.open(selectedImage, '_blank')}
@@ -1815,13 +1815,13 @@ export default function AdminVendors() {
                   <p className="text-gray-300 text-sm">Owner: {confirmApplication.vendor_username}</p>
                 </div>
               </div>
-              
+
               <div className="bg-gray-800 rounded-lg p-4 mb-4">
                 <p className="text-gray-300 text-sm leading-relaxed">
                   Are you sure you want to <span className="font-semibold text-white">{confirmAction === 'approve' ? 'approve' : 'reject'}</span> the vendor application for <span className="font-semibold text-blue-400">"{confirmApplication.business_name}"</span>?
                 </p>
               </div>
-              
+
               <div className="p-3 bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-400 mb-2">Application Details:</p>
                 <div className="space-y-1 text-sm">
@@ -1847,8 +1847,8 @@ export default function AdminVendors() {
                 Cancel
               </Button>
               <Button
-                className={confirmAction === 'approve' 
-                  ? "bg-green-600 hover:bg-green-700 text-white" 
+                className={confirmAction === 'approve'
+                  ? "bg-green-600 hover:bg-green-700 text-white"
                   : "bg-red-600 hover:bg-red-700 text-white"
                 }
                 onClick={handleConfirmAction}
@@ -1869,14 +1869,14 @@ export default function AdminVendors() {
           </div>
         </div>
       )}
-      
+
       {/* Invite Vendor Modal */}
       <Dialog open={inviteVendorModalOpen} onOpenChange={setInviteVendorModalOpen}>
         <DialogContent className="bg-gray-900 border-border text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">Invite Vendor</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             <div>
               <Label htmlFor="search-buyers" className="text-gray-300 mb-2 block">
@@ -1963,7 +1963,7 @@ export default function AdminVendors() {
                 </p>
               )}
             </div>
-            
+
             <div>
               <Label htmlFor="invite-message" className="text-gray-300 mb-2 block">
                 Message (Optional)
@@ -1976,14 +1976,14 @@ export default function AdminVendors() {
                 onChange={(e) => setInviteMessage(e.target.value)}
               />
             </div>
-            
+
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
               <p className="text-sm text-blue-300">
                 Selected buyers will receive a real-time notification inviting them to become a vendor. They can click the notification to apply as a vendor.
               </p>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 mt-6">
             <Button
               variant="outline"

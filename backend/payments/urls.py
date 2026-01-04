@@ -18,6 +18,10 @@ from .views import (
     VendorTransactionHistoryView,
     DirectPaymentMonitorView,
     ExchangeRateView,
+    AdminCryptoStatusView,
+    AdminNodeActionView,
+    AdminBulkEscrowActionView,
+    AdminReportDownloadView,
 )
 from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView
 
@@ -50,10 +54,14 @@ urlpatterns = [
     # Admin endpoints
     path('admin/escrows/', AdminEscrowView.as_view(), name='admin_escrows'),
     path('admin/escrows/<int:escrow_id>/', AdminEscrowView.as_view(), name='admin_escrow_action'),
+    path('admin/crypto-status/', AdminCryptoStatusView.as_view(), name='admin_crypto_status'),
     path('admin/analytics/', PaymentAnalyticsView.as_view(), name='payment_analytics'),
     path('admin/payouts/', AdminPayoutView.as_view(), name='admin_payouts'),
     path('admin/payouts/stats/', PayoutStatsView.as_view(), name='payout_stats'),
     path('admin/payouts/create-escrow/', CreateEscrowPayoutView.as_view(), name='create_escrow_payout'),
+    path('admin/node-action/', AdminNodeActionView.as_view(), name='admin_node_action'),
+    path('admin/bulk-escrow-action/', AdminBulkEscrowActionView.as_view(), name='admin_bulk_escrow_action'),
+    path('admin/reports/<str:filename>', AdminReportDownloadView.as_view(), name='admin_report_download'),
 
     # Vendor endpoints
     path('vendor/payouts/', VendorPayoutsView.as_view(), name='vendor_payouts'),

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bell, Star, AlertTriangle, Package, MessageSquare, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { Bell, Star, AlertTriangle, Package, MessageSquare, RefreshCw, CheckCircle, XCircle, Shield } from "lucide-react";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -82,6 +82,8 @@ export default function VendorNotifications() {
         return <XCircle className="w-5 h-5 text-theme-red" />;
       case 'dispute':
         return <AlertTriangle className="w-5 h-5 text-theme-red" />;
+      case 'security':
+        return <Shield className="w-5 h-5 text-red-500" />;
       default:
         return <Bell className="w-5 h-5 text-gray-400" />;
     }
@@ -99,6 +101,8 @@ export default function VendorNotifications() {
         return 'bg-theme-red/10 border-theme-red/20';
       case 'dispute':
         return 'bg-theme-red/10 border-theme-red/20';
+      case 'security':
+        return 'bg-red-500/10 border-red-500/20';
       default:
         return 'bg-gray-500/10 border-gray-500/20';
     }
@@ -131,59 +135,59 @@ export default function VendorNotifications() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="border-gray-700 bg-gray-900">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Total</p>
                 <p className="text-2xl font-bold text-white mt-1">{allNotifications.length}</p>
               </div>
-              <Bell className="w-8 h-8 text-gray-400" />
+              <Bell className="w-8 h-8 text-gray-500/50" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border-gray-700 bg-gray-900 focus-within:border-theme-cyan transition-colors">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden group hover:border-cyan-500/30 transition-colors">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Unread</p>
                 <p className="text-2xl font-bold text-theme-cyan mt-1">{unreadCount}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-theme-cyan" />
+              <AlertTriangle className="w-8 h-8 text-theme-cyan/50 group-hover:text-theme-cyan transition-colors" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border-gray-700 bg-gray-900 focus-within:border-theme-cyan transition-colors">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden group hover:border-cyan-500/30 transition-colors">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Messages</p>
                 <p className="text-2xl font-bold text-theme-cyan mt-1">{messageCount}</p>
               </div>
-              <MessageSquare className="w-8 h-8 text-theme-cyan" />
+              <MessageSquare className="w-8 h-8 text-theme-cyan/50 group-hover:text-theme-cyan transition-colors" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border-gray-700 bg-gray-900 focus-within:border-theme-cyan transition-colors">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden group hover:border-cyan-500/30 transition-colors">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Reviews</p>
                 <p className="text-2xl font-bold text-theme-cyan mt-1">{reviewCount}</p>
               </div>
-              <Star className="w-8 h-8 text-theme-cyan" />
+              <Star className="w-8 h-8 text-theme-cyan/50 group-hover:text-theme-cyan transition-colors" />
             </div>
           </CardContent>
         </Card>
-        <Card className="border-gray-700 bg-gray-900 focus-within:border-theme-red transition-colors">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden group hover:border-red-500/30 transition-colors">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Disputes</p>
                 <p className="text-2xl font-bold text-theme-red mt-1">{disputeCount}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-theme-red" />
+              <AlertTriangle className="w-8 h-8 text-theme-red/50 group-hover:text-theme-red transition-colors" />
             </div>
           </CardContent>
         </Card>
@@ -226,7 +230,7 @@ export default function VendorNotifications() {
               {sortedNotifications.map((notification) => (
                 <Card
                   key={notification.id}
-                  className={`border-gray-700 bg-gray-900 hover:bg-gray-800/50 transition-all cursor-pointer ${getNotificationColor(notification.type)} ${notification.unread ? 'border-l-4' : ''}`}
+                  className={`border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-lg hover:bg-gray-800/60 transition-all cursor-pointer ${getNotificationColor(notification.type)} ${notification.unread ? 'border-l-4 border-l-cyan-500' : ''}`}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <CardContent className="p-6">

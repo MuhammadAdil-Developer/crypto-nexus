@@ -379,7 +379,7 @@ export default function VenderSignIn() {
                     </label>
                     <Link to="/forgot-password">
                       <span className="text-xs transition-colors cursor-pointer" style={{ color: '#f2306d' }}>
-                        Forgot password?
+                        Recover Account (Lost Password?)
                       </span>
                     </Link>
                   </div>
@@ -497,7 +497,7 @@ export default function VenderSignIn() {
         onError={handleCaptchaError}
         siteKey="login-captcha"
         title="Security prompt"
-        instruction="Please click into the open circle to continue."
+        instruction="find and click inside the open circle (the circle with a gap or opening) to verify you are human."
       />
     </div>
   );

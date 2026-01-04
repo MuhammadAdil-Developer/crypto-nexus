@@ -107,26 +107,64 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
     console.warn('BuyerCountsProvider not available, using empty counts');
   }
   const [username, setUsername] = useState<string>("Buyer");
+  const [isVendorApproved, setIsVendorApproved] = useState(false);
+  const [isApplicationPending, setIsApplicationPending] = useState(false);
 
-  // Get current user's username
+  // Get current user's username and vendor status
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    if (user && user.username) {
-      setUsername(user.username);
-    } else {
-      // Fallback: try to get from localStorage directly
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
+    const fetchUserStatus = async () => {
+      const user = authService.getCurrentUser();
+      if (user) {
+        setUsername(user.username);
+
+        // Initial check from local storage
+        if (user.user_type === 'vendor') {
+          setIsVendorApproved(true);
+          return; // Already known as vendor
+        }
+
+        // Deep check from backend to see if status changed
         try {
-          const userData = JSON.parse(userStr);
-          if (userData.username) {
-            setUsername(userData.username);
+          const profileRes = await authService.getProfile();
+          if (profileRes.success && profileRes.data) {
+            const latestUser = profileRes.data;
+            if (latestUser.user_type === 'vendor') {
+              // Update local storage if user type changed
+              const updatedUser = { ...user, user_type: 'vendor' };
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              setIsVendorApproved(true);
+              return;
+            }
+          }
+
+          // Check application status
+          const vendorStatus = await authService.checkVendorStatus();
+          if (vendorStatus.applicationStatus?.toLowerCase() === 'pending') {
+            setIsApplicationPending(true);
           }
         } catch (error) {
-          console.error('Error parsing user data:', error);
+          console.error('Error syncing user status in BuyerSidebar:', error);
+        }
+      } else {
+        // Fallback: try to get from localStorage directly
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const userData = JSON.parse(userStr);
+            if (userData.username) {
+              setUsername(userData.username);
+            }
+            if (userData.user_type === 'vendor') {
+              setIsVendorApproved(true);
+            }
+          } catch (error) {
+            console.error('Error parsing user data:', error);
+          }
         }
       }
-    }
+    };
+
+    fetchUserStatus();
   }, []);
 
   const getCount = (countKey: keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null): number | null => {
@@ -240,7 +278,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
 
       {/* Apply as Vendor Section */}
       <div className="p-2 border-t border-gray-800">
-        <Link to="/vendor/apply">
+        <Link to={isVendorApproved ? "/vendor" : (isApplicationPending ? "/vendor/apply/success" : "/vendor/apply")}>
           <div
             className="relative group flex items-center px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer text-white hover:bg-gray-800/40 hover:text-theme-red"
           >
@@ -248,13 +286,19 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
 
             {expanded ? (
               <div className="ml-3 flex items-center justify-between w-full">
-                <span className="font-medium group-hover:text-theme-red transition-colors">Apply as Vendor</span>
+                <span className="font-medium group-hover:text-theme-red transition-colors">
+                  {isVendorApproved ? "Go to Vendor Panel" : (isApplicationPending ? "Application Pending" : "Apply as Vendor")}
+                </span>
                 <ArrowRight className="w-4 h-4 group-hover:text-theme-red transition-transform group-hover:translate-x-1" />
               </div>
             ) : (
               <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="text-sm font-medium whitespace-nowrap">Apply as Vendor</div>
-                <div className="text-xs text-gray-300 mt-1">Start selling</div>
+                <div className="text-sm font-medium whitespace-nowrap">
+                  {isVendorApproved ? "Go to Vendor Panel" : (isApplicationPending ? "Application Pending" : "Apply as Vendor")}
+                </div>
+                <div className="text-xs text-gray-300 mt-1">
+                  {isVendorApproved ? "Full Dashboard Access" : (isApplicationPending ? "Under Review" : "Start selling today")}
+                </div>
                 <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-800 rotate-45"></div>
               </div>
             )}

@@ -60,80 +60,48 @@ def create_dispute(request):
             )
             
             # Notify vendor
-            Notification.objects.create(
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=dispute.vendor,
-                type='dispute',
+                notification_type='dispute',
                 title='New Dispute Created',
                 message=f"A dispute has been created for your product: {dispute.product.headline}",
                 data={'dispute_id': str(dispute.id), 'order_id': str(dispute.order.id)}
             )
             
-            # Get admin users for WebSocket notifications
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            admins = User.objects.filter(user_type='admin', is_active=True)
-            
-            # Notify all admins using helper function (creates DB notifications + WebSocket)
+            # Notify all admins using helper function (creates DB notifications for all admins + WebSocket)
             try:
-                from shared.admin_notifications import notify_admin_dispute_opened
-                notify_admin_dispute_opened(dispute)
+                from shared.admin_notifications import send_admin_notification
+                send_admin_notification(
+                    notification_type='dispute',
+                    title='New Dispute Requires Attention',
+                    message=f"New dispute created by {request.user.username}: {dispute.title}",
+                    data={'dispute_id': str(dispute.id), 'priority': dispute.priority},
+                    priority='high'
+                )
             except Exception as e:
-                logger.error(f"Failed to notify admin about dispute: {e}")
-                # Fallback to old method
-                for admin in admins:
-                    Notification.objects.create(
-                        user=admin,
-                        type='dispute',
-                        title='New Dispute Requires Attention',
-                        message=f"New dispute created by {request.user.username}: {dispute.title}",
-                        data={'dispute_id': str(dispute.id), 'priority': dispute.priority}
-                    )
+                logger.error(f"Failed to notify admins about dispute: {e}")
             
-            # Send real-time notifications via WebSocket
+            # Trigger count refresh for all relevant users
             channel_layer = get_channel_layer()
             if channel_layer:
-                # Notify vendor via WebSocket
+                # Notify admins via WebSocket for UI updates (count refresh only)
                 try:
-                    async_to_sync(channel_layer.group_send)(
-                        f"realtime_{dispute.vendor.id}",
-                        {
-                            "type": "order_notification",
-                            "data": {
-                                "type": "dispute",
-                                "title": "New Dispute Created",
-                                "message": f"A dispute has been created for your product: {dispute.product.headline}",
-                                "dispute_id": str(dispute.id),
-                                "order_id": str(dispute.order.id),
-                                "is_read": False
-                            }
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to send WebSocket notification to vendor: {e}")
-                
-                # Notify admins via WebSocket using correct group name (realtime_{admin_id})
-                # Note: helper function should already handle this, but we ensure it's sent
-                try:
+                    from users.models import User
+                    admins = User.objects.filter(user_type='admin', is_active=True)
                     for admin in admins:
                         async_to_sync(channel_layer.group_send)(
                             f"realtime_{admin.id}",
                             {
                                 "type": "order_notification",
                                 "data": {
-                                    "type": "dispute",
-                                    "title": "New Dispute Opened",
-                                    "message": f'Dispute "{dispute.title}" opened for Order #{dispute.order.order_id} by {request.user.username}',
-                                    "dispute_id": str(dispute.id),
-                                    "order_id": str(dispute.order.order_id),
-                                    "buyer_username": request.user.username,
-                                    "priority": dispute.priority,
-                                    "is_read": False,
-                                    "action_url": "/admin/disputes"
+                                    "action": "refresh_counts",
+                                    "type": "dispute"
                                 }
                             }
                         )
                 except Exception as e:
-                    logger.error(f"Failed to send WebSocket notification to admins: {e}")
+                    logger.error(f"Failed to send count refresh to admins: {e}")
             
             return Response({
                 'success': True,
@@ -318,53 +286,27 @@ def send_dispute_message(request, dispute_id):
         )
         
         # Notify other parties
+        from shared.admin_notifications import send_user_notification
         if dispute.buyer != request.user:
-            Notification.objects.create(
+            send_user_notification(
                 user=dispute.buyer,
-                type='dispute_message',
+                notification_type='dispute',
                 title='New Message in Dispute',
                 message=f"New message in dispute {dispute.dispute_id}",
                 data={'dispute_id': str(dispute.id)}
             )
         
         if dispute.vendor != request.user:
-            Notification.objects.create(
+            send_user_notification(
                 user=dispute.vendor,
-                type='dispute_message',
+                notification_type='dispute',
                 title='New Message in Dispute',
                 message=f"New message in dispute {dispute.dispute_id}",
                 data={'dispute_id': str(dispute.id)}
             )
         
-        # Send real-time notifications
-        channel_layer = get_channel_layer()
-        
-        # Notify other parties via WebSocket
-        if dispute.buyer != request.user:
-            async_to_sync(channel_layer.group_send)(
-                f"user_{dispute.buyer.id}",
-                {
-                    "type": "dispute_message",
-                    "payload": {
-                        "dispute_id": str(dispute.id),
-                        "sender_username": request.user.username,
-                        "message_preview": message_text[:100]
-                    }
-                }
-            )
-        
-        if dispute.vendor != request.user:
-            async_to_sync(channel_layer.group_send)(
-                f"user_{dispute.vendor.id}",
-                {
-                    "type": "dispute_message",
-                    "payload": {
-                        "dispute_id": str(dispute.id),
-                        "sender_username": request.user.username,
-                        "message_preview": message_text[:100]
-                    }
-                }
-            )
+        # Real-time UI updates (like unread counts) can be sent here if needed
+        # But toast notifications are already handled by send_user_notification above
         
         return Response({
             'success': True,
@@ -672,9 +614,10 @@ def resolve_dispute(request, dispute_id):
             vendor_message += " - Shared responsibility decision."
         
         # Notify parties
-        Notification.objects.create(
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=dispute.buyer,
-            type='dispute_resolved',
+            notification_type='dispute',
             title='Dispute Resolved',
             message=buyer_message,
             data={
@@ -685,16 +628,15 @@ def resolve_dispute(request, dispute_id):
             }
         )
         
-        # Create special notification for vendor if they lost
-        vendor_notification_type = 'dispute_resolved'
+        # Create special notification for vendor
+        vendor_notification_type = 'dispute' # Use 'dispute' as per preference map
         vendor_notification_title = 'Dispute Resolved'
         if winning_party == 'buyer':
-            vendor_notification_type = 'dispute_lost'
             vendor_notification_title = '⚠️ Dispute Lost - Action Required'
         
-        Notification.objects.create(
+        send_user_notification(
             user=dispute.vendor,
-            type=vendor_notification_type,
+            notification_type=vendor_notification_type,
             title=vendor_notification_title,
             message=vendor_message,
             data={
@@ -709,40 +651,8 @@ def resolve_dispute(request, dispute_id):
             }
         )
         
-        # Send real-time notifications
-        channel_layer = get_channel_layer()
-        
-        # Notify buyer via WebSocket
-        async_to_sync(channel_layer.group_send)(
-            f"user_{dispute.buyer.id}",
-            {
-                "type": "dispute_resolved",
-                "payload": {
-                    "dispute_id": str(dispute.id),
-                    "resolution": resolution,
-                    "resolution_notes": resolution_notes,
-                    "resolution_reason": resolution_reason,
-                    "winning_party": winning_party,
-                    "message": buyer_message
-                }
-            }
-        )
-        
-        # Notify vendor via WebSocket
-        async_to_sync(channel_layer.group_send)(
-            f"user_{dispute.vendor.id}",
-            {
-                "type": "dispute_resolved",
-                "payload": {
-                    "dispute_id": str(dispute.id),
-                    "resolution": resolution,
-                    "resolution_notes": resolution_notes,
-                    "resolution_reason": resolution_reason,
-                    "winning_party": winning_party,
-                    "message": vendor_message
-                }
-            }
-        )
+        # Trigger count refresh for all relevant users (already handled by send_user_notification)
+        logger.info(f"Dispute {dispute.id} resolution notifications sent to both parties")
         
         return Response({
             'success': True,

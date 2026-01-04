@@ -33,30 +33,15 @@ export function TermsConditionsModal({ isOpen, onClose }: TermsConditionsModalPr
         </div>
 
         {/* Content - scrollable with high contrast text */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-10 sm:py-8 bg-slate-900">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-10 sm:py-8 bg-slate-900 custom-scrollbar">
           <iframe
             src="/terms.html"
-            className="w-full h-full border-0 rounded bg-slate-800"
+            className="w-full h-full border-0 rounded bg-[#0F172A]"
             title="Terms and Conditions"
             style={{
-              filter: 'brightness(1.2) contrast(1.1)'
+              filter: 'contrast(1.2)'
             }}
           />
-          <style>{`
-            iframe {
-              color: #ffffff !important;
-            }
-            iframe body {
-              color: #e5e7eb !important;
-              background-color: #1e293b !important;
-            }
-            iframe p, iframe li, iframe span, iframe div {
-              color: #e5e7eb !important;
-            }
-            iframe h1, iframe h2, iframe h3, iframe h4, iframe h5, iframe h6 {
-              color: #ffffff !important;
-            }
-          `}</style>
         </div>
 
         {/* Footer with checkbox and button */}
@@ -76,8 +61,8 @@ export function TermsConditionsModal({ isOpen, onClose }: TermsConditionsModalPr
             onClick={handleConfirm}
             disabled={!confirmed}
             className={`w-full sm:w-auto px-8 py-3 rounded-lg font-bold transition-all duration-200 whitespace-nowrap text-base sm:text-lg ${confirmed
-                ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/50 cursor-pointer"
-                : "bg-slate-700 text-slate-400 cursor-not-allowed"
+              ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/50 cursor-pointer"
+              : "bg-slate-700 text-slate-400 cursor-not-allowed"
               }`}
           >
             I Agree

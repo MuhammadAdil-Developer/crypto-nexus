@@ -8,8 +8,8 @@ interface ProtectedRouteProps {
   requiredUserType?: 'buyer' | 'vendor' | 'admin';
 }
 
-export function ProtectedRoute({ 
-  children, 
+export function ProtectedRoute({
+  children,
   requiredUserType
 }: ProtectedRouteProps) {
   const navigate = useNavigate();
@@ -33,27 +33,60 @@ export function ProtectedRoute({
 
         // Check user type permissions
         if (requiredUserType) {
+          // Hierarchical Permissions:
+          // 1. Exact match is always allowed
           if (user.user_type === requiredUserType) {
             setIsAuthorized(true);
-          } else {
-            // Check if this is a vendor trying to access buyer dashboard with switch flag
-            if (requiredUserType === 'buyer' && user.user_type === 'vendor' && localStorage.getItem('switchToBuyer') === 'true') {
-              // Allow vendor to access buyer dashboard temporarily
-              setIsAuthorized(true);
-              localStorage.removeItem('switchToBuyer');
-              return;
-            }
-            
-            // Redirect based on user type
-            if (user.user_type === 'admin') {
-              navigate('/admin/dashboard');
-            } else if (user.user_type === 'vendor') {
-              navigate('/vendor/dashboard');
-            } else {
-              navigate('/buyer/dashboard');
-            }
             return;
           }
+
+          // 2. Vendors are also Buyers (Allow vendor -> buyer)
+          if (requiredUserType === 'buyer' && user.user_type === 'vendor') {
+            setIsAuthorized(true);
+            return;
+          }
+
+          // 3. Admins can see everything (Allow admin -> vendor/buyer)
+          if (user.user_type === 'admin') {
+            setIsAuthorized(true);
+            return;
+          }
+
+          // 4. Special cases (Preview Mode)
+          const searchParams = new URLSearchParams(window.location.search);
+          const hasPreviewParam = searchParams.get('preview') === 'true';
+          const isPreviewPersisted = sessionStorage.getItem('vendorPreviewMode') === 'true';
+
+          if (requiredUserType === 'vendor' && user.user_type === 'buyer') {
+            if (hasPreviewParam) {
+              sessionStorage.setItem('vendorPreviewMode', 'true');
+              setIsAuthorized(true);
+              return;
+            } else if (isPreviewPersisted) {
+              // If they removed it from URL but we have it in session, add it back
+              const newSearch = new URLSearchParams(window.location.search);
+              newSearch.set('preview', 'true');
+              const newUrl = `${window.location.pathname}?${newSearch.toString()}${window.location.hash}`;
+              window.history.replaceState(null, '', newUrl);
+              setIsAuthorized(true);
+              return;
+            }
+          }
+
+          // If we are a vendor but still have preview flags, clear them
+          if (user.user_type === 'vendor') {
+            sessionStorage.removeItem('vendorPreviewMode');
+          }
+
+          // Redirect based on user type
+          if (user.user_type === 'admin') {
+            navigate('/admin/dashboard');
+          } else if (user.user_type === 'vendor') {
+            navigate('/vendor/dashboard');
+          } else {
+            navigate('/buyer/dashboard');
+          }
+          return;
         } else {
           // No specific user type required - allow access
           setIsAuthorized(true);

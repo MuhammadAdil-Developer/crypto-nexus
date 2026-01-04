@@ -14,7 +14,7 @@ import disputeService, { Dispute, DisputeStatistics } from "@/services/disputeSe
 
 export default function AdminDisputes() {
   const { toast } = useToast();
-  
+
   const handleExportReport = () => {
     try {
       // Create CSV content
@@ -29,7 +29,7 @@ export default function AdminDisputes() {
         dispute.created_at || new Date().toISOString(),
         dispute.updated_at || new Date().toISOString()
       ]);
-      
+
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.map(cell => {
@@ -40,7 +40,7 @@ export default function AdminDisputes() {
           return stringCell;
         }).join(','))
       ].join('\n');
-      
+
       // Create and download CSV file (robust handling)
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const filename = `disputes_export_${new Date().toISOString().split('T')[0]}.csv`;
@@ -68,7 +68,7 @@ export default function AdminDisputes() {
         // Delay revoke to ensure download starts in some browsers
         setTimeout(() => window.URL.revokeObjectURL(url), 500);
       }
-      
+
       toast({
         title: "Export Successful",
         description: `Successfully exported ${disputes.length} disputes to CSV`,
@@ -82,7 +82,7 @@ export default function AdminDisputes() {
       });
     }
   };
-  
+
   // State
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [statistics, setStatistics] = useState<DisputeStatistics | null>(null);
@@ -99,13 +99,13 @@ export default function AdminDisputes() {
   const [messagePage, setMessagePage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [page, setPage] = useState(1);
-  
+
   // Resolution form
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [resolutionType, setResolutionType] = useState('');
@@ -114,12 +114,12 @@ export default function AdminDisputes() {
   const [refundAmount, setRefundAmount] = useState('');
   const [resolving, setResolving] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  
+
   useEffect(() => {
     fetchDisputes();
     fetchStatistics();
   }, [page, statusFilter, priorityFilter]);
-  
+
   const fetchDisputes = async () => {
     try {
       setLoading(true);
@@ -127,17 +127,17 @@ export default function AdminDisputes() {
         page,
         page_size: 20
       };
-      
+
       if (statusFilter !== 'all') {
         params.status = statusFilter;
       }
-      
+
       if (priorityFilter !== 'all') {
         params.priority = priorityFilter;
       }
-      
+
       const response = await disputeService.getDisputes(params);
-      
+
       if (response.success) {
         setDisputes(response.data);
       } else {
@@ -158,11 +158,11 @@ export default function AdminDisputes() {
       setLoading(false);
     }
   };
-  
+
   const fetchStatistics = async () => {
     try {
       const response = await disputeService.getDisputeStatistics();
-      
+
       if (response.success && response.data) {
         setStatistics(response.data);
       }
@@ -170,13 +170,13 @@ export default function AdminDisputes() {
       console.error('Error fetching statistics:', error);
     }
   };
-  
+
   const handleViewDetails = async (dispute: Dispute) => {
     // Open modal immediately with basic data
     setSelectedDispute(dispute);
     setIsDetailModalOpen(true);
     setLoadingDisputeDetail(true);
-    
+
     try {
       // Fetch detailed dispute data
       const response = await disputeService.getDisputeDetail(dispute.id);
@@ -203,14 +203,14 @@ export default function AdminDisputes() {
       setChatSummary('');
       setMessagePage(1);
       setHasMoreMessages(false);
-      
+
       // Get dispute detail which includes dispute-specific messages
       const disputeDetail = await disputeService.getDisputeDetail(dispute.id);
-      
+
       if (disputeDetail.success && disputeDetail.data) {
         // Use dispute messages, not product conversation
         const disputeMessages = disputeDetail.data.messages || [];
-        
+
         if (disputeMessages.length > 0) {
           // Convert dispute messages to message history format
           const formattedMessages = disputeMessages.map((msg: any) => ({
@@ -222,10 +222,10 @@ export default function AdminDisputes() {
             is_internal: msg.is_internal,
             attachments: msg.attachments || []
           }));
-          
+
           setMessageHistory(formattedMessages);
           setHasMoreMessages(false); // Dispute messages don't have pagination
-          
+
           // Generate AI summary
           await generateChatSummary(formattedMessages);
         } else {
@@ -252,10 +252,10 @@ export default function AdminDisputes() {
 
   const loadMoreMessages = async () => {
     if (!selectedDispute || loadingMoreMessages) return;
-    
+
     try {
       setLoadingMoreMessages(true);
-      
+
       let productId = selectedDispute.product || selectedDispute.product_data?.id;
       if (!productId && selectedDispute.order_data?.product) {
         productId = selectedDispute.order_data.product;
@@ -263,9 +263,9 @@ export default function AdminDisputes() {
       if (!productId && selectedDispute.order_data?.product_data?.id) {
         productId = selectedDispute.order_data.product_data.id;
       }
-      
+
       if (!productId) return;
-      
+
       const conversation = await messagingService.getConversationByProduct(productId);
       if (conversation) {
         // Load more messages (you might need to implement pagination in your API)
@@ -288,14 +288,14 @@ export default function AdminDisputes() {
   const generateChatSummary = async (messages: any[]) => {
     try {
       setLoadingSummary(true);
-      
+
       // Prepare conversation for AI analysis
       const conversationText = messages.map(msg => {
         const sender = msg.sender?.username || 'Unknown';
         const timestamp = new Date(msg.created_at).toLocaleString();
         return `${sender} (${timestamp}): ${msg.content}`;
       }).join('\n');
-      
+
       // Call AI summarization service (you can integrate with OpenAI, Claude, etc.)
       const summary = await generateAISummary(conversationText);
       setChatSummary(summary);
@@ -308,143 +308,143 @@ export default function AdminDisputes() {
   };
 
   // Robust AI summary with multiple fallback options
-const generateAISummary = async (conversationText: string): Promise<string> => {
-   // Format the conversation better for AI processing
-   const formattedConversation = conversationText.replace(/\n/g, ' ').trim();
-   
-   // Use the best summarization model with proper prompts
-   const models = [
-     {
-       name: 'google/pegasus-cnn_dailymail',
-       prompt: `Customer Support Dispute Analysis:\n\n${formattedConversation}\n\nProvide a professional summary focusing on the customer's main concerns and issues.`,
-       isSummarization: true
-     },
-     {
-       name: 'google/flan-t5-large',
-       prompt: `Analyze this customer dispute conversation for administrative review:\n\nConversation: ${formattedConversation}\n\nProvide analysis covering:\n- Customer complaints/issues\n- Communication effectiveness\n- Recommended resolution\n\nFormat as a professional dispute summary.`,
-       isSummarization: false
-     },
-     {
-       name: 'facebook/bart-large-cnn',
-       prompt: formattedConversation,
-       isSummarization: true
-     }
-   ];
+  const generateAISummary = async (conversationText: string): Promise<string> => {
+    // Format the conversation better for AI processing
+    const formattedConversation = conversationText.replace(/\n/g, ' ').trim();
 
-   for (const model of models) {
-     try {
-       console.log(`🔍 Trying model: ${model.name}`);
-       
-       const response = await fetch(`https://api-inference.huggingface.co/models/${model.name}`, {
-         method: 'POST',
-         headers: {
-           'Authorization': 'Bearer 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',
-           'Content-Type': 'application/json',
-         },
-         body: JSON.stringify({
-           inputs: model.prompt,
-           parameters: model.isSummarization ? {
-             max_length: 200,
-             min_length: 30,
-             do_sample: false
-           } : {
-             max_new_tokens: 200,
-             temperature: 0.7,
-             top_p: 0.9,
-             do_sample: true
-           },
-           options: {
-             wait_for_model: true // Wait if model is loading
-           }
-         }),
-       });
+    // Use the best summarization model with proper prompts
+    const models = [
+      {
+        name: 'google/pegasus-cnn_dailymail',
+        prompt: `Customer Support Dispute Analysis:\n\n${formattedConversation}\n\nProvide a professional summary focusing on the customer's main concerns and issues.`,
+        isSummarization: true
+      },
+      {
+        name: 'google/flan-t5-large',
+        prompt: `Analyze this customer dispute conversation for administrative review:\n\nConversation: ${formattedConversation}\n\nProvide analysis covering:\n- Customer complaints/issues\n- Communication effectiveness\n- Recommended resolution\n\nFormat as a professional dispute summary.`,
+        isSummarization: false
+      },
+      {
+        name: 'facebook/bart-large-cnn',
+        prompt: formattedConversation,
+        isSummarization: true
+      }
+    ];
 
-       
-       if (!response.ok) {
-         const errorText = await response.text();
-         console.error('API Error:', errorText);
-         throw new Error(`API call failed: ${response.status}`);
-       }
-       
-       const result = await response.json();
-       
-       if (result.error) {
-         throw new Error(result.error);
-       }
-       
-       // Extract the generated text
-       let aiSummary = result[0]?.generated_text || result[0]?.summary_text || 'Unable to generate summary';
-       
-       console.log(`🔍 Raw AI response from ${model.name}:`, aiSummary);
-       
-       // Clean up the response - remove the prompt if it's included in the response
-       if (aiSummary.includes(conversationText.substring(0, 100))) {
-         aiSummary = aiSummary.replace(conversationText.substring(0, 100), '').trim();
-       }
-       
-       // Check if the response is just repeating the conversation or too similar
-       const conversationWords = conversationText.split(' ').slice(0, 20).join(' ');
-       if (aiSummary.includes(conversationWords) || aiSummary === conversationText || aiSummary.length < 50) {
-         throw new Error('Model returned insufficient or repetitive summary');
-       }
-       
-       // Post-process the AI response to ensure it's a proper summary
-       let processedSummary = aiSummary;
-       
-       // If the AI response seems incomplete, enhance it
-       if (processedSummary.length < 100) {
-         // Extract key information from the conversation manually
-         const lines = conversationText.split('\n');
-         const issues = lines.filter(line => 
-           line.toLowerCase().includes('issue') || 
-           line.toLowerCase().includes('problem') || 
-           line.toLowerCase().includes('illegal') || 
-           line.toLowerCase().includes('ban')
-         );
-         
-         if (issues.length > 0) {
-           processedSummary = `${processedSummary}\n\n**Key Issues Identified:**\n${issues.map(issue => `• ${issue.trim()}`).join('\n')}`;
-         }
-       }
-       
-       // Add additional analysis for dispute context
-       const enhancedSummary = model.isSummarization 
-         ? `**📋 AI Summary:** ${processedSummary}\n\n**🎯 Admin Analysis:** This conversation has been analyzed to identify key communication patterns and issues for dispute resolution.`
-         : `**📊 AI Analysis:** ${processedSummary}`;
-       
-       return `**🤖 AI Dispute Analysis (${model.name}):**\n\n${enhancedSummary}\n\n---\n*This analysis was generated using AI to help with dispute resolution decisions.*`;
-     } catch (error) {
-       console.error(`Model ${model.name} failed:`, error);
-       continue; // Try next model
-     }
-   }
-   
-   // If all models fail, use enhanced fallback analysis
-   console.log('🔄 All AI models failed, using enhanced fallback analysis');
-   const lines = conversationText.split('\n');
-   const buyerMessages = lines.filter(line => line.toLowerCase().includes('buyer'));
-   const vendorMessages = lines.filter(line => line.toLowerCase().includes('vendor'));
-   
-   const allMessages = lines.map(line => {
-     const parts = line.split(': ');
-     return parts.length > 1 ? parts.slice(1).join(': ') : '';
-   }).filter(msg => msg.trim());
-   
-   const issues: string[] = [];
-   const negativeWords = ['issue', 'problem', 'broken', 'not working', 'defective', 'wrong', 'bad', 'disappointed', 'illegal', 'ban', 'not', 'big right'];
-   
-   allMessages.forEach(msg => {
-     const lowerMsg = msg.toLowerCase();
-     if (negativeWords.some(word => lowerMsg.includes(word))) {
-       issues.push(`• ${msg.substring(0, 80)}${msg.length > 80 ? '...' : ''}`);
-     }
-   });
-   
-   const uniqueIssues = Array.from(new Set(issues)).slice(0, 5);
-   
-   return `**📊 Dispute Communication Analysis:**\n\n**📈 Statistics:**\n• Total Messages: ${lines.length}\n• Buyer Messages: ${buyerMessages.length}\n• Vendor Messages: ${vendorMessages.length}\n\n**⚠️ Key Issues Identified:**\n${uniqueIssues.length > 0 ? uniqueIssues.join('\n') : '• No specific issues clearly identified in conversation'}\n\n**💬 Communication Pattern:**\n• ${vendorMessages.length === 0 ? '🚨 Vendor has not responded to buyer messages' : '✅ Both parties are actively communicating'}\n• ${buyerMessages.length > vendorMessages.length * 2 ? '📢 Buyer appears more active in conversation' : '⚖️ Balanced communication between parties'}\n\n**🎯 Recommended Resolution:**\nBased on the conversation analysis, ${vendorMessages.length === 0 ? 'consider the vendor\'s lack of response as a key factor in your decision' : 'review the communication patterns and specific issues mentioned to determine fair resolution'}.\n\n---\n*Analysis completed using local processing (AI service unavailable)*`;
- };
-  
+    for (const model of models) {
+      try {
+        console.log(`🔍 Trying model: ${model.name}`);
+
+        const response = await fetch(`https://api-inference.huggingface.co/models/${model.name}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer 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',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: model.prompt,
+            parameters: model.isSummarization ? {
+              max_length: 200,
+              min_length: 30,
+              do_sample: false
+            } : {
+              max_new_tokens: 200,
+              temperature: 0.7,
+              top_p: 0.9,
+              do_sample: true
+            },
+            options: {
+              wait_for_model: true // Wait if model is loading
+            }
+          }),
+        });
+
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error:', errorText);
+          throw new Error(`API call failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        // Extract the generated text
+        let aiSummary = result[0]?.generated_text || result[0]?.summary_text || 'Unable to generate summary';
+
+        console.log(`🔍 Raw AI response from ${model.name}:`, aiSummary);
+
+        // Clean up the response - remove the prompt if it's included in the response
+        if (aiSummary.includes(conversationText.substring(0, 100))) {
+          aiSummary = aiSummary.replace(conversationText.substring(0, 100), '').trim();
+        }
+
+        // Check if the response is just repeating the conversation or too similar
+        const conversationWords = conversationText.split(' ').slice(0, 20).join(' ');
+        if (aiSummary.includes(conversationWords) || aiSummary === conversationText || aiSummary.length < 50) {
+          throw new Error('Model returned insufficient or repetitive summary');
+        }
+
+        // Post-process the AI response to ensure it's a proper summary
+        let processedSummary = aiSummary;
+
+        // If the AI response seems incomplete, enhance it
+        if (processedSummary.length < 100) {
+          // Extract key information from the conversation manually
+          const lines = conversationText.split('\n');
+          const issues = lines.filter(line =>
+            line.toLowerCase().includes('issue') ||
+            line.toLowerCase().includes('problem') ||
+            line.toLowerCase().includes('illegal') ||
+            line.toLowerCase().includes('ban')
+          );
+
+          if (issues.length > 0) {
+            processedSummary = `${processedSummary}\n\n**Key Issues Identified:**\n${issues.map(issue => `• ${issue.trim()}`).join('\n')}`;
+          }
+        }
+
+        // Add additional analysis for dispute context
+        const enhancedSummary = model.isSummarization
+          ? `**📋 AI Summary:** ${processedSummary}\n\n**🎯 Admin Analysis:** This conversation has been analyzed to identify key communication patterns and issues for dispute resolution.`
+          : `**📊 AI Analysis:** ${processedSummary}`;
+
+        return `**🤖 AI Dispute Analysis (${model.name}):**\n\n${enhancedSummary}\n\n---\n*This analysis was generated using AI to help with dispute resolution decisions.*`;
+      } catch (error) {
+        console.error(`Model ${model.name} failed:`, error);
+        continue; // Try next model
+      }
+    }
+
+    // If all models fail, use enhanced fallback analysis
+    console.log('🔄 All AI models failed, using enhanced fallback analysis');
+    const lines = conversationText.split('\n');
+    const buyerMessages = lines.filter(line => line.toLowerCase().includes('buyer'));
+    const vendorMessages = lines.filter(line => line.toLowerCase().includes('vendor'));
+
+    const allMessages = lines.map(line => {
+      const parts = line.split(': ');
+      return parts.length > 1 ? parts.slice(1).join(': ') : '';
+    }).filter(msg => msg.trim());
+
+    const issues: string[] = [];
+    const negativeWords = ['issue', 'problem', 'broken', 'not working', 'defective', 'wrong', 'bad', 'disappointed', 'illegal', 'ban', 'not', 'big right'];
+
+    allMessages.forEach(msg => {
+      const lowerMsg = msg.toLowerCase();
+      if (negativeWords.some(word => lowerMsg.includes(word))) {
+        issues.push(`• ${msg.substring(0, 80)}${msg.length > 80 ? '...' : ''}`);
+      }
+    });
+
+    const uniqueIssues = Array.from(new Set(issues)).slice(0, 5);
+
+    return `**📊 Dispute Communication Analysis:**\n\n**📈 Statistics:**\n• Total Messages: ${lines.length}\n• Buyer Messages: ${buyerMessages.length}\n• Vendor Messages: ${vendorMessages.length}\n\n**⚠️ Key Issues Identified:**\n${uniqueIssues.length > 0 ? uniqueIssues.join('\n') : '• No specific issues clearly identified in conversation'}\n\n**💬 Communication Pattern:**\n• ${vendorMessages.length === 0 ? '🚨 Vendor has not responded to buyer messages' : '✅ Both parties are actively communicating'}\n• ${buyerMessages.length > vendorMessages.length * 2 ? '📢 Buyer appears more active in conversation' : '⚖️ Balanced communication between parties'}\n\n**🎯 Recommended Resolution:**\nBased on the conversation analysis, ${vendorMessages.length === 0 ? 'consider the vendor\'s lack of response as a key factor in your decision' : 'review the communication patterns and specific issues mentioned to determine fair resolution'}.\n\n---\n*Analysis completed using local processing (AI service unavailable)*`;
+  };
+
   const handleResolveDispute = () => {
     // Validate first
     if (!selectedDispute || !resolutionType) {
@@ -455,7 +455,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       });
       return;
     }
-    
+
     if (!resolutionReason.trim()) {
       toast({
         title: "Validation Error",
@@ -464,7 +464,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       });
       return;
     }
-    
+
     if (!winningParty) {
       toast({
         title: "Validation Error",
@@ -473,11 +473,11 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       });
       return;
     }
-    
+
     // Check if buyer wins and refund is needed
     const isBuyerWin = winningParty === 'buyer';
     const needsRefund = isBuyerWin && refundAmount && parseFloat(refundAmount) > 0;
-    
+
     // Show confirmation dialog
     if (needsRefund) {
       setShowConfirmDialog(true);
@@ -486,11 +486,11 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       proceedWithResolution();
     }
   };
-  
+
   const proceedWithResolution = async () => {
     setShowConfirmDialog(false);
     setResolving(true);
-    
+
     try {
       const response = await disputeService.resolveDispute(selectedDispute!.id, {
         resolution: resolutionType,
@@ -499,15 +499,15 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
         winning_party: winningParty,
         refund_amount: refundAmount && refundAmount.trim() && parseFloat(refundAmount) > 0 ? parseFloat(refundAmount) : undefined
       });
-      
+
       if (response.success) {
         toast({
           title: "Dispute Resolved",
-          description: winningParty === 'buyer' && refundAmount 
+          description: winningParty === 'buyer' && refundAmount
             ? `The dispute has been resolved and ${refundAmount} has been refunded to the buyer's wallet.`
             : "The dispute has been resolved successfully",
         });
-        
+
         setIsResolutionModalOpen(false);
         setIsDetailModalOpen(false);
         setSelectedDispute(null);
@@ -516,7 +516,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
         setResolutionReason('');
         setWinningParty('');
         setRefundAmount('');
-        
+
         // Refresh data
         fetchDisputes();
         fetchStatistics();
@@ -538,7 +538,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       setResolving(false);
     }
   };
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
@@ -549,7 +549,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
-  
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent': return 'bg-red-500/20 text-red-400 border-red-500/30';
@@ -559,136 +559,136 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
-  
+
   const disputeCategories = disputeService.getDisputeCategories();
   const disputeResolutions = disputeService.getDisputeResolutions();
 
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Dispute Management</h1>
-            <p className="text-gray-300 mt-1">Resolve conflicts between buyers and vendors</p>
-          </div>
-          <Button 
-            className="bg-accent text-bg hover:bg-accent-2 cursor-pointer w-full md:w-auto"
-            onClick={handleExportReport}
-          >
-            Export Report
-          </Button>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dispute Management</h1>
+          <p className="text-gray-300 mt-1">Resolve conflicts between buyers and vendors</p>
         </div>
+        <Button
+          className="bg-accent text-bg hover:bg-accent-2 cursor-pointer w-full md:w-auto"
+          onClick={handleExportReport}
+        >
+          Export Report
+        </Button>
+      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="crypto-card">
-            <CardContent className="p-6">
-              <div className="flex items-center">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Card className="crypto-card">
+          <CardContent className="p-6">
+            <div className="flex items-center">
               <AlertTriangle className="w-8 h-8 text-red-400 mr-4" />
-                <div>
-                  <p className="text-sm text-gray-400">Open Disputes</p>
+              <div>
+                <p className="text-sm text-gray-400">Open Disputes</p>
                 <p className="text-2xl font-bold text-white">
                   {statistics ? statistics.open_disputes : '...'}
                 </p>
-                </div>
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="crypto-card">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-              <Clock className="w-8 h-8 text-yellow-400 mr-4" />
-                <div>
-                <p className="text-sm text-gray-400">In Progress</p>
-                <p className="text-2xl font-bold text-white">
-                  {statistics ? statistics.in_progress_disputes : '...'}
-                </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="crypto-card">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-              <CheckCircle className="w-8 h-8 text-green-400 mr-4" />
-                <div>
-                <p className="text-sm text-gray-400">Resolved</p>
-                <p className="text-2xl font-bold text-white">
-                  {statistics ? statistics.resolved_disputes : '...'}
-                </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="crypto-card">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-4">
-                  <span className="text-accent font-bold">%</span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Resolution Rate</p>
-                <p className="text-2xl font-bold text-white">
-                  {statistics && statistics.total_disputes > 0 
-                    ? ((statistics.resolved_disputes / statistics.total_disputes) * 100).toFixed(1)
-                    : '0.0'
-                  }%
-                </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="crypto-card mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input 
-                  placeholder="Search by dispute ID, buyer, or vendor..." 
-                    className="pl-10 bg-surface-2 border-border text-white"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-40 bg-surface-2 border-border text-white">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="escalated">Escalated</SelectItem>
-                </SelectContent>
-              </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-full md:w-40 bg-surface-2 border-border text-white">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Disputes List */}
-        <div className="space-y-6">
+        <Card className="crypto-card">
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Clock className="w-8 h-8 text-yellow-400 mr-4" />
+              <div>
+                <p className="text-sm text-gray-400">In Progress</p>
+                <p className="text-2xl font-bold text-white">
+                  {statistics ? statistics.in_progress_disputes : '...'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="crypto-card">
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <CheckCircle className="w-8 h-8 text-green-400 mr-4" />
+              <div>
+                <p className="text-sm text-gray-400">Resolved</p>
+                <p className="text-2xl font-bold text-white">
+                  {statistics ? statistics.resolved_disputes : '...'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="crypto-card">
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center mr-4">
+                <span className="text-accent font-bold">%</span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Resolution Rate</p>
+                <p className="text-2xl font-bold text-white">
+                  {statistics && statistics.total_disputes > 0
+                    ? ((statistics.resolved_disputes / statistics.total_disputes) * 100).toFixed(1)
+                    : '0.0'
+                  }%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card className="crypto-card mb-6">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search by dispute ID, buyer, or vendor..."
+                  className="pl-10 border-border text-white"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-40 bg-surface-2 border-border text-white">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="escalated">Escalated</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-full md:w-40 bg-surface-2 border-border text-white">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Disputes List */}
+      <div className="space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
@@ -720,57 +720,57 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                         {dispute.priority.toUpperCase()} PRIORITY
                       </Badge>
                     </div>
-                    
+
                     <h3 className="text-lg font-semibold text-white mb-2">{dispute.title}</h3>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                       <div className="flex items-center space-x-2">
                         <User className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-400">Buyer</p>
+                        <div>
+                          <p className="text-sm text-gray-400">Buyer</p>
                           <p className="text-white">{dispute.buyer_username}</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Package className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-400">Vendor</p>
+                        <div>
+                          <p className="text-sm text-gray-400">Vendor</p>
                           <p className="text-white">{dispute.vendor_username}</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <DollarSign className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-400">Amount</p>
+                        <div>
+                          <p className="text-sm text-gray-400">Amount</p>
                           <p className="text-white font-mono">{dispute.order_data?.total_amount || 'N/A'} BTC</p>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-4 text-sm text-gray-400">
                       <span>Created {new Date(dispute.created_at).toLocaleDateString()}</span>
                       <span>•</span>
                       <span>Order #{dispute.order}</span>
                       {dispute.assigned_admin_username && (
                         <>
-                      <span>•</span>
+                          <span>•</span>
                           <span>Assigned to {dispute.assigned_admin_username}</span>
                         </>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex flex-col space-y-2 md:ml-6">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="border-border text-gray-300 w-full md:w-auto"
                       onClick={() => handleViewDetails(dispute)}
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="border-border text-gray-300  w-full md:w-auto"
                       onClick={() => handleViewMessageHistory(dispute)}
                     >
@@ -778,7 +778,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                       View Message History
                     </Button>
                     {dispute.status === 'open' && (
-                      <Button 
+                      <Button
                         className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
                         onClick={() => {
                           setSelectedDispute(dispute);
@@ -789,7 +789,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                       </Button>
                     )}
                     {dispute.status === 'in_progress' && (
-                      <Button 
+                      <Button
                         className="bg-green-600 hover:bg-green-700 text-white w-full md:w-auto"
                         onClick={() => {
                           setSelectedDispute(dispute);
@@ -813,7 +813,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
           <DialogHeader>
             <DialogTitle className="text-white">Dispute Details</DialogTitle>
           </DialogHeader>
-          
+
           {loadingDisputeDetail ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -852,7 +852,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h4 className="text-white font-medium mb-2">Parties</h4>
                   <div className="space-y-2 text-sm">
@@ -873,15 +873,15 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                       <span className="text-white">{selectedDispute.order_data?.total_amount || 'N/A'} BTC</span>
                     </div>
                   </div>
-                  </div>
                 </div>
-                
+              </div>
+
               {/* Description */}
               <div>
                 <h4 className="text-white font-medium mb-2">Description</h4>
                 <p className="text-gray-300 bg-gray-800 p-3 rounded-lg">{selectedDispute.description}</p>
               </div>
-              
+
               {/* Resolution Info */}
               {selectedDispute.resolution !== 'pending' && (
                 <div>
@@ -919,14 +919,14 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
           <DialogHeader>
             <DialogTitle className="text-white">Resolve Dispute</DialogTitle>
           </DialogHeader>
-          
+
           {selectedDispute && (
             <div className="space-y-6">
               <div>
                 <h4 className="text-white font-medium mb-2">Dispute: {selectedDispute.title}</h4>
                 <p className="text-gray-400">Order #{selectedDispute.order} • {selectedDispute.buyer_username} vs {selectedDispute.vendor_username}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Resolution Decision *
@@ -944,12 +944,12 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Resolution Reason *
                 </label>
-                <Textarea 
+                <Textarea
                   value={resolutionReason}
                   onChange={(e) => setResolutionReason(e.target.value)}
                   placeholder="Explain the reason for this resolution decision..."
@@ -957,7 +957,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Winning Party *
@@ -973,19 +973,19 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Resolution Notes
                 </label>
-                <Textarea 
+                <Textarea
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
                   placeholder="Add detailed resolution notes..."
                   className="bg-gray-800 border-gray-600 text-white min-h-24"
                 />
               </div>
-              
+
               {(resolutionType === 'refund_full' || resolutionType === 'refund_partial') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1001,7 +1001,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   />
                 </div>
               )}
-              
+
               <div className="flex space-x-3 pt-4">
                 <Button
                   onClick={handleResolveDispute}
@@ -1017,7 +1017,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                     'Resolve Dispute'
                   )}
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   onClick={() => setIsResolutionModalOpen(false)}
@@ -1077,7 +1077,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
             {/* Fix aria-describedby warning by providing description */}
             <p className="sr-only">Conversation history between buyer and vendor for admin review and resolution.</p>
           </DialogHeader>
-          
+
           {selectedDispute && (
             <div className="space-y-6">
               {/* Dispute Info */}
@@ -1141,7 +1141,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                       const vendorId = selectedDispute.vendor;
                       const senderId = message.sender?.id;
                       const senderUsername = message.sender?.username || 'Unknown';
-                      
+
                       console.log('🔍 Admin sender debug:', {
                         senderId,
                         buyerId,
@@ -1150,18 +1150,18 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                         isEqual: senderId === buyerId,
                         isEqualVendor: senderId === vendorId
                       });
-                      
+
                       // Better sender detection - check if sender is in the dispute participants
                       // First try ID comparison
                       let isBuyer = String(senderId) === String(buyerId);
                       let isVendor = String(senderId) === String(vendorId);
-                      
+
                       // If ID comparison fails, try username comparison as fallback
                       if (!isBuyer && !isVendor) {
                         const buyerUsername = selectedDispute.buyer_username?.toLowerCase();
                         const vendorUsername = selectedDispute.vendor_username?.toLowerCase();
                         const senderUsernameLower = senderUsername.toLowerCase();
-                        
+
                         // Check if sender username matches buyer or vendor
                         if (buyerUsername && senderUsernameLower.includes(buyerUsername.replace(/\s+/g, ''))) {
                           isBuyer = true;
@@ -1175,7 +1175,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                           isVendor = true;
                         }
                       }
-                      
+
                       console.log('🔍 Final admin sender detection:', {
                         senderUsername,
                         isBuyer,
@@ -1209,7 +1209,7 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                         </div>
                       );
                     })}
-                    
+
                     {/* Load More Button */}
                     {hasMoreMessages && (
                       <div className="flex justify-center pt-4">
@@ -1256,10 +1256,10 @@ const generateAISummary = async (conversationText: string): Promise<string> => {
                   Close
                 </Button>
               </div>
-        </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
-      </main>
+    </main>
   );
 }

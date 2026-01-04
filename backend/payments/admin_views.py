@@ -193,28 +193,24 @@ class AdminRefundApproveAPIView(APIView):
             except Exception:
                 pass
 
-            # Notify buyer and vendor
-            try:
-                Notification.objects.create(
-                    user=order.buyer,
-                    type='order',
-                    title='Refund Approved',
-                    message=f'Your refund for order {order.order_id} has been approved by admin.',
-                    data={'refund_id': str(refund.id), 'order_id': order.order_id}
-                )
-            except Exception:
-                pass
+            # Notify buyer and vendor via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
+            
+            send_user_notification(
+                user=order.buyer,
+                notification_type='refund',
+                title='Refund Approved',
+                message=f'Your refund for order {order.order_id} has been approved by admin.',
+                data={'refund_id': str(refund.id), 'order_id': order.order_id}
+            )
 
-            try:
-                Notification.objects.create(
-                    user=refund.vendor,
-                    type='order',
-                    title='Refund Approved',
-                    message=f'Refund request for order {order.order_id} has been approved by admin.',
-                    data={'refund_id': str(refund.id), 'order_id': order.order_id}
-                )
-            except Exception:
-                pass
+            send_user_notification(
+                user=refund.vendor,
+                notification_type='refund',
+                title='Refund Approved',
+                message=f'Refund request for order {order.order_id} has been approved by admin.',
+                data={'refund_id': str(refund.id), 'order_id': order.order_id}
+            )
 
             return Response({'success': True, 'message': 'Refund approved'})
         except RefundRequest.DoesNotExist:
@@ -240,23 +236,22 @@ class AdminRefundRejectAPIView(APIView):
 
             # Do not change order status on rejection
 
-            # Notify buyer and vendor
+            # Notify buyer and vendor via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
+            
             try:
                 order = refund.order
-                Notification.objects.create(
+                send_user_notification(
                     user=order.buyer,
-                    type='order',
+                    notification_type='refund',
                     title='Refund Rejected',
                     message=f'Your refund for order {order.order_id} has been rejected by admin.',
                     data={'refund_id': str(refund.id), 'order_id': order.order_id}
                 )
-            except Exception:
-                pass
 
-            try:
-                Notification.objects.create(
+                send_user_notification(
                     user=refund.vendor,
-                    type='order',
+                    notification_type='refund',
                     title='Refund Rejected',
                     message=f'Refund request for order {order.order_id} has been rejected by admin.',
                     data={'refund_id': str(refund.id), 'order_id': order.order_id}

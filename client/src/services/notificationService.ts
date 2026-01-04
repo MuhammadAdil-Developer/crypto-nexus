@@ -12,14 +12,18 @@ export interface Notification {
 }
 
 class NotificationService {
-  async getNotifications(page: number = 1, pageSize: number = 20, unreadOnly: boolean = false): Promise<any> {
+  async getNotifications(page: number = 1, pageSize: number = 20, unreadOnly: boolean = false, dateFrom?: string): Promise<any> {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
         page_size: pageSize.toString(),
         unread_only: unreadOnly ? 'true' : 'false'
       });
-      
+
+      if (dateFrom) {
+        params.append('date_from', dateFrom);
+      }
+
       const response = await api.get(`/notifications/?${params.toString()}`);
       return response.data;
     } catch (error) {

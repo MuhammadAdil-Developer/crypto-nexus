@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw, MoreVertical, Menu } from "lucide-react";
+import { Bell, Search, User, LogOut, Settings, AlertTriangle, ArrowRightLeft, Loader2, ChevronDown, Package, RefreshCw, MoreVertical, Menu, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,12 +46,59 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
   const [notificationPage, setNotificationPage] = useState(1);
   const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const observerRef = useRef<HTMLDivElement>(null);
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    if (!notificationDropdownOpen || visibleCount >= allNotifications.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 10, allNotifications.length));
+        }
+      },
+      {
+        threshold: 0.1,
+        root: document.querySelector('.notifications-scroll-area')
+      }
+    );
+
+    const timer = setTimeout(() => {
+      if (observerRef.current) {
+        observer.observe(observerRef.current);
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [notificationDropdownOpen, visibleCount, allNotifications.length]);
+
+  // Reset count when dropdown closes
+  useEffect(() => {
+    if (!notificationDropdownOpen) {
+      setVisibleCount(10);
+    }
+  }, [notificationDropdownOpen]);
 
   // Search suggestions state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSuggestions, setSearchSuggestions] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Check if preview mode is active
+  const isPreviewMode = (new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('preview') === 'true') ||
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('vendorPreviewMode') === 'true');
+
+  // Helper to append preview param to urls
+  const getLinkUrl = (path: string) => {
+    return isPreviewMode ? `${path}${path.includes('?') ? '&' : '?'}preview=true` : path;
+  };
+
   const [allVendorProducts, setAllVendorProducts] = useState<Product[]>([]);
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState(384); // Default max-h-96 (384px)
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -157,10 +204,6 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
     // When dropdown opens, mark as read and refresh
     if (open) {
       try {
-        console.log('🔔 Vendor dropdown opened, marking notifications as read');
-        console.log('🔔 Current unread count:', unreadCount);
-        console.log('🔔 Current notifications:', allNotifications.length);
-
         // Mark all as read in backend
         await notificationService.markAllAsRead();
 
@@ -172,7 +215,6 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
         // Immediately set unread count to 0
         if (setUnreadCount) {
           setUnreadCount(0);
-          console.log('🔔 Set unread count to 0');
         }
 
         // Update all notifications to mark them as read in state (but keep them visible)
@@ -361,7 +403,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
     setShowSuggestions(false);
     // Small delay to ensure state updates
     setTimeout(() => {
-      navigate(`/vendor/listings/${productId}`);
+      navigate(getLinkUrl(`/vendor/listings/${productId}`));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 50);
   };
@@ -511,8 +553,9 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
               Try a different search term
             </div>
           </div>
-        )}
-      </div>
+        )
+        }
+      </div >
     );
 
     return createPortal(dropdownContent, document.body);
@@ -566,11 +609,12 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
       description: "Redirecting you to the buyer interface...",
     });
 
-    // Temporarily store vendor flag and redirect to buyer dashboard
+    // Store switch flags in both to be safe
     localStorage.setItem('switchToBuyer', 'true');
+    sessionStorage.setItem('switchToBuyer', 'true');
     localStorage.setItem('fromVendor', 'true');
 
-    // Add a smooth transition effect and use window.location to bypass ProtectedRoute
+    // Add a smooth transition effect and use window.location to bypass React Router's internal state
     setTimeout(() => {
       window.location.href = '/buyer/dashboard';
     }, 500);
@@ -664,7 +708,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                     onClick={(e) => {
                       e.stopPropagation();
                       handleNotificationDropdownOpen(false);
-                      navigate('/vendor/notifications');
+                      navigate(getLinkUrl('/vendor/notifications'));
                     }}
                     className="h-6 w-6 p-0 hover:bg-gray-800"
                     title="View all notifications"
@@ -675,13 +719,13 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
               </div>
 
               {/* Notifications List */}
-              <div className="max-h-[320px] overflow-y-auto">
-                {isLoadingNotifications && displayedNotifications.length === 0 ? (
+              <div className="notifications-scroll-area max-h-[380px] overflow-y-auto custom-scrollbar">
+                {isLoadingNotifications && allNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-theme-cyan mx-auto mb-2" />
                     <p className="text-sm text-gray-400">Loading notifications...</p>
                   </div>
-                ) : displayedNotifications.length === 0 ? (
+                ) : allNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-3">
                       <Bell className="w-6 h-6 text-gray-500" />
@@ -689,63 +733,62 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                     <p className="text-sm text-gray-400">No notifications yet</p>
                   </div>
                 ) : (
-                  (() => {
-                    const sortedNotifications = [...displayedNotifications].sort((a: any, b: any) => {
-                      const timeA = new Date(a.time || 0).getTime();
-                      const timeB = new Date(b.time || 0).getTime();
-                      return timeB - timeA;
-                    });
-                    const displayList = sortedNotifications.slice(0, 10);
-
-                    return (
-                      <>
-                        {displayList.map((n: any) => (
-                          <div
-                            key={n.id}
-                            className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
-                            onClick={() => handleNotificationClick(n)}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.unread
-                                ? n.type === 'review'
-                                  ? 'bg-theme-cyan'
-                                  : n.type === 'dispute' || n.type === 'listing_rejection'
-                                    ? 'bg-theme-red'
-                                    : n.type === 'dispute_message'
-                                      ? 'bg-theme-red/80'
-                                      : n.type === 'dispute_resolved' || n.type === 'listing_approval'
-                                        ? 'bg-theme-cyan'
+                  <>
+                    <div className="divide-y divide-gray-800/50">
+                      {sortedNotifications.slice(0, visibleCount).map((n: any) => (
+                        <div
+                          key={n.id}
+                          className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
+                          onClick={() => handleNotificationClick(n)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.unread
+                              ? n.type === 'review'
+                                ? 'bg-theme-cyan'
+                                : n.type === 'dispute' || n.type === 'listing_rejection'
+                                  ? 'bg-theme-red'
+                                  : n.type === 'dispute_message'
+                                    ? 'bg-theme-red/80'
+                                    : n.type === 'dispute_resolved' || n.type === 'listing_approval'
+                                      ? 'bg-theme-cyan'
+                                      : n.type === 'security'
+                                        ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
                                         : 'bg-theme-cyan'
-                                : 'bg-gray-600'
-                                }`} />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="font-medium text-sm text-white">{n.title}</p>
-                                </div>
-                                <p className="text-sm text-gray-400 line-clamp-2">{n.message}</p>
-                                <p className="text-xs text-gray-500 mt-1">{n.time}</p>
+                              : 'bg-gray-800'
+                              }`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-medium text-sm text-white">{n.title}</p>
+                                {n.type === 'security' && (
+                                  <Shield className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                )}
                               </div>
+                              <p className="text-sm text-gray-400 line-clamp-2">{n.message}</p>
+                              <p className="text-[10px] text-gray-500 mt-1">{n.time}</p>
                             </div>
                           </div>
-                        ))}
-                        {sortedNotifications.length > 10 && (
-                          <div className="px-4 py-3 border-t border-gray-700">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                handleNotificationDropdownOpen(false);
-                                navigate('/vendor/notifications');
-                              }}
-                              className="w-full text-sm text-theme-cyan hover:text-theme-cyan/80 hover:bg-gray-800"
-                            >
-                              View all ({sortedNotifications.length})
-                            </Button>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()
+                        </div>
+                      ))}
+
+                      {/* Sentinel for infinite scroll */}
+                      {visibleCount < allNotifications.length && (
+                        <div ref={observerRef} className="p-4 flex justify-center">
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-2 border-t border-gray-700 bg-gray-900/50 sticky bottom-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs text-theme-cyan hover:text-theme-cyan/80 hover:bg-transparent font-medium"
+                        onClick={() => navigate(getLinkUrl('/vendor/notifications'))}
+                      >
+                        View All Notifications ({allNotifications.length})
+                      </Button>
+                    </div>
+                  </>
                 )}
               </div>
             </DropdownMenuContent>
@@ -781,7 +824,7 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                 <span>Buyer Dashboard</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/vendor/settings')}>
+              <DropdownMenuItem onClick={() => navigate(getLinkUrl('/vendor/settings'))}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>

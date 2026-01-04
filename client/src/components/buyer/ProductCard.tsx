@@ -333,11 +333,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-base font-semibold text-white truncate">{product.listing_title}</p>
-                {product.category?.name && (
-                  <Badge className="bg-pink-600/80 text-white border-pink-400/70 text-[10px] px-1.5 py-0.5">
-                    {product.category.name}
-                  </Badge>
-                )}
               </div>
               <p className="text-xs text-gray-400 truncate">{product.description}</p>
             </div>
@@ -546,11 +541,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <h3 className="text-xl font-bold text-white leading-tight line-clamp-1 uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
                 {product.listing_title}
               </h3>
-              {product.category?.name && (
-                <Badge className="bg-theme-red/20 text-theme-red border-theme-red/30 text-[9px] px-1.5 py-0.5 font-bold">
-                  {product.category.name}
-                </Badge>
-              )}
             </div>
             <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">
               {product.description}

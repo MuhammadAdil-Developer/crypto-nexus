@@ -73,6 +73,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
+        message_data = None
         try:
             text_data_json = json.loads(text_data)
             message_type = text_data_json.get('type')
@@ -91,60 +92,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         }))
                         return
                     
-            # Send real-time notifications after message is saved
-            if message_data:
+            # Send real-time notifications after message is saved ONLY if user preferences allow it
+            if message_data and getattr(self, 'notification_sent', True):
                 # Get conversation and recipient for notifications
                 conversation_data = await self.get_conversation_for_notifications()
                 if conversation_data:
                     await self.send_realtime_notifications_async(conversation_data, message_data)
-                    
-                    # Also send notification update via realtime service
-                    recipient = conversation_data['recipient']
-                    conversation = conversation_data['conversation']
-                    product_title = conversation.product.headline if conversation.product else 'a product'
+            
+            # Send message update to the chat group (ALWAYS, regardless of notification preferences)
+            if message_data:
+                # Check if this is the first message with product reference
+                if isinstance(message_data, dict) and 'user_message' in message_data:
+                    # Send both user message and product reference
                     await self.channel_layer.group_send(
-                        f'realtime_{recipient.id}',
+                        self.conversation_group_name,
                         {
-                            'type': 'new_message_notification',
-                            'data': {
-                                'type': 'message',
-                                'title': 'New message',
-                                'message': f"{self.scope['user'].username} sent you a message about {product_title}",
-                                'unread': True,
-                                'sender': self.scope['user'].username,
-                                'sender_username': self.scope['user'].username,
-                                'product_title': product_title,
-                                'conversation_id': str(conversation.id)
-                            }
+                            'type': 'chat_message',
+                            'message_data': message_data['user_message']
                         }
                     )
-                    
-                    # Check if this is the first message with product reference
-                    if isinstance(message_data, dict) and 'user_message' in message_data:
-                        # Send both user message and product reference
-                        await self.channel_layer.group_send(
-                            self.conversation_group_name,
-                            {
-                                'type': 'chat_message',
-                                'message_data': message_data['user_message']
-                            }
-                        )
-                        await self.channel_layer.group_send(
-                            self.conversation_group_name,
-                            {
-                                'type': 'product_reference',
-                                'message_data': message_data['product_reference']
-                            }
-                        )
-                    else:
-                        # Send regular message
-                        await self.channel_layer.group_send(
-                            self.conversation_group_name,
-                            {
-                                'type': 'chat_message',
-                                'message_data': message_data
-                            }
-                        )
+                    await self.channel_layer.group_send(
+                        self.conversation_group_name,
+                        {
+                            'type': 'product_reference',
+                            'message_data': message_data['product_reference']
+                        }
+                    )
+                else:
+                    # Send regular message
+                    await self.channel_layer.group_send(
+                        self.conversation_group_name,
+                        {
+                            'type': 'chat_message',
+                            'message_data': message_data
+                        }
+                    )
             
             elif message_type == 'typing':
                 # Broadcast typing indicator
@@ -275,12 +257,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation.last_message = message
             conversation.save()
             
-            # Create notification for recipient
-            from shared.models import Notification
+            # Create notification for recipient via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
             product_title = conversation.product.headline if conversation.product else 'a product'
-            Notification.objects.create(
+            notification = send_user_notification(
                 user=recipient,
-                type='message',
+                notification_type='message',
                 title='New message',
                 message=f"{self.scope['user'].username} sent you a message about {product_title}: {content[:100]}",
                 data={
@@ -291,6 +273,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'action_url': f'/buyer/messages' if recipient.user_type == 'buyer' else f'/vendor/messages'
                 }
             )
+            
+            # Store if notification was created for async WS notification check
+            self.notification_sent = notification is not None
             
             # If this is the first message and conversation has a product, create product reference
             # But only if one doesn't already exist (for refunds/disputes, it's created when conversation is created)

@@ -66,15 +66,7 @@ class Product(BaseModel):
     headline = models.CharField(max_length=200)  # Zoom Account, PIC
     listing_title = models.CharField(max_length=200, blank=True)  # Legacy field - map to headline
     website = models.CharField(max_length=200)  # Zoom.com
-    account_type = models.CharField(max_length=50, choices=[
-        ('messengers', 'Messengers'),
-        ('streaming', 'Streaming'),
-        ('gaming', 'Gaming'),
-        ('social', 'Social Media'),
-        ('trading', 'Trading/Exchange'),
-        ('software', 'Software'),
-        ('other', 'Other'),
-    ])
+    account_type = models.CharField(max_length=50)
     access_type = models.CharField(max_length=50, choices=[
         ('full_ownership', 'Full Ownership'),
         ('access', 'Access'),
@@ -227,14 +219,14 @@ class Product(BaseModel):
         self.save()
         
         # Create notification for vendor
-        from shared.models import Notification
-        notification = Notification.objects.create(
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=self.vendor,
-            type='listing_approval',
+            notification_type='listing_approval',
             title='Listing Approved',
             message=f'Your product "{self.headline}" has been approved and is now live!',
             data={
-                'product_id': self.id,
+                'product_id': str(self.id),
                 'product_headline': self.headline,
                 'approved_by': approved_by_user.username if approved_by_user else None
             }
@@ -249,14 +241,14 @@ class Product(BaseModel):
         self.save()
         
         # Create notification for vendor
-        from shared.models import Notification
-        notification = Notification.objects.create(
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=self.vendor,
-            type='listing_rejection',
+            notification_type='listing_rejection',
             title='Listing Rejected',
             message=f'Your product "{self.headline}" has been rejected. Reason: {rejection_notes}',
             data={
-                'product_id': self.id,
+                'product_id': str(self.id),
                 'product_headline': self.headline,
                 'rejection_reason': rejection_notes,
                 'rejected_by': rejected_by_user.username if rejected_by_user else None

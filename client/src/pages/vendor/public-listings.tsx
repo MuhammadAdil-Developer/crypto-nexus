@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/buyer/ProductCard';
 import { productService, Product } from '@/services/productService';
-import { Loader2, Package, AlertCircle, Star, TrendingUp, Users, Eye, DollarSign, Calendar, Award } from 'lucide-react';
+import { Loader2, Package, AlertCircle, Star, TrendingUp, Users, Eye, DollarSign, Calendar, Award, Shield } from 'lucide-react';
 import { CartProvider } from '@/contexts/CartContext';
 import vendorService from '@/services/vendorService';
 import { Pagination } from '@/components/ui/pagination';
@@ -228,15 +228,15 @@ function VendorPublicListingsContent() {
             </CardContent>
           </Card>
 
-          {/* Total Earnings */}
+          {/* Trusted Status */}
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <DollarSign className="w-5 h-5 text-theme-cyan" />
-                <h3 className="text-sm font-medium text-gray-400">Total Earnings</h3>
+                <Shield className="w-5 h-5 text-theme-cyan" />
+                <h3 className="text-sm font-medium text-gray-400">Trusted Status</h3>
               </div>
               <p className="text-xl font-bold text-white">
-                {vendorStats.total_earnings ? `${parseFloat(vendorStats.total_earnings).toFixed(2)}` : '0.00'}
+                {parseFloat(vendorStats.completion_rate || '0') >= 90 ? 'Verified Pro' : 'Reliable Vendor'}
               </p>
             </CardContent>
           </Card>

@@ -384,6 +384,7 @@ def check_application_status(request, username):
                 }
             }, status=status.HTTP_200_OK)
         except VendorApplication.DoesNotExist:
+            print(f"VendorApplication not found for {username}")
             return Response({
                 'success': True,
                 'message': 'No application found',
@@ -461,29 +462,15 @@ def invite_vendor(request):
         
         successful_invites = []
         for user in users:
-            # Create notification for the buyer
-            Notification.objects.create(
+            # Create notification for the buyer via central helper
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=user,
-                type='system',
+                notification_type='marketing',
                 title='Vendor Invitation',
                 message=f"You've been invited to become a vendor on our marketplace!" + (f"\n\n{message}" if message else ""),
                 data={'action_url': '/vendor/apply', 'invitation_type': 'vendor_invite'}
             )
-            
-            # Send real-time notification via WebSocket
-            if channel_layer:
-                async_to_sync(channel_layer.group_send)(
-                    f'realtime_{user.id}',
-                    {
-                        'type': 'vendor_invitation',
-                        'data': {
-                            'title': 'Vendor Invitation',
-                            'message': f"You've been invited to become a vendor!" + (f" {message}" if message else ""),
-                            'action_url': '/vendor/apply',
-                            'timestamp': timezone.now().isoformat()
-                        }
-                    }
-                )
             
             successful_invites.append(user.username)
         

@@ -31,12 +31,12 @@ export function TokenExpirationModal() {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     localStorage.removeItem('userId');
-    
+
     // Navigate to appropriate login page
     if (userType === 'vendor') {
       navigate('/vender-sign-in');
     } else if (userType === 'admin') {
-      navigate('/admin-access-control-panel-secure-login');
+      navigate('//6f2c9b681c3b4cf9a8c4-admin-access-control-panel-login');
     } else {
       navigate('/sign-in');
     }
@@ -46,13 +46,13 @@ export function TokenExpirationModal() {
   if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={() => { }}>
       <DialogContent className="bg-gray-900 border-gray-700 max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <div className="flex flex-col items-center text-center space-y-6 p-6">
           <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center">
             <AlertCircle className="w-10 h-10 text-red-500" />
           </div>
-          
+
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-white">Session Expired</h2>
             <p className="text-gray-400">

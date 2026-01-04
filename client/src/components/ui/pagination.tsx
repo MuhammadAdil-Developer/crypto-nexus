@@ -53,9 +53,9 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <div className={cn("flex items-center justify-between px-6 py-4 border-t border-border", className)}>
-      {/* Items per page selector */}
-      <div className="flex items-center space-x-2">
+    <div className={cn("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6 py-4 border-t border-border", className)}>
+      {/* Items per page selector - Hidden on mobile */}
+      <div className="hidden sm:flex items-center space-x-2 flex-shrink-0">
         <span className="text-sm text-gray-400">Show</span>
         <select
           value={itemsPerPage}
@@ -77,48 +77,61 @@ export function Pagination({
         <span className="text-sm text-gray-400">per page</span>
       </div>
 
-      {/* Page info */}
-      <div className="text-sm text-gray-400">
-        Showing {startItem} to {endItem} of {totalItems} results
+      {/* Page info - Compact on mobile */}
+      <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left order-last sm:order-none">
+        <span className="hidden sm:inline">Showing {startItem} to {endItem} of {totalItems} results</span>
+        <span className="sm:hidden">{startItem}-{endItem} of {totalItems}</span>
       </div>
 
-      {/* Pagination controls */}
-      <div className="flex items-center space-x-1">
+      {/* Pagination controls - Responsive */}
+      <div className="flex items-center justify-center space-x-1 flex-shrink-0">
         {/* Previous button */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="border-border text-gray-300 hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="border-border text-gray-300 hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8 sm:h-9 sm:w-9 p-0"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
         </Button>
 
-        {/* Page numbers */}
-        {getVisiblePages().map((page, index) => (
-          <div key={index}>
-            {page === '...' ? (
-              <div className="px-3 py-2 text-gray-400">
-                <MoreHorizontal className="w-4 h-4" />
-              </div>
-            ) : (
-              <Button
-                variant={currentPage === page ? "default" : "outline"}
-                size="sm"
-                onClick={() => onPageChange(page as number)}
-                className={cn(
-                  "min-w-[40px]",
-                  currentPage === page
-                    ? "bg-accent text-white hover:bg-accent/90"
-                    : "border-border text-gray-300 hover:bg-surface-2"
+        {/* Page numbers - Adaptive display */}
+        <div className="flex items-center space-x-1">
+          {getVisiblePages().map((page, index) => {
+            // On mobile, show fewer page numbers
+            const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+            const shouldShowOnMobile = page === currentPage || page === 1 || page === totalPages || page === '...';
+
+            if (isMobile && !shouldShowOnMobile) {
+              return null;
+            }
+
+            return (
+              <div key={index}>
+                {page === '...' ? (
+                  <div className="px-2 sm:px-3 py-2 text-gray-400">
+                    <MoreHorizontal className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </div>
+                ) : (
+                  <Button
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => onPageChange(page as number)}
+                    className={cn(
+                      "min-w-[32px] sm:min-w-[40px] h-8 sm:h-9 text-xs sm:text-sm",
+                      currentPage === page
+                        ? "bg-accent text-white hover:bg-accent/90"
+                        : "border-border text-gray-300 hover:bg-surface-2"
+                    )}
+                  >
+                    {page}
+                  </Button>
                 )}
-              >
-                {page}
-              </Button>
-            )}
-          </div>
-        ))}
+              </div>
+            );
+          })}
+        </div>
 
         {/* Next button */}
         <Button
@@ -126,9 +139,9 @@ export function Pagination({
           size="sm"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="border-border text-gray-300 hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="border-border text-gray-300 hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8 sm:h-9 sm:w-9 p-0"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
         </Button>
       </div>
     </div>

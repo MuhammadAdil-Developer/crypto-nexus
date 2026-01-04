@@ -9,6 +9,8 @@ import { productService } from "@/services/productService";
 import { useToast } from "@/components/ui/ToastContainer";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PageBanner } from "@/components/PageBanner";
+import { cn } from "@/lib/utils";
 
 export default function BuyerMyReviews() {
   const [reviews, setReviews] = useState<any[]>([]);
@@ -72,175 +74,186 @@ export default function BuyerMyReviews() {
 
   return (
     <BuyerLayout>
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-2">My Reviews</h1>
-            <p className="text-gray-400 text-sm">All reviews you have submitted</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <PageBanner
+          title="Reviews"
+          subtitle="All reviews you have submitted."
+          type="buyer"
+        />
+
+        {/* Filters - Glass Bar */}
+        <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-[2rem] p-6 shadow-2xl">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative group">
+              <Input
+                placeholder="Search by product or comment..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-12 bg-black/40 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all rounded-2xl shadow-2xl pl-12"
+              />
+              <MessageCircle className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5 group-focus-within:text-theme-cyan transition-colors" />
+            </div>
+            <Select value={ratingFilter} onValueChange={setRatingFilter}>
+              <SelectTrigger className="w-full sm:w-48 h-12 bg-black/40 border-gray-700/50 text-gray-300 rounded-2xl focus:ring-theme-cyan/10">
+                <SelectValue placeholder="Filter by rating" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-950 border-gray-800 text-gray-300 rounded-2xl">
+                <SelectItem value="all">All Ratings</SelectItem>
+                <SelectItem value="5">5 Stars</SelectItem>
+                <SelectItem value="4">4 Stars</SelectItem>
+                <SelectItem value="3">3 Stars</SelectItem>
+                <SelectItem value="2">2 Stars</SelectItem>
+                <SelectItem value="1">1 Star</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Input
-                    placeholder="Search by product or comment..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-3"
-                  />
-                </div>
+        {/* Reviews List */}
+        <div className="space-y-4">
+          {loading ? (
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-12 text-center shadow-2xl">
+              <div className="flex flex-col items-center justify-center gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-theme-cyan" />
+                <span className="text-gray-400 font-medium tracking-wide">Syncing Reviews...</span>
               </div>
-              <Select value={ratingFilter} onValueChange={setRatingFilter}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Filter by rating" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Ratings</SelectItem>
-                  <SelectItem value="5">5 Stars</SelectItem>
-                  <SelectItem value="4">4 Stars</SelectItem>
-                  <SelectItem value="3">3 Stars</SelectItem>
-                  <SelectItem value="2">2 Stars</SelectItem>
-                  <SelectItem value="1">1 Star</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-white">Reviews ({filtered.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {loading ? (
-                <div className="text-gray-400">Loading reviews...</div>
-              ) : filtered.length === 0 ? (
-                <div className="text-gray-400">No reviews found</div>
-              ) : (
-                filtered.map((r) => (
-                  <div key={r.id} className="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <Star key={i} className={`w-4 h-4 ${i <= r.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} />
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleString()}</span>
+          ) : filtered.length === 0 ? (
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-16 text-center shadow-2xl">
+              <MessageCircle className="w-16 h-16 text-gray-500 mx-auto mb-6 opacity-20" />
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter">No Reviews Found</h3>
+              <p className="text-gray-400 mt-2 italic">You haven't submitted any reviews matching these criteria.</p>
+            </div>
+          ) : (
+            filtered.map((r) => (
+              <div key={r.id} className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl overflow-hidden hover:border-gray-600/50 transition-all duration-300 shadow-xl group p-6 sm:p-8">
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-1.5 bg-black/20 p-2 rounded-xl border border-white/5">
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <Star key={i} className={`w-4 h-4 ${i <= r.rating ? 'text-yellow-400 fill-current' : 'text-gray-700'}`} />
+                      ))}
+                      <span className="ml-2 text-xs font-black text-white/50">{r.rating}/5</span>
                     </div>
-                    <div className="text-sm text-gray-200 mb-1">{r.comment}</div>
-                    <div className="text-xs text-gray-400 mb-3">Product: {r.product?.headline || ''}</div>
+                    <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">{new Date(r.created_at).toLocaleString()}</span>
+                  </div>
 
-                    {/* Conversation Chain */}
-                    {(r.vendor_reply || (r.conversation && r.conversation.length > 0)) && (
-                      <div className="mt-3 space-y-2">
-                        {/* Show vendor reply if exists and not in conversation yet */}
-                        {r.vendor_reply && (!r.conversation || r.conversation.length === 0) && (
-                          <div className="ml-4 p-3 bg-theme-cyan-dim rounded-lg border-l-4 border-theme-cyan">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <MessageCircle className="w-4 h-4 text-theme-cyan" />
-                              <span className="font-medium text-theme-cyan text-xs">Vendor Reply</span>
-                              {r.vendor_reply_date && (
-                                <span className="text-xs text-theme-cyan/70">
-                                  {new Date(r.vendor_reply_date).toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-gray-300 text-sm break-words">{r.vendor_reply}</p>
-                          </div>
-                        )}
+                  <div className="space-y-4">
+                    <p className="text-gray-200 text-base sm:text-lg leading-relaxed italic break-words">"{r.comment}"</p>
+                    <div className="flex items-center gap-2">
+                      <div className="px-3 py-1 bg-theme-cyan/10 border border-theme-cyan/20 rounded-lg">
+                        <span className="text-theme-cyan text-[10px] font-black uppercase tracking-widest">Acquisition: {r.product?.headline || 'Unknown Product'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                        {/* Show conversation chain */}
-                        {r.conversation && r.conversation.length > 0 && r.conversation.map((msg: any, idx: number) => (
+                  {/* Conversation Chain */}
+                  {(r.vendor_reply || (r.conversation && r.conversation.length > 0)) && (
+                    <div className="mt-4 pt-6 border-t border-white/5 space-y-4">
+                      {/* Show conversation chain */}
+                      {r.conversation && r.conversation.length > 0 ? (
+                        r.conversation.map((msg: any, idx: number) => (
                           <div
                             key={idx}
-                            className={`ml-4 p-3 rounded-lg border-l-4 ${msg.author === 'vendor'
-                                ? 'bg-theme-cyan-dim border-theme-cyan'
-                                : 'bg-theme-red/10 border-theme-red'
-                              }`}
+                            className={cn(
+                              "p-4 rounded-2xl border backdrop-blur-md relative overflow-hidden",
+                              msg.author === 'vendor'
+                                ? 'bg-theme-cyan/5 border-theme-cyan/20 ml-4 sm:ml-8'
+                                : 'bg-white/5 border-white/10'
+                            )}
                           >
-                            <div className="flex items-center space-x-2 mb-2">
-                              <MessageCircle className={`w-4 h-4 ${msg.author === 'vendor' ? 'text-theme-cyan' : 'text-theme-red'}`} />
-                              <span className={`font-medium text-xs ${msg.author === 'vendor' ? 'text-theme-cyan' : 'text-theme-red'}`}>
-                                {msg.author === 'vendor' ? 'Vendor' : 'You'}
-                              </span>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-[10px] font-black uppercase tracking-widest",
+                                  msg.author === 'vendor' ? 'text-theme-cyan' : 'text-gray-400'
+                                )}>
+                                  {msg.author === 'vendor' ? 'Nexus Vendor' : 'Transmission (You)'}
+                                </span>
+                              </div>
                               {msg.date && (
-                                <span className={`text-xs ${msg.author === 'vendor' ? 'text-theme-cyan/70' : 'text-theme-red/70'}`}>
+                                <span className="text-[10px] text-gray-500 font-medium">
                                   {new Date(msg.date).toLocaleString()}
                                 </span>
                               )}
                             </div>
-                            <p className={`text-sm break-words ${msg.author === 'vendor' ? 'text-gray-300' : 'text-gray-300'}`}>
-                              {msg.message}
-                            </p>
+                            <p className="text-gray-300 text-sm leading-relaxed">{msg.message}</p>
                           </div>
-                        ))}
+                        ))
+                      ) : (
+                        /* Fallback to legacy vendor_reply if no conversation array */
+                        r.vendor_reply && (
+                          <div className="p-4 rounded-2xl bg-theme-cyan/5 border border-theme-cyan/20 ml-4 sm:ml-8 backdrop-blur-md">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-theme-cyan text-[10px] font-black uppercase tracking-widest">Nexus Vendor</span>
+                              {r.vendor_reply_date && (
+                                <span className="text-[10px] text-gray-500 font-medium">
+                                  {new Date(r.vendor_reply_date).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-gray-300 text-sm leading-relaxed">{r.vendor_reply}</p>
+                          </div>
+                        )
+                      )}
 
-                        {/* Reply button - show if last message is from vendor */}
-                        {r.vendor_reply && (
-                          <div className="ml-4 mt-2">
-                            <Dialog open={replyingTo === r.id} onOpenChange={(open) => {
-                              if (!open) {
-                                setReplyingTo(null);
-                                setReplyText("");
-                              } else {
-                                setReplyingTo(r.id);
-                              }
-                            }}>
-                              <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-xs">
-                                  <Reply className="w-3 h-3 mr-2" />
-                                  Reply
+                      {/* Reply button - show if we want to allow ongoing thread */}
+                      <div className="flex justify-end pt-2">
+                        <Dialog open={replyingTo === r.id} onOpenChange={(open) => {
+                          if (!open) {
+                            setReplyingTo(null);
+                            setReplyText("");
+                          } else {
+                            setReplyingTo(r.id);
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="h-10 px-6 bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-theme-cyan/10 hover:border-theme-cyan/50 rounded-xl font-bold tracking-widest uppercase transition-all text-xs">
+                              <Reply className="w-4 h-4 mr-2" />
+                              Continuum Reply
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[95vw] sm:max-w-md bg-gray-950 border-white/10 rounded-3xl p-6 backdrop-blur-2xl shadow-3xl">
+                            <DialogHeader className="mb-4">
+                              <DialogTitle className="text-xl font-black text-white uppercase tracking-tighter">Nexus Transmission</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-6">
+                              <Textarea
+                                placeholder="Encode your reply..."
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                className="min-h-32 bg-black/40 border-white/10 text-white placeholder:text-gray-600 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 rounded-2xl"
+                              />
+                              <div className="flex justify-end gap-3">
+                                <Button
+                                  variant="ghost"
+                                  className="text-gray-500 hover:text-white"
+                                  onClick={() => {
+                                    setReplyingTo(null);
+                                    setReplyText("");
+                                  }}
+                                >
+                                  Abort
                                 </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-md">
-                                <DialogHeader>
-                                  <DialogTitle>Reply to Vendor</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Textarea
-                                    placeholder="Write your reply..."
-                                    value={replyText}
-                                    onChange={(e) => setReplyText(e.target.value)}
-                                    className="min-h-24"
-                                  />
-                                  <div className="flex justify-end space-x-3">
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => {
-                                        setReplyingTo(null);
-                                        setReplyText("");
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button onClick={() => handleBuyerReply(r.id)} disabled={replying} className="bg-theme-cyan hover:bg-theme-cyan/90 text-black">
-                                      {replying ? (
-                                        <>
-                                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                          Posting...
-                                        </>
-                                      ) : (
-                                        'Post Reply'
-                                      )}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        )}
+                                <Button
+                                  onClick={() => handleBuyerReply(r.id)}
+                                  disabled={replying}
+                                  className="bg-theme-cyan hover:bg-theme-cyan-dark text-black font-black uppercase tracking-widest rounded-xl px-6"
+                                >
+                                  {replying ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Transmit'}
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </BuyerLayout>
   );

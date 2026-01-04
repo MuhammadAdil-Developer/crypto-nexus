@@ -134,13 +134,13 @@ class MessageListCreateView(generics.ListCreateAPIView):
             conversation.save()
             
             # Create notification for recipient
-            from shared.models import Notification
+            from shared.admin_notifications import send_user_notification
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
             product_title = conversation.product.headline if conversation.product else 'a product'
-            Notification.objects.create(
+            send_user_notification(
                 user=message.recipient,
-                type='message',
+                notification_type='message',
                 title='New message',
                 message=f"{request.user.username} sent you a message about {product_title}: {message.content[:100] if message.content else 'a file'}",
                 data={
@@ -186,31 +186,6 @@ class MessageListCreateView(generics.ListCreateAPIView):
                                 }
                             }
                         )
-                    
-                    # Send notification to recipient
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{message.recipient.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'id': f'msg_{conversation.id}_{message.id}',
-                                'type': 'message',
-                                'title': 'New message',
-                                'message': f"{request.user.username} sent you a message about {product_title}: {message.content[:100] if message.content else 'a file'}",
-                                'is_read': False,
-                                'data': {
-                                    'conversation_id': str(conversation.id),
-                                    'sender_username': request.user.username,
-                                    'product_id': str(conversation.product.id) if conversation.product else None,
-                                    'product_title': product_title,
-                                    'action_url': f'/buyer/messages' if message.recipient.user_type == 'buyer' else f'/vendor/messages'
-                                },
-                                'action_url': f'/buyer/messages' if message.recipient.user_type == 'buyer' else f'/vendor/messages',
-                                'created_at': message.created_at.isoformat(),
-                                'priority': 'normal'
-                            }
-                        }
-                    )
                     
                     # Update unread count for recipient
                     unread_count = Conversation.objects.filter(
@@ -863,9 +838,10 @@ def lock_conversation(request, conversation_id):
             
             for p in participants:
                 try:
-                    Notification.objects.create(
+                    from shared.admin_notifications import send_user_notification
+                    send_user_notification(
                         user=p,
-                        type='system',
+                        notification_type='message',
                         title='Conversation locked' if lock_flag else 'Conversation unlocked',
                         message=(f'An admin locked this conversation.' if is_admin and lock_flag else
                                  f'An admin unlocked this conversation.' if is_admin and not lock_flag else
@@ -1034,12 +1010,11 @@ def report_user(request):
             message_id=message_id
         )
         
-        # Notify all admins
-        admin_users = User.objects.filter(user_type='admin', is_active=True, is_deleted=False)
-        for admin in admin_users:
-            Notification.objects.create(
-                user=admin,
-                type='system',
+        # Notify all admins via central helper
+        try:
+            from shared.admin_notifications import send_admin_notification
+            send_admin_notification(
+                notification_type='dispute',
                 title='User Report Submitted',
                 message=f'{request.user.username} reported {reported_user.username} for: {reason}. {description[:100]}',
                 data={
@@ -1049,8 +1024,11 @@ def report_user(request):
                     'reason': reason,
                     'conversation_id': str(conversation_id) if conversation_id else None,
                     'message_id': str(message_id) if message_id else None,
-                }
+                },
+                priority='normal'
             )
+        except Exception as e:
+            logger.error(f"Failed to notify admins about user report: {e}")
         
         # Log activity
         log_user_activity(

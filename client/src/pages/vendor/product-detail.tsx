@@ -28,6 +28,7 @@ export default function VendorProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<VendorProduct | null>(null);
+  const [showCredentials, setShowCredentials] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -631,20 +632,68 @@ export default function VendorProductDetail() {
           )}
 
           {/* Credentials Display */}
-          {product.credentials_display && (
-            <Card className="border border-gray-700 bg-gray-900">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold text-white">Credentials Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-2">
-                  <Key className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-400">Status:</span>
-                  <span className="text-white">{product.credentials_display}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {product.credentials_display && (() => {
+            let parsedCreds: Record<string, string> = {};
+            try {
+              parsedCreds = JSON.parse(product.credentials_display);
+            } catch (e) {
+              parsedCreds = { value: product.credentials_display };
+            }
+            return (
+              <Card className="border border-gray-700 bg-gray-900">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-bold text-white">Credentials Information</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowCredentials(!showCredentials)}
+                      className="text-theme-cyan hover:text-white"
+                    >
+                      {showCredentials ? <EyeIcon className="w-4 h-4 mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
+                      {showCredentials ? 'Hide' : 'Show'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {(() => {
+                      const getAllValues = (data: any): string[] => {
+                        if (!data) return [];
+                        if (typeof data === 'string') {
+                          const trimmed = data.trim();
+                          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                            try {
+                              const parsed = JSON.parse(trimmed);
+                              return getAllValues(parsed);
+                            } catch {
+                              return [data];
+                            }
+                          }
+                          return [data];
+                        }
+                        if (Array.isArray(data)) {
+                          return data.flatMap(getAllValues);
+                        }
+                        if (typeof data === 'object') {
+                          return Object.values(data).flatMap(getAllValues);
+                        }
+                        return [String(data)];
+                      };
+                      const values = getAllValues(product.credentials_display);
+                      return values.map((value, index) => (
+                        <div key={index} className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                          <span className="text-white font-mono text-sm">
+                            {showCredentials ? value : '••••••••••••'}
+                          </span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
       </div>
     </div>

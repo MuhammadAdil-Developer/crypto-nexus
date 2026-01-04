@@ -19,14 +19,12 @@ import BulkPurchaseModal from "@/components/buyer/BulkPurchaseModal";
 import { useSearchParams } from "react-router-dom";
 
 // Banner Assets
-import bannerPattern from "@/assets/banner/pattern.png";
-import bannerLogo from "@/assets/banner/logo.png";
-import bannerLeftArrow from "@/assets/banner/arrow_left.png";
-import bannerRightArrow from "@/assets/banner/arrow_right.png";
+import { PageBanner } from "@/components/PageBanner";
 
 // API Service
 import { API_BASE_URL, getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
+import { productService } from "@/services/productService";
 
 interface Product {
   id: number;
@@ -40,6 +38,7 @@ interface Product {
   category: {
     id: number;
     name: string;
+    slug: string;
   };
   sub_category: {
     id: number;
@@ -180,10 +179,10 @@ function BuyerListingsContent() {
 
   // Fetch all products when searching (for cross-page search)
   useEffect(() => {
-    if (searchQuery || selectedCrypto !== "all" || minPrice || maxPrice) {
+    if (searchQuery || selectedCrypto !== "all" || minPrice || maxPrice || selectedCategory !== "all" || sortBy !== "server") {
       fetchAllProducts();
     }
-  }, [searchQuery, selectedCrypto, minPrice, maxPrice]);
+  }, [searchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy]);
 
   // Infinite Scroll Observer
   useEffect(() => {
@@ -208,27 +207,39 @@ function BuyerListingsContent() {
     };
   }, [hasMore, isFetchingMore, isLoading, pagination.page]);
 
-  // Extract categories when products are updated
+  // Fetch categories from API
   useEffect(() => {
-    if (products.length > 0) {
-      const categoryMap = new Map();
-      products.forEach((product: Product) => {
-        const catName = product.category?.name || 'Uncategorized';
-        categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
-      });
+    const loadCategories = async () => {
+      try {
+        const response = await productService.getCategories();
+        if (response.success && response.data) {
+          const catList = response.data.map((cat) => ({
+            id: cat.slug || cat.id.toString(),
+            name: cat.name,
+            count: cat.product_count || 0
+          }));
 
-      const categoryList = Array.from(categoryMap.entries()).map(([name, count]) => ({
-        id: name.toLowerCase().replace(/\s+/g, '-'),
-        name,
-        count: count as number
-      }));
+          // Sort categories to move 'General' to the top
+          const sortedCatList = [...catList].sort((a, b) => {
+            if (a.name.toLowerCase() === 'general') return -1;
+            if (b.name.toLowerCase() === 'general') return 1;
+            return 0;
+          });
 
-      setCategories([
-        { id: "all", name: "All Categories", count: products.length },
-        ...categoryList
-      ]);
-    }
-  }, [products]);
+          const totalCount = sortedCatList.reduce((acc, cat) => acc + cat.count, 0);
+
+          setCategories([
+            { id: "all", name: "All Categories", count: totalCount },
+            ...sortedCatList
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const fetchAllProducts = async () => {
     try {
@@ -238,7 +249,10 @@ function BuyerListingsContent() {
       // Fetch all products for search (use a large page size or fetch all)
       const cryptoParam = selectedCrypto !== "all" ? `&crypto=${selectedCrypto}` : '';
       const priceParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=1&page_size=1000${cryptoParam}${priceParam}`, {
+      const categoryParam = selectedCategory !== "all" ? `&category=${selectedCategory}` : '';
+      const sortParam = sortBy !== "server" ? `&sort_mode=${sortBy}` : '';
+
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=1&page_size=1000${cryptoParam}${priceParam}${categoryParam}${sortParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -263,7 +277,7 @@ function BuyerListingsContent() {
     // Apply category filter
     if (selectedCategory !== "all") {
       filtered = filtered.filter(product => {
-        const productCategorySlug = product.category?.name?.toLowerCase().replace(/\s+/g, '-') || '';
+        const productCategorySlug = product.category?.slug || '';
         return productCategorySlug === selectedCategory;
       });
     }
@@ -292,34 +306,6 @@ function BuyerListingsContent() {
 
     // Apply client-side sorting only if user explicitly selected a sort option.
     // Default 'server' preserves the order returned by the API (personalized ordering).
-    if (sortBy && sortBy !== 'server') {
-      switch (sortBy) {
-        case "newest":
-          filtered = [...filtered].sort((a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          break;
-        case "oldest":
-          filtered = [...filtered].sort((a, b) =>
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-          break;
-        case "price-low":
-          filtered = [...filtered].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-          break;
-        case "price-high":
-          filtered = [...filtered].sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-          break;
-        case "rating":
-          filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-          break;
-        case "popular":
-          filtered = [...filtered].sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
-          break;
-        default:
-          break;
-      }
-    }
 
     setFilteredProducts(filtered);
   }, [products, allProducts, searchQuery, selectedCategory, selectedCrypto, sortBy]);
@@ -337,8 +323,9 @@ function BuyerListingsContent() {
       const cryptoParam = selectedCrypto !== "all" ? `&crypto=${selectedCrypto}` : '';
       const priceParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
       const categoryParam = selectedCategory !== "all" ? `&category=${selectedCategory}` : '';
+      const sortParam = sortBy !== "server" ? `&sort_mode=${sortBy}` : '';
 
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}${sortParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -421,288 +408,187 @@ function BuyerListingsContent() {
         </Button>
       </div>
 
-      <div className="max-w-7xl mx-auto space-y-8 pb-10">
-        {/* Modern Header Banner */}
-        {/* Full Width Banner at the Top */}
-        <div className="relative w-full h-[120px] md:h-[180px] overflow-hidden rounded-2xl bg-black mb-10 border border-gray-800 shadow-2xl group">
-          {/* Pattern Background */}
-          <div
-            className="absolute inset-0 w-full h-full opacity-60"
-            style={{
-              backgroundImage: `url(${bannerPattern})`,
-              backgroundRepeat: 'repeat-x',
-              backgroundSize: 'auto 100%'
-            }}
-          />
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-10 pb-20 px-4 sm:px-6">
+        {/* Premium Header Banner */}
+        <PageBanner
+          title="Marketplace"
+          subtitle="Discover digital assets."
+          type="buyer"
+          className="mb-4 sm:mb-8"
+        />
 
-          {/* Left Arrow (Pinned Left) */}
-          <img
-            src={bannerLeftArrow}
-            alt=""
-            className="absolute left-0 top-0 h-full z-10 select-none pointer-events-none object-cover sm:object-fill"
-            style={{ maxWidth: '30%' }}
-          />
-
-          {/* Right Arrow (Pinned Right) */}
-          <img
-            src={bannerRightArrow}
-            alt=""
-            className="absolute right-0 top-0 h-full z-10 select-none pointer-events-none object-cover sm:object-fill"
-            style={{ maxWidth: '30%' }}
-          />
-
-          {/* Center Logo (Always Centered) */}
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 h-[70%] md:h-[80%] aspect-square flex items-center justify-center">
-            <img
-              src={bannerLogo}
-              alt="Logo"
-              className="h-full w-auto object-contain drop-shadow-[0_0_15px_rgba(0,0,0,0.8)] scale-110 group-hover:scale-125 transition-transform duration-700"
-            />
-          </div>
-
-          {/* Brand Text (Left Half) */}
-          <div className="absolute left-[8%] md:left-[12%] top-1/2 transform -translate-y-1/2 z-20 hidden sm:block" style={{ maxWidth: '40%' }}>
-            <h1
-              className="text-2xl md:text-4xl lg:text-5xl font-black tracking-tighter uppercase"
-              style={{
-                fontFamily: "'Orbitron', sans-serif",
-                filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
-              }}
-            >
-              <span className="text-white">SETTINGS</span>
-              {/* <span className="text-transparent bg-clip-text bg-gradient-to-r from-theme-red to-theme-cyan ml-1">Club</span> */}
-            </h1>
-            {/* <p className="text-gray-400 text-[10px] md:text-xs tracking-[0.3em] mt-1 ml-1 uppercase font-bold" style={{ fontFamily: "'Space Age', 'Orbitron', sans-serif" }}>
-              Digital Marketplace
-            </p> */}
-          </div>
-        </div>
-        {/* Search, Sort, and View Toggle - Sticky */}
-        <div className="lg:sticky top-0 z-30 bg-[#0E1A26]/90 backdrop-blur-md py-4 rounded-2xl border border-white/5 shadow-2xl mb-8 px-6">
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4">
-            {/* Search Bar with Dark Background */}
-            <div className="flex-1">
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 group-hover:text-theme-cyan transition-colors w-5 h-5" />
+        {/* Search, Sort, and View Toggle - Sticky Crystal Bar */}
+        <div className="lg:sticky top-4 z-40 bg-gray-900/60 backdrop-blur-xl py-4 sm:py-6 rounded-[2rem] border border-gray-700/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-8 px-4 sm:px-8 transition-all duration-300 hover:border-gray-600/50">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 sm:gap-6">
+            {/* Search Bar with Premium Glow */}
+            <div className="flex-1 relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-theme-cyan/20 to-theme-red/20 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-theme-cyan transition-colors w-5 h-5" />
                 <Input
-                  placeholder="Search products, vendors, or categories..."
+                  placeholder="Search accounts, vendors, or keywords..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-theme-cyan focus:ring-theme-cyan/20 transition-all rounded-xl shadow-inner"
+                  className="pl-12 h-12 bg-black/40 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all rounded-2xl shadow-2xl"
                 />
               </div>
             </div>
 
-            {/* Categories Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-auto h-11 flex items-center justify-between gap-3 bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all rounded-xl px-4 min-w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-theme-cyan" />
-                    <span className="text-xs uppercase tracking-widest font-bold font-mono">
-                      {categories.find(cat => cat.id === selectedCategory)?.name || "All Segments"}
-                    </span>
+            {/* Filters Row */}
+            <div className="flex flex-wrap lg:flex-nowrap items-center gap-3">
+              {/* Categories Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex-1 lg:flex-none h-12 flex items-center justify-between gap-3 bg-black/40 border-gray-700/50 text-gray-300 hover:bg-gray-800/60 hover:text-white transition-all rounded-2xl px-5 min-w-[160px]">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4 text-theme-cyan" />
+                      <span className="text-xs uppercase tracking-widest font-black font-mono">
+                        {categories.find(cat => cat.id === selectedCategory)?.name || "All Segments"}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-gray-950 border-gray-800 text-gray-300 min-w-[220px] rounded-2xl shadow-2xl p-2 backdrop-blur-xl">
+                  <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                    {categories.map((category) => (
+                      <DropdownMenuItem
+                        key={category.id}
+                        onClick={() => setSelectedCategory(category.id)}
+                        className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer group mb-1"
+                      >
+                        <span className="text-xs uppercase tracking-widest font-bold">{category.name}</span>
+                        <Badge variant="secondary" className="bg-white/5 text-gray-500 group-hover:bg-theme-cyan/20 group-hover:text-theme-cyan border-none text-[10px] font-black">
+                          {category.count}
+                        </Badge>
+                      </DropdownMenuItem>
+                    ))}
                   </div>
-                  <ChevronDown className="w-4 h-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#0E1A26] border-white/10 text-gray-300 min-w-[200px] rounded-xl shadow-2xl p-2">
-                {categories.map((category) => (
-                  <DropdownMenuItem
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer group"
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Sort Options */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex-1 lg:flex-none h-12 flex items-center justify-between gap-3 bg-black/40 border-gray-700/50 text-gray-300 hover:bg-gray-800/60 hover:text-white transition-all rounded-2xl px-5 min-w-[160px]">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-theme-red" />
+                      <span className="text-xs uppercase tracking-widest font-black font-mono text-gray-300">
+                        {sortBy === "newest" ? "Newest" :
+                          sortBy === "oldest" ? "Oldest" :
+                            sortBy === "price-low" ? "Price: Low" :
+                              sortBy === "price-high" ? "Price: High" :
+                                sortBy === "rating" ? "Rating" :
+                                  sortBy === "popular" ? "Popular" : "Recommended"}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-gray-950 border-gray-800 text-gray-300 min-w-[200px] rounded-2xl shadow-2xl p-2 backdrop-blur-xl">
+                  {[
+                    { id: "server", label: "Recommended" },
+                    { id: "newest", label: "Newest First" },
+                    { id: "oldest", label: "Oldest First" },
+                    { id: "price-low", label: "Price: Low to High" },
+                    { id: "price-high", label: "Price: High to Low" },
+                    { id: "rating", label: "Highest Rated" },
+                    { id: "popular", label: "Most Popular" }
+                  ].map((option) => (
+                    <DropdownMenuItem
+                      key={option.id}
+                      onClick={() => setSortBy(option.id)}
+                      className="px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Crypto Filter */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="hidden sm:flex h-12 items-center justify-between gap-3 bg-black/40 border-gray-700/50 text-gray-300 hover:bg-gray-800/60 hover:text-white transition-all rounded-2xl px-5 min-w-[140px]">
+                    <div className="flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs uppercase tracking-widest font-black font-mono">
+                        {selectedCrypto === "all" ? "All" : selectedCrypto}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-gray-950 border-gray-800 text-gray-300 min-w-[180px] rounded-2xl shadow-2xl p-2 backdrop-blur-xl">
+                  {["all", "BTC", "XMR"].map((coin) => (
+                    <DropdownMenuItem
+                      key={coin}
+                      onClick={() => setSelectedCrypto(coin as any)}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
+                    >
+                      <span>{coin === "all" ? "All Currencies" : coin === "BTC" ? "Bitcoin (BTC)" : "Monero (XMR)"}</span>
+                      {selectedCrypto === coin && <span className="text-theme-cyan font-black text-xs">✓</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* View Mode Toggle - Only shown on large screens */}
+              <div className="hidden md:flex border border-gray-700/50 rounded-2xl overflow-hidden bg-black/40 h-12 p-1.5 gap-1 shadow-inner">
+                {[
+                  { mode: "grid", icon: Grid },
+                  { mode: "list", icon: ListIcon },
+                  { mode: "table", icon: Table }
+                ].map(({ mode, icon: Icon }) => (
+                  <Button
+                    key={mode}
+                    variant={viewMode === mode ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode(mode as any)}
+                    className={`w-10 h-full rounded-xl transition-all duration-300 ${viewMode === mode
+                      ? "bg-theme-red text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                      : "text-gray-500 hover:text-white hover:bg-white/5"
+                      }`}
                   >
-                    <span className="text-xs uppercase tracking-widest font-bold">{category.name}</span>
-                    <Badge variant="secondary" className="bg-white/5 text-gray-500 group-hover:bg-theme-cyan/20 group-hover:text-theme-cyan border-none text-[10px]">
-                      {category.count}
-                    </Badge>
-                  </DropdownMenuItem>
+                    <Icon className="w-4 h-4" />
+                  </Button>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Sort Options */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-auto h-11 flex items-center justify-between gap-3 bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all rounded-xl px-4 min-w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-theme-cyan" />
-                    <span className="text-xs uppercase tracking-widest font-bold font-mono">
-                      {sortBy === "newest" ? "Newest" :
-                        sortBy === "oldest" ? "Oldest" :
-                          sortBy === "price-low" ? "Price: Low" :
-                            sortBy === "price-high" ? "Price: High" :
-                              sortBy === "rating" ? "Rating" :
-                                sortBy === "popular" ? "Popular" : "Recommended"}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#0E1A26] border-white/10 text-gray-300 min-w-[200px] rounded-xl shadow-2xl p-2">
-                <DropdownMenuItem onClick={() => setSortBy("server")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Recommended</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("newest")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Newest First</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("oldest")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Oldest First</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("price-low")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Price: Low to High</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("price-high")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Price: High to Low</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("rating")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Highest Rated</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy("popular")} className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold">Most Popular</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Crypto Filter */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-auto h-11 flex items-center justify-between gap-3 bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all rounded-xl px-4 min-w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-theme-cyan" />
-                    <span className="text-xs uppercase tracking-widest font-bold font-mono">
-                      {selectedCrypto === "all" ? "All Crypto" :
-                        selectedCrypto === "BTC" ? "Bitcoin" : "Monero"}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#0E1A26] border-white/10 text-gray-300 min-w-[200px] rounded-xl shadow-2xl p-2">
-                <DropdownMenuItem
-                  onClick={() => setSelectedCrypto("all")}
-                  className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>All Cryptocurrencies</span>
-                    {selectedCrypto === "all" && <span className="text-theme-cyan">✓</span>}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setSelectedCrypto("BTC")}
-                  className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>Bitcoin (BTC)</span>
-                    {selectedCrypto === "BTC" && <span className="text-theme-cyan">✓</span>}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setSelectedCrypto("XMR")}
-                  className="px-3 py-2.5 rounded-lg hover:bg-theme-cyan/10 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span>Monero (XMR)</span>
-                    {selectedCrypto === "XMR" && <span className="text-theme-cyan">✓</span>}
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Price Filter */}
-            {/* <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full lg:w-auto h-11 flex items-center justify-between gap-3 bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all rounded-xl px-4 min-w-[150px]">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-theme-cyan" />
-                    <span className="text-xs uppercase tracking-widest font-bold font-mono">
-                      {minPrice || maxPrice ? `Price Range` : "All Prices"}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#0E1A26] border-white/10 text-gray-300 min-w-[240px] rounded-xl shadow-2xl p-4 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Min Price (USD)</label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                    className="h-9 bg-white/5 border-white/10 text-white text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Max Price (USD)</label>
-                  <Input
-                    type="number"
-                    placeholder="No limit"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                    className="h-9 bg-white/5 border-white/10 text-white text-sm"
-                  />
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setMinPrice(""); setMaxPrice(""); }}
-                  className="w-full text-[10px] uppercase tracking-widest font-bold text-theme-red hover:bg-theme-red/10"
-                >
-                  Clear Filter
-                </Button>
-              </DropdownMenuContent>
-            </DropdownMenu> */}
-
-            {/* View Mode Toggle */}
-            <div className="flex border border-white/10 rounded-xl overflow-hidden bg-white/5 h-11 w-full lg:w-auto p-1">
-              <Button
-                variant={viewMode === "grid" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("grid")}
-                className={`flex-1 lg:w-10 rounded-lg ${viewMode === "grid" ? "bg-theme-red text-white shadow-lg shadow-theme-red/20" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
-                title="Grid View"
-              >
-                <Grid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-                className={`flex-1 lg:w-10 rounded-lg ${viewMode === "list" ? "bg-theme-red text-white shadow-lg shadow-theme-red/20" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
-                title="List View"
-              >
-                <ListIcon className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === "table" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("table")}
-                className={`flex-1 lg:w-10 rounded-lg ${viewMode === "table" ? "bg-theme-red text-white shadow-lg shadow-theme-red/20" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
-                title="Table View"
-              >
-                <Table className="w-4 h-4" />
-              </Button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Results Count + Items per page + Loading indicator */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm text-gray-400">
-          <span>
-            Showing {searchQuery ? filteredProducts.length : filteredProducts.length} of {searchQuery ? allProducts.length : pagination.total_count} products
-          </span>
+        {/* Dynamic Results Header */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
           <div className="flex items-center gap-3">
-            {/* Items per page selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-sm">Items per page:</span>
+            <div className="h-6 w-1 bg-theme-red rounded-full" />
+            <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">
+              Discovered <span className="text-white">{searchQuery ? filteredProducts.length : pagination.total_count}</span> Artifacts
+            </span>
+            {isLoading && (
+              <div className="flex items-center gap-2 text-xs text-theme-cyan animate-pulse">
+                <div className="w-3 h-3 border-2 border-theme-cyan border-t-transparent rounded-full animate-spin" />
+                Updating Stream...
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 bg-gray-900/40 rounded-full px-4 py-2 border border-white/5">
+              <span className="text-[10px] uppercase font-black tracking-widest text-gray-500">Density</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-theme-cyan"
+                className="bg-transparent text-sm font-bold text-theme-cyan focus:outline-none cursor-pointer"
               >
-                <option value={12}>12</option>
-                <option value={24}>24</option>
-                <option value={36}>36</option>
-                <option value={48}>48</option>
+                {[12, 24, 36, 48, 100].map(size => (
+                  <option key={size} value={size} className="bg-gray-900">{size}</option>
+                ))}
               </select>
             </div>
-            {isLoading && (
-              <div className="flex items-center gap-2 text-xs text-theme-cyan">
-                <div className="w-4 h-4 border-2 border-theme-cyan border-t-transparent rounded-full animate-spin" />
-                Loading...
-              </div>
-            )}
           </div>
         </div>
 

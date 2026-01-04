@@ -28,7 +28,6 @@ def run_launcher():
     if not os.path.exists(rpc_exe):
         print(f"[!] DO NOT FOUND: {rpc_exe}")
         print("    Please download and extract it again!")
-        input("Press Enter to exit...")
         return
 
     print(f"[+] Found executable.")
@@ -77,7 +76,6 @@ def run_launcher():
         print(f"[!] CRITICAL ERROR: {e}")
         
     print("\n[FINISHED] You can scroll up to see the error.")
-    input("Press Enter to close this window...")
 
 if __name__ == "__main__":
     run_launcher()

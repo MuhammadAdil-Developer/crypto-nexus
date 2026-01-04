@@ -167,36 +167,24 @@ class TicketMessageListCreateView(generics.ListCreateAPIView):
                 except Exception as e:
                     logger.error(f"Error notifying admin about ticket message: {e}")
             
-            # Trigger count refresh for all users (buyer/vendor/admin) when ticket message is sent
+            # Trigger count refresh and notification via central helper
             try:
-                from asgiref.sync import async_to_sync
-                from channels.layers import get_channel_layer
-                channel_layer = get_channel_layer()
-                if channel_layer:
-                    # Notify ticket owner to refresh counts
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{ticket.user.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'id': f'ticket_msg_{message.id}',
-                                'type': 'system',
-                                'title': 'Ticket Message',
-                                'message': f'New message in ticket: "{ticket.subject}"',
-                                'is_read': False,
-                                'data': {
-                                    'ticket_id': str(ticket.id),
-                                    'ticket_id_display': ticket.ticket_id,
-                                    'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
-                                },
-                                'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support',
-                                'created_at': message.created_at.isoformat(),
-                                'priority': 'normal'
-                            }
-                        }
-                    )
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
+                    user=ticket.user,
+                    notification_type='ticket_response',
+                    title='Ticket Message',
+                    message=f'New message in ticket: "{ticket.subject}"',
+                    data={
+                        'id': f'ticket_msg_{message.id}',
+                        'ticket_id': str(ticket.id),
+                        'ticket_id_display': ticket.ticket_id,
+                        'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
+                    },
+                    priority='normal'
+                )
             except Exception as e:
-                logger.error(f"Error sending ticket count update: {e}")
+                logger.error(f"Error sending ticket notification: {e}")
             
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
@@ -279,37 +267,32 @@ def assign_ticket(request, pk):
             ticket.assigned_to = assigned_user
             ticket.save()
             
-            # Notify assigned admin
-            try:
-                Notification.objects.create(
-                    user=assigned_user,
-                    type='ticket_assigned',
-                    title='Ticket Assigned',
-                    message=f'You have been assigned to ticket #{ticket.ticket_id}: {ticket.subject}',
-                    data={
-                        'ticket_id': str(ticket.id),
-                        'ticket_id_display': ticket.ticket_id,
-                        'action_url': '/admin/tickets'
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error creating notification for assigned admin: {e}")
+            # Notify assigned admin via central helper
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
+                user=assigned_user,
+                notification_type='ticket_assigned',
+                title='Ticket Assigned',
+                message=f'You have been assigned to ticket #{ticket.ticket_id}: {ticket.subject}',
+                data={
+                    'ticket_id': str(ticket.id),
+                    'ticket_id_display': ticket.ticket_id,
+                    'action_url': '/admin/tickets'
+                }
+            )
             
-            # Notify ticket opener
-            try:
-                Notification.objects.create(
-                    user=ticket.user,
-                    type='ticket_response',
-                    title='Ticket Assigned',
-                    message=f'Your ticket #{ticket.ticket_id} has been assigned to an admin for review',
-                    data={
-                        'ticket_id': str(ticket.id),
-                        'ticket_id_display': ticket.ticket_id,
-                        'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error creating notification for ticket opener: {e}")
+            # Notify ticket opener via central helper
+            send_user_notification(
+                user=ticket.user,
+                notification_type='ticket_response',
+                title='Ticket Assigned',
+                message=f'Your ticket #{ticket.ticket_id} has been assigned to an admin for review',
+                data={
+                    'ticket_id': str(ticket.id),
+                    'ticket_id_display': ticket.ticket_id,
+                    'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
+                }
+            )
             
             return Response({'message': 'Ticket assigned successfully'})
         except User.DoesNotExist:

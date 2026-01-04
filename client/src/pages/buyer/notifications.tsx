@@ -3,7 +3,7 @@ import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bell, Star, AlertTriangle, Package, MessageSquare, RefreshCw } from "lucide-react";
+import { Bell, Star, AlertTriangle, Package, MessageSquare, RefreshCw, Shield } from "lucide-react";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -16,7 +16,7 @@ export default function BuyerNotifications() {
 
   useEffect(() => {
     refreshNotifications();
-    
+
     // Simple: When page opens, mark all as read and set count to 0
     const markAllRead = async () => {
       try {
@@ -29,11 +29,11 @@ export default function BuyerNotifications() {
         console.error('Error marking notifications as read:', error);
       }
     };
-    
+
     markAllRead();
   }, []);
 
-  const filteredNotifications = filter === 'unread' 
+  const filteredNotifications = filter === 'unread'
     ? allNotifications.filter(n => n.unread)
     : allNotifications;
 
@@ -64,6 +64,8 @@ export default function BuyerNotifications() {
         return <Package className="w-5 h-5 text-purple-400" />;
       case 'dispute':
         return <AlertTriangle className="w-5 h-5 text-red-400" />;
+      case 'security':
+        return <Shield className="w-5 h-5 text-red-500" />;
       default:
         return <Bell className="w-5 h-5 text-gray-400" />;
     }
@@ -78,6 +80,8 @@ export default function BuyerNotifications() {
       case 'vendor_invitation':
         return 'bg-purple-500/20 border-purple-500/30';
       case 'dispute':
+        return 'bg-red-500/20 border-red-500/30';
+      case 'security':
         return 'bg-red-500/20 border-red-500/30';
       default:
         return 'bg-gray-500/20 border-gray-500/30';

@@ -206,8 +206,8 @@ export default function VendorReviews() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Customer Reviews</h1>
-          <p className="text-gray-400 text-sm sm:text-base">Manage customer feedback and respond to reviews</p>
+          <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">Customer Reviews</h1>
+          <p className="text-gray-400 text-sm sm:text-base italic">Manage customer feedback and respond to reviews</p>
         </div>
       </div>
 

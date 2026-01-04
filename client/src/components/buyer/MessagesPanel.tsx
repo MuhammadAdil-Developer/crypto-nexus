@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, MoreVertical, Send, Search, Archive, Star, Package, X, ArrowDown, Copy, Loader2, Image as ImageIcon, File, Video, Paperclip, User, Shield, Flag, Lock, Camera, Mic, Trash2, Info } from "lucide-react";
+import { MessageSquare, MoreVertical, Send, Search, Archive, Star, Package, X, ArrowDown, Copy, Loader2, Image as ImageIcon, File, Video, Paperclip, User, Shield, Flag, Lock, Camera, Mic, Trash2, Info, Plus, ChevronLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { messagingService } from "@/services/messagingService";
 import { realtimeService } from "@/services/realtimeService";
 import { getRelativeTime } from "@/utils/timeUtils";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface MessagesPanelProps {
   compact?: boolean;
@@ -891,23 +892,28 @@ export function MessagesPanel({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 h-[calc(100vh-120px)] sm:h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4 h-[calc(100vh-65px)] sm:h-[calc(100vh-100px)] lg:h-[calc(100vh-120px)]">
       {/* Conversations List */}
-      <Card className="lg:col-span-1 border border-gray-700 bg-gray-900 overflow-hidden h-full flex flex-col">
-        <CardHeader className="p-3 sm:p-6">
-          <CardTitle className="flex items-center justify-between text-base sm:text-lg mb-3">
+      <Card className={cn(
+        "lg:col-span-1 border border-gray-700/50 bg-gray-900/60 backdrop-blur-xl overflow-hidden h-full flex flex-col shadow-2xl",
+        selectedConversation ? "hidden lg:flex" : "flex"
+      )}>
+        <CardHeader className="p-4 sm:p-6 border-b border-gray-800/50">
+          <CardTitle className="flex items-center justify-between text-base sm:text-lg mb-4">
             <div className="flex items-center space-x-2">
-              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Messages</span>
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+              </div>
+              <span className="font-bold tracking-tight text-white">Conversations</span>
             </div>
           </CardTitle>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
             <Input
-              placeholder="Search conversations..."
+              placeholder="Search chats..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 text-sm sm:text-base bg-gray-800 border-gray-700"
+              className="pl-10 text-sm bg-gray-800/50 border-gray-700/50 focus:border-blue-500/50 focus:ring-blue-500/20 rounded-xl transition-all"
             />
           </div>
         </CardHeader>
@@ -930,18 +936,24 @@ export function MessagesPanel({
                 {filtered.map((conv) => (
                   <div
                     key={conv.id}
-                    className={`p-3 sm:p-4 cursor-pointer transition-colors duration-200 ${selectedConversation?.id === conv.id
-                      ? 'bg-blue-900/20 border-r-2 border-blue-500'
-                      : 'hover:bg-gray-800'
+                    className={`p-3 sm:p-4 cursor-pointer transition-all duration-300 relative group ${selectedConversation?.id === conv.id
+                      ? 'bg-blue-600/10'
+                      : 'hover:bg-gray-800/40'
                       }`}
                     onClick={() => handleConversationSelect(conv)}
                   >
+                    {selectedConversation?.id === conv.id && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+                    )}
                     <div className="flex items-center space-x-2 sm:space-x-3">
-                      <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
-                        <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
-                          {conv.product?.title?.charAt(0) || 'P'}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative flex-shrink-0">
+                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 border border-blue-400/20 shadow-sm">
+                          <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
+                            {conv.product?.title?.charAt(0) || 'P'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 border-2 border-gray-950 rounded-full shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
+                      </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
@@ -983,18 +995,34 @@ export function MessagesPanel({
       </Card>
 
       {/* Chat Window */}
-      <Card className="lg:col-span-2 border border-gray-700 bg-gray-900 overflow-hidden flex flex-col h-full">
+      <Card className={cn(
+        "lg:col-span-2 border border-gray-700/50 bg-gray-900/60 backdrop-blur-xl overflow-hidden flex flex-col h-full shadow-2xl relative",
+        !selectedConversation ? "hidden lg:flex" : "flex"
+      )}>
         {selectedConversation ? (
           <>
             {/* Chat Header */}
-            <CardHeader className="border-b p-3 sm:p-6">
+            <CardHeader className="border-b border-gray-800/50 p-2 sm:p-5 bg-gray-900/40">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-                  <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0">
-                    <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
-                      {getVendorFromConversation(selectedConversation)?.username?.charAt(0) || 'V'}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="flex items-center sm:space-x-3 min-w-0 flex-1">
+                  {/* Back Button for Mobile */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="lg:hidden h-8 w-8 p-0 mr-1 text-gray-400 hover:text-white"
+                    onClick={() => setSelectedConversation(null)}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+
+                  <div className="relative flex-shrink-0">
+                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 shadow-lg border border-blue-400/20">
+                      <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
+                        {getVendorFromConversation(selectedConversation)?.username?.charAt(0) || 'V'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 border-2 border-gray-950 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" title="Online" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <h3
                       className="font-semibold text-white text-sm sm:text-base truncate cursor-pointer hover:text-blue-400 transition-colors flex items-center space-x-2"
@@ -1122,9 +1150,9 @@ export function MessagesPanel({
               </div>
             )}
 
-            {/* Messages */}
-            <CardContent className="flex-1 p-3 sm:p-4 flex flex-col min-h-0">
-              <div className="space-y-3 sm:space-y-4 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 h-[calc(100vh-240px)] sm:h-[calc(100vh-280px)] lg:h-full" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
+            {/* Messages container with significantly increased height for mobile */}
+            <CardContent className="flex-1 p-3 sm:p-4 flex flex-col min-h-0 bg-black/5 overflow-hidden">
+              <div className="space-y-4 sm:space-y-6 mb-4 flex-1 overflow-y-auto scroll-smooth min-h-0 h-[calc(100vh-140px)] sm:h-[calc(100vh-220px)] lg:h-full" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                 {loadingMessages ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -1316,25 +1344,58 @@ export function MessagesPanel({
                         key={message.id}
                         className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                       >
-                        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative ${isOwnMessage
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-8'
-                          : 'bg-gray-700 text-white mr-8'
-                          }`}>
-                          {renderMessageContent()}
-                          <p className={`text-[10px] sm:text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-400'
-                            }`}>
-                            {formatTime(message.created_at)}
-                          </p>
-
-                          {/* Three-dot menu - Only show on own messages */}
-                          {isOwnMessage && (
-                            <div className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-end gap-2 group/msg relative">
+                          {!isOwnMessage && (
+                            <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity translate-x-1">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-white/30 text-blue-200 hover:text-white bg-white/10"
+                                    className="h-7 w-7 p-0 hover:bg-gray-800/80 text-gray-400 hover:text-white rounded-full"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                  <DropdownMenuItem onClick={() => handleReplyMessage(message)}>
+                                    <MessageSquare className="w-4 h-4 mr-2" />
+                                    Reply
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCopyMessage(message)}>
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Copy
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleReportMessage(message)}
+                                    className="text-red-600"
+                                  >
+                                    <Archive className="w-4 h-4 mr-2" />
+                                    Report
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+
+                          <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl relative shadow-lg ${isOwnMessage
+                            ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white border border-blue-400/20'
+                            : 'bg-gray-800/90 text-gray-100 border border-gray-700/50'
+                            }`}>
+                            {renderMessageContent()}
+                            <p className={`text-[10px] sm:text-xs mt-1 text-right ${isOwnMessage ? 'text-blue-100/70' : 'text-gray-400/70'}`}>
+                              {formatTime(message.created_at)}
+                            </p>
+                          </div>
+
+                          {isOwnMessage && (
+                            <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity -translate-x-1">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 hover:bg-gray-800/80 text-gray-400 hover:text-white rounded-full"
                                   >
                                     <MoreVertical className="w-4 h-4" />
                                   </Button>
@@ -1358,40 +1419,6 @@ export function MessagesPanel({
                                   >
                                     <Archive className="w-4 h-4 mr-2" />
                                     Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          )}
-
-                          {/* Three-dot menu for other messages - Only Reply, Copy, Report */}
-                          {!isOwnMessage && (
-                            <div className="absolute top-1 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-white/30 text-gray-300 hover:text-white bg-white/10"
-                                  >
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                  <DropdownMenuItem onClick={() => handleReplyMessage(message)}>
-                                    <MessageSquare className="w-4 h-4 mr-2" />
-                                    Reply
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleCopyMessage(message)}>
-                                    <Copy className="w-4 h-4 mr-2" />
-                                    Copy
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleReportMessage(message)}
-                                    className="text-red-600"
-                                  >
-                                    <Archive className="w-4 h-4 mr-2" />
-                                    Report
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1592,151 +1619,67 @@ export function MessagesPanel({
                   </div>
                 )}
 
-                <div className="flex items-center space-x-2 relative">
+                <div className="flex items-center space-x-2 relative p-2 bg-gray-900/60 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl group focus-within:border-blue-500/50 transition-all duration-300">
                   {/* Hidden file inputs */}
-                  <input
-                    type="file"
-                    ref={imageInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <input
-                    type="file"
-                    ref={videoInputRef}
-                    onChange={handleFileSelect}
-                    accept="video/*"
-                    className="hidden"
-                  />
-                  <input
-                    type="file"
-                    ref={audioInputRef}
-                    onChange={handleFileSelect}
-                    accept="audio/*"
-                    className="hidden"
-                  />
-                  <input
-                    type="file"
-                    ref={documentInputRef}
-                    onChange={handleFileSelect}
-                    accept=".pdf,.doc,.docx,.txt,.rtf"
-                    className="hidden"
-                  />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-                    className="hidden"
-                  />
+                  <input type="file" ref={imageInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
+                  <input type="file" ref={videoInputRef} onChange={handleFileSelect} accept="video/*" className="hidden" />
+                  <input type="file" ref={audioInputRef} onChange={handleFileSelect} accept="audio/*" className="hidden" />
+                  <input type="file" ref={documentInputRef} onChange={handleFileSelect} accept=".pdf,.doc,.docx,.txt,.rtf" className="hidden" />
+                  <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*,video/*,.pdf,.doc,.docx,.txt" className="hidden" />
 
-                  {/* File Picker Modal - WhatsApp Style - Compact */}
-                  {showFilePicker && (
-                    <div className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-50">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            imageInputRef.current?.click();
-                            setShowFilePicker(false);
-                          }}
-                          className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700 transition-colors min-w-[60px]"
-                          title="Camera"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center mb-1">
-                            <Camera className="w-5 h-5 text-pink-400" />
-                          </div>
-                          <span className="text-[10px] text-gray-300">Camera</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            imageInputRef.current?.click();
-                            setShowFilePicker(false);
-                          }}
-                          className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700 transition-colors min-w-[60px]"
-                          title="Gallery"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-1">
-                            <ImageIcon className="w-5 h-5 text-purple-400" />
-                          </div>
-                          <span className="text-[10px] text-gray-300">Gallery</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            videoInputRef.current?.click();
-                            setShowFilePicker(false);
-                          }}
-                          className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700 transition-colors min-w-[60px]"
-                          title="Video"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center mb-1">
-                            <Video className="w-5 h-5 text-green-400" />
-                          </div>
-                          <span className="text-[10px] text-gray-300">Video</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            audioInputRef.current?.click();
-                            setShowFilePicker(false);
-                          }}
-                          className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700 transition-colors min-w-[60px]"
-                          title="Audio"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center mb-1">
-                            <Mic className="w-5 h-5 text-orange-400" />
-                          </div>
-                          <span className="text-[10px] text-gray-300">Audio</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            documentInputRef.current?.click();
-                            setShowFilePicker(false);
-                          }}
-                          className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700 transition-colors min-w-[60px]"
-                          title="Document"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center mb-1">
-                            <File className="w-5 h-5 text-blue-400" />
-                          </div>
-                          <span className="text-[10px] text-gray-300">Document</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-10 w-10 p-0 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors"
+                        disabled={isConversationLocked || isUploading}
+                      >
+                        <Plus className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 bg-gray-900 border-gray-700 p-1 shadow-2xl">
+                      <DropdownMenuItem onClick={() => imageInputRef.current?.click()} className="rounded-lg py-2.5 cursor-pointer">
+                        <ImageIcon className="w-4 h-4 mr-3 text-emerald-400" />
+                        <span className="font-medium text-sm text-gray-200">Photos & Videos</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => documentInputRef.current?.click()} className="rounded-lg py-2.5 cursor-pointer">
+                        <File className="w-4 h-4 mr-3 text-blue-400" />
+                        <span className="font-medium text-sm text-gray-200">Documents</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => audioInputRef.current?.click()} className="rounded-lg py-2.5 cursor-pointer">
+                        <Mic className="w-4 h-4 mr-3 text-orange-400" />
+                        <span className="font-medium text-sm text-gray-200">Audio Message</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 sm:h-10 w-9 sm:w-10 p-0 flex-shrink-0"
-                    onClick={() => setShowFilePicker(!showFilePicker)}
-                    disabled={isConversationLocked || isBlocked}
-                  >
-                    <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </Button>
                   <Input
-                    placeholder="Type your message..."
+                    placeholder={isConversationLocked ? "Conversation locked" : "Type a message..."}
                     value={newMessage}
                     onChange={(e) => {
                       setNewMessage(e.target.value);
-                      if (!isConversationLocked) {
-                        handleTyping(true);
-                      }
+                      handleTyping(e.target.value.length > 0);
                     }}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && (newMessage.trim() || selectedFile) && !isConversationLocked) {
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
                         handleSendMessage();
                       }
                     }}
-                    onFocus={() => setShowFilePicker(false)}
-                    disabled={isConversationLocked}
-                    className="flex-1 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isConversationLocked || isUploading}
+                    className="flex-1 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base text-white placeholder:text-gray-500 min-h-[44px]"
                   />
+
                   <Button
-                    size="sm"
-                    className="bg-theme-cyan text-black hover:bg-theme-cyan/90 h-9 sm:h-10 px-3 sm:px-4 flex-shrink-0"
-                    disabled={(!newMessage.trim() && !selectedFile) || isConversationLocked}
                     onClick={handleSendMessage}
+                    disabled={(!newMessage.trim() && !selectedFile) || isConversationLocked || isUploading}
+                    className={`h-10 w-10 p-0 rounded-xl shadow-lg transition-all duration-300 ${newMessage.trim() || selectedFile
+                      ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/40 scale-100'
+                      : 'bg-gray-800 text-gray-500 scale-95 opacity-50'
+                      }`}
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-5 h-5 ml-0.5" />
                   </Button>
                 </div>
               </div>

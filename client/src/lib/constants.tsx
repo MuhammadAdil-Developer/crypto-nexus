@@ -1,9 +1,9 @@
-import { 
-  BarChart3, 
-  Users, 
-  Store, 
-  List, 
-  ShoppingCart, 
+import {
+  BarChart3,
+  Users,
+  Store,
+  List,
+  ShoppingCart,
   Gavel,
   MessageSquare,
   Ticket,
@@ -192,6 +192,12 @@ export const ADMIN_GROUPED_NAV = [
         badge: { text: "24", type: "accent" }
       },
       {
+        title: "Announcements",
+        icon: Megaphone,
+        href: "/admin/communications",
+        badge: null
+      },
+      {
         title: "Tickets",
         icon: Ticket,
         href: "/admin/tickets",
@@ -291,7 +297,7 @@ export const SAMPLE_ORDERS = [
     created: "2 hours ago"
   },
   {
-    id: "ORD-2846", 
+    id: "ORD-2846",
     buyer: "anon_user_423",
     vendor: "DigitalVault",
     listing: "Spotify Premium (6 Months)",
@@ -302,7 +308,7 @@ export const SAMPLE_ORDERS = [
   },
   {
     id: "ORD-2845",
-    buyer: "crypto_buyer_89", 
+    buyer: "crypto_buyer_89",
     vendor: "SecureAccounts",
     listing: "YouTube Premium (3 Months)",
     amount: "1.24 XMR",
@@ -313,7 +319,7 @@ export const SAMPLE_ORDERS = [
   {
     id: "ORD-2844",
     buyer: "privacy_first",
-    vendor: "PremiumDigital", 
+    vendor: "PremiumDigital",
     listing: "Disney+ (1 Year Subscription)",
     amount: "0.0015 BTC",
     status: "Disputed",
@@ -331,7 +337,7 @@ export const SAMPLE_ACTIVITY = [
   },
   {
     id: 2,
-    type: "warning", 
+    type: "warning",
     title: "Dispute opened",
     description: "Order #ORD-2847 • 12 min ago"
   },
@@ -339,12 +345,12 @@ export const SAMPLE_ACTIVITY = [
     id: 3,
     type: "accent",
     title: "Large order completed",
-    description: "2.4 BTC • 18 min ago" 
+    description: "2.4 BTC • 18 min ago"
   },
   {
     id: 4,
     type: "success",
-    title: "Escrow released", 
+    title: "Escrow released",
     description: "Order #ORD-2845 • 22 min ago"
   },
   {
@@ -366,7 +372,7 @@ export const SAMPLE_CATEGORIES = [
   {
     id: 2,
     title: "Gaming Accounts",
-    description: "Steam, Epic Games, Xbox, PlayStation", 
+    description: "Steam, Epic Games, Xbox, PlayStation",
     listings: 189,
     image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200"
   },
@@ -378,7 +384,7 @@ export const SAMPLE_CATEGORIES = [
     image: "https://images.unsplash.com/photo-1551650975-87deedd944c3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200"
   },
   {
-    id: 4, 
+    id: 4,
     title: "VPN & Security",
     description: "NordVPN, ExpressVPN, Antivirus",
     listings: 98,
@@ -406,20 +412,20 @@ export const SAMPLE_LISTINGS = [
     vendor: "DigitalVault",
     rating: 4.7,
     reviews: 89,
-    btcPrice: "0.0008", 
+    btcPrice: "0.0008",
     xmrPrice: "0.56",
     delivery: "Escrow Only",
     deliveryType: "warning" as const
   },
   {
     id: 3,
-    title: "Adobe Creative Cloud (1 Year)", 
+    title: "Adobe Creative Cloud (1 Year)",
     description: "Full access to all Adobe apps including Photoshop, Illustrator, After Effects, and more.",
     vendor: "PremiumSoft",
     rating: 4.8,
     reviews: 156,
     btcPrice: "0.0034",
-    xmrPrice: "2.47", 
+    xmrPrice: "2.47",
     delivery: "Manual Delivery",
     deliveryType: "accent" as const
   }
@@ -440,7 +446,7 @@ export const SAMPLE_USERS = [
   },
   {
     id: 2,
-    username: "anon_user_423", 
+    username: "anon_user_423",
     email: "•••@••••.com",
     role: "Vendor",
     status: "Active",
@@ -453,7 +459,7 @@ export const SAMPLE_USERS = [
   {
     id: 3,
     username: "privacy_first",
-    email: "•••@••••.com", 
+    email: "•••@••••.com",
     role: "Customer",
     status: "Banned",
     statusType: "danger" as const,
@@ -466,7 +472,7 @@ export const SAMPLE_USERS = [
     id: 4,
     username: "user_7824",
     email: "•••@••••.com",
-    role: "Customer", 
+    role: "Customer",
     status: "Active",
     statusType: "success" as const,
     joinDate: "2024-03-10",
@@ -513,7 +519,7 @@ export const SAMPLE_VENDORS = [
     owner: "software_expert",
     status: "Approved",
     statusType: "success" as const,
-    category: "Software & Tools", 
+    category: "Software & Tools",
     joinDate: "2023-12-03",
     listings: 23,
     totalSales: "8.4 BTC",
@@ -540,7 +546,7 @@ export const SAMPLE_DISPUTES = [
   {
     id: 2,
     orderId: "ORD-2831",
-    buyer: "crypto_buyer_89", 
+    buyer: "crypto_buyer_89",
     vendor: "StreamAccounts",
     reason: "Wrong account type delivered",
     status: "In Review",
@@ -581,7 +587,7 @@ export const SAMPLE_TICKETS = [
     ticketId: "TK-2024-002",
     user: "vendor_alpha",
     subject: "Commission rate change request",
-    status: "In Progress", 
+    status: "In Progress",
     statusType: "warning" as const,
     priority: "Medium",
     created: "6 hours ago",

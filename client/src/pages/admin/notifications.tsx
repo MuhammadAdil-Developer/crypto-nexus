@@ -8,8 +8,9 @@ import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import notificationService from "@/services/notificationService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatCryptoAmountInString } from "@/lib/utils";
 
-type NotificationType = 'all' | 'order' | 'payment' | 'message' | 'system' | 'listing_approval' | 'listing_rejection' | 'dispute' | 'payout';
+type NotificationType = 'all' | 'order' | 'payment' | 'message' | 'system' | 'listing_approval' | 'listing_rejection' | 'dispute' | 'payout' | 'security';
 
 export default function AdminNotifications() {
   const { allNotifications, refreshNotifications, isLoading, setUnreadCount } = useMessaging();
@@ -19,28 +20,28 @@ export default function AdminNotifications() {
 
   useEffect(() => {
     refreshNotifications();
-    
+
     // Auto-refresh aggressively every 3 seconds
     const interval = setInterval(() => {
       refreshNotifications(true);
     }, 3000);
-    
+
     return () => clearInterval(interval);
   }, [refreshNotifications]);
 
   const filteredNotifications = (() => {
     let filtered = allNotifications;
-    
+
     // Filter by read/unread
     if (filter === 'unread') {
       filtered = filtered.filter(n => n.unread);
     }
-    
+
     // Filter by type
     if (typeFilter !== 'all') {
       filtered = filtered.filter(n => n.type === typeFilter);
     }
-    
+
     return filtered;
   })();
 
@@ -75,6 +76,8 @@ export default function AdminNotifications() {
         return <AlertTriangle className="w-5 h-5 text-white" />;
       case 'payout':
         return <DollarSign className="w-5 h-5 text-white" />;
+      case 'security':
+        return <Shield className="w-5 h-5 text-white" />;
       default:
         return <Bell className="w-5 h-5 text-white" />;
     }
@@ -98,6 +101,8 @@ export default function AdminNotifications() {
         return 'bg-orange-500';
       case 'payout':
         return 'bg-emerald-500';
+      case 'security':
+        return 'bg-red-600';
       default:
         return 'bg-gray-500';
     }
@@ -143,7 +148,7 @@ export default function AdminNotifications() {
             Unread ({allNotifications?.filter(n => n.unread).length || 0})
           </Button>
         </div>
-        
+
         <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as NotificationType)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
@@ -158,6 +163,7 @@ export default function AdminNotifications() {
             <SelectItem value="listing_rejection">Listing Rejections</SelectItem>
             <SelectItem value="dispute">Disputes</SelectItem>
             <SelectItem value="payout">Payouts</SelectItem>
+            <SelectItem value="security">Security</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -180,9 +186,8 @@ export default function AdminNotifications() {
           {sortedNotifications.map((notification) => (
             <Card
               key={notification.id}
-              className={`cursor-pointer hover:bg-gray-800/50 transition-all border ${
-                notification.unread ? 'border-blue-500/50 bg-blue-500/5' : 'border-gray-700'
-              }`}
+              className={`cursor-pointer hover:bg-gray-800/50 transition-all border ${notification.unread ? 'border-blue-500/50 bg-blue-500/5' : 'border-gray-700'
+                }`}
               onClick={() => handleNotificationClick(notification)}
             >
               <CardContent className="p-5">
@@ -191,24 +196,24 @@ export default function AdminNotifications() {
                   <div className={`${getNotificationColor(notification.type)} p-3 rounded-lg flex-shrink-0`}>
                     {getNotificationIcon(notification.type)}
                   </div>
-                  
+
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-white text-base">{notification.title}</h3>
+                          <h3 className="font-semibold text-white text-base">{formatCryptoAmountInString(notification.title)}</h3>
                           {notification.unread && (
                             <Badge variant="default" className="bg-blue-500 text-xs">
                               New
                             </Badge>
                           )}
                         </div>
-                         {/* Subtitle/Details Line */}
-                         <p className="text-gray-300 text-sm leading-relaxed mb-3">
-                           {notification.orderId ? notification.orderId : notification.message}
-                         </p>
-                        
+                        {/* Subtitle/Details Line */}
+                        <p className="text-gray-300 text-sm leading-relaxed mb-3">
+                          {notification.orderId ? notification.orderId : formatCryptoAmountInString(notification.message)}
+                        </p>
+
                         {/* Additional Details */}
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span className="flex items-center gap-1">
@@ -223,7 +228,7 @@ export default function AdminNotifications() {
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Unread indicator */}
                       {notification.unread && (
                         <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MoreVertical, Eye, MessageSquare, Package, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle, Star, RefreshCw } from "lucide-react";
+import { Search, MoreVertical, Eye, MessageSquare, Package, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle, Star, RefreshCw, Clock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ import { OrderProductModal } from "@/components/buyer/OrderProductModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { productService } from "@/services/productService";
 import { RefundModal } from "@/components/vendor/RefundModal";
+import { PageBanner } from "@/components/PageBanner";
 
 // Transform API data to match existing structure
 const transformOrderData = (apiOrder: Order) => {
@@ -58,8 +59,6 @@ const transformOrderData = (apiOrder: Order) => {
         return 'Pending';
       case 'processing':
         return 'Processing';
-      case 'shipped':
-        return 'Shipped';
       case 'completed':
         return 'Completed';
       case 'cancelled':
@@ -149,12 +148,10 @@ const getStatusColor = (status: string) => {
       return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Processing":
       return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
-    case "Shipped":
-      return "bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30";
     case "Pending":
-      return "bg-theme-red/10 text-theme-red border-theme-red/20";
+      return "bg-orange-500/10 text-orange-400 border-orange-500/20";
     case "Cancelled":
-      return "bg-theme-red/10 text-theme-red border-theme-red/20";
+      return "bg-red-500/10 text-red-400 border-red-500/20";
     default:
       return "bg-gray-700 text-gray-300 border-gray-600";
   }
@@ -236,7 +233,6 @@ export default function VendorOrders() {
       setIsReviewsOpen(true);
       setReviews([]);
       const res = await productService.getVendorProductReviewsSimple(productId, { page: 1, page_size: 10 });
-      console.log('🔍 Loading reviews for product:', productId, 'Title:', productTitle, 'Reviews:', res.data);
       setReviews(res.data || []);
     } catch (e) {
       console.error('Failed to load reviews', e);
@@ -287,7 +283,6 @@ export default function VendorOrders() {
       const statusMapping: { [key: string]: string } = {
         'Pending': 'pending_payment',
         'Processing': 'payment_received',
-        'Shipped': 'paid',
         'Completed': 'delivered',
         'Cancelled': 'cancelled'
       };
@@ -498,100 +493,161 @@ export default function VendorOrders() {
   return (
     <>
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Orders & Sales</h1>
-            <p className="text-gray-400 text-sm sm:text-base">Manage your customer orders and track sales</p>
-          </div>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
-            Export Orders
+        <PageBanner
+          title="My Orders"
+          subtitle="Track sales performance"
+          type="vendor"
+        />
+
+        <div className="flex flex-col sm:flex-row justify-end gap-3 mb-8">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const csvContent = [
+                ['Order ID', 'Buyer', 'Product', 'Amount', 'Currency', 'Status', 'Date'].join(','),
+                ...filteredOrders.map(order => [
+                  order.id,
+                  order.buyer,
+                  `\"${order.product}\"`,
+                  order.amount,
+                  order.paymentMethod,
+                  order.status,
+                  `${order.date} ${order.time}`
+                ].join(','))
+              ].join('\n');
+              const blob = new Blob([csvContent], { type: 'text/csv' });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `orders-${new Date().toISOString().split('T')[0]}.csv`;
+              a.click();
+              window.URL.revokeObjectURL(url);
+            }}
+            className="bg-gray-800/50 border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-xl h-12 px-6 font-semibold shadow-sm backdrop-blur-sm self-start md:self-auto"
+          >
+            <Package className="w-5 h-5 mr-2" />
+            Export CSV
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-white">{orders.length}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Orders</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{orders.filter(order => order.status === "Processing").length}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Processing</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{orders.filter(order => order.status === "Shipped").length}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Shipped</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{orders.filter(order => order.status === "Completed").length}</div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Completed</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10 col-span-2 lg:col-span-1">
-            <CardContent className="p-4 sm:p-6">
-              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-theme-cyan break-words">
-                ${orders.reduce((sum, order) => {
-                  const amount = parseFloat(order.amount.split(' ')[0]);
-                  const rate = order.paymentMethod === 'XMR' ? 170 : 100000;
-                  return sum + (amount * rate);
-                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-indigo-500/10 rounded-xl">
+                  <span className="text-indigo-500 font-bold text-lg">#</span>
+                </div>
+                <Badge variant="outline" className="border-indigo-500/20 text-indigo-400 bg-indigo-500/5">Count</Badge>
               </div>
-              <p className="text-xs sm:text-sm text-gray-400 truncate">Total Revenue (USD)</p>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{orders.length}</h3>
+                <p className="text-gray-400 text-sm font-medium">Total Orders</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                  <span className="text-amber-500 font-bold text-lg">P</span>
+                </div>
+                <Badge variant="outline" className="border-amber-500/20 text-amber-400 bg-amber-500/5">Pending</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{orders.filter(order => order.status === "Processing").length}</h3>
+                <p className="text-gray-400 text-sm font-medium">Processing</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                  <span className="text-emerald-500 font-bold text-lg">C</span>
+                </div>
+                <Badge variant="outline" className="border-emerald-500/20 text-emerald-400 bg-emerald-500/5">Done</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white">{orders.filter(order => order.status === "Completed").length}</h3>
+                <p className="text-gray-400 text-sm font-medium">Completed</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/40 backdrop-blur-sm border-gray-700/50 rounded-2xl overflow-hidden relative group hover:bg-gray-800/40 transition-colors col-span-2 lg:col-span-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2.5 bg-cyan-500/10 rounded-xl">
+                  <span className="text-cyan-500 font-bold text-lg">$</span>
+                </div>
+                <Badge variant="outline" className="border-cyan-500/20 text-cyan-400 bg-cyan-500/5">Revenue</Badge>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black text-white truncate">
+                  ${orders.reduce((sum, order) => {
+                    const amount = parseFloat(order.amount.split(' ')[0]);
+                    const rate = order.paymentMethod === 'XMR' ? 170 : 100000;
+                    return sum + (amount * rate);
+                  }, 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </h3>
+                <p className="text-gray-400 text-sm font-medium">Total Volume (USD)</p>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden mb-8">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
               <div className="flex-1 min-w-0">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4 group-focus-within:text-blue-500 transition-colors" />
                   <Input
-                    placeholder="Search orders, buyers, products..."
+                    placeholder="Search your orders..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 text-sm sm:text-base focus:border-theme-cyan focus:ring-theme-cyan bg-gray-800 border-gray-700 text-white placeholder:text-gray-400"
+                    className="pl-10 bg-gray-800/50 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-blue-500/50 focus:ring-blue-500/20 rounded-xl h-11 transition-all"
                   />
                 </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Processing">Processing</SelectItem>
-                  <SelectItem value="Shipped">Shipped</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
-                  <SelectValue placeholder="Filter by date" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-48 bg-gray-800/50 border-gray-700/50 text-white rounded-xl h-11 focus:border-blue-500/50">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 rounded-xl overflow-hidden">
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Processing">Processing</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-full sm:w-48 bg-gray-800/50 border-gray-700/50 text-white rounded-xl h-11 focus:border-blue-500/50">
+                    <SelectValue placeholder="Date Range" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 rounded-xl overflow-hidden">
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">
+            <CardTitle className="text-lg sm:text-xl font-bold text-white">
               Orders ({filteredOrders.length})
             </CardTitle>
           </CardHeader>
@@ -612,139 +668,122 @@ export default function VendorOrders() {
                 </div>
               ) : (
                 currentOrders.map((order) => (
-                  <div key={order.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors overflow-hidden">
-                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(order.priority)} mb-1`}></div>
-                        <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{order.priority}</span>
+                  <div key={order.id} className="group bg-gray-900/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 sm:p-5 hover:bg-gray-800/60 transition-all duration-300 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-500/5 to-transparent rounded-full -mr-16 -mt-16 group-hover:from-indigo-500/10 transition-colors" />
+
+                    <div className="flex flex-col lg:flex-row gap-4 relative z-10">
+
+                      {/* Left: Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <Badge className={`${getStatusColor(order.status)} text-[10px] sm:text-xs font-bold uppercase tracking-wider`}>
+                            {order.status}
+                          </Badge>
+                          <span className="text-gray-500 text-xs font-bold text-[10px] uppercase">#{order.id}</span>
+                        </div>
+                        <h3 className="font-bold text-white text-lg mb-1 leading-snug">{order.product}</h3>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                          <div className="flex items-center">
+                            <span className="opacity-50 mr-1 uppercase font-bold text-[10px]">Buyer:</span>
+                            <span className="text-gray-300 font-medium">{order.buyer}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="w-3 h-3 mr-1 opacity-50" />
+                            <span>{order.date}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
-                          <h3 className="font-semibold text-white text-sm sm:text-base truncate">{order.id}</h3>
-                          {order.escrow && (
-                            <Badge variant="outline" className="text-[10px] sm:text-xs">
-                              Escrow
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-[10px] sm:text-xs">
-                            {order.paymentMethod}
-                          </Badge>
+                      {/* Right: Amounts & Actions */}
+                      <div className="flex flex-row lg:flex-col items-center lg:items-end gap-3 justify-between lg:justify-start lg:w-48 flex-shrink-0 border-t lg:border-t-0 border-gray-700/50 pt-3 lg:pt-0">
+                        <div className="text-left lg:text-right">
+                          <div className="font-black text-white text-lg">{order.amount}</div>
+                          <div className="text-xs text-gray-500 font-medium">{order.usdAmount}</div>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{order.product}</p>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0">
-                          <span className="text-xs sm:text-sm text-gray-400">by {order.buyer}</span>
-                          <span className="text-xs sm:text-sm text-gray-400">{order.date} at {order.time}</span>
+
+                        <div className="flex items-center gap-2">
+                          {order.status === "Processing" && (
+                            <>
+                              <Button size="sm" variant="outline" className="text-theme-cyan border-theme-cyan/30 h-8 w-8 p-0 hover:bg-theme-cyan/10 rounded-lg">
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="text-theme-red border-theme-red/30 h-8 w-8 p-0 hover:bg-theme-red/10 rounded-lg">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetails(order)}
+                            className="h-8 border-gray-600 text-gray-300 hover:text-white rounded-lg text-xs"
+                          >
+                            View
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-gray-800">
+                                <MoreVertical className="w-4 h-4 text-gray-400" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700 rounded-xl shadow-xl w-56">
+                              <DropdownMenuItem onClick={() => handleViewDetails(order)} className="cursor-pointer">
+                                <Eye className="w-4 h-4 mr-2" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const buyerUsername = order.buyer_details?.username || order.buyer || order.buyer_username;
+                                if (buyerUsername) {
+                                  navigate('/vendor/messages', {
+                                    state: {
+                                      autoOpenBuyerUsername: buyerUsername,
+                                      autoOpenChat: true
+                                    }
+                                  });
+                                } else {
+                                  showToast({
+                                    title: 'Error',
+                                    message: 'Buyer information not available. Please try again later.',
+                                    type: 'error',
+                                    duration: 4000
+                                  });
+                                }
+                              }} className="cursor-pointer">
+                                <MessageSquare className="w-4 h-4 mr-2" /> Message Buyer
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(order)} className="cursor-pointer">
+                                <Package className="w-4 h-4 mr-2" /> Update Status
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)} className="cursor-pointer">
+                                <Star className="w-4 h-4 mr-2" /> View Reviews
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRequestRefund(order)}
+                                className={order.status === "Completed" || order.status === "Processing" ? "text-orange-400 cursor-pointer" : "text-gray-500 cursor-not-allowed"}
+                                disabled={order.status !== "Completed" && order.status !== "Processing"}
+                              >
+                                <RefreshCw className="w-4 h-4 mr-2" /> Request Refund
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center lg:items-end xl:items-center gap-3 sm:gap-4 lg:gap-2 xl:gap-6 flex-shrink-0">
-                      <div className="text-left sm:text-right lg:text-right">
-                        <div className="font-semibold text-theme-cyan text-sm sm:text-base">{order.amount}</div>
-                        <div className="text-xs sm:text-sm text-gray-400">{order.usdAmount}</div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(order.status)}`}>
-                          {order.status}
+                    {/* Footer / Meta */}
+                    <div className="mt-4 pt-3 border-t border-gray-700/50 flex flex-wrap items-center gap-2 relative z-10">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Tags:</span>
+                      {order.use_escrow && (
+                        <Badge className="bg-gradient-to-r from-amber-500/10 to-yellow-600/10 text-yellow-500 border border-yellow-500/20 text-[10px] px-2 py-0.5 font-bold">
+                          <Lock className="w-2.5 h-2.5 mr-1" />
+                          Escrow Protected
                         </Badge>
-                        {order.use_escrow && (
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black text-[9px] sm:text-[10px] px-1 py-0 h-4">
-                              <Lock className="w-2 h-2 mr-0.5" />
-                              ESCROW
-                            </Badge>
-                            {order.order_status === 'paid' && !order.confirmed_at && (
-                              <Badge className="bg-orange-500/20 text-orange-300 text-[9px] sm:text-[10px] px-1 py-0 h-4 whitespace-nowrap">
-                                Awaiting
-                              </Badge>
-                            )}
-                            {order.confirmed_at && (
-                              <Badge className="bg-theme-cyan/20 text-theme-cyan text-[9px] sm:text-[10px] px-1 py-0 h-4">
-                                <CheckCircle className="w-2 h-2 mr-0.5" />
-                                Approved
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center space-x-2 flex-shrink-0">
-                        {order.status === "Processing" && (
-                          <>
-                            <Button size="sm" variant="outline" className="text-theme-cyan border-theme-cyan/30 h-8 w-8 p-0 hover:bg-theme-cyan/10">
-                              <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-theme-red border-theme-red/30 h-8 w-8 p-0 hover:bg-theme-red/10">
-                              <X className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </Button>
-                          </>
-                        )}
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
-                            <DropdownMenuItem onClick={() => handleViewDetails(order)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              const buyerUsername = order.buyer_details?.username || order.buyer || order.buyer_username;
-                              if (buyerUsername) {
-                                navigate('/vendor/messages', {
-                                  state: {
-                                    autoOpenBuyerUsername: buyerUsername,
-                                    autoOpenChat: true
-                                  }
-                                });
-                              } else {
-                                showToast({
-                                  title: 'Error',
-                                  message: 'Buyer information not available. Please try again later.',
-                                  type: 'error',
-                                  duration: 4000
-                                });
-                              }
-                            }}>
-                              <MessageSquare className="w-4 h-4 mr-2" />
-                              Message Buyer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(order)}>
-                              <Package className="w-4 h-4 mr-2" />
-                              Update Status
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)}>
-                              <Star className="w-4 h-4 mr-2" />
-                              View Reviews
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleRequestRefund(order)}
-                              className={order.status === "Completed" || order.status === "Processing" ? "text-orange-600" : "text-gray-400 cursor-not-allowed"}
-                              disabled={order.status !== "Completed" && order.status !== "Processing"}
-                            >
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Request Refund
-                            </DropdownMenuItem>
-                            {order.status === "Processing" && (
-                              <>
-                                <DropdownMenuItem className="text-theme-cyan focus:text-theme-cyan focus:bg-theme-cyan/10">
-                                  <Check className="w-4 h-4 mr-2" />
-                                  Mark as Shipped
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-theme-red focus:text-theme-red focus:bg-theme-red/10">
-                                  <X className="w-4 h-4 mr-2" />
-                                  Cancel Order
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                      )}
+                      <Badge variant="outline" className="border-gray-700 text-gray-400 text-[10px] px-2 py-0.5 bg-gray-800/50">
+                        {order.paymentMethod}
+                      </Badge>
+                      <Badge variant="outline" className="border-gray-700 text-gray-400 text-[10px] px-2 py-0.5 bg-gray-800/50 uppercase">
+                        {order.priority} Priority
+                      </Badge>
                     </div>
                   </div>
                 ))
@@ -849,7 +888,7 @@ export default function VendorOrders() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </div >
 
       {selectedOrder && (
         <OrderProductModal
@@ -857,112 +896,101 @@ export default function VendorOrders() {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
         />
-      )}
+      )
+      }
 
-      {isStatusModalOpen && orderToUpdate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-semibold text-white">Update Order Status</h3>
-              <button
-                onClick={handleCloseStatusModal}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-xs sm:text-sm text-gray-400">
-                <p className="break-words">Order ID: <span className="text-white font-mono">{orderToUpdate.id}</span></p>
-                <p className="break-words">Product: <span className="text-white">{orderToUpdate.product}</span></p>
-                <p>Current Status: <span className="text-white font-medium">{orderToUpdate.status}</span></p>
+      {
+        isStatusModalOpen && orderToUpdate && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-white">Update Order Status</h3>
+                <button
+                  onClick={handleCloseStatusModal}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm text-gray-400">Select New Status:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    onClick={() => handleStatusChange("Pending")}
-                    variant="outline"
-                    disabled={isUpdatingStatus}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    {isUpdatingStatus && updatingStatusType === "Pending" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Pending"
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusChange("Processing")}
-                    variant="outline"
-                    disabled={isUpdatingStatus}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    {isUpdatingStatus && updatingStatusType === "Processing" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Processing"
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusChange("Shipped")}
-                    variant="outline"
-                    disabled={isUpdatingStatus}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    {isUpdatingStatus && updatingStatusType === "Shipped" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Shipped"
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusChange("Completed")}
-                    variant="outline"
-                    disabled={isUpdatingStatus}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    {isUpdatingStatus && updatingStatusType === "Completed" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Completed"
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusChange("Cancelled")}
-                    variant="outline"
-                    disabled={isUpdatingStatus}
-                    className="border-theme-red text-theme-red hover:bg-theme-red/10 disabled:opacity-50"
-                  >
-                    {isUpdatingStatus && updatingStatusType === "Cancelled" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Cancelled"
-                    )}
-                  </Button>
+              <div className="space-y-4">
+                <div className="text-xs sm:text-sm text-gray-400">
+                  <p className="break-words">Order ID: <span className="text-white font-mono">{orderToUpdate.id}</span></p>
+                  <p className="break-words">Product: <span className="text-white">{orderToUpdate.product}</span></p>
+                  <p>Current Status: <span className="text-white font-medium">{orderToUpdate.status}</span></p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm text-gray-400">Select New Status:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => handleStatusChange("Pending")}
+                      variant="outline"
+                      disabled={isUpdatingStatus}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      {isUpdatingStatus && updatingStatusType === "Pending" ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Pending"
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleStatusChange("Processing")}
+                      variant="outline"
+                      disabled={isUpdatingStatus}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      {isUpdatingStatus && updatingStatusType === "Processing" ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Processing"
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => handleStatusChange("Completed")}
+                      variant="outline"
+                      disabled={isUpdatingStatus}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      {isUpdatingStatus && updatingStatusType === "Completed" ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Completed"
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleStatusChange("Cancelled")}
+                      variant="outline"
+                      disabled={isUpdatingStatus}
+                      className="border-theme-red text-theme-red hover:bg-theme-red/10 disabled:opacity-50"
+                    >
+                      {isUpdatingStatus && updatingStatusType === "Cancelled" ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Cancelled"
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       <Dialog open={isReviewsOpen} onOpenChange={setIsReviewsOpen}>
         <DialogContent className="bg-gray-900 border border-gray-700 max-w-2xl">

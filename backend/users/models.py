@@ -25,6 +25,7 @@ class User(AbstractUser, BaseModel):
     is_verified = models.BooleanField(default=False)
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_secret = models.CharField(max_length=32, blank=True, null=True, help_text="TOTP secret for 2FA")
+    recovery_phrase = models.CharField(max_length=255, blank=True, null=True, help_text="BIP39 Mnemonic phrase for account recovery")
     user_type = models.CharField(max_length=10, choices=USER_TYPES, default='buyer')
     
     # Vendor-specific fields
@@ -37,6 +38,16 @@ class User(AbstractUser, BaseModel):
     
     # Blocked users - users that this user has blocked
     blocked_users = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='blocked_by')
+
+    # Notification Preferences
+    notify_new_orders = models.BooleanField(default=True)
+    notify_messages = models.BooleanField(default=True)
+    notify_disputes = models.BooleanField(default=True)
+    notify_reviews = models.BooleanField(default=True)
+    notify_support_tickets = models.BooleanField(default=True)
+    notify_payouts = models.BooleanField(default=True)
+    notify_marketing = models.BooleanField(default=False)
+    notify_login_alerts = models.BooleanField(default=True)
 
     # Make username the primary field for authentication
     USERNAME_FIELD = 'username'

@@ -377,6 +377,8 @@ def user_login(request):
             # Log login activity
             try:
                 from shared.utils import log_user_activity
+                from shared.admin_notifications import notify_user_login
+                
                 log_user_activity(
                     user=user,
                     activity_type='login',
@@ -384,7 +386,12 @@ def user_login(request):
                     request=request,
                     metadata={'ip_address': client_ip}
                 )
-            except Exception:
+                
+                # Send login alert notification
+                notify_user_login(user, client_ip)
+                
+            except Exception as e:
+                print(f"⚠️ Error logging login activity/notification: {e}")
                 pass  # Don't fail login if logging fails
             
             # Serialize user data
@@ -584,14 +591,100 @@ def change_password(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def recover_account(request):
+    """Recover account using recovery phrase"""
+    try:
+        recovery_phrase = request.data.get('recovery_phrase')
+        new_password = request.data.get('new_password')
+        username = request.data.get('username')
+        
+        if not recovery_phrase or not new_password or not username:
+            return Response({
+                'success': False,
+                'message': 'Username, recovery phrase, and new password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find user with matching username and recovery phrase
+        try:
+            user = User.objects.get(username=username, recovery_phrase=recovery_phrase, is_deleted=False)
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Invalid username or recovery phrase.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        # Log activity
+        try:
+            from shared.utils import log_user_activity
+            log_user_activity(
+                user=user,
+                activity_type='password_recovered',
+                description=f'Account password recovered using phrase: {user.username}',
+                request=request
+            )
+        except Exception:
+            pass
+            
+        return Response({
+            'success': True,
+            'message': 'Password reset successful. You can now login with your new password.'
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Recovery failed',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def user_detail(request, user_id):
     """Get detailed information about a specific user (admin only)"""
     try:
         from django.shortcuts import get_object_or_404
+        from django.apps import apps
+        
+        User = apps.get_model('users', 'User')
+        Order = apps.get_model('orders', 'Order')
+        
         user = get_object_or_404(User, id=user_id, is_deleted=False)
         user_data = UserSerializer(user).data
+        
+        # Add basic info not in serializer
+        user_data['email'] = user.email
+        user_data['last_login'] = user.last_login
+        
+        # Calculate Total Orders (as buyer)
+        user_orders = Order.objects.filter(buyer=user)
+        user_data['total_orders'] = user_orders.count()
+        
+        # Calculate Total Spent (BTC)
+        # We only count orders that are not cancelled
+        valid_orders = user_orders.exclude(order_status='cancelled')
+        
+        total_spent_btc = 0.0
+        
+        for order in valid_orders:
+            try:
+                # Assuming total_amount is safe to cast or has been cleaned
+                if hasattr(order, 'crypto_currency') and order.crypto_currency == 'BTC':
+                    total_spent_btc += float(order.total_amount)
+                elif hasattr(order, 'crypto_currency') and order.crypto_currency == 'XMR':
+                    # Optional: Convert XMR to BTC or just ignore if only BTC required
+                    # For now only summing BTC as requested "Total Spent ... BTC"
+                    pass
+            except (ValueError, TypeError):
+                continue
+                
+        user_data['total_spent'] = total_spent_btc
         
         return Response({
             'success': True,
@@ -904,14 +997,24 @@ def list_users(request):
         }, status=status.HTTP_403_FORBIDDEN)
     
     try:
+        from django.db.models import Count, Q
+        from django.apps import apps
+        
+        # Get Order model
+        Order = apps.get_model('orders', 'Order')
+        
         # Get query parameters
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         search = request.GET.get('search', '')
         user_type = request.GET.get('user_type', '')
+        status_filter = request.GET.get('status', '')
         
-        # Build queryset
-        queryset = User.objects.filter(is_deleted=False)
+        # Build queryset with optimized order counts
+        queryset = User.objects.filter(is_deleted=False).annotate(
+            buyer_order_count=Count('buyer_orders', distinct=True),
+            vendor_order_count=Count('vendor_orders_new', distinct=True)
+        )
         
         # Apply filters
         if search:
@@ -919,6 +1022,14 @@ def list_users(request):
         
         if user_type:
             queryset = queryset.filter(user_type=user_type)
+            
+        if status_filter:
+            if status_filter == 'active':
+                queryset = queryset.filter(is_verified=True, is_active=True)
+            elif status_filter == 'banned':
+                queryset = queryset.filter(is_active=False)
+            elif status_filter == 'pending':
+                queryset = queryset.filter(is_verified=False, is_active=True)
         
         # Order by creation date
         queryset = queryset.order_by('-date_joined')
@@ -929,6 +1040,14 @@ def list_users(request):
         end = start + page_size
         
         paginated_data = queryset[start:end]
+        
+        # Get overall stats (unfiltered)
+        global_stats = {
+            'total_users': User.objects.filter(is_deleted=False).count(),
+            'active_users': User.objects.filter(is_deleted=False, is_verified=True, is_active=True).count(),
+            'vendors': User.objects.filter(is_deleted=False, user_type='vendor').count(),
+            'banned_users': User.objects.filter(is_deleted=False, is_active=False).count()
+        }
         
         # Serialize data
         serializer = UserSerializer(paginated_data, many=True)
@@ -942,7 +1061,8 @@ def list_users(request):
                 'total_pages': (total_count + page_size - 1) // page_size,
                 'has_next': end < total_count,
                 'has_previous': page > 1
-            }
+            },
+            'stats': global_stats
         }
         
         return Response({

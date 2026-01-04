@@ -1,4 +1,4 @@
-import { api } from './authService';
+import { api, authService } from './authService';
 import { productService, Product } from './productService';
 
 export interface VendorCounts {
@@ -100,50 +100,99 @@ class VendorService {
     }
   }
 
+  async getVendorDashboard() {
+    try {
+      const user = authService.getCurrentUser();
+      if (!user) return { success: false, message: 'Not authenticated' };
+
+      const response = await this.getVendorStatistics(user.username);
+      if (response && response.success) {
+        // Map the statistics to the structure expected by VendorAnalytics.tsx
+        return {
+          success: true,
+          data: {
+            statistics: response.data
+          }
+        };
+      }
+      return response;
+    } catch (error) {
+      console.error('Error fetching vendor dashboard:', error);
+      return { success: false, message: 'Failed to fetch dashboard' };
+    }
+  }
+
   async getDashboardStats() {
     try {
       // Fetch all necessary data in parallel
-      const [productsResponse, profileResponse, ordersResponse] = await Promise.all([
+      const [productsResponse, profileResponse, ordersResponse, payoutsResponse] = await Promise.all([
         productService.getVendorProducts(),
         this.getProfile(),
-        api.get('/vendor/orders/') // Assuming this endpoint exists
+        api.get('/orders/?page_size=10000'),
+        api.get('/payments/vendor/payouts/')
       ]);
 
       const products = productsResponse.data || [];
       const profile = profileResponse.data || {};
-      const orders = ordersResponse.data?.data || []; // Adjust based on actual API response structure
+      const orders = ordersResponse.data?.results || ordersResponse.data || [];
+      const payoutsExtra = payoutsResponse.data || {};
+
+      console.log("Dashboard Stats - Payouts Data:", payoutsExtra);
+
+      // Use earnings from payouts page as the source of truth for "Overall Earning"
+      const pendingTotalUsd = payoutsExtra.pending_earnings?.total?.usd || "$0.00";
+      const totalRevenueFromPayouts = parseFloat(pendingTotalUsd.replace('$', '').replace(',', '')) || 0;
+      const totalSalesCountFromPayouts = payoutsExtra.pending_earnings?.total?.orders || 0;
 
       // Calculate Product Stats
       const totalProducts = products.length;
-      const activeListings = products.filter(p => p.status === 'approved').length;
-      const outOfStock = products.filter(p => p.quantity_available === 0 || p.quantity_available === '0').length;
-      const underReview = products.filter(p => p.status === 'pending_approval').length;
+      const activeListings = products.filter(p => p.status === 'approved' && (p.is_active !== false)).length;
+      const outOfStock = products.filter(p => (p.quantity_available === 0 || p.quantity_available === '0') && p.status === 'approved').length;
+      const underReview = products.filter(p => p.status === 'pending_approval' || p.status === 'under_review').length;
 
-      // Calculate Revenue & Sales
-      // Assuming orders have 'total_amount' and 'status'
-      const completedOrders = orders.filter((o: any) => o.status === 'completed' || o.status === 'delivered');
-      const totalSales = completedOrders.length;
-      const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (parseFloat(o.total_amount) || 0), 0);
+      // Calculate Revenue & Sales (USD based)
+      // We use product.price from the nested product object because order.total_amount is in Crypto
+      const validOrderStatuses = [
+        'paid', 'completed', 'delivered', 'shipped', 'confirmed',
+        'processing', 'payment_received'
+      ];
 
-      // Calculate Available Balance (from profile/wallet)
-      // Assuming profile has 'account_balance' or similar
+      const ordersArray = Array.isArray(orders) ? orders : [];
+      const completedOrders = ordersArray.filter((o: any) =>
+        validOrderStatuses.includes(o.order_status?.toLowerCase())
+      );
+
+      const totalSalesCount = completedOrders.length;
+
+      // Calculate revenue based on the USD price of the product (Fallback)
+      const calculatedRevenue = completedOrders.reduce((sum: number, o: any) => {
+        const price = parseFloat(o.product?.price || 0);
+        const qty = parseInt(o.quantity) || 1;
+        return sum + (price * qty);
+      }, 0);
+
+      // Final values - Use Payouts API data as the source of truth if available
+      const finalRevenue = totalRevenueFromPayouts > 0 ? totalRevenueFromPayouts : calculatedRevenue;
+      const finalSalesCount = totalSalesCountFromPayouts > 0 ? totalSalesCountFromPayouts : completedOrders.length;
+
+      console.log(`Stats Finalized: Revenue=${finalRevenue}, Sales=${finalSalesCount}`);
+
+      // Calculate Available Balance (from profile data)
       const availableBalance = profile.account_balance || 0;
 
       // Calculate Active Cases (Disputes/Tickets)
-      // This might need a separate endpoint usually, but for now we'll mock or try to find it
-      // Let's assume 0 if we can't find it easily without another call
       const activeCases = 0;
 
       return {
         success: true,
         data: {
           revenue: {
-            total: totalRevenue,
+            total: finalRevenue,
             trend: 0, // Calculate trend if possible
             period: 'all_time'
           },
           sales: {
-            total: totalSales,
+            total: finalSalesCount, // This is the count
             trend: 0,
             period: 'this_week'
           },

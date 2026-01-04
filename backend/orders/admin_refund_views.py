@@ -37,7 +37,7 @@ def admin_refund_requests(request):
         limit = int(request.query_params.get('limit', 20))
         status_filter = request.query_params.get('status', None)
         
-        refunds = RefundRequest.objects.all().order_by('-created_at')
+        refunds = RefundRequest.objects.select_related('order', 'buyer', 'vendor').all().order_by('-created_at')
         
         if status_filter:
             refunds = refunds.filter(status=status_filter)
@@ -49,24 +49,29 @@ def admin_refund_requests(request):
         
         data = []
         for refund in refunds_page:
-            data.append({
-                'id': str(refund.id),
-                'order_id': refund.order.order_id,
-                'buyer': refund.buyer.username,
-                'vendor': refund.vendor.username,
-                'amount': str(refund.amount),
-                'crypto_currency': refund.order.crypto_currency,
-                'reason': refund.reason,
-                'refund_type': refund.refund_type,
-                'status': refund.status,
-                'vendor_decision': refund.vendor_decision,
-                'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
-                'admin_decision': refund.admin_decision,
-                'vendor_refund_required': refund.vendor_refund_required,
-                'vendor_refund_completed': refund.vendor_refund_completed,
-                'created_at': refund.created_at.isoformat(),
-                'updated_at': refund.updated_at.isoformat(),
-            })
+            try:
+                if not refund.order:
+                    continue
+                data.append({
+                    'id': str(refund.id),
+                    'order_id': refund.order.order_id,
+                    'buyer': refund.buyer.username,
+                    'vendor': refund.vendor.username,
+                    'amount': str(refund.amount),
+                    'crypto_currency': refund.order.crypto_currency,
+                    'reason': refund.reason,
+                    'refund_type': refund.refund_type,
+                    'status': refund.status,
+                    'vendor_decision': refund.vendor_decision,
+                    'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
+                    'admin_decision': refund.admin_decision,
+                    'vendor_refund_required': refund.vendor_refund_required,
+                    'vendor_refund_completed': refund.vendor_refund_completed,
+                    'created_at': refund.created_at.isoformat(),
+                    'updated_at': refund.updated_at.isoformat(),
+                })
+            except (Order.DoesNotExist, AttributeError):
+                continue
         
         return Response({
             'success': True,
@@ -308,10 +313,11 @@ def admin_force_refund(request, refund_id):
                     }
                 )
                 
-                # Notify buyer
-                Notification.objects.create(
+                # Notify buyer via central helper (respects preferences)
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=refund.buyer,
-                    type='refund',
+                    notification_type='refund',
                     title='Refund Processed by Admin',
                     message=f'Admin processed refund for order {order.order_id}. Amount credited to your wallet.',
                     data={
@@ -322,10 +328,10 @@ def admin_force_refund(request, refund_id):
                     }
                 )
                 
-                # Notify vendor
-                Notification.objects.create(
+                # Notify vendor via central helper (respects preferences)
+                send_user_notification(
                     user=refund.vendor,
-                    type='refund',
+                    notification_type='refund',
                     title='Refund Processed by Admin',
                     message=f'Admin processed refund for order {order.order_id} due to non-compliance.',
                     data={

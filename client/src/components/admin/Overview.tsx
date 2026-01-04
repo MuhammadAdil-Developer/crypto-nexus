@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Bitcoin, Wallet, Lock, CheckCircle, Bell, X } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { orderService, Order } from "@/services/orderService";
 import { Link, useNavigate } from "react-router-dom";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { getApiUrl } from "@/config/api";
+import paymentService from "@/services/paymentService";
 
 // Skeleton Loader Component
 const SkeletonLoader = () => (
@@ -60,17 +62,26 @@ interface Product {
 }
 
 interface DashboardStats {
-  total_listings: number;
-  live_listings: number;
-  orders_today: number;
-  orders_yesterday: number;
-  pending_vendor_applications: number;
-  pending_disputes: number;
-  escrow_btc: number;
-  escrow_xmr: number;
-  pending_releases: number;
-  auto_release_orders: number;
-  disputed_orders: number;
+  statistics: {
+    users: { total: number; buyers: number; vendors: number; growth_pct: number };
+    vendors: { total: number; growth_pct: number };
+    listings: { total: number; growth_pct: number };
+    orders: { today: number; yesterday: number; growth_pct: number };
+  };
+  chart_data: Array<{
+    date: string;
+    orders: number;
+    users: number;
+    listings: number;
+  }>;
+  escrow_stats: {
+    btc_total: number;
+    xmr_total: number;
+    pending_releases: number;
+    auto_release_orders: number;
+    disputed_orders: number;
+  };
+  recent_orders: UIOrder[];
 }
 
 // Transform API order data to match UI structure
@@ -160,7 +171,8 @@ const transformApiOrderToUIOrder = (apiOrder: Order): UIOrder => {
 
   // Safe status handling
   const orderStatus = safeString(apiOrder.order_status);
-  const statusDisplay = safeString(apiOrder.order_status_display) || orderStatus;
+  // Backend often sends 'order_status_display' field (human readable), if not, use raw status
+  const statusDisplay = (apiOrder as any).order_status_display || orderStatus;
 
   return {
     id: safeString(apiOrder.order_id || apiOrder.id),
@@ -173,7 +185,7 @@ const transformApiOrderToUIOrder = (apiOrder: Order): UIOrder => {
     created: formatDate(apiOrder.created_at),
     use_escrow: apiOrder.use_escrow,
     order_status: apiOrder.order_status,
-    confirmed_at: apiOrder.confirmed_at
+    confirmed_at: apiOrder.confirmed_at || undefined
   };
 };
 
@@ -184,8 +196,11 @@ export function Overview() {
   const [products, setProducts] = useState<Product[]>([]);
   const [recentOrders, setRecentOrders] = useState<UIOrder[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [cryptoStatus, setCryptoStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
+  const [timeRange, setTimeRange] = useState<number>(30); // 30 or 90
   const navigate = useNavigate();
 
   // Real-time notifications from MessagingContext
@@ -195,243 +210,71 @@ export function Overview() {
   const latestNotification = notifications.find(n => n.unread && !dismissedNotifications.has(n.id));
 
   // API Functions
-  const fetchUsers = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const token = authService.getToken();
-      if (!token) {
-        console.error('❌ No authentication token found');
-        return;
-      }
+      setLoading(true);
+      setError(null);
 
-      const response = await fetch(getApiUrl('/users/'), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data && data.data.users) {
-          setUsers(data.data.users);
-        }
-      }
-    } catch (error) {
-      console.error('💥 Error fetching users:', error);
-    }
-  };
-
-  const fetchVendorApplications = async () => {
-    try {
-      const token = authService.getToken();
-      if (!token) {
-        console.error('❌ No authentication token found');
-        return;
-      }
-
-      const response = await fetch(getApiUrl('/vendors/applications/'), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.results) {
-          setVendorApplications(data.results);
-        }
-      }
-    } catch (error) {
-      console.error('💥 Error fetching vendor applications:', error);
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const token = authService.getToken();
-      if (!token) {
-        console.error('❌ No authentication token found');
-        return;
-      }
-
-      const response = await fetch(getApiUrl('/products/admin/all/'), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data && Array.isArray(data.data)) {
-          setProducts(data.data);
-        }
-      }
-    } catch (error) {
-      console.error('💥 Error fetching products:', error);
-    }
-  };
-
-  const fetchDashboardStats = async () => {
-    try {
-      const token = authService.getToken();
-      if (!token) {
-        console.error('❌ No authentication token found');
-        return;
-      }
-
-      // For now, we'll calculate stats from existing data
-      // In a real implementation, you'd have a dedicated dashboard stats endpoint
-      const today = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-
-      const ordersToday = recentOrders.filter(order =>
-        new Date(order.created).toDateString() === today
-      ).length;
-
-      const ordersYesterday = recentOrders.filter(order =>
-        new Date(order.created).toDateString() === yesterday
-      ).length;
-
-      const liveListings = products.filter(product =>
-        product.status === 'approved'
-      ).length;
-
-      const pendingApplications = vendorApplications.filter(app =>
-        app.status === 'pending'
-      ).length;
-
-      // Calculate escrow amounts from orders
-      const escrowOrders = recentOrders.filter(order => order.use_escrow);
-      const totalEscrowBTC = escrowOrders.reduce((sum, order) => {
-        const amount = parseFloat(order.amount.split(' ')[0]) || 0;
-        return sum + amount;
-      }, 0);
-
-      const stats: DashboardStats = {
-        total_listings: products.length,
-        live_listings: liveListings,
-        orders_today: ordersToday,
-        orders_yesterday: ordersYesterday,
-        pending_vendor_applications: pendingApplications,
-        pending_disputes: 3, // Static for now
-        escrow_btc: totalEscrowBTC,
-        escrow_xmr: 847.23, // Static for now
-        pending_releases: 23, // Static for now
-        auto_release_orders: 156, // Static for now
-        disputed_orders: 3 // Static for now
-      };
-
-      setDashboardStats(stats);
-    } catch (error) {
-      console.error('💥 Error calculating dashboard stats:', error);
-    }
-  };
-
-  const fetchRecentOrders = async () => {
-    try {
-      console.log('🔄 Fetching recent orders from admin dashboard...');
-      const dashboardData = await orderService.getAdminDashboard();
-
-      if (dashboardData.recent_orders && Array.isArray(dashboardData.recent_orders)) {
-        // Get only the last 4 orders and transform them
-        const last4Orders = dashboardData.recent_orders.slice(0, 4);
-        console.log('🔍 Raw orders data:', last4Orders);
-
-        const transformedOrders = last4Orders.map((order, index) => {
-          try {
-            console.log(`🔄 Transforming order ${index}:`, order);
-            const transformed = transformApiOrderToUIOrder(order);
-            console.log(`✅ Transformed order ${index}:`, transformed);
-            return transformed;
-          } catch (error) {
-            console.error(`❌ Error transforming order ${index}:`, error, order);
-            // Return a safe fallback order
-            return {
-              id: `error-${index}`,
-              buyer: 'Unknown',
-              vendor: 'Unknown',
-              listing: 'Unknown Product',
-              amount: '0 BTC',
-              status: 'Unknown',
-              statusType: 'warning' as const,
-              created: 'N/A'
-            };
+      // Fetch dashboard stats first
+      try {
+        const statsData = await orderService.getAdminDashboard(timeRange);
+        if (statsData) {
+          // Transform recent orders
+          if (statsData.recent_orders) {
+            statsData.recent_orders = statsData.recent_orders.map((order: any) => transformApiOrderToUIOrder(order));
+            setRecentOrders(statsData.recent_orders);
           }
-        });
-
-        setRecentOrders(transformedOrders);
-        console.log('✅ Successfully fetched and transformed recent orders:', transformedOrders);
-      } else {
-        console.warn('⚠️ No recent orders found in dashboard data');
-        setRecentOrders([]);
+          setDashboardStats(statsData);
+        } else {
+          setError('No dashboard data returned');
+        }
+      } catch (err: any) {
+        console.error('💥 Error fetching main dashboard stats:', err);
+        setError(err.message || 'Failed to fetch dashboard statistics');
       }
-    } catch (error) {
-      console.error('💥 Error fetching recent orders:', error);
-      // Keep the component working even if API fails
-      setRecentOrders([]);
-    }
-  };
 
-  // Get counts from API data
-  const getTotalUsersCount = () => {
-    return users.length;
-  };
+      // Fetch crypto status independently
+      try {
+        const cryptoData = await paymentService.getAdminCryptoStatus();
+        if (cryptoData) {
+          setCryptoStatus(cryptoData);
+        }
+      } catch (err) {
+        console.error('💥 Error fetching crypto node status:', err);
+        // We don't set global error for this as it's secondary
+      }
 
-  const getActiveVendorsCount = () => {
-    return vendorApplications.filter(app => app.status === 'approved').length;
-  };
-
-  const getPendingVendorApplicationsCount = () => {
-    return vendorApplications.filter(app => app.status === 'pending').length;
-  };
-
-  // Fetch data on component mount
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetchUsers(),
-      fetchVendorApplications(),
-      fetchProducts(),
-      fetchRecentOrders()
-    ]).finally(() => {
+    } catch (error: any) {
+      console.error('💥 Error in dashboard initialization:', error);
+      setError('System initialization failed');
+    } finally {
       setLoading(false);
-    });
-  }, []);
-
-  // Calculate dashboard stats when data changes
-  useEffect(() => {
-    if (products.length > 0 || vendorApplications.length > 0 || recentOrders.length > 0) {
-      fetchDashboardStats();
     }
-  }, [products, vendorApplications, recentOrders]);
+  };
+
+  // Fetch data on component mount and when timeRange changes
+  useEffect(() => {
+    fetchDashboardData();
+  }, [timeRange]);
+
+  // Helper function for getAlertMessage 
+  const getPendingVendorApplicationsCount = () => {
+    // In a full implementation, this should come from the dashboard stats
+    return 0; // Placeholder until backend provides this specific count
+  };
 
   // Generate smart alert message based on actual pending items
   const getAlertMessage = () => {
     if (loading) return "Loading...";
 
-    const pendingVendors = dashboardStats?.pending_vendor_applications || getPendingVendorApplicationsCount();
-    const pendingDisputes = dashboardStats?.pending_disputes || 3;
-    const pendingTickets = 0; // You can add ticket count logic here
-    const pendingProducts = products.filter(p => p.status === 'pending_approval').length;
+    const pendingDisputes = dashboardStats?.escrow_stats.disputed_orders || 0;
 
+    // Fallback logic since we simplified the initial fetch
+    // ideally the dashboard endpoint should return these counts
     const alerts = [];
-
-    if (pendingVendors > 0) {
-      alerts.push(`${pendingVendors} vendor application${pendingVendors > 1 ? 's' : ''} pending review`);
-    }
-
-    if (pendingProducts > 0) {
-      alerts.push(`${pendingProducts} product listing${pendingProducts > 1 ? 's' : ''} pending approval`);
-    }
 
     if (pendingDisputes > 0) {
       alerts.push(`${pendingDisputes} dispute${pendingDisputes > 1 ? 's' : ''} awaiting resolution`);
-    }
-
-    if (pendingTickets > 0) {
-      alerts.push(`${pendingTickets} support ticket${pendingTickets > 1 ? 's' : ''} pending response`);
     }
 
     // Always show BTC node update requirement
@@ -442,12 +285,8 @@ export function Overview() {
 
   const hasPendingItems = () => {
     if (loading) return false;
-
-    const pendingVendors = dashboardStats?.pending_vendor_applications || getPendingVendorApplicationsCount();
-    const pendingDisputes = dashboardStats?.pending_disputes || 3;
-    const pendingProducts = products.filter(p => p.status === 'pending_approval').length;
-
-    return pendingVendors > 0 || pendingDisputes > 0 || pendingProducts > 0;
+    const pendingDisputes = dashboardStats?.escrow_stats.disputed_orders || 0;
+    return pendingDisputes > 0;
   };
 
   return (
@@ -506,15 +345,24 @@ export function Overview() {
               </div>
               <div className="ml-4 flex-1">
                 <p className="text-sm font-medium">Total Users</p>
-                <p className="text-2xl font-bold text-text">
-                  {loading ? "..." : getTotalUsersCount()}
-                </p>
+                <div className="flex items-baseline space-x-2">
+                  <p className="text-2xl font-bold text-text">
+                    {loading ? "..." : dashboardStats?.statistics.users.total || 0}
+                  </p>
+                  <span className="text-[10px] text-gray-500 font-medium uppercase tracking-tight">
+                    {loading ? "" : `(${dashboardStats?.statistics.users.buyers || 0}B / ${dashboardStats?.statistics.users.vendors || 0}V)`}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-success flex items-center">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                12%
+              <span className={`flex items-center ${dashboardStats?.statistics.users.growth_pct && dashboardStats.statistics.users.growth_pct >= 0 ? 'text-success' : 'text-danger'}`}>
+                {dashboardStats?.statistics.users.growth_pct && dashboardStats.statistics.users.growth_pct >= 0 ? (
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 mr-1" />
+                )}
+                {Math.abs(dashboardStats?.statistics.users.growth_pct || 0)}%
               </span>
               <span className="ml-2">vs last month</span>
             </div>
@@ -539,14 +387,18 @@ export function Overview() {
               <div className="ml-4 flex-1">
                 <p className="text-sm font-medium">Active Vendors</p>
                 <p className="text-2xl font-bold text-text">
-                  {loading ? "..." : getActiveVendorsCount()}
+                  {loading ? "..." : dashboardStats?.statistics.vendors.total || 0}
                 </p>
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-success flex items-center">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                8%
+              <span className={`flex items-center ${dashboardStats?.statistics.vendors.growth_pct && dashboardStats.statistics.vendors.growth_pct >= 0 ? 'text-success' : 'text-danger'}`}>
+                {dashboardStats?.statistics.vendors.growth_pct && dashboardStats.statistics.vendors.growth_pct >= 0 ? (
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 mr-1" />
+                )}
+                {Math.abs(dashboardStats?.statistics.vendors.growth_pct || 0)}%
               </span>
               <span className="ml-2">vs last month</span>
             </div>
@@ -571,14 +423,18 @@ export function Overview() {
               <div className="ml-4 flex-1">
                 <p className="text-sm font-medium">Live Listings</p>
                 <p className="text-2xl font-bold text-text">
-                  {loading ? "..." : dashboardStats?.live_listings || 0}
+                  {loading ? "..." : dashboardStats?.statistics.listings.total || 0}
                 </p>
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <span className="text-success flex items-center">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                24%
+              <span className={`flex items-center ${dashboardStats?.statistics.listings.growth_pct && dashboardStats.statistics.listings.growth_pct >= 0 ? 'text-success' : 'text-danger'}`}>
+                {dashboardStats?.statistics.listings.growth_pct && dashboardStats.statistics.listings.growth_pct >= 0 ? (
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 mr-1" />
+                )}
+                {Math.abs(dashboardStats?.statistics.listings.growth_pct || 0)}%
               </span>
               <span className="ml-2">vs last month</span>
             </div>
@@ -603,22 +459,19 @@ export function Overview() {
               <div className="ml-4 flex-1">
                 <p className="text-sm font-medium">Orders Today</p>
                 <p className="text-2xl font-bold text-text">
-                  {loading ? "..." : dashboardStats?.orders_today || 0}
+                  {loading ? "..." : dashboardStats?.statistics.orders.today || 0}
                 </p>
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
-              {dashboardStats && dashboardStats.orders_today >= dashboardStats.orders_yesterday ? (
-                <span className="text-success flex items-center">
+              <span className={`flex items-center ${dashboardStats?.statistics.orders.growth_pct && dashboardStats.statistics.orders.growth_pct >= 0 ? 'text-success' : 'text-danger'}`}>
+                {dashboardStats?.statistics.orders.growth_pct && dashboardStats.statistics.orders.growth_pct >= 0 ? (
                   <TrendingUp className="w-3 h-3 mr-1" />
-                  {Math.round(((dashboardStats.orders_today - dashboardStats.orders_yesterday) / Math.max(dashboardStats.orders_yesterday, 1)) * 100)}%
-                </span>
-              ) : (
-                <span className="text-danger flex items-center">
+                ) : (
                   <TrendingDown className="w-3 h-3 mr-1" />
-                  {dashboardStats ? Math.round(((dashboardStats.orders_yesterday - dashboardStats.orders_today) / Math.max(dashboardStats.orders_yesterday, 1)) * 100) : 3}%
-                </span>
-              )}
+                )}
+                {Math.abs(dashboardStats?.statistics.orders.growth_pct || 0)}%
+              </span>
               <span className="ml-2">vs yesterday</span>
             </div>
           </CardContent>
@@ -631,29 +484,119 @@ export function Overview() {
         <Card className="lg:col-span-2 crypto-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-text">Order Volume</h3>
-              <div className="flex space-x-2">
-                <button className="px-3 py-1 text-sm bg-accent/20 text-accent rounded-md">7D</button>
-                <button className="px-3 py-1 text-sm hover:bg-surface-2 rounded-md">30D</button>
-                <button className="px-3 py-1 text-sm hover:bg-surface-2 rounded-md">90D</button>
+              <h3 className="text-lg font-semibold text-text">Platform Growth</h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setTimeRange(7)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${timeRange === 7 ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-text hover:bg-surface-3'}`}
+                >
+                  7D
+                </button>
+                <button
+                  onClick={() => setTimeRange(30)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${timeRange === 30 ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-text hover:bg-surface-3'}`}
+                >
+                  30D
+                </button>
+                <button
+                  onClick={() => setTimeRange(90)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${timeRange === 90 ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-text hover:bg-surface-3'}`}
+                >
+                  90D
+                </button>
               </div>
             </div>
 
             <div className="h-64 bg-surface-2 rounded-xl flex items-center justify-center border border-border relative overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1642790106117-e829e14a795f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400"
-                alt="Trading chart visualization"
-                className="w-full h-full object-cover rounded-xl opacity-60"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex items-center bg-surface/80 px-4 py-2 rounded-lg backdrop-blur-sm">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
-                  </svg>
-                  <span>Chart: Order volume trends</span>
+              {(loading || (!dashboardStats && !error)) ? (
+                <div className="absolute inset-0 bg-[#0B0F1A] flex items-center justify-center z-20 transition-opacity duration-500">
+                  <img
+                    src="https://images.unsplash.com/photo-1642790106117-e829e14a795f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400"
+                    alt="Trading chart visualization"
+                    className="w-full h-full object-cover opacity-60 mix-blend-screen"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1A] via-transparent to-[#0B0F1A]/50"></div>
                 </div>
-              </div>
+              ) : error ? (
+                <div className="absolute inset-0 bg-surface-2 flex flex-col items-center justify-center z-20 p-6 text-center">
+                  <div className="w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mb-4">
+                    <X className="w-6 h-6 text-danger" />
+                  </div>
+                  <h4 className="text-white font-semibold mb-2">Data Load Failed</h4>
+                  <p className="text-gray-400 text-sm max-w-[250px]">{error}</p>
+                  <button
+                    onClick={() => fetchDashboardData()}
+                    className="mt-4 text-xs text-accent hover:underline flex items-center"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : null}
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dashboardStats?.chart_data || []}>
+                  <defs>
+                    <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorListings" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(str) => {
+                      const date = new Date(str);
+                      return `${date.getDate()}/${date.getMonth() + 1}`;
+                    }}
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff' }}
+                    labelStyle={{ color: '#9CA3AF' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="orders"
+                    name="Orders"
+                    stroke="#00E5FF"
+                    fillOpacity={1}
+                    fill="url(#colorOrders)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="users"
+                    name="New Users"
+                    stroke="#10B981"
+                    fillOpacity={1}
+                    fill="url(#colorUsers)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="listings"
+                    name="New Listings"
+                    stroke="#8B5CF6"
+                    fillOpacity={1}
+                    fill="url(#colorListings)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -671,10 +614,10 @@ export function Overview() {
                 recentOrders.slice(0, 5).map((order, index) => (
                   <div key={order.id} className="flex items-start space-x-3">
                     <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${order.statusType === "success" ? "bg-success" :
-                        order.statusType === "warning" ? "bg-warning" :
-                          order.statusType === "accent" ? "bg-accent" :
-                            order.statusType === "danger" ? "bg-danger" :
-                              "bg-muted"
+                      order.statusType === "warning" ? "bg-warning" :
+                        order.statusType === "accent" ? "bg-accent" :
+                          order.statusType === "danger" ? "bg-danger" :
+                            "bg-muted"
                       }`} />
                     <div className="flex-1">
                       <p className="text-sm text-text">
@@ -708,35 +651,49 @@ export function Overview() {
           <CardContent className="p-4">
             <h3 className="text-lg font-semibold text-text mb-3">Crypto Nodes</h3>
 
-            {/* BTC Node */}
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-warning/20 rounded-lg flex items-center justify-center">
-                  <Bitcoin className="text-warning w-4 h-4" />
-                </div>
-                <div>
-                  <p className="font-medium text-text text-sm">Bitcoin Node</p>
-                  <p className="text-xs text-gray-400">Block #820,847 • Synced 2 min ago</p>
-                </div>
+            {loading && (!cryptoStatus || !cryptoStatus.nodes) ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gray-700 rounded-lg"></div>
+                      <div className="space-y-2">
+                        <div className="h-3 bg-gray-700 rounded w-20"></div>
+                        <div className="h-2 bg-gray-700 rounded w-32"></div>
+                      </div>
+                    </div>
+                    <div className="w-16 h-6 bg-gray-700 rounded-full"></div>
+                  </div>
+                ))}
               </div>
-              <StatusBadge status="Connected" type="success" />
-            </div>
-
-            {/* XMR Node */}
-            <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
-                  <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
-                  </svg>
+            ) : cryptoStatus?.nodes && cryptoStatus.nodes.length > 0 ? (
+              cryptoStatus.nodes.map((node: any) => (
+                <div key={node.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3 last:mb-0">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-8 h-8 ${node.symbol === 'BTC' ? 'bg-warning/20' : 'bg-accent/20'} rounded-lg flex items-center justify-center`}>
+                      {node.symbol === 'BTC' ? (
+                        <Bitcoin className="text-warning w-4 h-4" />
+                      ) : (
+                        <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-text text-sm">{node.name}</p>
+                      <p className="text-xs text-gray-400">
+                        Block #{node.blockHeight} • {node.lastSync}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={node.status} type={node.statusType === 'success' ? 'success' : 'warning'} />
                 </div>
-                <div>
-                  <p className="font-medium text-text text-sm">Monero Node</p>
-                  <p className="text-xs text-gray-400">Block #3,021,456 • Synced 1 min ago</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-4 bg-surface-2 rounded-lg">
+                <p className="text-xs text-gray-500">Node data unavailable</p>
               </div>
-              <StatusBadge status="Connected" type="success" />
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -748,32 +705,32 @@ export function Overview() {
             <div className="grid grid-cols-2 gap-3">
               <div className="text-center p-3 bg-surface-2 rounded-lg">
                 <p className="text-xl font-bold text-text font-mono">
-                  {loading ? "..." : dashboardStats?.escrow_btc?.toFixed(3) || "0.000"}
+                  {loading ? "..." : dashboardStats?.escrow_stats.btc_total.toFixed(5) || "0.00000"}
                 </p>
                 <p className="text-xs">BTC in Escrow</p>
-                <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_btc || 0) * 41000).toLocaleString()}</p>
+                <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_stats.btc_total || 0) * 105000).toLocaleString()}</p>
               </div>
               <div className="text-center p-3 bg-surface-2 rounded-lg">
                 <p className="text-xl font-bold text-text font-mono">
-                  {loading ? "..." : dashboardStats?.escrow_xmr?.toFixed(2) || "0.00"}
+                  {loading ? "..." : dashboardStats?.escrow_stats.xmr_total.toFixed(3) || "0.000"}
                 </p>
                 <p className="text-xs">XMR in Escrow</p>
-                <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_xmr || 0) * 170).toLocaleString()}</p>
+                <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_stats.xmr_total || 0) * 350).toLocaleString()}</p>
               </div>
             </div>
 
             <div className="mt-3 space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">Pending Releases</span>
-                <span className="text-text">{dashboardStats?.pending_releases || 0} orders</span>
+                <span className="text-text">{dashboardStats?.escrow_stats.pending_releases || 0} orders</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">Auto-Release (48h)</span>
-                <span className="text-text">{dashboardStats?.auto_release_orders || 0} orders</span>
+                <span className="text-text">{dashboardStats?.escrow_stats.auto_release_orders || 0} orders</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">Disputed</span>
-                <span className="text-danger">{dashboardStats?.disputed_orders || 0} orders</span>
+                <span className="text-danger">{dashboardStats?.escrow_stats.disputed_orders || 0} orders</span>
               </div>
             </div>
           </CardContent>

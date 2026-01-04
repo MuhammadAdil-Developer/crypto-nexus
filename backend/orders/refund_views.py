@@ -145,10 +145,11 @@ def buyer_request_refund(request):
                 }
             )
             
-            # Notify vendor (real-time)
-            Notification.objects.create(
+            # Notify vendor via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=order.vendor,
-                type='refund',
+                notification_type='refund',
                 title='New Refund Request',
                 message=f'Buyer {request.user.username} requested a {refund_type} refund for order {order.order_id}',
                 data={
@@ -158,30 +159,9 @@ def buyer_request_refund(request):
                     'amount': str(refund_amount),
                     'reason': reason,
                     'action_url': '/vendor/orders'
-                }
+                },
+                priority='high'
             )
-            
-            # Send real-time notification to vendor
-            channel_layer = get_channel_layer()
-            if channel_layer:
-                try:
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{order.vendor.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'type': 'refund_request',
-                                'title': 'New Refund Request',
-                                'message': f'Buyer {request.user.username} requested a {refund_type} refund for order {order.order_id}',
-                                'refund_id': str(refund.id),
-                                'order_id': order.order_id,
-                                'priority': 'high',
-                                'action_url': '/vendor/orders'
-                            }
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending real-time notification to vendor: {e}")
             
             # Notify admin (real-time)
             send_admin_notification(
@@ -230,7 +210,7 @@ def buyer_refund_requests(request):
         limit = int(request.query_params.get('limit', 10))
         status_filter = request.query_params.get('status', None)
         
-        refunds = RefundRequest.objects.filter(buyer=request.user).order_by('-created_at')
+        refunds = RefundRequest.objects.select_related('order', 'buyer', 'vendor').filter(buyer=request.user).order_by('-created_at')
         
         if status_filter:
             refunds = refunds.filter(status=status_filter)
@@ -242,20 +222,31 @@ def buyer_refund_requests(request):
         
         data = []
         for refund in refunds_page:
-            data.append({
-                'id': str(refund.id),
-                'order_id': refund.order.order_id,
-                'vendor': refund.vendor.username,
-                'amount': str(refund.amount),
-                'crypto_currency': refund.order.crypto_currency,
-                'reason': refund.reason,
-                'refund_type': refund.refund_type,
-                'status': refund.status,
-                'vendor_decision': refund.vendor_decision,
-                'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
-                'created_at': refund.created_at.isoformat(),
-                'updated_at': refund.updated_at.isoformat(),
-            })
+            try:
+                # Ensure order exists before accessing
+                if not refund.order:
+                    continue
+                    
+                data.append({
+                    'id': str(refund.id),
+                    'order_id': refund.order.order_id,
+                    'vendor': refund.vendor.username,
+                    'amount': str(refund.amount),
+                    'crypto_currency': refund.order.crypto_currency,
+                    'reason': refund.reason,
+                    'refund_type': refund.refund_type,
+                    'status': refund.status,
+                    'vendor_decision': refund.vendor_decision,
+                    'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
+                    'created_at': refund.created_at.isoformat(),
+                    'updated_at': refund.updated_at.isoformat(),
+                })
+            except Order.DoesNotExist:
+                logger.warning(f"RefundRequest {refund.id} refers to a non-existent order.")
+                continue
+            except AttributeError as e:
+                logger.warning(f"Missing attributes for RefundRequest {refund.id}: {str(e)}")
+                continue
         
         return Response({
             'success': True,
@@ -438,16 +429,18 @@ def vendor_approve_refund(request, refund_id):
                         }
                     )
                     
-                    # Notify buyer
-                    Notification.objects.create(
+                    # Notify buyer via central helper (respects preferences)
+                    from shared.admin_notifications import send_user_notification
+                    send_user_notification(
                         user=refund.buyer,
-                        type='refund_approved',
+                        notification_type='refund',
                         title='Refund Approved',
                         message=f'Your refund request for order {order.order_id} has been approved. {refund.amount} {order.crypto_currency} has been sent to your wallet.',
                         data={
                             'order_id': order.order_id,
                             'refund_id': str(refund.id),
-                            'amount': str(refund.amount)
+                            'amount': str(refund.amount),
+                            'action_url': '/buyer/orders'
                         }
                     )
                     
@@ -573,10 +566,11 @@ def vendor_approve_refund(request, refund_id):
             }
         )
         
-        # Notify buyer
-        Notification.objects.create(
+        # Notify buyer via central helper (respects preferences)
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
             user=refund.buyer,
-            type='refund',
+            notification_type='refund',
             title='Refund Approved',
             message=f'Your refund request for order {order.order_id} has been approved by the vendor. The refund has been sent to your payout wallet.',
             data={
@@ -586,28 +580,6 @@ def vendor_approve_refund(request, refund_id):
                 'action_url': '/buyer/orders'
             }
         )
-        
-        # Real-time notification to buyer
-        channel_layer = get_channel_layer()
-        if channel_layer:
-            try:
-                async_to_sync(channel_layer.group_send)(
-                    f'realtime_{refund.buyer.id}',
-                    {
-                        'type': 'order_notification',
-                        'data': {
-                            'type': 'refund_approved',
-                            'title': 'Refund Approved',
-                            'message': f'Your refund for order {order.order_id} has been approved and sent to your payout wallet.',
-                            'refund_id': str(refund.id),
-                            'order_id': order.order_id,
-                            'priority': 'normal',
-                            'action_url': '/buyer/orders'
-                        }
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error sending real-time notification to buyer: {e}")
         
         # Notify admin
         send_admin_notification(
@@ -696,10 +668,11 @@ def vendor_reject_refund(request, refund_id):
                 }
             )
             
-            # Notify buyer
-            Notification.objects.create(
+            # Notify buyer via central helper (respects preferences)
+            from shared.admin_notifications import send_user_notification
+            send_user_notification(
                 user=refund.buyer,
-                type='refund',
+                notification_type='refund',
                 title='Refund Request Rejected',
                 message=f'Your refund request for order {order.order_id} has been rejected by the vendor. You can open a dispute if needed.',
                 data={
@@ -709,28 +682,6 @@ def vendor_reject_refund(request, refund_id):
                     'action_url': '/buyer/orders'
                 }
             )
-            
-            # Real-time notification to buyer
-            channel_layer = get_channel_layer()
-            if channel_layer:
-                try:
-                    async_to_sync(channel_layer.group_send)(
-                        f'realtime_{refund.buyer.id}',
-                        {
-                            'type': 'order_notification',
-                            'data': {
-                                'type': 'refund_rejected',
-                                'title': 'Refund Request Rejected',
-                                'message': f'Your refund for order {order.order_id} was rejected. You can open a dispute.',
-                                'refund_id': str(refund.id),
-                                'order_id': order.order_id,
-                                'priority': 'normal',
-                                'action_url': '/buyer/orders'
-                            }
-                        }
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending real-time notification to buyer: {e}")
             
             # Notify admin
             send_admin_notification(
@@ -771,7 +722,7 @@ def vendor_refund_requests(request):
         limit = int(request.query_params.get('limit', 10))
         status_filter = request.query_params.get('status', None)
         
-        refunds = RefundRequest.objects.filter(vendor=request.user).order_by('-created_at')
+        refunds = RefundRequest.objects.select_related('order', 'buyer', 'vendor', 'order__product').filter(vendor=request.user).order_by('-created_at')
         
         if status_filter:
             refunds = refunds.filter(status=status_filter)
@@ -783,36 +734,42 @@ def vendor_refund_requests(request):
         
         data = []
         for refund in refunds_page:
-            # Get order details for product and buyer IDs
-            order = refund.order
-            product_id = str(order.product.id) if order.product else None
-            buyer_id = str(order.buyer.id) if order.buyer else None
-            
-            data.append({
-                'id': str(refund.id),
-                'order_id': refund.order.order_id,
-                'buyer': refund.buyer.username,
-                'buyer_id': buyer_id,
-                'product_id': product_id,
-                'buyer_btc_payout_address': getattr(refund.buyer, 'btc_payout_address', None),
-                'buyer_xmr_payout_address': getattr(refund.buyer, 'xmr_payout_address', None),
-                'amount': str(refund.amount),
-                'crypto_currency': refund.order.crypto_currency,
-                'reason': refund.reason,
-                'refund_type': refund.refund_type,
-                'status': refund.status,
-                'use_escrow': order.use_escrow,  # Add escrow status
-                'vendor_decision': refund.vendor_decision,
-                'vendor_decision_notes': refund.vendor_decision_notes,
-                'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
-                'vendor_refund_required': refund.vendor_refund_required,
-                'vendor_refund_deadline': refund.vendor_refund_deadline.isoformat() if refund.vendor_refund_deadline else None,
-                'vendor_payment_source': refund.vendor_payment_source,
-                'vendor_refund_transaction_hash': refund.vendor_refund_transaction_hash,
-                'vendor_external_wallet_address': refund.vendor_external_wallet_address,
-                'created_at': refund.created_at.isoformat(),
-                'updated_at': refund.updated_at.isoformat(),
-            })
+            try:
+                # Get order details for product and buyer IDs
+                order = refund.order
+                if not order:
+                    continue
+                    
+                product_id = str(order.product.id) if order.product else None
+                buyer_id = str(order.buyer.id) if order.buyer else None
+                
+                data.append({
+                    'id': str(refund.id),
+                    'order_id': order.order_id,
+                    'buyer': refund.buyer.username,
+                    'buyer_id': buyer_id,
+                    'product_id': product_id,
+                    'buyer_btc_payout_address': getattr(refund.buyer, 'btc_payout_address', None),
+                    'buyer_xmr_payout_address': getattr(refund.buyer, 'xmr_payout_address', None),
+                    'amount': str(refund.amount),
+                    'crypto_currency': order.crypto_currency,
+                    'reason': refund.reason,
+                    'refund_type': refund.refund_type,
+                    'status': refund.status,
+                    'use_escrow': order.use_escrow,  # Add escrow status
+                    'vendor_decision': refund.vendor_decision,
+                    'vendor_decision_notes': refund.vendor_decision_notes,
+                    'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
+                    'vendor_refund_required': refund.vendor_refund_required,
+                    'vendor_refund_deadline': refund.vendor_refund_deadline.isoformat() if refund.vendor_refund_deadline else None,
+                    'vendor_payment_source': refund.vendor_payment_source,
+                    'vendor_refund_transaction_hash': refund.vendor_refund_transaction_hash,
+                    'vendor_external_wallet_address': refund.vendor_external_wallet_address,
+                    'created_at': refund.created_at.isoformat(),
+                    'updated_at': refund.updated_at.isoformat(),
+                })
+            except (Order.DoesNotExist, AttributeError):
+                continue
         
         return Response({
             'success': True,

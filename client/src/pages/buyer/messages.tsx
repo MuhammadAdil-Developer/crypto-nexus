@@ -6,6 +6,7 @@ import { MessageSquare, Users, Clock } from "lucide-react";
 import { messagingService } from "@/services/messagingService";
 import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
+import { PageBanner } from "@/components/PageBanner";
 
 export default function BuyerMessages() {
   const [conversations, setConversations] = useState<any[]>([]);
@@ -214,18 +215,12 @@ export default function BuyerMessages() {
   return (
     <BuyerLayout>
       <div className="space-y-4 sm:space-y-6 p-3 sm:p-0">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-4 sm:p-6 text-white border border-gray-700">
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="p-3 rounded-full bg-theme-red/20">
-              <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 text-theme-red" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold truncate">Messages</h1>
-              <p className="text-gray-400 text-sm sm:text-base">Chat with vendors and get support</p>
-            </div>
-          </div>
-        </div>
+        {/* Header Banner */}
+        <PageBanner
+          title="Messages"
+          subtitle="Chat with vendors and get support"
+          type="buyer"
+        />
 
         {/* Product Context Banner */}
         {productContext && (
@@ -276,8 +271,6 @@ export default function BuyerMessages() {
           conversations={conversations}
           loading={loading}
           onRefresh={loadConversations}
-          autoSelectConversation={autoSelectConversation}
-          onConversationSelected={() => setAutoSelectConversation(null)}
           autoSelectConversation={autoSelectConversation}
           onConversationSelected={() => setAutoSelectConversation(null)}
         />

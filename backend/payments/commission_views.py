@@ -347,47 +347,26 @@ class VendorFeesView(APIView):
                 vendor_fee.updated_by = request.user
                 vendor_fee.save()
             
-            # Send notification to vendor
+            # Define notification message
+            if commission_rate is not None:
+                message = f'Your commission rate has been updated to {commission_rate}% by admin.'
+            else:
+                message = f'Your custom commission rate has been removed. You will now use the default platform rate.'
+
+            # Notify vendor via central helper (respects preferences)
             try:
-                from shared.models import Notification
-                from asgiref.sync import async_to_sync
-                from channels.layers import get_channel_layer
-                
-                if commission_rate is not None:
-                    message = f'Your commission rate has been updated to {commission_rate}% by admin.'
-                else:
-                    message = f'Your custom commission rate has been removed. You will now use the default platform rate.'
-                
-                Notification.objects.create(
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
                     user=vendor,
-                    type='system',
+                    notification_type='payment',
                     title='Commission Rate Updated',
                     message=message,
                     data={
                         'commission_rate': float(commission_rate) if commission_rate else None,
-                        'updated_by': request.user.username
+                        'updated_by': request.user.username,
+                        'type': 'commission_updated'
                     }
                 )
-                
-                # Send real-time notification
-                try:
-                    channel_layer = get_channel_layer()
-                    if channel_layer:
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{vendor.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'type': 'commission_updated',
-                                    'title': 'Commission Rate Updated',
-                                    'message': message,
-                                    'commission_rate': float(commission_rate) if commission_rate else None
-                                }
-                            }
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to send real-time notification: {e}")
-                    
             except Exception as e:
                 logger.error(f"Failed to send notification to vendor: {e}")
             

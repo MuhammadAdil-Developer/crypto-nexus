@@ -13,7 +13,7 @@ export interface Dispute {
   category: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'open' | 'in_progress' | 'resolved' | 'closed' | 'escalated';
-  resolution: 'pending' | 'refund_full' | 'refund_partial' | 'refund_to_vendor' | 'product_replacement' | 'dispute_dismissed';
+  resolution: 'pending' | 'refund_full' | 'refund_partial' | 'refund_to_vendor' | 'product_replacement' | 'dispute_dismissed' | 'buyer_wins' | 'vendor_wins';
   resolution_notes?: string;
   refund_amount?: number;
   assigned_admin?: string;
@@ -76,19 +76,19 @@ class DisputeService {
   async createDispute(data: CreateDisputeData): Promise<{ success: boolean; message: string; data?: Dispute }> {
     try {
       console.log('🔍 Creating dispute:', data);
-      
+
       const response = await api.post('/disputes/create/', data);
-      
+
       console.log('🔍 Create dispute response:', response);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Create dispute error:', error);
-      
+
       if (error.response?.data) {
         return error.response.data;
       }
-      
+
       return {
         success: false,
         message: 'Failed to create dispute'
@@ -103,32 +103,32 @@ class DisputeService {
     status?: string;
     priority?: string;
     category?: string;
-  } = {}): Promise<{ 
-    success: boolean; 
-    data: Dispute[]; 
-    pagination: any 
+  } = {}): Promise<{
+    success: boolean;
+    data: Dispute[];
+    pagination: any
   }> {
     try {
       console.log('🔍 Fetching disputes:', params);
-      
+
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           searchParams.append(key, String(value));
         }
       });
-      
+
       const queryString = searchParams.toString();
       const endpoint = queryString ? `/disputes/list/?${queryString}` : '/disputes/list/';
-      
+
       const response = await api.get(endpoint);
-      
+
       console.log('🔍 Get disputes response:', response);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Get disputes error:', error);
-      
+
       return {
         success: false,
         data: [],
@@ -144,25 +144,25 @@ class DisputeService {
   }
 
   // Get dispute detail
-  async getDisputeDetail(disputeId: string | number): Promise<{ 
-    success: boolean; 
-    data?: { 
-      dispute: Dispute; 
-      messages: DisputeMessage[]; 
-      timeline: DisputeTimeline[] 
-    } 
+  async getDisputeDetail(disputeId: string | number): Promise<{
+    success: boolean;
+    data?: {
+      dispute: Dispute;
+      messages: DisputeMessage[];
+      timeline: DisputeTimeline[]
+    }
   }> {
     try {
       console.log('🔍 Fetching dispute detail:', disputeId);
-      
+
       const response = await api.get(`/disputes/${disputeId}/`);
-      
+
       console.log('🔍 Get dispute detail response:', response);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Get dispute detail error:', error);
-      
+
       return {
         success: false,
         data: undefined
@@ -171,26 +171,26 @@ class DisputeService {
   }
 
   // Send message in dispute
-  async sendDisputeMessage(disputeId: number, data: {
+  async sendDisputeMessage(disputeId: string | number, data: {
     message: string;
     is_internal?: boolean;
     attachments?: string[];
   }): Promise<{ success: boolean; message: string; data?: DisputeMessage }> {
     try {
       console.log('🔍 Sending dispute message:', { disputeId, data });
-      
+
       const response = await api.post(`/disputes/${disputeId}/messages/`, data);
-      
+
       console.log('🔍 Send dispute message response:', response);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Send dispute message error:', error);
-      
+
       if (error.response?.data) {
         return error.response.data;
       }
-      
+
       return {
         success: false,
         message: 'Failed to send message'
@@ -208,19 +208,19 @@ class DisputeService {
   }): Promise<{ success: boolean; message: string; data?: Dispute }> {
     try {
       console.log('🔍 Resolving dispute:', { disputeId, data });
-      
+
       const response = await api.post(`/disputes/${disputeId}/resolve/`, data);
-      
+
       console.log('🔍 Resolve dispute response:', response);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Resolve dispute error:', error);
-      
+
       if (error.response?.data) {
         return error.response.data;
       }
-      
+
       return {
         success: false,
         message: 'Failed to resolve dispute'
@@ -229,21 +229,21 @@ class DisputeService {
   }
 
   // Get dispute statistics (admin only)
-  async getDisputeStatistics(): Promise<{ 
-    success: boolean; 
-    data?: DisputeStatistics 
+  async getDisputeStatistics(): Promise<{
+    success: boolean;
+    data?: DisputeStatistics
   }> {
     try {
       console.log('🔍 Fetching dispute statistics');
-      
+
       const response = await api.get('/disputes/statistics/');
-      
+
       console.log('🔍 Get dispute statistics response:', response);
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Get dispute statistics error:', error);
-      
+
       return {
         success: false,
         data: undefined

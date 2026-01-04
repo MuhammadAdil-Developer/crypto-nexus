@@ -8,6 +8,7 @@ import { Eye, EyeOff, Lock, User, Shield, TrendingUp, Zap, Globe } from "lucide-
 import { authService } from "@/services/authService";
 import CircleCaptchaModal from "@/components/captcha/CircleCaptchaModal";
 import { CloudflareTurnstile, CloudflareTurnstileHandle } from "@/components/security/CloudflareTurnstile";
+import { toast } from "sonner";
 
 export default function SignUp() {
 
@@ -28,6 +29,13 @@ export default function SignUp() {
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRef = useRef<CloudflareTurnstileHandle>(null);
+  const [registrationResult, setRegistrationResult] = useState<{
+    user: any;
+    tokens: any;
+    recovery_phrase: string;
+  } | null>(null);
+  const [hasBackedUp, setHasBackedUp] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
 
@@ -141,14 +149,12 @@ export default function SignUp() {
       const response = await authService.register(registrationData as any);
 
       if (response.success) {
-        const userType = response.data.user.user_type;
-        if (userType === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (userType === 'vendor') {
-          navigate('/vendor/dashboard');
-        } else {
-          navigate('/buyer/');
-        }
+        // Store the result but don't navigate yet
+        setRegistrationResult({
+          user: response.data.user,
+          tokens: response.data.tokens,
+          recovery_phrase: (response.data.user as any).recovery_phrase || ""
+        });
       } else {
         setErrors({ general: response.message || 'Registration failed' });
       }
@@ -162,6 +168,94 @@ export default function SignUp() {
       setTurnstileResetKey(prev => prev + 1);
     }
   };
+
+  const handleProceedToDashboard = () => {
+    if (!registrationResult || !hasBackedUp) return;
+
+    const { user } = registrationResult;
+    const userType = user.user_type;
+
+    if (userType === 'admin') {
+      navigate('/admin/dashboard');
+    } else if (userType === 'vendor') {
+      navigate('/vendor/dashboard');
+    } else {
+      navigate('/buyer/');
+    }
+  };
+
+  if (registrationResult) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <Card className="border-2 border-pink-500 bg-gray-900 shadow-[0_0_30px_rgba(236,72,153,0.2)]">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 bg-pink-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-pink-500 shadow-glow" />
+              </div>
+              <CardTitle className="text-2xl font-bold text-white">Backup Your Recovery Phrase</CardTitle>
+              <p className="text-gray-400 mt-2">This is the ONLY way to recover your account if you lose your password.</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="p-6 bg-pink-500/10 border border-pink-500/30 rounded-xl relative group">
+                <p className="text-pink-100 text-lg font-mono text-center tracking-wide leading-relaxed">
+                  {registrationResult.recovery_phrase}
+                </p>
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-pink-400 hover:text-pink-300 hover:bg-pink-500/10"
+                    onClick={() => {
+                      navigator.clipboard.writeText(registrationResult.recovery_phrase);
+                      setIsCopied(true);
+                      toast.success("Recovery phrase copied to clipboard!");
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                  >
+                    {isCopied ? "Copied!" : "Copy to Clipboard"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-lg flex items-start gap-4">
+                <Shield className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
+                <p className="text-orange-200 text-sm leading-relaxed">
+                  <strong>Warning:</strong> Never share your recovery phrase. Anyone with these 12 words can access your account and your funds.
+                  AccountzClub employees will NEVER ask for this phrase.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={hasBackedUp}
+                    onChange={(e) => setHasBackedUp(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-600 bg-gray-800 text-pink-500 focus:ring-pink-500 cursor-pointer"
+                  />
+                  <span className="text-gray-300 group-hover:text-white transition-colors">
+                    I have saved my recovery phrase in a secure location.
+                  </span>
+                </label>
+
+                <Button
+                  onClick={handleProceedToDashboard}
+                  disabled={!hasBackedUp}
+                  className={`w-full py-6 text-lg font-bold transition-all ${hasBackedUp
+                    ? "bg-pink-600 hover:bg-pink-500 shadow-lg shadow-pink-500/30 text-white"
+                    : "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
+                    }`}
+                >
+                  Confirm & Continue
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
@@ -372,7 +466,7 @@ export default function SignUp() {
         onError={handleCaptchaError}
         siteKey="register-captcha"
         title="Security Verification Required"
-        instruction="Please find and click inside the open circle (the circle with a gap or opening) to verify you are human. This helps protect against automated registrations."
+        instruction="find and click inside the open circle (the circle with a gap or opening) to verify you are human."
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, ExternalLink, Bell, Settings, User, RefreshCw, ExternalLink as ExternalLinkIcon, MoreVertical } from "lucide-react";
+import { Menu, ExternalLink, Bell, Settings, User, RefreshCw, ExternalLink as ExternalLinkIcon, MoreVertical, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useMessaging } from "@/contexts/MessagingContext";
+import { formatCryptoAmountInString } from "@/lib/utils";
 
 interface HeaderProps {
   breadcrumbs: { label: string; href?: string }[];
@@ -29,26 +30,26 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
   const [countReset, setCountReset] = useState(false);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [activeTab, setActiveTab] = useState<'direct' | 'watching'>('direct');
-  
+
   // Initialize local count from context (only when not reset)
   useEffect(() => {
     if (!countReset) {
       setLocalUnreadCount(unreadCount);
     }
   }, [unreadCount, countReset]);
-  
+
   // Auto-refresh notifications aggressively - every 2 seconds
   useEffect(() => {
     // Always refresh every 2 seconds (aggressive approach)
     const interval = setInterval(() => {
       refreshNotifications(true);
     }, 2000);
-    
+
     // Also refresh immediately when dropdown opens
     if (dropdownOpen) {
       refreshNotifications(true);
     }
-    
+
     return () => clearInterval(interval);
   }, [dropdownOpen, refreshNotifications]);
 
@@ -75,7 +76,7 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
     }
     // When dropdown closes, count stays at 0 until new notifications arrive
   };
-  
+
   // When new notifications arrive via WebSocket, update count (even if reset)
   useEffect(() => {
     if (countReset && unreadCount > localUnreadCount) {
@@ -93,16 +94,16 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center space-x-2 md:space-x-4 min-w-0 flex-1">
           {/* Mobile menu button */}
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="md:hidden hover:text-text flex-shrink-0"
             data-testid="mobile-menu-button"
             onClick={() => setSidebarOpen && setSidebarOpen(!sidebarOpen)}
           >
             <Menu className="w-4 h-4" />
           </Button>
-          
+
           {/* Breadcrumbs - Hide on very small screens */}
           <nav className="hidden sm:flex" data-testid="breadcrumbs">
             <ol className="flex items-center space-x-2 text-xs md:text-sm">
@@ -120,13 +121,13 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
               ))}
             </ol>
           </nav>
-          
+
           {/* Mobile: Show only current page title */}
           <div className="sm:hidden text-accent font-medium text-sm truncate">
             {breadcrumbs[breadcrumbs.length - 1]?.label || 'Admin'}
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-1 md:space-x-4 flex-shrink-0">
           {/* View Marketplace Button - Hide text on mobile */}
           <Link to="/">
@@ -135,22 +136,21 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
               <span className="hidden md:inline">View Marketplace</span>
             </span>
           </Link>
-          
+
           {/* Notifications - GitHub Style */}
           <DropdownMenu onOpenChange={handleDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="relative hover:text-text transition-all p-2"
                 data-testid="notifications-button"
               >
                 <Bell className="w-5 h-5 text-blue-400" />
                 {localUnreadCount > 0 && (
-                  <Badge 
-                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] p-0 flex items-center justify-center rounded-full transition-all duration-300 ${
-                      dropdownOpen ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
-                    }`}
+                  <Badge
+                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] p-0 flex items-center justify-center rounded-full transition-all duration-300 ${dropdownOpen ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
+                      }`}
                   >
                     {localUnreadCount > 99 ? '99+' : localUnreadCount}
                   </Badge>
@@ -164,7 +164,7 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex items-center gap-2 whitespace-nowrap">
                     <span className="text-xs text-gray-400">Only show unread</span>
-                    <Switch 
+                    <Switch
                       checked={showUnreadOnly}
                       onCheckedChange={setShowUnreadOnly}
                       className="h-4 w-7"
@@ -215,21 +215,19 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
               <div className="flex border-b border-gray-700">
                 <button
                   onClick={() => setActiveTab('direct')}
-                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                    activeTab === 'direct'
-                      ? 'text-white border-b-2 border-blue-500'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'direct'
+                    ? 'text-white border-b-2 border-blue-500'
+                    : 'text-gray-400 hover:text-gray-300'
+                    }`}
                 >
                   Direct
                 </button>
                 <button
                   onClick={() => setActiveTab('watching')}
-                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                    activeTab === 'watching'
-                      ? 'text-white border-b-2 border-blue-500'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'watching'
+                    ? 'text-white border-b-2 border-blue-500'
+                    : 'text-gray-400 hover:text-gray-300'
+                    }`}
                 >
                   Watching
                 </button>
@@ -238,12 +236,12 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
               {/* Notifications List */}
               <div className="max-h-[320px] overflow-y-auto">
                 {(() => {
-                  const filtered = showUnreadOnly 
+                  const filtered = showUnreadOnly
                     ? allNotifications.filter(n => n.unread)
                     : allNotifications;
-                  
+
                   const displayNotifications = filtered.slice(0, 20);
-                  
+
                   if (displayNotifications.length === 0) {
                     return (
                       <div className="p-8 text-center text-gray-400">
@@ -257,11 +255,11 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                   const grouped: { [key: string]: typeof displayNotifications } = {};
                   displayNotifications.forEach(notif => {
                     const time = notif.time || 'Older';
-                    const group = time.includes('hour') || time.includes('minute') || time === 'Just now' 
-                      ? 'Today' 
-                      : time.includes('Yesterday') 
-                      ? 'Yesterday' 
-                      : 'Older';
+                    const group = time.includes('hour') || time.includes('minute') || time === 'Just now'
+                      ? 'Today'
+                      : time.includes('Yesterday')
+                        ? 'Yesterday'
+                        : 'Older';
                     if (!grouped[group]) grouped[group] = [];
                     grouped[group].push(notif);
                   });
@@ -270,14 +268,14 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                     <div key={groupName}>
                       <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-800/50">
                         {groupName}
-                  </div>
+                      </div>
                       {groupNotifications.map((notification) => (
                         <div
-                      key={notification.id} 
+                          key={notification.id}
                           className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
-                      onClick={() => {
-                        if (notification.actionUrl) {
-                          navigate(notification.actionUrl);
+                          onClick={() => {
+                            if (notification.actionUrl) {
+                              navigate(notification.actionUrl);
                               setDropdownOpen(false);
                             }
                           }}
@@ -287,35 +285,39 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                             <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
                               <User className="w-4 h-4 text-gray-400" />
                             </div>
-                            
+
                             {/* Content */}
-                        <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white leading-snug">
-                                {notification.title}
+                                {formatCryptoAmountInString(notification.title)}
+                                {notification.type === 'security' && (
+                                  <Shield className="w-3 h-3 text-red-500 inline-block ml-2 mb-0.5" />
+                                )}
                               </p>
                               <p className="text-sm text-gray-400 leading-snug mt-1">
-                                {notification.message}
+                                {formatCryptoAmountInString(notification.message)}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
                             </div>
-                            
+
                             {/* Unread indicator */}
                             {notification.unread && (
-                              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-2" />
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-2 ${notification.type === 'security' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-blue-500'
+                                }`} />
                             )}
                           </div>
                         </div>
                       ))}
-                      </div>
+                    </div>
                   ));
                 })()}
               </div>
 
               {/* Footer */}
               <div className="px-4 py-3 border-t border-gray-700">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setDropdownOpen(false);
                     navigate('/admin/notifications');
@@ -327,11 +329,11 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           {/* Settings */}
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="hover:text-text"
             data-testid="settings-button"
             onClick={() => navigate('/admin/settings')}

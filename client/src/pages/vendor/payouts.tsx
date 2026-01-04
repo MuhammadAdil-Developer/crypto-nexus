@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wallet, Download, TrendingUp, Clock, CheckCircle, Copy, ExternalLink } from "lucide-react";
+import { Wallet, Download, TrendingUp, Clock, CheckCircle, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
@@ -80,15 +80,15 @@ interface PendingEarnings {
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
     case "completed":
-      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
+      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(52,211,153,0.1)]";
     case "processing":
-      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
+      return "bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse shadow-[0_0_10px_rgba(96,165,250,0.1)]";
     case "ready":
-      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
+      return "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-[0_0_10px_rgba(34,211,238,0.1)]";
     case "pending":
-      return "bg-theme-red/10 text-theme-red border-theme-red/20";
+      return "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(251,191,36,0.1)]";
     case "failed":
-      return "bg-theme-red/10 text-theme-red border-theme-red/20";
+      return "bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(248,113,113,0.1)]";
     case "cancelled":
       return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     default:
@@ -218,371 +218,385 @@ export default function VendorPayouts() {
     navigator.clipboard.writeText(text);
   };
 
+  const exportHistory = () => {
+    if (payouts.length === 0) {
+      toast({
+        title: "No data",
+        description: "Nothing to export yet",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const headers = ["ID", "Amount", "USD Amount", "Address", "Method", "Status", "Date", "Type", "Order ID"];
+    const csvContent = [
+      headers.join(","),
+      ...payouts.map(p => [
+        p.id,
+        p.amount.replace(',', ''),
+        p.usdAmount.replace(',', '').replace('$', ''),
+        p.address,
+        p.method,
+        p.status,
+        p.date,
+        p.type || 'N/A',
+        p.order_id || 'N/A'
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `payout_history_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Success",
+      description: "History exported to CSV",
+    });
+  };
+
   return (
 
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Payouts & Earnings</h1>
-          <p className="text-gray-400 text-sm sm:text-base">Manage your earnings and funds history</p>
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
+      {/* Premium Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 mb-8">
+        <div>
+          <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">
+            Payouts & Earnings
+          </h1>
+          <p className="text-gray-400 font-medium max-w-lg italic text-sm sm:text-base">
+            Track your revenue, manage withdrawals, and view transaction history.
+          </p>
         </div>
         <Button
-          variant="outline"
-          className="border-gray-600 text-gray-300 hover:bg-gray-700 w-full sm:w-auto text-xs sm:text-sm"
           onClick={fetchPayouts}
           disabled={loading}
+          className="bg-gray-900/50 hover:bg-gray-800 text-white border border-gray-700/50 shadow-lg rounded-xl h-12 px-6 font-bold transition-all"
         >
-          <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+          <TrendingUp className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
           {loading ? "Refreshing..." : "Refresh Data"}
         </Button>
       </div>
 
-      {/* Balance Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-        <Card className="border-theme-cyan/30 bg-gradient-to-br from-theme-cyan/10 to-transparent">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-theme-cyan">
-                <Wallet className="w-6 h-6 sm:w-8 sm:h-8" />
+      {/* Balance Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+        <Card className="border border-amber-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 to-orange-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-amber-500/10 rounded-xl">
+                <Wallet className="w-8 h-8 text-amber-500" />
               </div>
-              <Badge className="bg-theme-cyan text-black hover:bg-theme-cyan/80 text-xs sm:text-sm">BTC</Badge>
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs font-bold px-3 py-1">BTC BALANCE</Badge>
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-white">
-              {loading ? "..." : `${pendingEarnings.btc.amount} BTC`}
+            <div className="space-y-1">
+              <h3 className="text-3xl font-black text-white tracking-tight">{loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `${pendingEarnings.btc.amount} BTC`}</h3>
+              <p className="text-base text-gray-400 font-medium">≈ {loading ? "..." : pendingEarnings.btc.usd}</p>
+              <div className="pt-2 mt-2 border-t border-gray-700/30">
+                <p className="text-xs text-gray-500 font-mono">{loading ? "..." : `${pendingEarnings.btc.orders} orders pending release`}</p>
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-gray-400">≈ {loading ? "..." : pendingEarnings.btc.usd}</p>
-            <p className="text-[10px] sm:text-xs text-gray-400 mt-1">{loading ? "..." : `${pendingEarnings.btc.orders} pending orders`}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-theme-cyan/30 bg-gradient-to-br from-theme-cyan/10 to-transparent">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-theme-cyan">
-                <Wallet className="w-6 h-6 sm:w-8 sm:h-8" />
+        <Card className="border border-orange-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-600/10 to-red-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-orange-500/10 rounded-xl">
+                <Wallet className="w-8 h-8 text-orange-500" />
               </div>
-              <Badge className="bg-theme-cyan text-black hover:bg-theme-cyan/80 text-xs sm:text-sm">XMR</Badge>
+              <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs font-bold px-3 py-1">XMR BALANCE</Badge>
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-white">
-              {loading ? "..." : `${pendingEarnings.xmr.amount} XMR`}
+            <div className="space-y-1">
+              <h3 className="text-3xl font-black text-white tracking-tight">{loading ? <Loader2 className="w-8 h-8 animate-spin" /> : `${pendingEarnings.xmr.amount} XMR`}</h3>
+              <p className="text-base text-gray-400 font-medium">≈ {loading ? "..." : pendingEarnings.xmr.usd}</p>
+              <div className="pt-2 mt-2 border-t border-gray-700/30">
+                <p className="text-xs text-gray-500 font-mono">{loading ? "..." : `${pendingEarnings.xmr.orders} orders pending release`}</p>
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-gray-400">≈ {loading ? "..." : pendingEarnings.xmr.usd}</p>
-            <p className="text-[10px] sm:text-xs text-gray-400 mt-1">{loading ? "..." : `${pendingEarnings.xmr.orders} pending orders`}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-theme-red/30 bg-gradient-to-br from-theme-red/10 to-transparent sm:col-span-2 lg:col-span-1">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-theme-red">
-                <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8" />
+        <Card className="border border-emerald-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300 sm:col-span-2 lg:col-span-1">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 to-teal-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-emerald-500/10 rounded-xl">
+                <TrendingUp className="w-8 h-8 text-emerald-500" />
               </div>
-              <Badge className="bg-theme-red text-white hover:bg-theme-red/80 text-xs sm:text-sm">TOTAL</Badge>
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs font-bold px-3 py-1">TOTAL EARNINGS</Badge>
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-white">{loading ? "..." : pendingEarnings.total.usd}</div>
-            <p className="text-xs sm:text-sm text-gray-400">Total Pending</p>
-            <p className="text-[10px] sm:text-xs text-gray-400 mt-1">{loading ? "..." : `${pendingEarnings.total.orders} total orders`}</p>
+            <div className="space-y-1">
+              <h3 className="text-3xl font-black text-white tracking-tight">{loading ? <Loader2 className="w-8 h-8 animate-spin" /> : pendingEarnings.total.usd}</h3>
+              <p className="text-base text-gray-400 font-medium">Available for Withdrawal</p>
+              <div className="pt-2 mt-2 border-t border-gray-700/30">
+                <p className="text-xs text-gray-500 font-mono">{loading ? "..." : `${pendingEarnings.total.orders} total completed orders`}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-theme-cyan">${totalPaidOut.toLocaleString()}</div>
-            <p className="text-xs sm:text-sm text-gray-400">Total Paid Out</p>
+        <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Paid Out</p>
+            <div className="text-xl sm:text-2xl font-black text-white">${totalPaidOut.toLocaleString()}</div>
           </CardContent>
         </Card>
-
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-theme-cyan">{loading ? "..." : payouts.length}</div>
-            <p className="text-xs sm:text-sm text-gray-400">Total Payouts</p>
+        <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Payouts</p>
+            <div className="text-xl sm:text-2xl font-black text-cyan-400">{loading ? "..." : payouts.length}</div>
           </CardContent>
         </Card>
-
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-theme-red">{loading ? "..." : pendingEarnings.total.orders}</div>
-            <p className="text-xs sm:text-sm text-gray-400">Pending Orders</p>
+        <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Pending Orders</p>
+            <div className="text-xl sm:text-2xl font-black text-amber-400">{loading ? "..." : pendingEarnings.total.orders}</div>
           </CardContent>
         </Card>
-
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
-              {loading ? "..." : payouts.filter(p => p.status === "Completed" || p.status === "completed").length}
+        <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Successful Payouts</p>
+            <div className="text-xl sm:text-2xl font-black text-emerald-400">
+              {loading ? "..." : payouts.filter(p => p.status.toLowerCase() === "completed").length}
             </div>
-            <p className="text-xs sm:text-sm text-gray-400">Successful Payouts</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="border border-gray-700 bg-gray-900">
+      {/* Filters & Export */}
+      <Card className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm">
         <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <Select value={filterMethod} onValueChange={setFilterMethod}>
-              <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
+              <SelectTrigger className="w-full sm:w-48 bg-gray-900/50 border-gray-700/50 text-white rounded-xl h-10">
                 <SelectValue placeholder="Filter by method" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-gray-900 border-gray-700 text-white">
                 <SelectItem value="all">All Methods</SelectItem>
                 <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
                 <SelectItem value="XMR">Monero (XMR)</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="w-full sm:w-auto text-xs sm:text-sm">
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl h-10"
+              onClick={exportHistory}
+            >
+              <Download className="w-4 h-4 mr-2" />
               Export History
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Payout History */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl font-bold text-white">
-            Payout History ({loading ? "..." : filteredPayouts.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          {loading ? (
-            <div className="flex flex-col sm:flex-row items-center justify-center py-8 gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-theme-cyan"></div>
-              <span className="text-gray-400 text-sm sm:text-base">Loading payouts...</span>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-red-400 mb-4 text-sm sm:text-base">{error}</p>
-              <Button onClick={fetchPayouts} variant="outline" className="text-xs sm:text-sm">
-                Try Again
-              </Button>
-            </div>
-          ) : filteredPayouts.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-400 text-sm sm:text-base">No payouts found</p>
-            </div>
-          ) : (
-            <div className="space-y-3 sm:space-y-4">
-              {filteredPayouts.map((payout) => (
-                <div key={payout.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-theme-cyan/20 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-theme-cyan" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                        <h3 className="font-semibold text-white text-sm sm:text-base truncate">{payout.id}</h3>
-                        <Badge className={`text-[10px] sm:text-xs ${getStatusColor(payout.status)}`}>
-                          {payout.status}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] sm:text-xs">
-                          {payout.method}
-                        </Badge>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-400 break-words">
-                        To: {payout.address.substring(0, 8)}...{payout.address.substring(payout.address.length - 6)}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2 h-auto p-0"
-                          onClick={() => copyToClipboard(payout.address)}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-gray-400">{payout.date}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between lg:justify-end space-x-3 sm:space-x-4 lg:space-x-6 flex-shrink-0">
-                    <div className="text-right lg:text-right">
-                      <div className="font-semibold text-white text-sm sm:text-base">{payout.amount}</div>
-                      <div className="text-xs sm:text-sm text-gray-400">{payout.usdAmount}</div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 sm:space-x-2">
-                      {payout.status === "Completed" ? (
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-theme-cyan" />
-                      ) : payout.status === "Processing" ? (
-                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-theme-cyan" />
-                      ) : null}
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedPayout(payout);
-                          setModalOpen(true);
-                        }}
-                        className="text-theme-cyan hover:text-theme-cyan/80 text-xs sm:text-sm"
-                      >
-                        <span className="hidden sm:inline">View Details</span>
-                        <span className="sm:hidden">View</span>
-                      </Button>
-
-                      {payout.txHash && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => window.open(`https://blockchair.com/${payout.method.toLowerCase()}/transaction/${payout.txHash}`, '_blank')}
-                        >
-                          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Payout Information */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl font-bold text-white">Payout Information</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            <div>
-              <h4 className="font-semibold text-white mb-3 text-sm sm:text-base">Payout Information</h4>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Escrow Orders:</span>
-                  <span className="font-medium text-white break-words text-right">Auto-release after 7 days</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Direct Orders:</span>
-                  <span className="font-medium text-white break-words text-right">Immediate payment</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Processing:</span>
-                  <span className="font-medium text-white break-words text-right">Real-time updates</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Support:</span>
-                  <span className="font-medium text-white break-words text-right">24/7 assistance</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-white mb-3 text-sm sm:text-base">Network Fees</h4>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">BTC Network Fee:</span>
-                  <span className="font-medium text-white break-words text-right">~0.0001 BTC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">XMR Network Fee:</span>
-                  <span className="font-medium text-white break-words text-right">~0.001 XMR</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Fee Calculation:</span>
-                  <span className="font-medium text-white break-words text-right">Dynamic</span>
-                </div>
-              </div>
-              <p className="text-[10px] sm:text-xs text-gray-400 mt-2 break-words">
-                Network fees are automatically calculated based on current network conditions.
-              </p>
-            </div>
+      {/* Payout History List */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-white px-2">Payout History <span className="text-gray-500 text-base font-normal ml-2">({filteredPayouts.length})</span></h2>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-10 h-10 animate-spin text-cyan-500 mb-4" />
+            <p className="text-gray-400">Loading payouts...</p>
           </div>
-        </CardContent>
-      </Card>
+        ) : error ? (
+          <div className="text-center py-12 bg-red-500/5 border border-red-500/20 rounded-xl">
+            <p className="text-red-400 mb-4">{error}</p>
+            <Button onClick={fetchPayouts} variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10">Try Again</Button>
+          </div>
+        ) : filteredPayouts.length === 0 ? (
+          <div className="text-center py-16 bg-gray-900/30 border border-gray-800 border-dashed rounded-xl">
+            <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Wallet className="w-8 h-8 text-gray-600" />
+            </div>
+            <p className="text-gray-400 font-medium">No payouts found matching your criteria</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredPayouts.map((payout) => (
+              <Card key={payout.id} className="bg-gray-900/40 border border-gray-700/30 hover:bg-gray-800/40 transition-all group overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex items-start space-x-4 min-w-0 flex-1">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${payout.method === 'BTC' ? 'bg-amber-500/10 text-amber-500' : 'bg-orange-500/10 text-orange-500'
+                        }`}>
+                        <Wallet className="w-6 h-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="font-bold text-white text-base truncate group-hover:text-cyan-400 transition-colors">{payout.id}</h3>
+                          <Badge className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(payout.status)}`}>
+                            {payout.status}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-700 bg-gray-900/50">
+                            {payout.type === 'escrow' ? 'Escrow' : 'Direct'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-400 font-mono mb-1">
+                          <span className="truncate max-w-[200px] sm:max-w-md">{payout.address}</span>
+                          <button onClick={() => copyToClipboard(payout.address)} className="ml-2 hover:text-white transition-colors">
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 font-medium">{payout.date}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-4 border-t lg:border-t-0 border-gray-800/50 pt-3 lg:pt-0">
+                      <div className="text-left lg:text-right">
+                        <div className="font-black text-white text-lg">{payout.amount}</div>
+                        <div className="text-sm text-gray-400 font-medium">{payout.usdAmount}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {payout.txHash && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                            onClick={() => window.open(`https://blockchair.com/${payout.method.toLowerCase()}/transaction/${payout.txHash}`, '_blank')}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-700"
+                          onClick={() => {
+                            setSelectedPayout(payout);
+                            setModalOpen(true);
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Info Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm">
+          <CardHeader className="p-6 border-b border-gray-800/50">
+            <CardTitle className="text-lg font-bold text-white flex items-center">
+              <Wallet className="w-5 h-5 mr-2 text-cyan-400" />
+              Payout Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="flex justify-between items-center p-3 bg-gray-800/20 rounded-lg">
+              <span className="text-gray-400 text-sm">Escrow Orders</span>
+              <span className="text-white font-medium text-sm">Auto-release after 2 days</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-gray-800/20 rounded-lg">
+              <span className="text-gray-400 text-sm">Direct Orders</span>
+              <span className="text-white font-medium text-sm">Immediate payment</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-gray-800/20 rounded-lg">
+              <span className="text-gray-400 text-sm">Processing</span>
+              <span className="text-white font-medium text-sm">Real-time updates</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm">
+          <CardHeader className="p-6 border-b border-gray-800/50">
+            <CardTitle className="text-lg font-bold text-white flex items-center">
+              <TrendingUp className="w-5 h-5 mr-2 text-emerald-400" />
+              Network Fees
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="flex justify-between items-center p-3 bg-gray-800/20 rounded-lg">
+              <span className="text-gray-400 text-sm">BTC Fee</span>
+              <span className="text-emerald-400 font-bold text-sm">~0.0001 BTC</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-gray-800/20 rounded-lg">
+              <span className="text-gray-400 text-sm">XMR Fee</span>
+              <span className="text-orange-400 font-bold text-sm">~0.001 XMR</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Fees are dynamic and depend on network congestion.</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Transaction History Section */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <CardTitle className="text-lg sm:text-xl font-bold text-white flex items-center">
-              <Wallet className="w-5 h-5 sm:w-6 sm:h-6 sm:mr-3 text-theme-cyan" />
-              Transaction History
+      <Card className="bg-gray-900/40 border border-gray-700/50 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="p-6 border-b border-gray-800/50">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold text-white flex items-center">
+              <Clock className="w-5 h-5 mr-3 text-cyan-500" />
+              Incoming Transactions
             </CardTitle>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => fetchTransactionHistory()}
               disabled={transactionsLoading}
-              className="text-gray-300 hover:text-white hover:bg-gray-700 w-full sm:w-auto text-xs sm:text-sm"
+              className="text-gray-400 hover:text-white"
             >
               {transactionsLoading ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6">
+        <CardContent className="p-6">
           {transactionsLoading ? (
-            <div className="flex flex-col sm:flex-row items-center justify-center py-8 gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-theme-cyan"></div>
-              <span className="text-gray-400 text-sm sm:text-base">Loading transaction history...</span>
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-cyan-500 mb-3" />
+              <p className="text-gray-400 font-medium">Loading transactions...</p>
             </div>
           ) : transactions.length === 0 ? (
-            <div className="text-center py-8">
-              <Wallet className="w-10 h-10 sm:w-12 sm:h-12 text-gray-500 mx-auto mb-3 sm:mb-4" />
-              <p className="text-gray-400 text-sm sm:text-base">No transactions found</p>
-              <p className="text-xs sm:text-sm text-gray-500 mt-2">Your transaction history will appear here as payments are received</p>
+            <div className="text-center py-12">
+              <div className="w-12 h-12 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Wallet className="w-6 h-6 text-gray-600" />
+              </div>
+              <p className="text-gray-400 font-medium">No transactions found</p>
             </div>
           ) : (
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-4">
               {transactions.map((transaction) => (
-                <div key={transaction.id} className="bg-gray-800 border border-gray-700 rounded-lg p-3 sm:p-4 hover:bg-gray-700 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${transaction.type === 'payout' ? 'bg-theme-cyan' :
-                        transaction.type === 'direct_payment' ? 'bg-theme-cyan' :
-                          'bg-theme-red'
-                        }`}></div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-white text-sm sm:text-base break-words">{transaction.description}</h3>
-                        <p className="text-xs sm:text-sm text-gray-400">Order: {transaction.order_id}</p>
+                <div key={transaction.id} className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-4 hover:bg-gray-800/50 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-2 h-2 rounded-full ${transaction.type === 'payout' ? 'bg-emerald-500' : 'bg-cyan-500'} shadow-[0_0_8px_rgba(34,211,238,0.5)]`}></div>
+                      <div>
+                        <h4 className="font-bold text-white text-sm">{transaction.description}</h4>
+                        <p className="text-xs text-gray-500">Order: <span className="text-gray-300 font-mono">{transaction.order_id}</span></p>
                       </div>
                     </div>
-                    <div className="text-left sm:text-right flex-shrink-0">
-                      <p className="font-bold text-white text-sm sm:text-base">{transaction.amount}</p>
-                      <p className="text-xs sm:text-sm text-gray-400">{transaction.usd_amount}</p>
+                    <div className="text-left sm:text-right">
+                      <p className="font-bold text-white text-sm">{transaction.amount}</p>
+                      <p className="text-xs text-gray-500">{transaction.usd_amount}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs pt-3 border-t border-gray-700/30">
                     <div>
-                      <span className="text-gray-400">From:</span>
-                      <p className="font-mono text-white text-[10px] sm:text-xs break-all">{transaction.from_address}</p>
+                      <span className="text-gray-500 block mb-1">From</span>
+                      <p className="font-mono text-gray-300 truncate">{transaction.from_address}</p>
                     </div>
                     <div>
-                      <span className="text-gray-400">To:</span>
-                      <p className="font-mono text-white text-[10px] sm:text-xs break-all">{transaction.to_address}</p>
+                      <span className="text-gray-500 block mb-1">To</span>
+                      <p className="font-mono text-gray-300 truncate">{transaction.to_address}</p>
                     </div>
-                    <div className="sm:col-span-2 lg:col-span-1">
-                      <span className="text-gray-400">Status:</span>
-                      <div className="mt-1">
-                        <Badge className={`text-[10px] sm:text-xs ${transaction.status === 'completed' || transaction.status === 'confirmed' ? 'bg-theme-cyan/10 text-theme-cyan' :
-                          transaction.status === 'pending' ? 'bg-theme-red/10 text-theme-red' :
-                            transaction.status === 'failed' ? 'bg-theme-red text-white' :
-                              'bg-gray-500 text-white'
-                          }`}>
-                          {transaction.status}
-                        </Badge>
-                      </div>
+                    <div className="flex items-center justify-between sm:col-span-2 lg:col-span-1">
+                      <Badge className={`text-[10px] uppercase ${transaction.status === 'completed' || transaction.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-gray-700 text-gray-400'}`}>
+                        {transaction.status}
+                      </Badge>
+                      <span className="text-gray-500">{new Date(transaction.timestamp).toLocaleString()}</span>
                     </div>
-                  </div>
-
-                  {transaction.transaction_hash && (
-                    <div className="mt-3 pt-3 border-t border-gray-700">
-                      <span className="text-gray-400 text-xs sm:text-sm">Transaction Hash:</span>
-                      <p className="font-mono text-white text-[10px] sm:text-xs break-all">{transaction.transaction_hash}</p>
-                    </div>
-                  )}
-
-                  <div className="mt-3 pt-3 border-t border-gray-700 flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0 text-[10px] sm:text-xs text-gray-400">
-                    <span>Type: {transaction.type.replace('_', ' ').toUpperCase()}</span>
-                    <span>{new Date(transaction.timestamp).toLocaleString()}</span>
                   </div>
                 </div>
               ))}
@@ -591,254 +605,133 @@ export default function VendorPayouts() {
 
           {/* Pagination */}
           {transactions.length > 0 && totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-700">
-              <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, transactions.length)} of {transactions.length} transactions
-              </div>
-              <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchTransactionHistory(currentPage - 1)}
-                  disabled={currentPage === 1 || transactionsLoading}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs sm:text-sm"
-                >
-                  Previous
-                </Button>
-
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
-                    if (page > totalPages) return null;
-
-                    return (
-                      <Button
-                        key={page}
-                        variant={page === currentPage ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => fetchTransactionHistory(page)}
-                        disabled={transactionsLoading}
-                        className={`text-xs sm:text-sm ${page === currentPage
-                          ? "bg-theme-cyan text-black border-theme-cyan"
-                          : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                          }`}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchTransactionHistory(currentPage + 1)}
-                  disabled={currentPage === totalPages || transactionsLoading}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs sm:text-sm"
-                >
-                  Next
-                </Button>
-              </div>
+            <div className="flex justify-center items-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchTransactionHistory(currentPage - 1)}
+                disabled={currentPage === 1 || transactionsLoading}
+                className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800"
+              >
+                Previous
+              </Button>
+              <div className="text-sm text-gray-400">Page {currentPage} of {totalPages}</div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchTransactionHistory(currentPage + 1)}
+                disabled={currentPage === totalPages || transactionsLoading}
+                className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800"
+              >
+                Next
+              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Payout Details Modal */}
+      {/* Premium Payout Details Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-gray-900 to-gray-800 text-white border-2 border-gray-700 shadow-2xl mx-4 sm:mx-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-xl font-bold text-white">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900 border border-gray-700 text-white shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 border-b border-gray-800 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-10">
+            <DialogTitle className="text-xl font-bold text-white flex items-center">
+              <Wallet className="w-5 h-5 mr-2 text-cyan-400" />
               {selectedPayout?.type === 'escrow' ? 'Escrow Payout Details' : 'Direct Payment Details'}
             </DialogTitle>
           </DialogHeader>
 
           {selectedPayout && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardHeader className="p-3 sm:p-6">
-                    <CardTitle className="text-sm sm:text-lg text-white">Order Information</CardTitle>
+            <div className="p-6 space-y-6">
+              {/* Summary Card */}
+              <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/30 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center border border-cyan-500/30">
+                    <h3 className="text-xl font-black text-white">{selectedPayout.method}</h3>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400 font-medium">Total Amount</p>
+                    <h2 className="text-3xl font-black text-white tracking-tight">{selectedPayout.amount}</h2>
+                    <p className="text-cyan-400 font-medium">{selectedPayout.usdAmount}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Badge className={`text-sm px-3 py-1 mb-2 ${getStatusColor(selectedPayout.status)}`}>{selectedPayout.status}</Badge>
+                  <p className="text-sm text-gray-500 font-mono">{selectedPayout.id}</p>
+                </div>
+              </div>
+
+              {/* Detail Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="bg-gray-800/20 border-gray-700/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold text-gray-400 uppercase tracking-widest">Order Details</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-6">
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Order ID:</span>
-                      <span className="font-mono text-white text-xs sm:text-sm break-all">{selectedPayout.order_id}</span>
+                  <CardContent className="space-y-4 pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Order ID</span>
+                      <span className="text-white font-mono">{selectedPayout.order_id}</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Payment Type:</span>
-                      <Badge variant={selectedPayout.type === 'escrow' ? 'default' : 'secondary'} className="text-[10px] sm:text-xs w-fit">
-                        {selectedPayout.type === 'escrow' ? 'Escrow' : 'Direct Payment'}
-                      </Badge>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Type</span>
+                      <span className="text-white capitalize">{selectedPayout.type}</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Status:</span>
-                      <Badge className={`text-[10px] sm:text-xs ${getStatusColor(selectedPayout.status)} w-fit`}>
-                        {selectedPayout.status}
-                      </Badge>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Date</span>
+                      <span className="text-white">{selectedPayout.date}</span>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardHeader className="p-3 sm:p-6">
-                    <CardTitle className="text-sm sm:text-lg text-white">Payment Information</CardTitle>
+                <Card className="bg-gray-800/20 border-gray-700/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold text-gray-400 uppercase tracking-widest">Fees & Net</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-6">
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Amount:</span>
-                      <span className="font-semibold text-white text-xs sm:text-sm break-words">{selectedPayout.amount}</span>
+                  <CardContent className="space-y-4 pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Gross Amount</span>
+                      <span className="text-white">{selectedPayout.gross_amount || '0.00000000'}</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">USD Value:</span>
-                      <span className="font-semibold text-white text-xs sm:text-sm break-words">{selectedPayout.usdAmount}</span>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Platform Fee</span>
+                      <span className="text-red-400">-{selectedPayout.platform_fee || '0.00000000'}</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Cryptocurrency:</span>
-                      <span className="font-semibold text-white text-xs sm:text-sm">{selectedPayout.method}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Date:</span>
-                      <span className="text-white text-xs sm:text-sm">{selectedPayout.date}</span>
+                    <div className="flex justify-between pt-4 border-t border-gray-700/50">
+                      <span className="text-white font-bold">Net Payout</span>
+                      <span className="text-cyan-400 font-bold">{selectedPayout.amount}</span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Wallet Address */}
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader className="p-3 sm:p-6">
-                  <CardTitle className="text-sm sm:text-lg text-white">Wallet Address</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-6">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                    <div className="flex-1 p-2 sm:p-3 bg-gray-700 rounded-lg">
-                      <p className="font-mono text-white text-[10px] sm:text-sm break-all">{selectedPayout.address}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(selectedPayout.address)}
-                      className="border-gray-600 text-gray-300 hover:bg-gray-700 h-8 w-8 sm:h-auto sm:w-auto p-0 sm:p-2"
-                    >
-                      <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
-                    </Button>
+              <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/30">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Destination Address</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-gray-900/50 rounded-lg p-3 font-mono text-sm text-gray-300 break-all border border-gray-700/50">
+                    {selectedPayout.address}
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Payment Details */}
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader className="p-3 sm:p-6">
-                  <CardTitle className="text-sm sm:text-lg text-white">Payment Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <span className="text-gray-400 text-xs sm:text-sm">Cryptocurrency:</span>
-                      <p className="font-semibold text-white text-xs sm:text-sm">{selectedPayout.method}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs sm:text-sm">Amount:</span>
-                      <p className="font-semibold text-white text-xs sm:text-sm break-words">{selectedPayout.amount}</p>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-700 pt-3 sm:pt-4 space-y-2 sm:space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Gross Amount:</span>
-                      <span className="text-white text-xs sm:text-sm break-words">{selectedPayout.gross_amount || '0.00000000'} {selectedPayout.method}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Platform Fee ({selectedPayout.platform_fee_rate || 0}%):</span>
-                      <span className="text-theme-red text-xs sm:text-sm break-words">-{selectedPayout.platform_fee || '0.00000000'} {selectedPayout.method}</span>
-                    </div>
-                    {selectedPayout.type === 'escrow' && (
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                        <span className="text-gray-400 text-xs sm:text-sm">Escrow Fee ({selectedPayout.escrow_fee_rate || 0}%):</span>
-                        <span className="text-theme-red text-xs sm:text-sm break-words">-{selectedPayout.escrow_fee || '0.00000000'} {selectedPayout.method}</span>
-                      </div>
-                    )}
-                    <div className="border-t border-gray-600 pt-2 sm:pt-3">
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                        <span className="text-gray-400 font-semibold text-xs sm:text-sm">Net Amount to Vendor:</span>
-                        <span className="text-theme-cyan font-bold text-xs sm:text-sm break-words">{selectedPayout.amount}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Timeline */}
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader className="p-3 sm:p-6">
-                  <CardTitle className="text-sm sm:text-lg text-white">Timeline</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-6">
-                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                    <span className="text-gray-400 text-xs sm:text-sm">Requested At:</span>
-                    <span className="text-white text-xs sm:text-sm break-words">{selectedPayout.date}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                    <span className="text-gray-400 text-xs sm:text-sm">Processed At:</span>
-                    <span className="text-white text-xs sm:text-sm break-words">
-                      {selectedPayout.status === 'completed' || selectedPayout.status === 'confirmed'
-                        ? new Date(new Date(selectedPayout.date).getTime() + 30 * 60 * 1000).toLocaleString() // 30 minutes later
-                        : 'Pending'}
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                    <span className="text-gray-400 text-xs sm:text-sm">Completed At:</span>
-                    <span className="text-white text-xs sm:text-sm break-words">
-                      {selectedPayout.status === 'completed' || selectedPayout.status === 'confirmed'
-                        ? new Date(new Date(selectedPayout.date).getTime() + 45 * 60 * 1000).toLocaleString() // 45 minutes later
-                        : 'Pending'}
-                    </span>
-                  </div>
-                  {selectedPayout.type === 'escrow' && selectedPayout.status === 'pending' && (
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                      <span className="text-gray-400 text-xs sm:text-sm">Auto-Release Scheduled:</span>
-                      <span className="text-theme-cyan text-xs sm:text-sm font-medium break-words">
-                        {new Date(new Date(selectedPayout.date).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(selectedPayout.address)} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
 
               {/* Transaction Hash */}
               {selectedPayout.txHash && (
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardHeader className="p-3 sm:p-6">
-                    <CardTitle className="text-sm sm:text-lg text-white">Transaction Hash</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-6">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                      <div className="flex-1 p-2 sm:p-3 bg-gray-700 rounded-lg">
-                        <p className="font-mono text-white text-[10px] sm:text-sm break-all">{selectedPayout.txHash}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyToClipboard(selectedPayout.txHash!)}
-                          className="border-gray-600 text-gray-300 hover:bg-gray-700 h-8 w-8 sm:h-auto sm:w-auto p-0 sm:p-2"
-                        >
-                          <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(`https://blockchair.com/${selectedPayout.method.toLowerCase()}/transaction/${selectedPayout.txHash}`, '_blank')}
-                          className="border-gray-600 text-gray-300 hover:bg-gray-700 h-8 w-8 sm:h-auto sm:w-auto p-0 sm:p-2"
-                        >
-                          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </Button>
-                      </div>
+                <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/30">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Transaction Hash</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-gray-900/50 rounded-lg p-3 font-mono text-sm text-gray-300 break-all border border-gray-700/50">
+                      {selectedPayout.txHash}
                     </div>
-                  </CardContent>
-                </Card>
+                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(selectedPayout.txHash!)} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => window.open(`https://blockchair.com/${selectedPayout.method.toLowerCase()}/transaction/${selectedPayout.txHash}`, '_blank')} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           )}

@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import ticketService from "@/services/ticketService";
 import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
+import { PageBanner } from "@/components/PageBanner";
 
 const faqData = [
   {
@@ -232,16 +233,12 @@ export default function BuyerSupport() {
   return (
     <BuyerLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 text-white border border-gray-700">
-          <div className="flex items-center space-x-3">
-            <HelpCircle className="w-8 h-8 text-theme-cyan" />
-            <div>
-              <h1 className="text-2xl font-bold">Help & Support</h1>
-              <p className="text-gray-300">Get help with your account and orders</p>
-            </div>
-          </div>
-        </div>
+        {/* Header Banner */}
+        <PageBanner
+          title="Help"
+          subtitle="Get help with your account and orders"
+          type="buyer"
+        />
 
         {/* Quick Contact Options */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

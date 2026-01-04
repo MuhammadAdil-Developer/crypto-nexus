@@ -2,7 +2,7 @@ import { CheckCircle, ArrowRight, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "wouter";
+import { Link } from "react-router-dom";
 
 export default function VendorApplySuccess() {
   return (
@@ -29,7 +29,7 @@ export default function VendorApplySuccess() {
                 Request Pending
               </Badge>
             </div>
-            
+
             <div className="space-y-4 text-left">
               <div className="flex justify-between items-center py-2 border-b border-gray-800">
                 <span className="text-gray-400">Application ID</span>
@@ -67,7 +67,7 @@ export default function VendorApplySuccess() {
                   <p className="text-gray-400 text-sm">Our team will review your application and verify the information provided.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start space-x-3">
                 <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-white text-xs font-bold">2</span>
@@ -77,7 +77,7 @@ export default function VendorApplySuccess() {
                   <p className="text-gray-400 text-sm">You'll receive an email notification once your application is approved or if we need additional information.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start space-x-3">
                 <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-white text-xs font-bold">3</span>
@@ -93,15 +93,15 @@ export default function VendorApplySuccess() {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/buyer">
-            <Button variant="outline" className="border-gray-700">
+          <Link to="/buyer">
+            <Button variant="outline" className="border-gray-700 w-full sm:w-auto">
               <ArrowRight className="w-4 h-4 mr-2" />
               Back to Buyer Dashboard
             </Button>
           </Link>
-          
-          <Link href="/vendor/dashboard">
-            <Button className="bg-blue-500 hover:bg-blue-600">
+
+          <Link to="/vendor?preview=true">
+            <Button className="bg-blue-500 hover:bg-blue-600 w-full sm:w-auto">
               <Eye className="w-4 h-4 mr-2" />
               Go to Vendor Dashboard (Preview Mode)
             </Button>
@@ -112,7 +112,7 @@ export default function VendorApplySuccess() {
         <div className="mt-8 p-4 bg-gray-800 rounded-lg border border-gray-700">
           <p className="text-gray-400 text-sm">
             Have questions about your application? Contact our support team at{" "}
-            <span className="text-blue-400">vendor-support@cryptomarket.com</span>
+            <a href="mailto:support@accountzclub.com" className="text-blue-400">support@accountzclub.com</a>
           </p>
         </div>
       </div>

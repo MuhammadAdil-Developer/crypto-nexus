@@ -282,60 +282,63 @@ export default function VendorSupport() {
 
   return (
 
-    <div className="space-y-4 sm:space-y-6 relative z-10 p-3 sm:p-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Support & Help</h1>
-          <p className="text-gray-400 text-sm sm:text-base">Get help with your vendor account and marketplace features</p>
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
+      {/* Premium Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 mb-8">
+        <div>
+          <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">
+            Support & Help
+          </h1>
+          <p className="text-gray-400 font-medium max-w-lg italic text-sm sm:text-base">
+            Get 24/7 assistance and manage your support tickets.
+          </p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="bg-theme-cyan hover:bg-theme-cyan/80 text-black w-full sm:w-auto text-xs sm:text-sm">
-              <Plus className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Create Ticket</span>
-              <span className="sm:hidden">Create</span>
+            <Button className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 rounded-xl h-12 px-6 font-bold transition-all transform hover:scale-105">
+              <Plus className="w-5 h-5 mr-2" />
+              Create Ticket
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto">
+          <DialogContent className="max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto bg-gray-900 border-gray-800 text-white">
             <DialogHeader>
-              <DialogTitle className="text-base sm:text-lg">Create Support Ticket</DialogTitle>
+              <DialogTitle className="text-xl font-bold">Create Support Ticket</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 pt-4">
               <div>
-                <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Subject</label>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">Subject</label>
                 <Input
                   placeholder="Brief description of your issue"
                   value={newTicket.subject}
                   onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
-                  className="text-sm sm:text-base"
+                  className="bg-gray-800/50 border-gray-700 text-white rounded-lg"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Category</label>
+                  <label className="text-sm font-medium text-gray-400 mb-2 block">Category</label>
                   <Select value={newTicket.category} onValueChange={(value) => setNewTicket({ ...newTicket, category: value })}>
-                    <SelectTrigger className="text-sm sm:text-base">
-                      <SelectValue placeholder="Select category" />
+                    <SelectTrigger className="bg-gray-800/50 border-gray-700 text-white rounded-lg">
+                      <SelectValue placeholder="Select" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-gray-900 border-gray-800 text-white">
                       <SelectItem value="account">Account</SelectItem>
                       <SelectItem value="payment">Payments</SelectItem>
                       <SelectItem value="listing">Listings</SelectItem>
                       <SelectItem value="technical">Technical</SelectItem>
                       <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="vendor_application">Vendor Application</SelectItem>
+                      <SelectItem value="vendor_application">Application</SelectItem>
                       <SelectItem value="order_issue">Order Issue</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Priority</label>
+                  <label className="text-sm font-medium text-gray-400 mb-2 block">Priority</label>
                   <Select value={newTicket.priority} onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => setNewTicket({ ...newTicket, priority: value })}>
-                    <SelectTrigger className="text-sm sm:text-base">
+                    <SelectTrigger className="bg-gray-800/50 border-gray-700 text-white rounded-lg">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-gray-900 border-gray-800 text-white">
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
                       <SelectItem value="high">High</SelectItem>
@@ -345,17 +348,17 @@ export default function VendorSupport() {
                 </div>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Description</label>
+                <label className="text-sm font-medium text-gray-400 mb-2 block">Description</label>
                 <Textarea
                   placeholder="Describe your issue in detail..."
                   value={newTicket.description}
                   onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
-                  className="min-h-32 text-sm sm:text-base"
+                  className="min-h-32 bg-gray-800/50 border-gray-700 text-white rounded-lg"
                 />
               </div>
-              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
-                <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base">Cancel</Button>
-                <Button onClick={handleCreateTicket} disabled={isCreatingTicket} className="bg-theme-cyan hover:bg-theme-cyan/80 text-black w-full sm:w-auto text-sm sm:text-base">
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-2">
+                <Button variant="ghost" className="text-gray-400 hover:text-white hover:bg-gray-800">Cancel</Button>
+                <Button onClick={handleCreateTicket} disabled={isCreatingTicket} className="bg-cyan-600 hover:bg-cyan-500 text-white">
                   {isCreatingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Create Ticket
                 </Button>
@@ -365,89 +368,93 @@ export default function VendorSupport() {
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
+      {/* Premium Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-white">
-                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : totalTickets}
-                </div>
-                <p className="text-xs sm:text-sm text-gray-400 truncate">Total Tickets</p>
+        <Card className="border border-purple-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-indigo-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-4 sm:p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-purple-500/10 rounded-xl">
+                <HelpCircle className="w-6 h-6 text-purple-400 group-hover:scale-110 transition-transform" />
               </div>
-              <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0 ml-2" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-purple-200/70">Total Tickets</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-white">{loading ? <Loader2 className="w-6 h-6 animate-spin" /> : totalTickets}</h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
-                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : openTickets}
-                </div>
-                <p className="text-xs sm:text-sm text-gray-400 truncate">Open Tickets</p>
+        <Card className="border border-cyan-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-600/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-4 sm:p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-cyan-500/10 rounded-xl">
+                <Clock className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
               </div>
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan flex-shrink-0 ml-2" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-cyan-200/70">Open Tickets</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-white">{loading ? <Loader2 className="w-6 h-6 animate-spin" /> : openTickets}</h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-theme-red">
-                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : waitingResponse}
-                </div>
-                <p className="text-xs sm:text-sm text-gray-400 truncate">Waiting Response</p>
+        <Card className="border border-amber-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 to-orange-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-4 sm:p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-amber-500/10 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-amber-500 group-hover:scale-110 transition-transform" />
               </div>
-              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-red flex-shrink-0 ml-2" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-200/70">Waiting Response</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-white">{loading ? <Loader2 className="w-6 h-6 animate-spin" /> : waitingResponse}</h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-theme-cyan">
-                  {loading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : resolvedTickets}
-                </div>
-                <p className="text-xs sm:text-sm text-gray-400 truncate">Resolved</p>
+        <Card className="border border-emerald-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 to-green-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <CardContent className="p-4 sm:p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-emerald-500/10 rounded-xl">
+                <CheckCircle className="w-6 h-6 text-emerald-500 group-hover:scale-110 transition-transform" />
               </div>
-              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan flex-shrink-0 ml-2" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-emerald-200/70">Resolved</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-white">{loading ? <Loader2 className="w-6 h-6 animate-spin" /> : resolvedTickets}</h3>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Support Tickets */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <CardTitle className="text-lg sm:text-xl font-bold text-white">Support Tickets</CardTitle>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+      <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm relative z-10 overflow-hidden shadow-2xl">
+        <CardHeader className="p-4 sm:p-6 border-b border-gray-800/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="text-xl font-bold text-white">Support Tickets</CardTitle>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4 group-focus-within:text-cyan-400" />
                 <Input
                   placeholder="Search tickets..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full sm:w-64 text-sm sm:text-base"
+                  className="pl-10 w-full sm:w-64 bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-cyan-500/20"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48 text-sm sm:text-base">
+                <SelectTrigger className="w-full sm:w-48 bg-gray-900/50 border-gray-700/50 text-white rounded-xl">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-gray-900 border-gray-800 text-white">
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="waiting_response">Waiting for Response</SelectItem>
+                  <SelectItem value="waiting_response">Waiting Response</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
@@ -456,81 +463,71 @@ export default function VendorSupport() {
           </div>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-4">
             {loading ? (
-              <div className="text-center py-8">
-                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-3 sm:mb-4" />
-                <p className="text-gray-400 text-sm sm:text-base">Loading tickets...</p>
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-cyan-500" />
+                <p className="text-gray-400 font-medium">Loading tickets...</p>
               </div>
             ) : filteredTickets.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-400 text-sm sm:text-base">No tickets found</p>
+              <div className="text-center py-12 bg-gray-800/30 rounded-xl border border-gray-700/50 border-dashed">
+                <p className="text-gray-400 font-medium">No tickets found</p>
+                <p className="text-sm text-gray-600 mt-2">Try adjusting your filters or create a new ticket.</p>
               </div>
             ) : (
               filteredTickets.map((ticket) => (
-                <div key={ticket.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                  <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                    <div className="flex flex-col items-center flex-shrink-0">
-                      <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1`}></div>
-                      <span className="text-[10px] sm:text-xs text-gray-400 uppercase">{getPriorityDisplay(ticket.priority)}</span>
+                <div key={ticket.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4 lg:p-5 bg-gray-800/40 hover:bg-gray-700/40 border border-gray-700/30 rounded-xl transition-all group">
+                  <div className="flex items-start space-x-4 min-w-0 flex-1">
+                    <div className="flex flex-col items-center flex-shrink-0 pt-1">
+                      <div className={`w-3 h-3 rounded-full ${getPriorityColor(ticket.priority)} mb-1 shadow-lg`}></div>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                        <h3 className="font-semibold text-white text-sm sm:text-base truncate">{ticket.ticket_id}</h3>
-                        <Badge className={`border text-[10px] sm:text-xs ${getStatusColor(getStatusDisplay(ticket.status))}`}>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="font-bold text-white text-base truncate group-hover:text-cyan-400 transition-colors">{ticket.ticket_id}</h3>
+                        <Badge className={`text-[10px] font-bold uppercase tracking-wider ${getStatusColor(getStatusDisplay(ticket.status))}`}>
                           {getStatusDisplay(ticket.status)}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] sm:text-xs capitalize">
+                        <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-700 bg-gray-900/50">
                           {ticket.category}
                         </Badge>
                       </div>
-                      <p className="text-xs sm:text-sm text-gray-400 mb-1 break-words">{ticket.subject}</p>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-[10px] sm:text-xs text-gray-400">
+                      <p className="text-sm text-gray-300 font-medium mb-1 break-words leading-relaxed">{ticket.subject}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs text-gray-500 font-medium">
                         <span>Created: {new Date(ticket.created_at).toLocaleDateString()}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span>Last update: {new Date(ticket.updated_at).toLocaleDateString()}</span>
                         <span className="hidden sm:inline">•</span>
                         <span>{ticket.response_count} responses</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                  <div className="flex items-center gap-3 pt-2 lg:pt-0 lg:border-l border-gray-700/50 lg:pl-6">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-xs sm:text-sm flex-1 sm:flex-initial"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-800"
                       onClick={() => {
                         setSelectedTicketId(ticket.id);
                         setIsTicketModalOpen(true);
                       }}
                     >
-                      <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-                      <span className="hidden sm:inline">View</span>
-                      <span className="sm:hidden">View</span>
+                      <MessageSquare className="w-3 h-3 mr-2" />
+                      View Ticket
                     </Button>
-
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[90vw] sm:w-auto">
-                        <DropdownMenuItem className="text-xs sm:text-sm" onClick={() => {
+                      <DropdownMenuContent align="end" className="bg-gray-900 border-gray-800 text-gray-200">
+                        <DropdownMenuItem onClick={() => {
                           setSelectedTicketId(ticket.id);
                           setIsTicketModalOpen(true);
                         }}>
                           <FileText className="w-4 h-4 mr-2" />
                           View Details
                         </DropdownMenuItem>
-                        {ticket.status !== "resolved" && (
-                          <DropdownMenuItem className="text-xs sm:text-sm">
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Add Response
-                          </DropdownMenuItem>
-                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -538,64 +535,80 @@ export default function VendorSupport() {
               ))
             )}
           </div>
-
         </CardContent>
       </Card>
 
-      {/* FAQ Section */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl font-bold text-white">Frequently Asked Questions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="space-y-4 sm:space-y-6">
-            {faqData.map((category, categoryIndex) => (
-              <div key={categoryIndex}>
-                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">{category.category}</h3>
-                <div className="space-y-3 sm:space-y-4">
-                  {category.questions.map((faq, faqIndex) => (
-                    <div key={faqIndex} className="border border-gray-700 bg-gray-900 rounded-lg p-3 sm:p-4">
-                      <h4 className="font-medium text-white mb-2 text-sm sm:text-base break-words">{faq.question}</h4>
-                      <p className="text-gray-400 text-xs sm:text-sm break-words">{faq.answer}</p>
-                    </div>
-                  ))}
+      {/* FAQ and Contact Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* FAQ Section */}
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm">
+          <CardHeader className="p-4 sm:p-6 border-b border-gray-800/50">
+            <CardTitle className="text-lg font-bold text-white flex items-center">
+              <HelpCircle className="w-5 h-5 mr-2 text-cyan-400" />
+              Frequently Asked Questions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-6">
+              {faqData.map((category, categoryIndex) => (
+                <div key={categoryIndex}>
+                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">{category.category}</h3>
+                  <div className="space-y-3">
+                    {category.questions.map((faq, faqIndex) => (
+                      <div key={faqIndex} className="bg-gray-800/30 rounded-lg p-3 hover:bg-gray-800/50 transition-colors">
+                        <h4 className="font-semibold text-gray-200 mb-1 text-sm">{faq.question}</h4>
+                        <p className="text-gray-500 text-xs leading-relaxed">{faq.answer}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Contact Information */}
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm h-fit">
+          <CardHeader className="p-4 sm:p-6 border-b border-gray-800/50">
+            <CardTitle className="text-lg font-bold text-white flex items-center">
+              <MessageSquare className="w-5 h-5 mr-2 text-blue-400" />
+              Contact Support
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="flex items-center p-4 bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border border-cyan-500/20 rounded-xl">
+              <div className="p-3 bg-cyan-500/10 rounded-lg mr-4">
+                <MessageSquare className="w-6 h-6 text-cyan-400" />
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contact Information */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl font-bold text-white">Contact Support</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="text-center p-3 sm:p-4 bg-theme-cyan/20 rounded-lg">
-              <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan mx-auto mb-2 sm:mb-3" />
-              <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Live Chat</h4>
-              <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">Chat with our support team</p>
-              <p className="text-[10px] sm:text-xs text-theme-cyan">Available 24/7</p>
+              <div>
+                <h4 className="font-bold text-white">Live Chat</h4>
+                <p className="text-sm text-gray-400">Chat with our support team</p>
+                <p className="text-xs text-cyan-400 font-medium mt-1">Available 24/7</p>
+              </div>
             </div>
 
-            <div className="text-center p-3 sm:p-4 bg-theme-cyan/10 rounded-lg">
-              <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-theme-cyan mx-auto mb-2 sm:mb-3" />
-              <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Email Support</h4>
-              <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3 break-words">vendor-support@cryptomarket.com</p>
-              <p className="text-[10px] sm:text-xs text-theme-cyan">Response within 24h</p>
+            <div className="flex items-center p-4 bg-gray-800/30 border border-gray-700/30 rounded-xl">
+              <div className="p-3 bg-gray-700/30 rounded-lg mr-4">
+                <FileText className="w-6 h-6 text-gray-400" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white">Email Support</h4>
+                <p className="text-sm text-gray-400 break-all">vendor-support@cryptomarket.com</p>
+                <p className="text-xs text-gray-500 font-medium mt-1">Response within 24h</p>
+              </div>
             </div>
 
-            <div className="text-center p-3 sm:p-4 bg-theme-red/10 rounded-lg sm:col-span-2 lg:col-span-1">
-              <HelpCircle className="w-6 h-6 sm:w-8 sm:h-8 text-theme-red mx-auto mb-2 sm:mb-3" />
-              <h4 className="font-semibold text-white mb-2 text-sm sm:text-base">Help Center</h4>
-              <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">Browse our documentation</p>
-              <p className="text-[10px] sm:text-xs text-theme-red">Self-service guides</p>
+            <div className="p-4 bg-gray-800/30 border border-gray-700/30 rounded-xl">
+              <div className="flex items-center mb-2">
+                <HelpCircle className="w-5 h-5 text-gray-400 mr-2" />
+                <h4 className="font-bold text-white">Help Center</h4>
+              </div>
+              <p className="text-sm text-gray-400 mb-3">Browse our detailed documentation for guides on listings, payouts, and security.</p>
+              <Button variant="outline" size="sm" className="w-full border-gray-600 text-gray-300 hover:text-white">Visit Help Center</Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Ticket Detail Modal */}
       <TicketDetailModal

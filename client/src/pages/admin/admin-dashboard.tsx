@@ -23,6 +23,7 @@ import Security from "./security";
 import Branding from "./branding";
 import Settings from "./settings";
 import Notifications from "./notifications";
+import AdminCommunications from "./communications";
 
 // Component mapping
 const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
@@ -47,6 +48,7 @@ const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
   "branding": Branding,
   "settings": Settings,
   "notifications": Notifications,
+  "communications": AdminCommunications,
 };
 
 // Section name mapping for breadcrumbs
@@ -72,14 +74,15 @@ const SECTION_NAMES: Record<string, string> = {
   "branding": "Branding",
   "settings": "Settings",
   "notifications": "Notifications",
+  "communications": "Communications Center",
 };
 
 export default function AdminDashboard() {
   const location = useLocation();
-  
+
   // Extract section from URL path (e.g., "/admin/users" -> "users", "/admin" -> "")
   const section = location.pathname.replace(/^\/admin\/?/, "");
-  
+
   // Get the component for this section, fallback to Overview
   const Component = ADMIN_COMPONENTS[section] || Overview;
   const sectionName = SECTION_NAMES[section] || "Overview";

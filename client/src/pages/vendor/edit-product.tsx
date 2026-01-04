@@ -21,20 +21,12 @@ export default function VendorEditProduct() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [localBtcPrice, setLocalBtcPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<VendorProduct | null>(null);
   const [btcAddressSet, setBtcAddressSet] = useState(false);
   const [xmrAddressSet, setXmrAddressSet] = useState(false);
 
-  useEffect(() => {
-    if (product && product.price) {
-      // Initialize BTC price from USD price
-      // Rate: 100,000 USD/BTC
-      const btc = parseFloat((parseFloat(product.price) / 100000).toFixed(8)).toString();
-      setLocalBtcPrice(btc);
-    }
-  }, [product]);
+  // Price conversion logic removed as we now use USD directly
 
   const [formData, setFormData] = useState({
     // Client Required Fields
@@ -68,8 +60,6 @@ export default function VendorEditProduct() {
     auto_delivery_script: '',
     notes_for_buyer: '',
 
-    // Status
-    status: 'pending_approval',
     // Status
     status: 'pending_approval',
     accepted_crypto: ['BTC', 'XMR'],
@@ -133,10 +123,8 @@ export default function VendorEditProduct() {
             delivery_method: foundProduct.delivery_method || '',
             special_features: foundProduct.special_features || [],
             auto_delivery_script: foundProduct.auto_delivery_script || '',
-            auto_delivery_script: foundProduct.auto_delivery_script || '',
 
             // Status
-            status: foundProduct.status || 'pending_approval',
             status: foundProduct.status || 'pending_approval',
             accepted_crypto: foundProduct.accepted_crypto || ['BTC', 'XMR'],
             escrow_enabled: foundProduct.escrow_enabled || false
@@ -547,36 +535,32 @@ export default function VendorEditProduct() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center mb-1">
-                    <Label htmlFor="price" className="text-gray-300">Price (BTC) *</Label>
-                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Input BTC, we save as USD</span>
+                    <Label htmlFor="price" className="text-gray-300">Price (USD) *</Label>
+                    <span className="text-[10px] text-theme-cyan bg-theme-cyan/10 px-2 py-0.5 rounded border border-theme-cyan/20">Set product price in USD</span>
                   </div>
                   <Input
                     id="price"
-                    name="price_btc"
+                    name="price"
                     type="number"
-                    step="0.00000001"
-                    value={localBtcPrice}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setLocalBtcPrice(val);
-                      const btc = parseFloat(val);
-                      if (!isNaN(btc)) {
-                        // Rate: 100,000 USD/BTC
-                        const usd = (btc * 100000).toFixed(2);
-                        setFormData(prev => ({ ...prev, price: usd }));
-                      } else {
-                        setFormData(prev => ({ ...prev, price: '' }));
-                      }
-                    }}
+                    step="0.01"
+                    value={formData.price}
+                    onChange={handleInputChange}
                     className="bg-gray-800 border-gray-600 text-white font-mono"
-                    placeholder="0.0001"
+                    placeholder="10.00"
                   />
 
-                  <div className="flex justify-between items-start mt-2">
-                    <div className="flex-1"></div>
-                    <div className="text-right bg-theme-cyan/10 px-3 py-1.5 rounded border border-theme-cyan/20">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Storage Value (USD)</p>
-                      <p className="text-theme-cyan font-bold font-mono text-lg">${formData.price || '0.00'}</p>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <div className="text-right bg-orange-500/10 px-3 py-1.5 rounded border border-orange-500/20">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bitcoin (BTC)</p>
+                      <p className="text-orange-400 font-bold font-mono text-sm">
+                        {formData.price ? (parseFloat(formData.price) / 100000).toFixed(8) : '0.00000000'}
+                      </p>
+                    </div>
+                    <div className="text-right bg-blue-500/10 px-3 py-1.5 rounded border border-blue-500/20">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Monero (XMR)</p>
+                      <p className="text-blue-400 font-bold font-mono text-sm">
+                        {formData.price ? (parseFloat(formData.price) / 170).toFixed(4) : '0.0000'}
+                      </p>
                     </div>
                   </div>
                 </div>

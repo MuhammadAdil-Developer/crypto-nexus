@@ -4,7 +4,7 @@ import { VendorOverviewCards } from "@/components/vendor/VendorOverviewCards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Edit, Trash2, TrendingUp, Package, Star, Lock, CheckCircle, MessageSquare, Users } from "lucide-react";
+import { Plus, Eye, Edit, Trash2, TrendingUp, Package, Star, Lock, CheckCircle, MessageSquare, Users, Megaphone, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { orderService } from "@/services/orderService";
@@ -14,6 +14,7 @@ import disputeService from "@/services/disputeService";
 import { useToast } from "@/hooks/use-toast";
 import { productService } from "@/services/productService";
 import vendorService from "@/services/vendorService";
+import { api, authService } from "@/services/authService";
 
 interface Order {
   id: string;
@@ -58,6 +59,11 @@ export default function VendorOverview() {
 
   const [trends, setTrends] = useState<any>({});
   const [additionalStats, setAdditionalStats] = useState<any>({});
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<string | null>('loading');
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [isApproved, setIsApproved] = useState(false);
 
   // Cache keys for localStorage
   const CACHE_KEYS = {
@@ -118,18 +124,18 @@ export default function VendorOverview() {
         const stats = statsResponse.data;
 
         setTotalRevenue(stats.revenue.total);
-        setTotalSales(`$${stats.revenue.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+        setTotalSales(String(stats.sales.total)); // Show numeric count of orders
         setActiveListingsCount(stats.listings.active);
-        setPendingOrdersCount(stats.listings.attention_required); // Using attention required for pending orders card logic mapping
-        setEarnings(stats.balance.available);
+        setPendingOrdersCount(stats.listings.attention_required);
+        setEarnings(stats.revenue.total); // Numeric USD total
         setDisputes(stats.cases.active);
 
-        // Set Trends and Additional Stats
+        // Update Trends
         setTrends({
-          salesChange: stats.sales.trend ? `${stats.sales.trend > 0 ? '+' : ''}${stats.sales.trend}%` : "0%",
-          listingsChange: "0 this week", // Placeholder until backend supports history
-          ordersChange: "0 from yesterday", // Placeholder
-          earningsChange: "+$0.00", // Placeholder
+          salesChange: "Lifetime count",
+          listingsChange: "0 this week",
+          ordersChange: "0 from yesterday",
+          earningsChange: `+$${stats.revenue.total.toLocaleString()}`, // Show total as positive growth for now
           disputesChange: "No change"
         });
 
@@ -140,7 +146,8 @@ export default function VendorOverview() {
           btcRevenue: `≈ ${btcEstimate.toFixed(8)} BTC`,
           featuredListings: Math.floor(stats.listings.active / 2), // Mock logic from previous code, can be real later
           ordersAttention: stats.listings.attention_required,
-          disputesActive: stats.cases.active
+          disputesActive: stats.cases.active,
+          avgResponseTime: "N/A" // Will be calculated from messages if available
         });
       }
 
@@ -154,10 +161,10 @@ export default function VendorOverview() {
       const ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any)?.results || [];
       const allOrders = ordersArray || [];
 
-      // Sort and set recent orders
+      // Sort and set recent orders - Take 4 for better layout balance
       const sortedOrders = allOrders
         .sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5);
+        .slice(0, 4);
 
       setRecentOrders(sortedOrders);
       setCachedData(CACHE_KEYS.RECENT_ORDERS, sortedOrders);
@@ -193,10 +200,10 @@ export default function VendorOverview() {
       const res = await productService.getVendorProducts();
       const products = (res as any)?.data || [];
 
-      // Sort by review count or sales and take top 5
+      // Sort by review count or sales and take top 6
       const topProductsList = products
         .sort((a: any, b: any) => (b.review_count || 0) - (a.review_count || 0))
-        .slice(0, 5)
+        .slice(0, 6)
         .map((product: any) => ({
           id: product.id,
           name: product.headline || product.listing_title || "Product",
@@ -248,12 +255,116 @@ export default function VendorOverview() {
     }
   };
 
-  useEffect(() => {
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await api.get('/system/announcements/');
+      if (response.data) {
+        const data = response.data.results || response.data;
+        setAnnouncements(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+    }
+  };
 
+  useEffect(() => {
+    // Check for preview mode
+    const searchParams = new URLSearchParams(window.location.search);
+    const isParamPreview = searchParams.get('preview') === 'true';
+    const isSessionPreview = sessionStorage.getItem('vendorPreviewMode') === 'true';
+
+    if (isParamPreview || isSessionPreview) {
+      setIsPreviewMode(true);
+    }
+
+    // Removal of preview mode and activation logic
+    const handleApprovedTransition = () => {
+      setIsApproved(true);
+      setApplicationStatus('approved');
+      setIsPreviewMode(false);
+
+      // Remove preview mode from session
+      sessionStorage.removeItem('vendorPreviewMode');
+
+      // Remove ?preview=true from URL without refreshing
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('preview')) {
+        url.searchParams.delete('preview');
+        window.history.replaceState({}, '', url.pathname + url.search);
+
+        toast({
+          title: "Account Approved! 🎉",
+          description: "Your application was approved! You now have full vendor access.",
+        });
+      }
+    };
+
+    // Fetch actual application status and sync user type
+    const fetchStatus = async () => {
+      const user = authService.getCurrentUser();
+      if (!user) {
+        setApplicationStatus('unauthenticated');
+        return;
+      }
+
+      try {
+        // First, check if user type has changed locally
+        if (user.user_type === 'vendor') {
+          handleApprovedTransition();
+          return;
+        }
+
+        // Sync profile to see if user_type has changed to vendor on server
+        const profileRes = await authService.getProfile();
+        if (profileRes.success && profileRes.data) {
+          const latestUser = profileRes.data;
+          if (latestUser.user_type === 'vendor') {
+            const updatedUser = { ...user, user_type: latestUser.user_type };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            handleApprovedTransition();
+            return;
+          }
+        }
+
+        // Check application status details
+        const res = await api.get(`/vendors/applications/check/${user.username}/`);
+        if (res.data.success && res.data.data) {
+          const status = res.data.data.status?.toLowerCase();
+          setApplicationStatus(status);
+          setRejectionReason(res.data.data.rejection_reason || res.data.data.admin_notes || null);
+
+          if (status === 'approved') {
+            handleApprovedTransition();
+          }
+        } else {
+          setApplicationStatus('none');
+        }
+      } catch (e) {
+        console.error('Error checking application status:', e);
+        // Don't set error status immediately to avoid flickering during polling
+      }
+    };
+
+    fetchStatus();
+
+    // Set up polling for real-time updates (every 10 seconds)
+    // Only poll if we aren't approved yet
+    const intervalId = setInterval(() => {
+      const currentUser = authService.getCurrentUser();
+      if (currentUser && currentUser.user_type !== 'vendor' && !isApproved) {
+        fetchStatus();
+      }
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [isApproved, navigate]);
+
+  // Initialize dashboard data and legal checks
+  useEffect(() => {
     // Dev/testing: force-show legal modals when URL contains ?forceShowLegal=1 (dev only)
     try {
-      const params = new URLSearchParams(window.location.search);
-      if (import.meta.env.DEV && params.get('forceShowLegal') === '1') {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (import.meta.env.DEV && searchParams.get('forceShowLegal') === '1') {
         localStorage.removeItem('legal_confirmed_privacy');
         localStorage.removeItem('legal_confirmed_terms');
       }
@@ -267,13 +378,11 @@ export default function VendorOverview() {
     } else if (!termsConfirmed) {
       setShowTermsModal(true);
     }
+
     fetchRecentOrders();
-    // fetchActiveListings(); // Removed as it's handled in dashboard stats
     fetchTopProducts();
     fetchRecentMessages();
-
-    // DON'T connect here - MessagingContext already handles WebSocket connection
-    // Just subscribe to events you need
+    fetchAnnouncements();
 
     // Subscribe to real-time updates
     const handleRecentMessagesUpdate = (data: any) => {
@@ -281,9 +390,6 @@ export default function VendorOverview() {
       setRecentMessages(data);
     };
 
-    console.log('🔌 Subscribing to recent messages updates...');
-    // Don't connect here - MessagingContext already handles WebSocket connection
-    // Just subscribe to events
     realtimeService.subscribe('recent_messages_update', handleRecentMessagesUpdate);
 
     // Listen for new_review event
@@ -295,21 +401,20 @@ export default function VendorOverview() {
     };
     realtimeService.subscribe('new_review', handleNewReview);
 
-    // Cleanup on unmount - ONLY unsubscribe, DON'T disconnect (MessagingContext manages connection)
+    // Cleanup on unmount
     return () => {
       realtimeService.unsubscribe('recent_messages_update', handleRecentMessagesUpdate);
       realtimeService.unsubscribe('new_review', handleNewReview);
-      // DON'T disconnect - MessagingContext needs the connection for notifications
     };
   }, []);
 
   // Navigation handlers
   const handleViewAllOrders = () => {
-    navigate('/vendor/orders');
+    navigate(isPreviewMode ? '/vendor/orders?preview=true' : '/vendor/orders');
   };
 
   const handleAddNewProduct = () => {
-    navigate('/vendor/listings/add');
+    navigate(isPreviewMode ? '/vendor/listings/add?preview=true' : '/vendor/listings/add');
   };
 
   // Get status display for orders
@@ -341,11 +446,8 @@ export default function VendorOverview() {
   // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
   return (
@@ -364,7 +466,92 @@ export default function VendorOverview() {
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}
       />
+
+
+
+      {/* Preview Mode Warning Banner */}
+      {isPreviewMode && !isApproved && applicationStatus !== 'loading' && (
+        <div className="space-y-4 mb-6">
+          {(applicationStatus === 'rejected' || applicationStatus === 'Rejected') ? (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start space-x-3">
+              <div className="p-2 bg-red-500/20 rounded-full shrink-0">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-red-500 font-semibold text-lg">Application Rejected</h3>
+                <p className="text-red-200/80 mt-1">
+                  Unfortunately, your vendor application has been rejected.
+                  {rejectionReason && (
+                    <span className="block mt-2 font-medium text-red-400 font-bold">Reason: {rejectionReason}</span>
+                  )}
+                </p>
+                <Button
+                  onClick={() => navigate('/vendor/apply')}
+                  className="mt-4 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Edit & Resubmit Application
+                </Button>
+              </div>
+            </div>
+          ) : (applicationStatus === 'pending' || applicationStatus === 'loading' || !applicationStatus || applicationStatus === 'none') ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-start space-x-3">
+              <div className="p-2 bg-yellow-500/20 rounded-full shrink-0">
+                <Lock className="w-5 h-5 text-yellow-500" />
+              </div>
+              <div>
+                <h3 className="text-yellow-500 font-semibold text-lg">Application Pending</h3>
+                <p className="text-yellow-200/80 mt-1">
+                  You are currently in <strong>Preview Mode</strong>. Your vendor application is still under review.
+                  You can explore the dashboard, but you cannot create active listings or accept orders until your account is verified.
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {/* Announcements Banner - Moved outside main container */}
+      {announcements.length > 0 && (
+        <div className="sticky z-40 backdrop-blur-md w-full px-4 mb-4">
+          <div className="space-y-3">
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id}
+                className={`
+                  rounded-lg p-4 border flex items-start space-x-4 shadow-lg
+                  ${announcement.priority === 'high'
+                    ? 'bg-red-950/40 border-red-500/30 text-red-100'
+                    : announcement.priority === 'low'
+                      ? 'bg-gray-900/60 border-gray-700 text-gray-200'
+                      : 'bg-blue-950/40 border-blue-500/30 text-blue-100'
+                  }
+                `}
+              >
+                <div className={`p-2 rounded-full ${announcement.priority === 'high' ? 'bg-red-500/20' :
+                  announcement.priority === 'low' ? 'bg-gray-700/50' :
+                    'bg-blue-500/20'
+                  }`}>
+                  <Megaphone className={`w-5 h-5 ${announcement.priority === 'high' ? 'text-red-400' :
+                    announcement.priority === 'low' ? 'text-gray-400' :
+                      'text-blue-400'
+                    }`} />
+                </div>
+                <div className="flex-1">
+                  <h3 className={`font-semibold ${announcement.priority === 'high' ? 'text-red-400' :
+                    announcement.priority === 'low' ? 'text-gray-200' :
+                      'text-blue-400'
+                    }`}>
+                    {announcement.title}
+                  </h3>
+                  <p className="text-sm mt-1 opacity-90">{announcement.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
+
         {/* AC Logo and Branding Section */}
         <div className="flex flex-col items-center justify-center py-4 sm:py-6">
           {/* AC Logo Monogram */}
@@ -413,12 +600,12 @@ export default function VendorOverview() {
         />
 
         {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 items-stretch">
           {/* Recent Orders */}
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardHeader className="p-4 sm:p-6">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl relative z-10 flex flex-col h-full overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 pb-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">RECENT ORDERS</CardTitle>
+                <CardTitle className="text-lg sm:text-xl font-bold text-white uppercase tracking-wider">RECENT ORDERS</CardTitle>
                 <Button
                   className="bg-theme-red hover:bg-theme-red-dark text-white text-xs sm:text-sm w-full sm:w-auto"
                   size="sm"
@@ -431,8 +618,8 @@ export default function VendorOverview() {
             <CardContent className="p-4 sm:p-6">
               <div className="space-y-3 sm:space-y-4">
                 {isLoadingOrders ? (
-                  // Skeleton loader for orders
-                  Array.from({ length: 3 }).map((_, index) => (
+                  // Skeleton loader for orders - Show 4 for balance
+                  Array.from({ length: 4 }).map((_, index) => (
                     <div key={index} className="p-3 sm:p-4 bg-gray-800 rounded-lg animate-pulse">
                       <div className="flex items-center justify-between mb-2">
                         <div className="h-4 bg-gray-700 rounded w-24 sm:w-32"></div>
@@ -508,10 +695,10 @@ export default function VendorOverview() {
           </Card>
 
           {/* Top Products */}
-          <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-            <CardHeader className="p-4 sm:p-6">
+          <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl relative z-10 flex flex-col h-full overflow-hidden">
+            <CardHeader className="p-4 sm:p-6 pb-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">TOP PRODUCTS</CardTitle>
+                <CardTitle className="text-lg sm:text-xl font-bold text-white uppercase tracking-wider">TOP PRODUCTS</CardTitle>
                 <Button className="bg-theme-red hover:bg-theme-red-dark text-white text-xs sm:text-sm w-full sm:w-auto" size="sm">
                   <Package className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
                   <span className="sm:inline">Manage</span>
@@ -521,8 +708,8 @@ export default function VendorOverview() {
             <CardContent className="p-4 sm:p-6">
               <div className="space-y-3 sm:space-y-4">
                 {isLoadingTopProducts ? (
-                  // Skeleton loader for top products
-                  Array.from({ length: 5 }).map((_, index) => (
+                  // Skeleton loader for top products - Show 6 for balance
+                  Array.from({ length: 6 }).map((_, index) => (
                     <div key={index} className="p-3 sm:p-4 bg-gray-800 rounded-lg animate-pulse">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -572,10 +759,10 @@ export default function VendorOverview() {
         </div>
 
         {/* Recent Messages */}
-        <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl relative z-10 overflow-hidden">
           <CardHeader className="p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-              <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">RECENT MESSAGES</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-bold text-white">RECENT MESSAGES</CardTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -649,7 +836,7 @@ export default function VendorOverview() {
         {/* Quick Actions */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-theme-red">QUICK ACTIONS</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-bold text-white">QUICK ACTIONS</CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

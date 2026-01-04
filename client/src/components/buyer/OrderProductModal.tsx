@@ -19,6 +19,8 @@ interface Order {
   total_amount: string;
   crypto_currency: string;
   created_at: string;
+  updated_at?: string;
+  delivered_at?: string | null;
   use_escrow?: boolean;
   buyer?: {
     id: string;
@@ -81,6 +83,28 @@ interface Order {
     [key: string]: any;
   };
 }
+
+// Human readable date formatter (No slashes as requested)
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    const hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+
+    return `${day} ${month} ${year} ${displayHours}:${minutes} ${ampm}`;
+  } catch {
+    return dateStr;
+  }
+};
 
 interface OrderProductModalProps {
   order: Order;
@@ -419,7 +443,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 <div className="text-left sm:text-right">
                   <p className="text-gray-400 text-xs sm:text-sm mb-0.5 uppercase tracking-widest font-bold">Order Date</p>
                   <p className="text-base sm:text-lg font-semibold text-white">
-                    {new Date(order.created_at).toLocaleDateString()}
+                    {formatDate(order.created_at)}
                   </p>
                 </div>
               </div>
@@ -482,19 +506,25 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       <span className="text-white text-xs sm:text-sm font-medium">{order.buyer.username || 'N/A'}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-xs sm:text-sm">User ID:</span>
-                      <span className="text-white font-mono text-[10px] sm:text-sm">{order.buyer.id || 'N/A'}</span>
+                      <span className="text-gray-400 text-xs sm:text-sm">Order ID:</span>
+                      <span className="text-white font-mono text-[10px] sm:text-sm">{order.order_id}</span>
                     </div>
                   </div>
                   <div className="space-y-2 sm:space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-xs sm:text-sm">Date:</span>
-                      <span className="text-white text-xs sm:text-sm">{new Date(order.created_at).toLocaleDateString()}</span>
+                      <span className="text-gray-400 text-xs sm:text-sm">Purchase Date:</span>
+                      <span className="text-white text-xs sm:text-sm">{formatDate(order.created_at)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-xs sm:text-sm">Order ID:</span>
-                      <span className="text-white font-mono text-[10px] sm:text-sm truncate max-w-[120px]">{order.order_id}</span>
+                      <span className="text-gray-400 text-xs sm:text-sm">Status:</span>
+                      <Badge className={getOrderStatusColor(order.order_status)}>{order.order_status}</Badge>
                     </div>
+                    {order.order_status === 'delivered' && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-xs sm:text-sm">Delivered At:</span>
+                        <span className="text-white text-xs sm:text-sm">{formatDate(order.delivered_at || order.created_at)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -538,7 +568,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
 
             {/* Credentials Section - For paid, confirmed, and delivered orders */}
-            {(order.payment_status === 'paid' || order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && order.product_credentials && Object.keys(order.product_credentials).length > 0 && (
+            {(order.payment_status === 'paid' || order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && order.product_credentials && Object.keys(order.product_credentials).filter(k => order.product_credentials[k]).length > 0 && (
               <div className="bg-green-900/10 border border-green-500/20 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-lg shadow-green-900/5">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <h3 className="text-sm sm:text-lg font-semibold text-white flex items-center">
@@ -551,34 +581,89 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     size="sm"
                     className="h-7 sm:h-9 text-[10px] sm:text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
                   >
+                    {showCredentials ? <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> : <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />}
                     {showCredentials ? 'Hide' : 'Show'}
                   </Button>
                 </div>
 
                 {showCredentials && (
                   <div className="space-y-2 sm:space-y-3">
-                    {Object.entries(order.product_credentials).map(([key, value]) => (
-                      <div key={key} className="bg-gray-800/40 rounded-lg p-3 sm:p-4 border border-white/5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] sm:text-xs text-gray-400 mb-0.5 capitalize">
-                              {key.replace('_', ' ')}:
-                            </p>
-                            <p className="text-white text-xs sm:text-sm font-mono break-all leading-tight">
-                              {showCredentialsText ? value : '••••••••••••••••'}
-                            </p>
+                    {(() => {
+
+                      // Recursive value extractor to handle nested JSON
+                      const getAllValues = (data: any): string[] => {
+                        if (!data) return [];
+                        if (typeof data === 'string') {
+                          const trimmed = data.trim();
+                          // Handle cases like "Field: Value" or "Field: {JSON}"
+                          if (trimmed.includes(':') && (trimmed.includes('{') || trimmed.includes('['))) {
+                            const possibleJson = trimmed.substring(trimmed.indexOf(':') + 1).trim();
+                            if (possibleJson.startsWith('{') || possibleJson.startsWith('[')) {
+                              try {
+                                return getAllValues(JSON.parse(possibleJson));
+                              } catch { /* continue to generic check */ }
+                            }
+                          }
+
+                          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                            try {
+                              const parsed = JSON.parse(trimmed);
+                              return getAllValues(parsed);
+                            } catch {
+                              return [trimmed];
+                            }
+                          }
+
+                          // Check if it's an ISO date string
+                          if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed)) {
+                            return [formatDate(trimmed)];
+                          }
+
+                          return [trimmed];
+                        }
+                        if (Array.isArray(data)) {
+                          return data.flatMap(getAllValues);
+                        }
+                        if (typeof data === 'object') {
+                          return Object.values(data).flatMap(getAllValues);
+                        }
+                        return [String(data)];
+                      };
+
+                      const values = getAllValues(order.product_credentials);
+
+                      // Filter out empty or redundant values
+                      const uniqueValues = Array.from(new Set(values.filter(v => v && v.toString().trim() !== '')));
+
+                      return uniqueValues.map((val, idx) => (
+                        <div key={idx} className="bg-gray-800/40 rounded-lg p-3 sm:p-4 border border-white/5">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-xs sm:text-sm font-mono break-all leading-tight">
+                                {showCredentialsText ? val : '••••••••••••••••'}
+                              </p>
+                            </div>
+                            <Button
+                              onClick={() => copyToClipboard(val)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-green-400 hover:bg-green-500/10 flex-shrink-0"
+                            >
+                              <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </Button>
                           </div>
-                          <Button
-                            onClick={() => copyToClipboard(value)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-green-400 hover:bg-green-500/10 flex-shrink-0"
-                          >
-                            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </Button>
                         </div>
-                      </div>
-                    ))}
+                      ));
+                    })()}
+                    <Button
+                      onClick={() => setShowCredentialsText(!showCredentialsText)}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs text-green-400 hover:bg-green-500/10"
+                    >
+                      {showCredentialsText ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+                      {showCredentialsText ? 'Hide Values' : 'Reveal Values'}
+                    </Button>
                   </div>
                 )}
               </div>
@@ -602,8 +687,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 </div>
               </div>
 
-              {/* Additional Information - If exists */}
-              {order.product.additional_info && (
+              {/* Additional Information - Only if exists and has content */}
+              {order.product.additional_info && order.product.additional_info.trim() && (
                 <div className="bg-surface-2/40 rounded-lg sm:rounded-xl p-4 border border-gray-600/20">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm sm:text-lg font-semibold text-white">Additional Info</h3>
@@ -620,8 +705,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 </div>
               )}
 
-              {/* Notes for Buyer - Important! */}
-              {order.product.notes_for_buyer && (
+              {/* Notes for Buyer - Only if exists and has content */}
+              {order.product.notes_for_buyer && order.product.notes_for_buyer.trim() && (
                 <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg sm:rounded-xl p-4">
                   <h3 className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center">
                     <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />

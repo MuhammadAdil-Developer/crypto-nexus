@@ -1846,12 +1846,6 @@ export default function VendorMessages() {
                             }
                           }}
                         />
-                        <div
-                          className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors cursor-pointer ${newMessage.trim() ? 'text-purple-400 hover:bg-purple-500/10' : 'text-gray-600'}`}
-                          onClick={() => !isConversationLocked && (newMessage.trim() || selectedFile) && handleSendMessage()}
-                        >
-                          <Send className="w-4 h-4" />
-                        </div>
                       </div>
 
                       <Button

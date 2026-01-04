@@ -324,8 +324,6 @@ export default function VendorReviews() {
           <div className="space-y-4 sm:space-y-6">
             {loading ? (
               <div className="text-gray-400 text-sm sm:text-base text-center py-8">Loading reviews...</div>
-            ) : filteredReviews.length === 0 ? (
-              <div className="text-gray-400 text-sm sm:text-base text-center py-8">No reviews found</div>
             ) : filteredReviews.map((review) => (
               <div key={review.id} className="border-b border-gray-700 bg-gray-900 pb-4 sm:pb-6 last:border-b-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">

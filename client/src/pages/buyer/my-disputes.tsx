@@ -138,56 +138,56 @@ export default function BuyerMyDisputes() {
 
         <div className="space-y-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl transition-all hover:border-theme-cyan/30">
+            <div className="bg-gray-900/60 backdrop-blur-xl border rounded-3xl p-4 sm:p-6 shadow-2xl transition-all hover:border-theme-cyan/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Open</p>
-                  <p className="text-2xl font-black text-white">
+                  <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Open</p>
+                  <p className="text-xl sm:text-2xl font-black text-white">
                     {disputes.filter(d => d.status === 'open').length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-theme-cyan/10 flex items-center justify-center border border-theme-cyan/20">
-                  <Clock className="w-5 h-5 text-theme-cyan" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-theme-cyan/5 flex items-center justify-center border border-theme-cyan/10">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-theme-cyan" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl transition-all hover:border-theme-cyan/30">
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-4 sm:p-6 shadow-2xl transition-all hover:border-theme-cyan/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-1">In Progress</p>
-                  <p className="text-2xl font-black text-white">
+                  <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-gray-500 mb-1">In Progress</p>
+                  <p className="text-xl sm:text-2xl font-black text-white">
                     {disputes.filter(d => d.status === 'in_progress').length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-theme-cyan/10 flex items-center justify-center border border-theme-cyan/20">
-                  <MessageSquare className="w-5 h-5 text-theme-cyan" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-theme-cyan/5 flex items-center justify-center border border-theme-cyan/10">
+                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-theme-cyan" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl transition-all hover:border-theme-red/30">
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-4 sm:p-6 shadow-2xl transition-all hover:border-theme-red/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Resolved</p>
-                  <p className="text-2xl font-black text-white">
+                  <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Resolved</p>
+                  <p className="text-xl sm:text-2xl font-black text-white">
                     {disputes.filter(d => d.status === 'resolved').length}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-theme-red/10 flex items-center justify-center border border-theme-red/20">
-                  <CheckCircle className="w-5 h-5 text-theme-red" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-theme-red/5 flex items-center justify-center border border-theme-red/10">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-theme-red" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl transition-all hover:border-theme-red/30">
+            <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/30 rounded-3xl p-4 sm:p-6 shadow-2xl transition-all hover:border-theme-red/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Total Cases</p>
-                  <p className="text-2xl font-black text-white">{disputes.length}</p>
+                  <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Total Cases</p>
+                  <p className="text-xl sm:text-2xl font-black text-white">{disputes.length}</p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-theme-red/10 flex items-center justify-center border border-theme-red/20">
-                  <AlertTriangle className="w-5 h-5 text-theme-red" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-theme-red/5 flex items-center justify-center border border-theme-red/10">
+                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-theme-red" />
                 </div>
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function BuyerMyDisputes() {
                     className="h-12 px-8 bg-theme-red hover:bg-theme-red-dark text-white rounded-2xl font-bold tracking-widest uppercase transition-all shadow-lg shadow-theme-red/20 border-none"
                     onClick={() => window.location.href = '/buyer/orders'}
                   >
-                    Access Order Nexus
+                    Go to Orders
                   </Button>
                 </div>
               </div>

@@ -28,26 +28,56 @@ export async function setupVite(app: Express, server: Server) {
   };
 
   const vite = await createViteServer({
-    configFile: path.resolve(__dirname, "../vite.config.ts"),
+    configFile: fs.existsSync(path.resolve(__dirname, "../vite.config.ts"))
+      ? path.resolve(__dirname, "../vite.config.ts")
+      : undefined,
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
+        // Don't exit on all errors, especially not in production or for common requests
+        const message = msg as any;
+        if (message.indexOf("failed to load config") !== -1 || message.indexOf("Could not resolve") !== -1) {
+          // console.warn(`Vite check: ${msg}`);
+        }
       },
     },
     server: serverOptions,
     appType: "custom",
   });
 
+  // Force no-cache for all Vite assets to bypass corrupted browser disk cache
+  app.use((req: any, res: any, next: any) => {
+    if (req.url && !req.url.startsWith('/api')) {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      });
+      // Remove conditional headers from request to prevent 304s
+      const headers = req.headers as any;
+      if (headers) {
+        delete headers['if-none-match'];
+        delete headers['if-modified-since'];
+      }
+    }
+    next();
+  });
+
   app.use(vite.middlewares);
-  
+
   // Only serve index.html for non-API routes to avoid conflicts with React Router
-  app.use("*", async (req, res, next) => {
+  app.use("*", async (req: any, res: any, next: any) => {
     const url = req.originalUrl;
-    
+
     // Skip API routes
     if (url.startsWith('/api')) {
+      return next();
+    }
+
+    // Skip common static file extensions if they reach here (meaning Vite didn't handle them)
+    if (url.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico|map|json|tsx|ts)$/i)) {
       return next();
     }
 
@@ -61,12 +91,22 @@ export async function setupVite(app: Express, server: Server) {
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
+
+      // Guard against malformed URLs that would crash decodeURIComponent inside Vite
+      try {
+        const decoded = (global as any).decodeURIComponent(url);
+      } catch (e) {
+        log(`Malformed URL detected: ${url}`, "vite");
+        return res.status(400).send("Bad Request: Malformed URL");
+      }
+
       const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      res.status(200).set({
+        "Content-Type": "text/html",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);

@@ -157,17 +157,47 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[360px] p-0 bg-gray-900 border-gray-700">
+            <DropdownMenuContent align="end" className="w-[380px] sm:w-[420px] p-0 bg-gray-900 border-gray-700 shadow-2xl overflow-hidden">
               {/* Header */}
-              <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between gap-2">
-                <h3 className="font-semibold text-white text-sm">Notifications</h3>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="text-xs text-gray-400">Only show unread</span>
+              <div className="px-4 py-3 border-b border-gray-700 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-white text-sm uppercase tracking-widest">Notifications</h3>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        refreshNotifications(true);
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-gray-800 rounded-lg"
+                      title="Refresh notifications"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-gray-400 ${isLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDropdownOpen(false);
+                        navigate('/admin/notifications');
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-gray-800 rounded-lg"
+                      title="Open in new page"
+                    >
+                      <ExternalLinkIcon className="w-3.5 h-3.5 text-gray-400" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-800/50 p-2 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Only show unread</span>
                     <Switch
                       checked={showUnreadOnly}
                       onCheckedChange={setShowUnreadOnly}
-                      className="h-4 w-7"
+                      className="h-4 w-7 data-[state=checked]:bg-blue-500"
                     />
                   </div>
                   <Button
@@ -175,38 +205,12 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      refreshNotifications(true);
-                    }}
-                    className="h-6 w-6 p-0 hover:bg-gray-800"
-                    title="Refresh notifications"
-                  >
-                    <RefreshCw className={`w-3 h-3 text-gray-400 ${isLoading ? 'animate-spin' : ''}`} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
                       setDropdownOpen(false);
                       navigate('/admin/notifications');
                     }}
-                    className="h-6 w-6 p-0 hover:bg-gray-800"
-                    title="Open in new page"
+                    className="h-7 px-2 text-[10px] font-bold uppercase tracking-widest text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                   >
-                    <ExternalLinkIcon className="w-3 h-3 text-gray-400" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDropdownOpen(false);
-                      navigate('/admin/notifications');
-                    }}
-                    className="h-6 w-6 p-0 hover:bg-gray-800"
-                    title="View all notifications"
-                  >
-                    <MoreVertical className="w-3 h-3 text-gray-400" />
+                    View All
                   </Button>
                 </div>
               </div>

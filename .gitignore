@@ -20,7 +20,6 @@ htmlcov/
 monero-win-*/
 monero-x86_64-*/
 nexus_wallet*
-*.keys
 *.address.txt
 .monero/
 monero-wallet-rpc.log

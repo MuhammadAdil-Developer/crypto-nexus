@@ -710,10 +710,10 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                       handleNotificationDropdownOpen(false);
                       navigate(getLinkUrl('/vendor/notifications'));
                     }}
-                    className="h-6 w-6 p-0 hover:bg-gray-800"
+                    className="h-6 w-6 p-0 hover:text-theme-cyan"
                     title="View all notifications"
                   >
-                    <MoreVertical className="w-3 h-3 text-gray-400" />
+                    <MoreVertical className="w-3 h-3 text-white" />
                   </Button>
                 </div>
               </div>
@@ -778,15 +778,18 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                       )}
                     </div>
 
-                    <div className="p-2 border-t border-gray-700 bg-gray-900/50 sticky bottom-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-xs text-theme-cyan hover:text-theme-cyan/80 hover:bg-transparent font-medium"
-                        onClick={() => navigate(getLinkUrl('/vendor/notifications'))}
+                    <div className="p-3 border-t border-gray-700 bg-gray-900 sticky bottom-0 z-20">
+                      <div
+                        className="w-full py-2.5 px-4 rounded-xl border border-theme-cyan/20 flex items-center justify-center cursor-pointer hover:bg-theme-cyan/10 hover:border-theme-cyan/50 transition-all duration-300 group"
+                        onClick={() => {
+                          handleNotificationDropdownOpen(false);
+                          navigate(getLinkUrl('/vendor/notifications'));
+                        }}
                       >
-                        View All Notifications ({allNotifications.length})
-                      </Button>
+                        <span className="text-xs font-bold text-[#4df8ff] drop-shadow-[0_0_8px_rgba(77,248,255,0.3)]">
+                          View All Notifications ({allNotifications.length})
+                        </span>
+                      </div>
                     </div>
                   </>
                 )}

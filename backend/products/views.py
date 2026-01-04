@@ -533,18 +533,18 @@ def create_product(request):
         if serializer.is_valid():
             product = serializer.save()
             
-            # Notify admin about new product
-            try:
-                from shared.admin_notifications import notify_admin_product_created
-                notify_admin_product_created(product)
-            except Exception as e:
-                logger.error(f"Failed to notify admin about product: {e}")
+            # Notify admin about new product - Only if vendor created it
+            if getattr(request.user, 'user_type', None) != 'admin':
+                try:
+                    from shared.admin_notifications import notify_admin_product_created
+                    notify_admin_product_created(product)
+                except Exception as e:
+                    logger.error(f"Failed to notify admin about product: {e}")
             
-            # Notify the vendor (if different from creator) about the new listing
-            from shared.admin_notifications import send_user_notification
+            # Notify the vendor (ONLY if an admin created it for them)
             vendor_user = getattr(product, 'vendor', None)
-            
-            if vendor_user:
+            if vendor_user and vendor_user != request.user and getattr(request.user, 'user_type', None) == 'admin':
+                from shared.admin_notifications import send_user_notification
                 send_user_notification(
                     user=vendor_user,
                     notification_type='listing_approval',
@@ -556,7 +556,9 @@ def create_product(request):
                     }
                 )
 
-            # Create a confirmation notification for the admin who created it
+            # Create a confirmation notification for the creator
+            from shared.admin_notifications import send_user_notification
+            is_admin = getattr(request.user, 'user_type', None) == 'admin'
             send_user_notification(
                 user=request.user,
                 notification_type='system',
@@ -564,7 +566,7 @@ def create_product(request):
                 message=f'You created the product "{product.headline}" successfully.',
                 data={
                     'product_id': str(product.id),
-                    'action_url': '/admin/listings'
+                    'action_url': '/admin/listings' if is_admin else '/vendor/listings'
                 },
                 priority='low'
             )

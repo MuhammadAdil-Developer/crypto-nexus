@@ -350,14 +350,23 @@ export default function AdminMessages() {
       </div>
 
       <Tabs defaultValue="conversations" className="w-full">
-        <TabsList className="bg-surface-2 mb-6 flex flex-wrap gap-2">
-          <TabsTrigger value="conversations" className="text-gray-300 data-[state=active]:text-white">
+        <TabsList className="bg-surface-2 p-1 h-auto mb-8 grid grid-cols-1 sm:grid-cols-3 gap-1">
+          <TabsTrigger
+            value="conversations"
+            className="py-2.5 text-xs font-bold uppercase tracking-widest text-gray-400 data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+          >
             Conversations
           </TabsTrigger>
-          <TabsTrigger value="moderation" className="text-gray-300 data-[state=active]:text-white">
+          <TabsTrigger
+            value="moderation"
+            className="py-2.5 text-xs font-bold uppercase tracking-widest text-gray-400 data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+          >
             Content Moderation
           </TabsTrigger>
-          <TabsTrigger value="keywords" className="text-gray-300 data-[state=active]:text-white">
+          <TabsTrigger
+            value="keywords"
+            className="py-2.5 text-xs font-bold uppercase tracking-widest text-gray-400 data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+          >
             Blocked Keywords
           </TabsTrigger>
         </TabsList>

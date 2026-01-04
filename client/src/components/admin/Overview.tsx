@@ -483,7 +483,7 @@ export function Overview() {
         {/* Order Volume Chart */}
         <Card className="lg:col-span-2 crypto-card">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <h3 className="text-lg font-semibold text-text">Platform Growth</h3>
               <div className="flex items-center space-x-2">
                 <button

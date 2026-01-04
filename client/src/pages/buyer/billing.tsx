@@ -193,21 +193,21 @@ export default function BuyerBilling() {
 
         {/* Tabs for Payments and Refunds */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-900/60 p-1.5 rounded-2xl border border-gray-800/50 backdrop-blur-xl h-auto mb-6">
+          <TabsList className="flex flex-col sm:grid sm:grid-cols-2 w-full bg-gray-900/60 p-1.5 rounded-2xl border border-gray-800/50 backdrop-blur-xl h-auto mb-6 gap-2 sm:gap-0">
             <TabsTrigger
               value="payments"
-              className="rounded-xl py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:to-indigo-700 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-500"
+              className="rounded-xl py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-600 data-[state=active]:to-indigo-700 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-500 flex items-center justify-center"
             >
-              <ArrowUpCircle className="w-4 h-4 mr-2" />
-              <span className="font-bold uppercase tracking-wider text-xs">Payments History</span>
+              <ArrowUpCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="font-bold uppercase tracking-wider text-[10px] sm:text-xs">Payments History</span>
               <Badge className="ml-2 bg-white/20 text-white border-none text-[10px] px-1.5 h-4 flex items-center">{payments.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
               value="refunds"
-              className="rounded-xl py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-500"
+              className="rounded-xl py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-500 flex items-center justify-center"
             >
-              <ArrowDownCircle className="w-4 h-4 mr-2" />
-              <span className="font-bold uppercase tracking-wider text-xs">Refunds Track</span>
+              <ArrowDownCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="font-bold uppercase tracking-wider text-[10px] sm:text-xs">Refunds Track</span>
               <Badge className="ml-2 bg-white/20 text-white border-none text-[10px] px-1.5 h-4 flex items-center">{refunds.length}</Badge>
             </TabsTrigger>
           </TabsList>

@@ -409,31 +409,31 @@ export default function VendorAnalytics() {
       {/* Key Metrics */}
       <div id="vendor-report-root" className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         {/* Total Revenue Card */}
-        <Card className="border border-purple-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Card className="border border-theme-cyan/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-theme-cyan/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardContent className="p-4 sm:p-6 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-purple-500/10 rounded-xl">
-                <DollarSign className="w-6 h-6 text-purple-400 group-hover:scale-110 transition-transform" />
+              <div className="p-3 bg-theme-cyan/10 rounded-xl">
+                <DollarSign className="w-6 h-6 text-theme-cyan group-hover:scale-110 transition-transform" />
               </div>
               <TrendingUp className={`w-4 h-4 ${trends.revenue >= 0 ? 'text-green-400' : 'text-red-400'}`} />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-purple-200/70">Total Revenue</p>
+              <p className="text-sm font-black uppercase tracking-widest text-gray-500">Total Revenue</p>
               {loading ? (
                 <SkeletonBlock className="h-8 w-24 mt-1" />
               ) : (
                 <>
                   <h3 className="text-2xl sm:text-3xl font-black text-white">{metrics.totalRevenueBTC.toFixed(4)} <span className="text-sm text-gray-500 font-normal">BTC</span></h3>
                   {metrics.totalRevenueXMR > 0 && (
-                    <p className="text-sm font-medium text-pink-400">{metrics.totalRevenueXMR.toFixed(4)} XMR</p>
+                    <p className="text-sm font-bold text-theme-cyan">{metrics.totalRevenueXMR.toFixed(4)} XMR</p>
                   )}
                 </>
               )}
             </div>
             {!loading && (
-              <div className="mt-3 flex items-center text-xs text-gray-400">
-                <span className={`${trends.revenue >= 0 ? 'text-green-400' : 'text-red-400'} font-medium mr-1`}>
+              <div className="mt-3 flex items-center text-xs text-gray-500">
+                <span className={`${trends.revenue >= 0 ? 'text-green-400' : 'text-red-400'} font-bold mr-1`}>
                   {trends.revenue >= 0 ? '+' : ''}{trends.revenue.toFixed(1)}%
                 </span>
                 {period === "all_time" ? "since inception" : `vs previous ${period.replace('days', 'd')}`}
@@ -444,7 +444,7 @@ export default function VendorAnalytics() {
 
         {/* Total Sales Card */}
         <Card className="border border-blue-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-cyan-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-theme-cyan/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardContent className="p-4 sm:p-6 relative z-10">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-blue-500/10 rounded-xl">
@@ -453,7 +453,7 @@ export default function VendorAnalytics() {
               <TrendingUp className={`w-4 h-4 ${trends.sales >= 0 ? 'text-green-400' : 'text-red-400'}`} />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-blue-200/70">Total Sales</p>
+              <p className="text-sm font-black uppercase tracking-widest text-gray-500">Total Sales</p>
               {loading ? (
                 <SkeletonBlock className="h-8 w-20 mt-1" />
               ) : (
@@ -461,8 +461,8 @@ export default function VendorAnalytics() {
               )}
             </div>
             {!loading && (
-              <div className="mt-3 flex items-center text-xs text-gray-400">
-                <span className={`${trends.sales >= 0 ? 'text-green-400' : 'text-red-400'} font-medium mr-1`}>
+              <div className="mt-3 flex items-center text-xs text-gray-500">
+                <span className={`${trends.sales >= 0 ? 'text-green-400' : 'text-red-400'} font-bold mr-1`}>
                   {trends.sales >= 0 ? '+' : ''}{trends.sales.toFixed(1)}%
                 </span>
                 {period === "all_time" ? "growth" : `vs previous ${period.replace('days', 'd')}`}
@@ -472,16 +472,16 @@ export default function VendorAnalytics() {
         </Card>
 
         {/* Unique Buyers Card */}
-        <Card className="border border-amber-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 to-orange-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Card className="border border-theme-red/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-theme-red/10 to-rose-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardContent className="p-4 sm:p-6 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-amber-500/10 rounded-xl">
-                <Users className="w-6 h-6 text-amber-400 group-hover:scale-110 transition-transform" />
+              <div className="p-3 bg-theme-red/10 rounded-xl">
+                <Users className="w-6 h-6 text-theme-red group-hover:scale-110 transition-transform" />
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-amber-200/70">Unique Buyers</p>
+              <p className="text-sm font-black uppercase tracking-widest text-gray-500">Unique Buyers</p>
               {loading ? (
                 <SkeletonBlock className="h-8 w-20 mt-1" />
               ) : (
@@ -489,7 +489,7 @@ export default function VendorAnalytics() {
               )}
             </div>
             {!loading && (
-              <div className="mt-3 flex items-center text-xs text-amber-500/80 font-medium">
+              <div className="mt-3 flex items-center text-xs text-theme-red font-bold uppercase tracking-tighter">
                 Active customer base
               </div>
             )}
@@ -497,17 +497,17 @@ export default function VendorAnalytics() {
         </Card>
 
         {/* Store Views Card */}
-        <Card className="border border-emerald-500/20 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 to-green-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm relative overflow-hidden group hover:bg-gray-800/40 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-700/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardContent className="p-4 sm:p-6 relative z-10">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-emerald-500/10 rounded-xl">
-                <Eye className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <div className="p-3 bg-gray-800 rounded-xl">
+                <Eye className="w-6 h-6 text-gray-400 group-hover:scale-110 transition-transform" />
               </div>
               <TrendingUp className={`w-4 h-4 ${trends.views >= 0 ? 'text-green-400' : 'text-red-400'}`} />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-emerald-200/70">Store Views</p>
+              <p className="text-sm font-black uppercase tracking-widest text-gray-500">Store Views</p>
               {loading ? (
                 <SkeletonBlock className="h-8 w-20 mt-1" />
               ) : (
@@ -515,8 +515,8 @@ export default function VendorAnalytics() {
               )}
             </div>
             {!loading && (
-              <div className="mt-3 flex items-center text-xs text-gray-400">
-                <span className={`${trends.views >= 0 ? 'text-green-400' : 'text-red-400'} font-medium mr-1`}>
+              <div className="mt-3 flex items-center text-xs text-gray-500">
+                <span className={`${trends.views >= 0 ? 'text-green-400' : 'text-red-400'} font-bold mr-1`}>
                   {trends.views >= 0 ? '+' : ''}{trends.views.toFixed(1)}%
                 </span>
                 {period === "all_time" ? "growth" : `vs previous period`}
@@ -580,7 +580,10 @@ export default function VendorAnalytics() {
         {/* Revenue Breakdown */}
         <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm relative z-10 overflow-hidden shadow-2xl">
           <CardHeader className="p-4 sm:p-6 border-b border-gray-800/50">
-            <CardTitle className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">Revenue Sources</CardTitle>
+            <CardTitle className="text-lg sm:text-xl font-black uppercase tracking-widest text-white flex items-center gap-2">
+              <div className="w-1.5 h-6 bg-theme-cyan rounded-full" />
+              Revenue Sources
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             {loading ? (
@@ -595,20 +598,21 @@ export default function VendorAnalytics() {
                   <div key={index} className="space-y-3 group">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-3 h-3 rounded-full ${item.color.replace('bg-', 'bg-gradient-to-br from-').replace('theme-', '') + '-400 to-' + item.color.replace('bg-theme-', '') + '-600'}`}></div>
-                        <span className="font-semibold text-white">{item.source}</span>
+                        <div className={`w-3 h-3 rounded-full ${item.source === 'BTC' ? 'bg-theme-cyan shadow-[0_0_8px_rgba(4,102,102,0.6)]' : 'bg-theme-red shadow-[0_0_8px_rgba(166,3,62,0.6)]'}`}></div>
+                        <span className="font-bold text-white tracking-widest text-xs">{item.source}</span>
                       </div>
-                      <span className="font-bold text-gray-300 group-hover:text-white transition-colors">{item.amount}</span>
+                      <span className="font-black text-white text-sm transition-colors">{item.amount}</span>
                     </div>
-                    <div className="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden shadow-inner">
+                    <div className="w-full bg-gray-950 rounded-full h-3 overflow-hidden shadow-inner border border-gray-800/50">
                       <div
-                        className={`h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden`}
+                        className={`h-full rounded-full transition-all duration-1000 ease-out relative`}
                         style={{ width: `${Math.max(item.percentage, 0)}%` }}
                       >
-                        <div className={`absolute inset-0 ${item.color.replace('bg-theme-cyan', 'bg-gradient-to-r from-cyan-500 to-blue-500').replace('bg-theme-red', 'bg-gradient-to-r from-pink-500 to-red-500')}`} />
+                        <div className={`absolute inset-0 ${item.source === 'BTC' ? 'bg-gradient-to-r from-cyan-500 to-blue-600' : 'bg-gradient-to-r from-cyan-500 to-blue-600'} shadow-[0_0_15px_rgba(0,0,0,0.5)]`} />
+                        <div className="absolute inset-x-0 top-0 h-1/2 bg-white/10" />
                       </div>
                     </div>
-                    <div className="text-xs text-right text-gray-500 font-medium">{item.percentage}% Share</div>
+                    <div className="text-[10px] text-right text-gray-500 font-black uppercase tracking-widest">{item.percentage}% Share</div>
                   </div>
                 ))}
 
@@ -641,7 +645,10 @@ export default function VendorAnalytics() {
       {/* Top Products */}
       <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-sm relative z-10 overflow-hidden shadow-2xl">
         <CardHeader className="p-4 sm:p-6 border-b border-gray-800/50 flex flex-row items-center justify-between">
-          <CardTitle className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-500">Top Performing Products</CardTitle>
+          <CardTitle className="text-lg sm:text-xl font-black uppercase tracking-widest text-white flex items-center gap-2">
+            <div className="w-1.5 h-6 bg-theme-red rounded-full" />
+            Top Performing Products
+          </CardTitle>
           <div className="p-2 bg-amber-500/10 rounded-lg">
             <Star className="w-4 h-4 text-amber-500" />
           </div>
@@ -658,10 +665,10 @@ export default function VendorAnalytics() {
               {topProducts.map((product, index) => (
                 <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-gray-900/50 border border-gray-800/50 rounded-xl hover:bg-gray-800 hover:border-gray-700 transition-all cursor-default group">
                   <div className="flex items-center space-x-4 min-w-0 flex-1">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg font-black text-lg ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-600 text-white shadow-amber-500/20' :
-                      index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white shadow-gray-500/20' :
-                        index === 2 ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-orange-500/20' :
-                          'bg-gray-800 text-gray-400'
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg font-black text-lg ${index === 0 ? 'bg-gradient-to-br from-theme-cyan to-blue-700 text-white shadow-theme-cyan/40' :
+                      index === 1 ? 'bg-gradient-to-br from-slate-400 to-slate-600 text-white shadow-slate-500/30' :
+                        index === 2 ? 'bg-gradient-to-br from-theme-red to-rose-900 text-white shadow-theme-red/30' :
+                          'bg-gray-800 text-gray-500 border border-gray-700'
                       }`}>
                       {index + 1}
                     </div>

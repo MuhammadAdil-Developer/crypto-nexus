@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, User, Lock, Bell, Save, Loader2, Wallet, RefreshCcw, Edit2 } from "lucide-react";
+import { Settings as SettingsIcon, User, Lock, Bell, Save, Loader2, Wallet, RefreshCcw, Edit2, Bitcoin } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageBanner } from "@/components/PageBanner";
-import { validateBTCAddress, validateXMRAddress } from "@/lib/utils";
+import { validateBTCAddress, validateXMRAddress, cn } from "@/lib/utils";
 
 interface UserProfile {
   username: string;

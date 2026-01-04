@@ -20,7 +20,7 @@ export function AdminLayout({ children, breadcrumbs }: AdminLayoutProps) {
       <div className="hidden md:block">
         <Sidebar />
       </div>
-      
+
       {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-64 p-0 bg-surface">
@@ -29,10 +29,12 @@ export function AdminLayout({ children, breadcrumbs }: AdminLayoutProps) {
           </div>
         </SheetContent>
       </Sheet>
-      
-      <div className="flex flex-col flex-1 overflow-hidden">
+
+      <div className="flex flex-col flex-1 overflow-hidden relative">
         <Header breadcrumbs={breadcrumbs} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        {children}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {children}
+        </div>
       </div>
       <Toaster />
     </div>

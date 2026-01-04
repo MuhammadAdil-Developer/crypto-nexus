@@ -319,15 +319,18 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
                           )}
                         </div>
 
-                        <div className="p-2 border-t border-gray-700 bg-gray-900/50 sticky bottom-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full text-xs text-blue-400 hover:text-blue-300 hover:bg-transparent"
-                            onClick={() => navigate('/buyer/notifications')}
+                        <div className="p-3 border-t border-gray-700 bg-gray-900 sticky bottom-0 z-20">
+                          <div
+                            className="w-full py-2.5 px-4 rounded-xl border border-theme-red/20 flex items-center justify-center cursor-pointer hover:bg-theme-red/10 hover:border-theme-red/50 transition-all duration-300 group"
+                            onClick={() => {
+                              setNotificationDropdownOpen(false);
+                              navigate('/buyer/notifications');
+                            }}
                           >
-                            View All Notifications ({allNotifications.length})
-                          </Button>
+                            <span className="text-xs font-bold text-[#A6033E] drop-shadow-[0_0_8px_rgba(166,3,62,0.3)]">
+                              View All Notifications ({allNotifications.length})
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );

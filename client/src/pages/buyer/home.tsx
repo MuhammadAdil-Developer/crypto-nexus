@@ -1359,7 +1359,7 @@ function BuyerHomeContent() {
             </div>
             <div className="relative overflow-hidden">
               <div
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 transition-opacity duration-500"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 transition-opacity duration-500"
                 style={{
                   opacity: 1
                 }}
@@ -1377,25 +1377,30 @@ function BuyerHomeContent() {
                       <Card
                         key={category.id}
                         onClick={() => navigate(`/buyer/listings?category=${category.slug}`)}
-                        className="group hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-700 bg-gray-900 overflow-hidden"
+                        className="group hover:scale-105 transition-all duration-300 cursor-pointer border border-gray-700/50 bg-gray-900/60 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl"
                       >
                         <CardContent className="p-0">
-                          {/* Image/Icon Section - Top Part - Original Category Icon */}
-                          <div className="relative h-32 sm:h-40 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
-                            <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-20`}></div>
-                            <div className="relative z-10 w-full h-full flex items-center justify-center">
-                              <div className={`w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
-                                <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                          <div className="relative h-28 sm:h-36 bg-gray-950/40 flex items-center justify-center">
+                            <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-10 group-hover:opacity-20 transition-opacity`}></div>
+                            <div className="relative z-10">
+                              <div className={`w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:rotate-12 transition-transform duration-500`}>
+                                <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                               </div>
                             </div>
                           </div>
 
-                          {/* Content Section */}
-                          <div className="p-4 sm:p-5">
-                            <h3 className="font-bold mb-2 text-sm sm:text-base uppercase tracking-wide" style={{ color: '#AD0539' }}>{category.name}</h3>
-                            <p className="text-xs sm:text-sm text-white mb-2 leading-relaxed">{category.services}</p>
-                            <div className="flex items-center justify-between mt-3">
-                              <p className="text-xs sm:text-sm font-medium" style={{ color: '#AD0539' }}>{category.count} LISTINGS</p>
+                          <div className="p-4">
+                            <h3 className="text-xs font-black text-theme-red uppercase tracking-widest mb-2 truncate">
+                              {category.name}
+                            </h3>
+                            <p className="text-xs text-gray-400 line-clamp-1 mb-3 italic">
+                              {category.services}
+                            </p>
+                            <div className="flex items-center justify-between pt-3 border-t border-gray-800/50">
+                              <span className="text-[10px] font-black text-white/40 uppercase tracking-tighter">Availability</span>
+                              <span className="text-[10px] font-black text-theme-cyan uppercase tracking-widest">
+                                {category.count} Units
+                              </span>
                             </div>
                           </div>
                         </CardContent>

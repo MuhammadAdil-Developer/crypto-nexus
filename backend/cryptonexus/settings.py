@@ -213,7 +213,7 @@ else:
 CORS_ALLOW_CREDENTIALS = True
 
 # Redis Configuration
-REDIS_URL = os.environ.get('REDIS_URL', 'rediss://default:Ac3-AAIncDFjZjRmYzMxOTVhNGM0OTJmYmFkNDhjOTMxYzBkNWIzMXAxNTI3MzQ@national-rooster-52734.upstash.io:6379')
+REDIS_URL = os.environ.get('REDIS_URL', 'rediss://127.0.0.1:6379')
 
 # Celery Configuration
 CELERY_BROKER_URL = REDIS_URL
@@ -349,7 +349,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'rediss://default:Ac3-AAIncDFjZjRmYzMxOTVhNGM0OTJmYmFkNDhjOTMxYzBkNWIzMXAxNTI3MzQ@national-rooster-52734.upstash.io:6379')],
+            "hosts": [os.environ.get('REDIS_URL', 'rediss://127.0.0.1:6379')],
         },
     },
 }  

@@ -3,51 +3,63 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
-app.disable('x-powered-by'); // Security: Hide Express
 app.set('etag', false);
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-// Security Headers & Source Protection Middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  // Security Headers
+// Security Middleware
+app.use((req, res, next) => {
+  const path = req.path.toLowerCase();
+
+  // 1. Block sensitive files and directories
+  if (
+    path.includes('/.env') ||
+    path.includes('/.git') ||
+    path.includes('/.vscode') ||
+    path.includes('docker-compose') ||
+    path.includes('credentials')
+  ) {
+    return res.status(403).send('Forbidden');
+  }
+
+  // 2. Block backend source files extensions (if somehow exposed)
+  if (path.endsWith('.py') || path.endsWith('.sql') || path.endsWith('.sh') || path.endsWith('.log')) {
+    return res.status(403).send('Forbidden');
+  }
+
+  // 3. Security Headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-  // Content Security Policy - Basic hardening
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://* wss://*;");
+  // 4. Block Frontend Source Code in Production
+  // If we are on the live domain, we should NEVER serve src files.
+  // The user should be using the built assets (dist).
+  const isProduction = process.env.NODE_ENV === 'production' || req.get('host')?.includes('accountzclub.com');
 
-  // Prevent direct access to sensitive file patterns and the 'src' directory
-  const pathStr = (req.path as any) || "";
-  const url = pathStr.toLowerCase();
-  const isSourceFile = url.endsWith('.ts') || url.endsWith('.tsx') || url.endsWith('.json') || url.endsWith('.env');
-  const isInternalPath = url.includes('/src/') || url.includes('/node_modules/') || url.includes('/.git/') || url.includes('.env');
-
-  if (isSourceFile || isInternalPath) {
-    if (url.includes('package.json') || url.includes('.env')) {
-      log(`Blocked sensitive access attempt: ${url}`, "security");
-      return res.status(403).send('Forbidden');
-    }
-
-    if (app.get("env") !== "development") {
-      log(`Blocked source leak attempt: ${url}`, "security");
-      return res.status(403).send('Forbidden');
+  if (isProduction) {
+    if (
+      path.startsWith('/src/') ||
+      path.startsWith('/client/src/') ||
+      path.includes('/vite.config') ||
+      path.endsWith('.tsx') ||
+      path.endsWith('.ts') // Be careful with .ts if used for video, but likely not
+    ) {
+      log(`Blocking source code access: ${req.path}`, "security");
+      return res.status(403).send('Source code access denied');
     }
   }
 
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path as any;
+  const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-  const originalResJson = res.json as any;
+  const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
@@ -55,7 +67,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path && typeof path === 'string' && path.startsWith("/api")) {
+    if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;

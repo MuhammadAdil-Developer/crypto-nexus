@@ -350,15 +350,18 @@ def create_product_conversation(request):
         )
     else:
         # For regular product conversations, check if one already exists
-        existing_conversation = Conversation.objects.filter(
+        # STRICT CHECK: Must match product AND exact participants (sender & recipient)
+        existing_conversations = Conversation.objects.filter(
             product_id=product.id
-        ).filter(participants=sender).filter(participants=recipient).first()
+        ).filter(participants=sender).filter(participants=recipient)
+
+        existing_conversation = existing_conversations.first()
         
         if existing_conversation:
             serializer = ConversationSerializer(existing_conversation, context={'request': request})
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         
-        # Create new conversation using Django ORM
+        # Create new conversation if none exists
         conversation = Conversation.objects.create(product=product)
         conversation.participants.add(sender, recipient)
         conversation.save()

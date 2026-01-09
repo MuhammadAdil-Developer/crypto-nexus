@@ -719,7 +719,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
                         <div className="flex-1" />
 
-                        <div className="flex items-center space-x-2 w-full sm:w-auto mt-2 sm:mt-0">
+                        <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                           {/* Cancel Button */}
                           {(order.order_status === "pending_payment" || order.order_status === "pending") && (
                             <Button

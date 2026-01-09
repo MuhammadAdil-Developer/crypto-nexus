@@ -11,6 +11,7 @@ urlpatterns = [
     path('<int:dispute_id>/messages/', views.send_dispute_message, name='send_dispute_message'),
     
     # Dispute Resolution
+    path('<int:dispute_id>/close/', views.close_dispute, name='close_dispute'),
     path('<int:dispute_id>/resolve/', views.resolve_dispute, name='resolve_dispute'),
     
     # Statistics

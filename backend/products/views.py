@@ -95,11 +95,12 @@ def list_products(request):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         
-        # Start with approved and reserved (out of stock) products
+        # Start with approved and in-stock products
         products = Product.objects.filter(
-            status__in=['approved', 'reserved'],
+            status='approved',
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category')
         
         # Apply filters
@@ -348,12 +349,13 @@ def get_vendor_public_products(request, vendor_username):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         
-        # Get products by vendor username - Include reserved
+        # Get products by vendor username - Approved and in-stock only
         products = Product.objects.filter(
             vendor__username=vendor_username,
-            status__in=['approved', 'reserved'],
+            status='approved',
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
         
         # Pagination
@@ -395,7 +397,8 @@ def get_buyer_products(request):
         products = Product.objects.filter(
             status='approved',
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
         
         # Pagination
@@ -478,25 +481,6 @@ def create_product(request):
         except User.DoesNotExist:
             pass  # Will be caught by serializer validation
         
-        # Merged Address Check logic
-        try:
-            if 'vendor_user' not in locals():
-                vendor_user = User.objects.get(id=vendor_id)
-            
-            if getattr(vendor_user, 'user_type', None) == 'vendor':
-                if not vendor_user.btc_payout_address or not vendor_user.xmr_payout_address:
-                    missing = []
-                    if not vendor_user.btc_payout_address: missing.append("Bitcoin (BTC)")
-                    if not vendor_user.xmr_payout_address: missing.append("Monero (XMR)")
-                    
-                    logger.warning(f"Vendor {vendor_user.username} missing payout addresses: {missing}")
-                    return Response({
-                        'success': False,
-                        'message': f'You must configure both Bitcoin (BTC) and Monero (XMR) payout addresses in your settings before creating a listing. Missing: {", ".join(missing)}',
-                        'error_code': 'MISSING_PAYOUT_ADDRESSES'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error checking wallet addresses: {e}")
 
         # Prepare clean data for the serializer
         import json
@@ -528,6 +512,35 @@ def create_product(request):
         # Debug logging
         logger.info(f"Serializer Data keys: {list(serializer_data.keys())}")
         logger.info(f"Accepted Crypto value: {serializer_data.get('accepted_crypto')} (type: {type(serializer_data.get('accepted_crypto'))})")
+        
+        # Selective Address Check logic - Only check for coins being accepted
+        try:
+            accepted_cryptos = serializer_data.get('accepted_crypto', [])
+            if not isinstance(accepted_cryptos, list):
+                accepted_cryptos = [str(accepted_cryptos)]
+            
+            # Normalize to uppercase
+            accepted_cryptos = [str(c).upper() for c in accepted_cryptos]
+            
+            if 'vendor_user' not in locals():
+                vendor_user = User.objects.get(id=vendor_id)
+            
+            if getattr(vendor_user, 'user_type', None) == 'vendor':
+                missing = []
+                if 'BTC' in accepted_cryptos and not vendor_user.btc_payout_address:
+                    missing.append("Bitcoin (BTC)")
+                if 'XMR' in accepted_cryptos and not vendor_user.xmr_payout_address:
+                    missing.append("Monero (XMR)")
+                
+                if missing:
+                    logger.warning(f"Vendor {vendor_user.username} missing payout addresses for accepted coins: {missing}")
+                    return Response({
+                        'success': False,
+                        'message': f'You are accepting {", ".join(missing)} for this listing, but you haven\'t configured the payout address in your settings.',
+                        'error_code': 'MISSING_PAYOUT_ADDRESSES'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error checking selective wallet addresses: {e}")
         
         serializer = ProductCreateSerializer(data=serializer_data, context={"request": request})
         if serializer.is_valid():
@@ -1061,11 +1074,12 @@ def buyer_listings(request):
         max_price = request.GET.get('max_price', '')
         category = request.GET.get('category', '')
         
-        # Base queryset - include reserved (out of stock)
+        # Base queryset - approved and in-stock only
         products_qs = Product.objects.filter(
-            status__in=['approved', 'reserved'],
+            status='approved',
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category')
 
         # Apply search filter

@@ -25,6 +25,7 @@ api.interceptors.request.use(
 export interface RefundRequest {
   id: string;
   order_id: string;
+  order_pk: string;
   buyer?: string;
   vendor?: string;
   amount: string;

@@ -7,22 +7,35 @@ export function cn(...inputs: ClassValue[]) {
 
 export function validateBTCAddress(address: string): boolean {
   if (!address) return true;
+
+  // Strip bitcoin: prefix if present
+  let cleanAddress = address;
+  if (cleanAddress.toLowerCase().startsWith('bitcoin:')) {
+    cleanAddress = cleanAddress.substring(8).split('?')[0];
+  }
+
   // Legacy (1...) and P2SH (3...): 26-35 chars, base58
   const legacyP2SHRegex = /^[13][1-9A-HJ-NP-Za-km-z]{25,34}$/;
   // Segwit (bc1...): bech32 chars, variable length
   const bech32Regex = /^bc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{11,71}$/;
 
-  return legacyP2SHRegex.test(address) || bech32Regex.test(address);
+  return legacyP2SHRegex.test(cleanAddress) || bech32Regex.test(cleanAddress);
 }
 
 export function validateXMRAddress(address: string): boolean {
   if (!address) return true;
-  // Standard: 95 chars, starts with 4
-  // Integrated: 106 chars, starts with 4
-  // Subaddress: 95 chars, starts with 8
-  const xmrRegex = /^[48][1-9A-HJ-NP-Za-km-z]{94,105}$/;
 
-  return xmrRegex.test(address);
+  // Strip monero: prefix if present
+  let cleanAddress = address;
+  if (cleanAddress.toLowerCase().startsWith('monero:')) {
+    cleanAddress = cleanAddress.substring(7).split('?')[0];
+  }
+
+  // Monero addresses are usually 95 or 106 characters
+  // We allow 4 (Mainnet), 8 (Subaddress), 5 (Stagenet), 9 (Testnet)
+  const xmrRegex = /^[4589][a-zA-Z0-9]{94,110}$/;
+
+  return xmrRegex.test(cleanAddress);
 }
 export function formatCryptoAmountInString(text: string): string {
   if (!text) return text;

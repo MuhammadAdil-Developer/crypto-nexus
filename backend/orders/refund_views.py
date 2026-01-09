@@ -230,6 +230,7 @@ def buyer_refund_requests(request):
                 data.append({
                     'id': str(refund.id),
                     'order_id': refund.order.order_id,
+                    'order_pk': str(refund.order.id),
                     'vendor': refund.vendor.username,
                     'amount': str(refund.amount),
                     'crypto_currency': refund.order.crypto_currency,
@@ -237,7 +238,11 @@ def buyer_refund_requests(request):
                     'refund_type': refund.refund_type,
                     'status': refund.status,
                     'vendor_decision': refund.vendor_decision,
+                    'vendor_decision_notes': refund.vendor_decision_notes,
                     'vendor_decision_deadline': refund.vendor_decision_deadline.isoformat() if refund.vendor_decision_deadline else None,
+                    'vendor_refund_required': refund.vendor_refund_required,
+                    'vendor_refund_deadline': refund.vendor_refund_deadline.isoformat() if refund.vendor_refund_deadline else None,
+                    'vendor_refund_completed': refund.vendor_refund_completed,
                     'created_at': refund.created_at.isoformat(),
                     'updated_at': refund.updated_at.isoformat(),
                 })
@@ -321,6 +326,14 @@ def vendor_approve_refund(request, refund_id):
                 if hasattr(payment_address, 'escrow'):
                     escrow_payment = payment_address.escrow
                     escrow_funded = escrow_payment.status == 'funded'
+                    
+                    # Check if payment is still pending confirmation
+                    if escrow_payment.status == 'created':
+                        return Response({
+                            'success': False,
+                            'message': 'The payment for this order is pending blockchain confirmation. Please wait for the transaction to be confirmed before proceeding.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                        
             except Exception as e:
                 logger.error(f"Error loading escrow payment for refund: {e}")
 

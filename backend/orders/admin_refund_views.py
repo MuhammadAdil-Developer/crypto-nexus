@@ -286,6 +286,23 @@ def admin_force_refund(request, refund_id):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         order = refund.order
+        
+        # Check if escrow payment is confirmed before forcing a refund from platform wallet
+        if order.use_escrow:
+            try:
+                from payments.models import PaymentAddress
+                payment_address = PaymentAddress.objects.get(order_id=order.order_id)
+                if hasattr(payment_address, 'escrow'):
+                    escrow_payment = payment_address.escrow
+                    # If escrow exists but is essentially unconfirmed/created
+                    if escrow_payment.status == 'created': 
+                        return Response({
+                            'success': False,
+                            'message': 'The payment for this order is pending blockchain confirmation. Please wait for the transaction to be confirmed before proceeding.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Error checking escrow status in admin_force_refund: {e}")
+
         notes = request.data.get('notes', 'Admin forced refund due to vendor non-compliance')
         
         with transaction.atomic():

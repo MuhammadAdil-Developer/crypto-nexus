@@ -36,7 +36,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
   onError,
   siteKey = 'default',
   title = 'Security Verification',
-  instruction = 'Click on the open circle to verify you are human. Look for a circle with a gap or opening and click inside it.'
+  instruction = 'Please click on the highlighted circle to verify you are human.'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, setState] = useState<CaptchaState>({
@@ -70,7 +70,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       const radius = 14 + Math.random() * 20;
       const x = radius + Math.random() * (width - 2 * radius);
       const y = radius + Math.random() * (height - 2 * radius);
-      
+
       circles.push({
         id: `circle-${i}`,
         x,
@@ -129,14 +129,14 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
 
   const drawCircle = (ctx: CanvasRenderingContext2D, circle: Circle) => {
     ctx.save();
-    
+
     if (circle.isOpen) {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = circle.isTarget ? 3.5 : 2.5;
       ctx.beginPath();
       ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
       ctx.stroke();
-      
+
       if (circle.isTarget) {
         ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 12;
@@ -146,29 +146,29 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       }
     } else {
       const gradient = ctx.createRadialGradient(
-        circle.x - circle.radius * 0.3, 
-        circle.y - circle.radius * 0.3, 
+        circle.x - circle.radius * 0.3,
+        circle.y - circle.radius * 0.3,
         0,
-        circle.x, 
-        circle.y, 
+        circle.x,
+        circle.y,
         circle.radius
       );
       gradient.addColorStop(0, '#d11372c2');
       gradient.addColorStop(1, '#aa0a57c5');
-      
+
       ctx.fillStyle = gradient;
       ctx.beginPath();
       ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
       ctx.fill();
     }
-    
+
     ctx.restore();
   };
 
   const drawDecorativeElements = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 1;
-    
+
     const linePoints = [
       { x1: 60, y1: 40, x2: 140, y2: 90 },
       { x1: 140, y1: 90, x2: 230, y2: 60 },
@@ -179,17 +179,17 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       { x1: 250, y1: 200, x2: 340, y2: 160 },
       { x1: 110, y1: 220, x2: 200, y2: 240 }
     ];
-    
+
     linePoints.forEach(point => {
       ctx.beginPath();
       ctx.moveTo(point.x1, point.y1);
       ctx.lineTo(point.x2, point.y2);
       ctx.stroke();
     });
-    
+
     ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.font = '9px monospace';
-    
+
     const textElements = [
       { text: 'secure', x: 70, y: 50, angle: -0.15 },
       { text: 'verify', x: 160, y: 100, angle: 0.1 },
@@ -199,7 +199,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       { text: 'secure', x: 190, y: 180, angle: -0.08 },
       { text: 'verify', x: 270, y: 210, angle: 0.1 }
     ];
-    
+
     textElements.forEach(element => {
       ctx.save();
       ctx.translate(element.x, element.y);
@@ -231,7 +231,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
     if (distance <= state.targetCircle.radius) {
       setIsLoading(true);
       const token = `captcha_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       setTimeout(() => {
         setState(prev => ({ ...prev, isVerified: true }));
         onVerify(token);
@@ -281,11 +281,11 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
             border: 'none'
           }}>
             {!videoError ? (
-            <video 
-              autoPlay 
-              loop 
-              muted 
-              playsInline
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
                 className="w-full h-full object-cover"
                 style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
                 onError={() => {
@@ -297,17 +297,17 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
                 <source src="/assets/captcha/devil-video.webm" type="video/webm" />
               </video>
             ) : (
-              <img 
+              <img
                 src="/assets/captcha/devil-video.gif"
                 alt="Security Animation"
-              className="w-full h-full object-cover"
-              style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
-              onError={(e) => {
+                className="w-full h-full object-cover"
+                style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
+                onError={(e) => {
                   console.log('GIF also failed to load, showing fallback emoji');
-                e.currentTarget.style.display = 'none';
-                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = 'flex';
-              }}
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
               />
             )}
             <div className="w-full h-full flex items-center justify-center text-white text-4xl font-bold" style={{ display: 'none', background: 'transparent' }}>
@@ -334,11 +334,11 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
         </button>
 
         {/* Instruction Header */}
-        <div className="p-4 pb-3 text-center relative">
+        <div className="px-12 pt-5 pb-3 text-center relative">
           <h3 className="text-base font-semibold text-white mb-1.5">{title}</h3>
           <p className="text-xs text-gray-300 leading-relaxed px-2">{instruction}</p>
         </div>
-        
+
         {/* Captcha Canvas */}
         <div className="px-4 pb-6">
           <div className="relative rounded-xl overflow-hidden border-2 border-pink-500/40 shadow-lg">
@@ -346,11 +346,11 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
               ref={canvasRef}
               onClick={handleCanvasClick}
               className="cursor-pointer w-full"
-              style={{ 
+              style={{
                 background: 'linear-gradient(135deg, #8b1656 0%, #5d0e39 50%, #3d0926 100%)',
               }}
             />
-            
+
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="text-center">
@@ -359,7 +359,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
                 </div>
               </div>
             )}
-            
+
             {state.isVerified && (
               <div className="absolute inset-0 flex items-center justify-center bg-green-900/80 backdrop-blur-sm">
                 <div className="text-center">
@@ -373,7 +373,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Controls */}
           <div className="mt-4 flex justify-between items-center">
             <Button
@@ -386,15 +386,14 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
             >
               <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
             </Button>
-            
+
             <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-700">
               <div className="flex gap-1">
                 {[...Array(state.maxAttempts)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                      i < state.attempts ? 'bg-red-500' : 'bg-gray-600'
-                    }`}
+                  <div
+                    key={i}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i < state.attempts ? 'bg-red-500' : 'bg-gray-600'
+                      }`}
                   />
                 ))}
               </div>
@@ -403,7 +402,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
               </span>
             </div>
           </div>
-          
+
           {state.attempts >= state.maxAttempts && (
             <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-center">
               <p className="text-red-400 text-xs font-medium">Maximum attempts exceeded. Please refresh and try again.</p>
@@ -428,11 +427,11 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
 
       {/* Logo Below Modal - Always Below, Never Above, Centered */}
       <div className="relative z-40 mt-4 flex-shrink-0" style={{ order: 3 }}>
-        <img 
-          src="/images/logo.png" 
-          alt="AccountzClub Logo" 
+        <img
+          src="/images/logo.png"
+          alt="AccountzClub Logo"
           className="h-12 w-auto"
-          style={{ 
+          style={{
             opacity: 0.8
           }}
         />

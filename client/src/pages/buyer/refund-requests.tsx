@@ -171,7 +171,7 @@ export default function BuyerRefundRequests() {
             <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-12 text-center shadow-2xl">
               <div className="flex flex-col items-center justify-center gap-4">
                 <Loader2 className="w-10 h-10 animate-spin text-theme-cyan" />
-                <span className="text-gray-400 font-medium tracking-wide">Syncing Refund Stream...</span>
+                <span className="text-gray-400 font-medium tracking-wide">loading Refund...</span>
               </div>
             </div>
           ) : filteredRefunds.length === 0 ? (
@@ -243,7 +243,7 @@ export default function BuyerRefundRequests() {
                         className="h-12 px-6 bg-black/20 border-gray-700/50 text-gray-300 hover:text-white hover:bg-theme-cyan/10 hover:border-theme-cyan/50 rounded-2xl font-bold tracking-widest uppercase transition-all"
                       >
                         <Eye className="w-4 h-4 mr-2" />
-                        Inspect Info
+                        View Info
                       </Button>
                     </div>
                   </div>
@@ -257,7 +257,7 @@ export default function BuyerRefundRequests() {
         <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
           <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-gray-950 border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-3xl">
             <DialogHeader className="mb-6">
-              <DialogTitle className="text-2xl font-black text-white uppercase tracking-tighter">Refund Intelligence</DialogTitle>
+              <DialogTitle className="text-2xl font-black text-white uppercase tracking-tighter">Refund Details</DialogTitle>
             </DialogHeader>
             {selectedRefund && (
               <div className="space-y-6">
@@ -319,7 +319,7 @@ export default function BuyerRefundRequests() {
                       <Button
                         variant="link"
                         className="p-0 h-auto text-theme-red hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
-                        onClick={() => window.location.href = '/buyer/create-dispute?refund_id=' + selectedRefund.id}
+                        onClick={() => window.location.href = `/buyer/create-dispute?orderId=${selectedRefund.order_pk}&refund_id=${selectedRefund.id}`}
                       >
                         Escalate to Dispute Protocols
                       </Button>

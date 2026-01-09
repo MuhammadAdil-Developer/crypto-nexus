@@ -35,7 +35,7 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
         model = Dispute
         fields = [
             'order', 'title', 'description', 'category', 'priority',
-            'evidence_files'
+            'evidence_files', 'refund_request'
         ]
 
     def validate(self, attrs):
@@ -66,7 +66,8 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
             description=validated_data.get('description', ''),
             category=validated_data.get('category', ''),
             priority=validated_data.get('priority', 'medium'),
-            evidence_files=validated_data.get('evidence_files', [])
+            evidence_files=validated_data.get('evidence_files', []),
+            refund_request=validated_data.get('refund_request')
         )
         return dispute
 

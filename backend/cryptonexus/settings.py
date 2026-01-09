@@ -214,7 +214,7 @@ else:
 CORS_ALLOW_CREDENTIALS = True
 
 # Redis Configuration
-REDIS_URL = os.environ.get('REDIS_URL', 'rediss://127.0.0.1:6379')
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
 
 # Celery Configuration
 CELERY_BROKER_URL = REDIS_URL
@@ -231,7 +231,16 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 
 # Redis SSL Configuration for Celery
-CELERY_REDIS_SSL_CERT_REQS = 'CERT_NONE'  # For Upstash Redis
+# Only enable SSL requirements if using rediss://
+if REDIS_URL.startswith('rediss://'):
+    CELERY_REDIS_SSL_CERT_REQS = 'CERT_NONE' 
+    CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': 'CERT_NONE'}
+    CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': 'CERT_NONE'}
+else:
+    CELERY_REDIS_SSL_CERT_REQS = None
+    CELERY_BROKER_USE_SSL = False
+    CELERY_REDIS_BACKEND_USE_SSL = False
+
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_RETRY = True
 CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
@@ -350,7 +359,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'rediss://127.0.0.1:6379')],
+            "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')],
         },
     },
 }  

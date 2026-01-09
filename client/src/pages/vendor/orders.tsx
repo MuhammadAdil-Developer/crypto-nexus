@@ -732,7 +732,21 @@ export default function VendorOrders() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
                                 const buyerUsername = order.buyer_details?.username || order.buyer || order.buyer_username;
-                                if (buyerUsername) {
+                                const buyerId = order.buyer_details?.id;
+                                const productId = order.product_details?.id;
+
+                                if (buyerUsername && buyerId && productId) {
+                                  navigate('/vendor/messages', {
+                                    state: {
+                                      autoOpenBuyerUsername: buyerUsername,
+                                      autoOpenBuyerId: buyerId,
+                                      autoOpenProductId: productId,
+                                      autoOpenOrderId: order.order_id,
+                                      autoOpenChat: true
+                                    }
+                                  });
+                                } else if (buyerUsername) {
+                                  // Fallback if IDs are missing
                                   navigate('/vendor/messages', {
                                     state: {
                                       autoOpenBuyerUsername: buyerUsername,

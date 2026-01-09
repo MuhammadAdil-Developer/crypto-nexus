@@ -57,6 +57,7 @@ export interface CreateDisputeData {
   category: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   evidence_files?: string[];
+  refund_request?: string;
 }
 
 export interface DisputeStatistics {
@@ -198,6 +199,30 @@ class DisputeService {
     }
   }
 
+  // Close dispute (buyer only)
+  async closeDispute(disputeId: string | number): Promise<{ success: boolean; message: string; data?: Dispute }> {
+    try {
+      console.log('🔍 Closing dispute:', disputeId);
+
+      const response = await api.post(`/disputes/${disputeId}/close/`);
+
+      console.log('🔍 Close dispute response:', response);
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Close dispute error:', error);
+
+      if (error.response?.data) {
+        return error.response.data;
+      }
+
+      return {
+        success: false,
+        message: 'Failed to close dispute'
+      };
+    }
+  }
+
   // Resolve dispute (admin only)
   async resolveDispute(disputeId: string | number, data: {
     resolution: string;
@@ -260,6 +285,7 @@ class DisputeService {
       { value: 'vendor_not_responsive', label: 'Vendor Not Responsive' },
       { value: 'payment_issue', label: 'Payment Issue' },
       { value: 'delivery_issue', label: 'Delivery Issue' },
+      { value: 'refund_issue', label: 'Refund Issue' },
       { value: 'other', label: 'Other' }
     ];
   }

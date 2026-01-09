@@ -7,6 +7,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { productService, Product } from '@/services/productService';
 
+import placeholderImage from "@/assets/placeholder.png";
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,9 +59,9 @@ export function HomePage() {
           processedCats = categoriesData.slice(0, 4).map((cat: any) => ({
             id: cat.slug || cat.id,
             title: cat.name,
-            listings: cat.products_count || '10+',
+            listings: cat.product_count || cat.products_count || '10+',
             description: cat.description || `Browse premium ${cat.name} accounts`,
-            image: cat.icon || "/images/category-placeholder.png"
+            image: cat.icon || placeholderImage
           }));
         } else if (products.length > 0) {
           const catMap = new Map();
@@ -74,7 +76,7 @@ export function HomePage() {
               title,
               listings: count,
               description: `Browse premium ${title} accounts`,
-              image: "/images/category-placeholder.png"
+              image: placeholderImage
             }));
         }
 
@@ -173,7 +175,7 @@ export function HomePage() {
                   <div className="relative group">
                     <Input
                       type="text"
-                      placeholder="Search Netflix, Spotify, Gaming..."
+                      placeholder={isLoading ? "Search for Accounts..." : (featuredCategories.length > 0 ? `Search ${featuredCategories.map(c => c.title).slice(0, 3).join(', ')}...` : "Search Netflix, Spotify, Gaming...")}
                       className="pl-4 sm:pl-6 pr-16 sm:pr-20 py-4 sm:py-5 lg:py-6 rounded-2xl sm:rounded-3xl bg-white/5 backdrop-blur-md border-2 border-theme-cyan/30 text-text placeholder-muted focus:ring-4 focus:ring-theme-cyan/10 focus:border-theme-cyan text-sm sm:text-base lg:text-xl shadow-2xl transition-all duration-300 group-hover:border-theme-cyan/50"
                       data-testid="hero-search-input"
                       value={searchQuery}
@@ -368,34 +370,50 @@ export function HomePage() {
                     </CardContent>
                   </Card>
                 ))
-              ) : displayListings.map((listing) => (
-                <Card key={listing.id} className="bg-[#0E1A26] border border-theme-cyan/10 hover:border-theme-cyan/40 transition-all duration-300 cursor-pointer group shadow-lg" data-testid={`listing-${listing.id}`}>
-                  <CardContent className="p-4 sm:p-5 lg:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <StatusBadge status={listing.delivery_method || 'Instant'} type={listing.delivery_method?.toLowerCase().includes('instant') ? 'success' : 'accent'} className="bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20" />
-                      <Button variant="ghost" size="sm" className="hover:text-theme-red transition-colors" data-testid={`favorite-${listing.id}`}><Heart className="w-4 h-4" /></Button>
-                    </div>
-                    <h3 className="text-lg font-bold text-white mb-2 line-clamp-1 group-hover:text-theme-cyan transition-colors">{listing.listing_title}</h3>
-                    <p className="text-sm mb-4 line-clamp-2 text-gray-400 min-h-[40px] leading-relaxed">{listing.description}</p>
-                    <div className="flex items-center justify-between mb-4 pt-2 border-t border-white/5">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-theme-cyan/20 rounded-full flex items-center justify-center border border-theme-cyan/30">
-                          <User className="w-3 h-3 text-theme-cyan" />
+              ) : displayListings.map((listing) => {
+                const priceNum = parseFloat(listing.price as any || '0');
+                const formattedUsd = new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD',
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                }).format(priceNum);
+                const approxBtc = (priceNum / 100000).toFixed(6);
+
+                return (
+                  <Card key={listing.id} className="bg-[#0E1A26] border border-theme-cyan/10 hover:border-theme-cyan/40 transition-all duration-300 cursor-pointer group shadow-lg" data-testid={`listing-${listing.id}`}>
+                    <CardContent className="p-4 sm:p-5 lg:p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <StatusBadge status={listing.delivery_method || 'Instant'} type={listing.delivery_method?.toLowerCase().includes('instant') ? 'success' : 'accent'} className="bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20" />
+                        <Button variant="ghost" size="sm" className="hover:text-theme-red transition-colors" data-testid={`favorite-${listing.id}`}><Heart className="w-4 h-4" /></Button>
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-2 line-clamp-1 group-hover:text-theme-cyan transition-colors">{listing.listing_title}</h3>
+                      <p className="text-sm mb-4 line-clamp-2 text-gray-400 min-h-[40px] leading-relaxed">{listing.description}</p>
+                      <div className="flex items-center justify-between mb-4 pt-2 border-t border-white/5">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-theme-cyan/20 rounded-full flex items-center justify-center border border-theme-cyan/30">
+                            <User className="w-3 h-3 text-theme-cyan" />
+                          </div>
+                          <span className="text-sm text-gray-300 font-medium">{listing.vendor?.username}</span>
+                          <div className="flex items-center ml-2 border-l border-white/10 pl-2"><Star className="text-yellow-400 w-3 h-3 fill-current" /> <span className="text-xs ml-1 text-gray-300 font-bold">{Number(listing.rating || 5.0).toFixed(1)}</span></div>
                         </div>
-                        <span className="text-sm text-gray-300 font-medium">{listing.vendor?.username}</span>
-                        <div className="flex items-center ml-2 border-l border-white/10 pl-2"><Star className="text-yellow-400 w-3 h-3 fill-current" /> <span className="text-xs ml-1 text-gray-300 font-bold">{Number(listing.rating || 5.0).toFixed(1)}</span></div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex flex-col">
-                        <div className="flex items-center space-x-2"><Bitcoin className="text-warning w-4 h-4" /> <span className="font-mono text-sm font-bold text-theme-cyan">{listing.price}</span></div>
-                        <span className="text-[10px] text-gray-500 uppercase tracking-tighter">Verified Assets</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono text-lg font-bold text-theme-cyan">{formattedUsd}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Bitcoin className="text-warning w-3 h-3" />
+                            <span className="text-xs text-gray-400 font-mono">~{approxBtc} BTC</span>
+                          </div>
+                        </div>
+                        <Button className="bg-theme-red hover:bg-[#850231] text-white text-xs font-bold uppercase tracking-widest px-4 h-10 shadow-lg shadow-theme-red/20 transition-all active:scale-95" data-testid={`buy-${listing.id}`} onClick={() => navigate(`/buyer/listings?search=${encodeURIComponent(listing.listing_title)}&openView=${listing.id}`)}>Buy Now</Button>
                       </div>
-                      <Button className="bg-theme-red hover:bg-[#850231] text-white text-xs font-bold uppercase tracking-widest px-4 h-10 shadow-lg shadow-theme-red/20 transition-all active:scale-95" data-testid={`buy-${listing.id}`} onClick={() => navigate(`/buyer/listings?search=${encodeURIComponent(listing.listing_title)}&openView=${listing.id}`)}>Buy Now</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           </div>
         </section>

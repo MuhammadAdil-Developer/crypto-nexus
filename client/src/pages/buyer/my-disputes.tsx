@@ -80,6 +80,37 @@ export default function BuyerMyDisputes() {
     }
   };
 
+  const handleCloseDispute = async (disputeId: string) => {
+    if (!window.confirm("Are you sure you want to close this dispute? This indicates the issue is resolved and funds will be released to the vendor.")) {
+      return;
+    }
+
+    try {
+      const response = await disputeService.closeDispute(disputeId);
+      if (response.success) {
+        toast({
+          title: "Dispute Closed",
+          description: "Your dispute has been closed successfully.",
+        });
+        setIsDetailModalOpen(false);
+        fetchMyDisputes();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to close dispute",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error closing dispute:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
@@ -326,7 +357,7 @@ export default function BuyerMyDisputes() {
                             onClick={() => handleViewDetails(dispute)}
                           >
                             <Eye className="w-4 h-4 mr-2" />
-                            Inspect Info
+                            View Info
                           </Button>
 
                           {/* View Chat button for active disputes */}
@@ -349,7 +380,7 @@ export default function BuyerMyDisputes() {
                               }}
                             >
                               <MessageSquare className="w-4 h-4 mr-2" />
-                              Launch Chat
+                              Chat
                             </Button>
                           )}
                         </div>
@@ -499,6 +530,19 @@ export default function BuyerMyDisputes() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Close Dispute Action */}
+                  {(selectedDispute.status === 'open' || selectedDispute.status === 'in_progress') && (
+                    <div className="pt-6 border-t border-white/5 flex justify-end">
+                      <Button
+                        onClick={() => handleCloseDispute(selectedDispute.id)}
+                        className="bg-green-500 hover:bg-green-600 text-white font-bold"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Mark as Resolved & Close
+                      </Button>
                     </div>
                   )}
                 </div>

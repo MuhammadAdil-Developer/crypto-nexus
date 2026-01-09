@@ -28,6 +28,7 @@ class DisputeCategory(models.TextChoices):
     VENDOR_NOT_RESPONSIVE = 'vendor_not_responsive', 'Vendor Not Responsive'
     PAYMENT_ISSUE = 'payment_issue', 'Payment Issue'
     DELIVERY_ISSUE = 'delivery_issue', 'Delivery Issue'
+    REFUND_ISSUE = 'refund_issue', 'Refund Issue'
     OTHER = 'other', 'Other'
 
 
@@ -48,6 +49,7 @@ class Dispute(models.Model):
     id = models.AutoField(primary_key=True)
     dispute_id = models.CharField(max_length=50, unique=True, blank=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='disputes')
+    refund_request = models.ForeignKey('payments.RefundRequest', on_delete=models.SET_NULL, null=True, blank=True, related_name='disputes_new')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='disputes')
     
     # Parties involved

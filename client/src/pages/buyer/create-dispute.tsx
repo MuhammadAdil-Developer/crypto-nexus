@@ -31,33 +31,37 @@ function CreateDisputeContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
+
   // Form data
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [priority, setPriority] = useState('medium');
-  
-  // Get order ID from URL params or location state
+
+  // Get order ID and refund ID from URL params or location state
   const orderId = new URLSearchParams(location.search).get('orderId') || location.state?.orderId;
-  
+  const refundId = new URLSearchParams(location.search).get('refund_id') || location.state?.refundId;
+
   useEffect(() => {
     if (orderId) {
       fetchOrderDetails();
+      if (refundId) {
+        fetchRefundDetails();
+      }
     } else {
       toast({
         title: "Error",
-        description: "No order ID provided",
+        description: "No order ID provided. Please access this page from an order or refund request.",
         variant: "destructive"
       });
       navigate('/buyer/orders');
     }
-  }, [orderId]);
-  
+  }, [orderId, refundId]);
+
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
@@ -72,13 +76,39 @@ function CreateDisputeContent() {
       });
       navigate('/buyer/orders');
     } finally {
+      // If we are also fetching refund details, don't set loading to false yet
+      if (!refundId) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchRefundDetails = async () => {
+    try {
+      const { refundService } = await import('@/services/refundService');
+      const response = await refundService.getBuyerRefundRequests(1, 100);
+      if (response.success && response.data) {
+        const refund = response.data.find((r: any) => r.id === refundId);
+        if (refund) {
+          setTitle(`Escalation: Order #${refund.order_id}`);
+          setCategory('refund_issue');
+          setDescription(
+            `Escalating rejected refund request.\n\n` +
+            `Original Refund Reason: ${refund.reason}\n\n` +
+            `Vendor Rejection Notes: ${refund.vendor_decision_notes || 'No notes provided'}`
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching refund details:', error);
+    } finally {
       setLoading(false);
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !description.trim() || !category) {
       toast({
         title: "Validation Error",
@@ -87,35 +117,37 @@ function CreateDisputeContent() {
       });
       return;
     }
-    
+
     setSubmitting(true);
-    
+
     try {
       console.log('🔍 Submitting dispute with data:', {
         order: order.id,
         title: title.trim(),
         description: description.trim(),
         category,
-        priority: priority as any
+        priority: priority as any,
+        refund_request: refundId
       });
-      
+
       const response = await disputeService.createDispute({
         order: order.id,
         title: title.trim(),
         description: description.trim(),
         category,
-        priority: priority as any
+        priority: priority as any,
+        refund_request: refundId || undefined
       });
-      
+
       console.log('🔍 Dispute creation response:', response);
-      
+
       if (response.success) {
         // Success case
         toast({
           title: 'Success',
           description: response.message || 'Your dispute has been created successfully. Admin will review it soon.',
         });
-        
+
         // Wait for toast to be visible before navigating
         setTimeout(() => {
           navigate('/buyer/orders');
@@ -123,21 +155,21 @@ function CreateDisputeContent() {
       } else {
         // Error case - response.success is false
         let errorDescription = response.message || 'Failed to create dispute';
-        
+
         // If there are specific field errors, extract them
         if (response.errors) {
           const errors: any = response.errors;
-          const firstError = 
+          const firstError =
             errors.order?.[0] ||
             errors.title?.[0] ||
             errors.description?.[0] ||
             errors.category?.[0] ||
             errors.priority?.[0] ||
             (typeof errors === 'string' ? errors : JSON.stringify(errors));
-          
+
           errorDescription = firstError;
         }
-        
+
         toast({
           title: 'Error',
           description: errorDescription,
@@ -147,7 +179,7 @@ function CreateDisputeContent() {
     } catch (error) {
       // This should rarely happen since disputeService catches errors
       console.error('❌ Unexpected error:', error);
-      
+
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
@@ -157,7 +189,7 @@ function CreateDisputeContent() {
       setSubmitting(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -168,7 +200,7 @@ function CreateDisputeContent() {
       </div>
     );
   }
-  
+
   if (!order) {
     return (
       <div className="text-center py-12">
@@ -181,10 +213,10 @@ function CreateDisputeContent() {
       </div>
     );
   }
-  
+
   const disputeCategories = disputeService.getDisputeCategories();
   const disputePriorities = disputeService.getDisputePriorities();
-  
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -203,7 +235,7 @@ function CreateDisputeContent() {
           <p className="text-gray-400">File a dispute for your order</p>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Order Information */}
         <div className="lg:col-span-1">
@@ -219,29 +251,29 @@ function CreateDisputeContent() {
                 <span className="text-gray-400">Order ID:</span>
                 <span className="text-white font-medium">#{order.id.slice(0, 8)}</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Product:</span>
                 <span className="text-white font-medium truncate ml-2">{order.product.headline}</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Vendor:</span>
                 <span className="text-white font-medium">{order.vendor.username}</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Amount:</span>
                 <span className="text-green-400 font-medium">{order.total_amount} BTC</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Status:</span>
                 <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
                   {order.order_status}
                 </Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Date:</span>
                 <span className="text-white font-medium">
@@ -250,7 +282,7 @@ function CreateDisputeContent() {
               </div>
             </CardContent>
           </Card>
-          
+
           {/* Dispute Guidelines */}
           <Card className="bg-gray-900 border-gray-700 mt-4">
             <CardHeader>
@@ -270,7 +302,7 @@ function CreateDisputeContent() {
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Dispute Form */}
         <div className="lg:col-span-2">
           <Card className="bg-gray-900 border-gray-700">
@@ -297,7 +329,7 @@ function CreateDisputeContent() {
                   />
                   <p className="text-xs text-gray-400 mt-1">{title.length}/200 characters</p>
                 </div>
-                
+
                 {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -316,7 +348,7 @@ function CreateDisputeContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -338,7 +370,7 @@ function CreateDisputeContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -354,7 +386,7 @@ function CreateDisputeContent() {
                   />
                   <p className="text-xs text-gray-400 mt-1">{description.length}/2000 characters</p>
                 </div>
-                
+
                 {/* Submit Buttons */}
                 <div className="flex space-x-4 pt-4">
                   <Button
@@ -374,7 +406,7 @@ function CreateDisputeContent() {
                       </>
                     )}
                   </Button>
-                  
+
                   <Button
                     type="button"
                     variant="outline"

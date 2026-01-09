@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import User
-from shared.utils import validate_btc_address, validate_xmr_address
+from shared.utils import validate_btc_address, validate_xmr_address, clean_crypto_address
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -109,13 +109,17 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'date_joined', 'user_type', 'is_verified']
 
     def validate_btc_payout_address(self, value):
-        if value and not validate_btc_address(value):
-            raise serializers.ValidationError("Invalid Bitcoin address format")
+        if value:
+            value = clean_crypto_address(value)
+            if not validate_btc_address(value):
+                raise serializers.ValidationError("Invalid Bitcoin address format")
         return value
 
     def validate_xmr_payout_address(self, value):
-        if value and not validate_xmr_address(value):
-            raise serializers.ValidationError("Invalid Monero address format")
+        if value:
+            value = clean_crypto_address(value)
+            if not validate_xmr_address(value):
+                raise serializers.ValidationError("Invalid Monero address format")
         return value
 
 
@@ -127,13 +131,17 @@ class PayoutAddressSerializer(serializers.ModelSerializer):
         fields = ['btc_payout_address', 'xmr_payout_address']
 
     def validate_btc_payout_address(self, value):
-        if value and not validate_btc_address(value):
-            raise serializers.ValidationError("Invalid Bitcoin address format")
+        if value:
+            value = clean_crypto_address(value)
+            if not validate_btc_address(value):
+                raise serializers.ValidationError("Invalid Bitcoin address format")
         return value
 
     def validate_xmr_payout_address(self, value):
-        if value and not validate_xmr_address(value):
-            raise serializers.ValidationError("Invalid Monero address format")
+        if value:
+            value = clean_crypto_address(value)
+            if not validate_xmr_address(value):
+                raise serializers.ValidationError("Invalid Monero address format")
         return value
 
 

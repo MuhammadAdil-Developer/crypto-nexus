@@ -12,7 +12,7 @@ class ProductCategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'description', 'icon', 'product_count']
 
     def get_product_count(self, obj):
-        return obj.products.filter(status='approved', is_active=True, is_deleted=False).count()
+        return obj.products.filter(status='approved', is_active=True, is_deleted=False, quantity_available__gt=0).count()
 
 
 class ProductSubCategorySerializer(serializers.ModelSerializer):
@@ -242,15 +242,33 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         else:
             vendor = requester
 
-        # Check if vendor has payout addresses configured
-        # This covers both the vendor creating for themselves and admin creating for a vendor
+        # Check if vendor has payout addresses configured for the coins being accepted
         if vendor and not self.instance:  # Only for new listings
-            # Only enforce for actual vendors
             is_vendor = getattr(vendor, 'user_type', None) == 'vendor'
             if is_vendor:
-                if not vendor.btc_payout_address or not vendor.xmr_payout_address:
+                # Determine what coins are accepted
+                import json
+                accepted_crypto = data.get('accepted_crypto', [])
+                if isinstance(accepted_crypto, str) and accepted_crypto:
+                    try:
+                        accepted_crypto = json.loads(accepted_crypto)
+                    except json.JSONDecodeError:
+                        accepted_crypto = [accepted_crypto]
+                
+                if not isinstance(accepted_crypto, list):
+                    accepted_crypto = [accepted_crypto]
+                
+                accepted_crypto = [str(c).upper() for c in accepted_crypto]
+                
+                missing = []
+                if 'BTC' in accepted_crypto and not vendor.btc_payout_address:
+                    missing.append("Bitcoin (BTC)")
+                if 'XMR' in accepted_crypto and not vendor.xmr_payout_address:
+                    missing.append("Monero (XMR)")
+                
+                if missing:
                     raise serializers.ValidationError({
-                        "payout_address": "The vendor must configure both Bitcoin (BTC) and Monero (XMR) payout addresses in settings before creating a listing. This is required for automatic payouts."
+                        "payout_address": f"You are accepting {', '.join(missing)} for this listing, but you haven't configured the payout address in your settings."
                     })
 
         # Client required fields validation - only for creation, not updates

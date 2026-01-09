@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import VendorApplication
 from django.utils import timezone
-from shared.utils import validate_btc_address, validate_xmr_address
+from shared.utils import validate_btc_address, validate_xmr_address, clean_crypto_address
 
 from django.contrib.auth import get_user_model
 
@@ -166,13 +166,17 @@ class VendorApplicationCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_btc_address(self, value):
-        if value and not validate_btc_address(value):
-            raise serializers.ValidationError("Invalid Bitcoin address format")
+        if value:
+            value = clean_crypto_address(value)
+            if not validate_btc_address(value):
+                raise serializers.ValidationError("Invalid Bitcoin address format")
         return value
 
     def validate_xmr_address(self, value):
-        if value and not validate_xmr_address(value):
-            raise serializers.ValidationError("Invalid Monero address format")
+        if value:
+            value = clean_crypto_address(value)
+            if not validate_xmr_address(value):
+                raise serializers.ValidationError("Invalid Monero address format")
         return value
     
     def create(self, validated_data):

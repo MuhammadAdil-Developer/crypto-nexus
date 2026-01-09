@@ -50,6 +50,11 @@ def create_dispute(request):
             
             # Create dispute (serializer.create handles setting buyer/vendor/product)
             dispute = serializer.save()
+
+            # Update associated refund request status if it exists
+            if dispute.refund_request:
+                dispute.refund_request.status = 'disputed'
+                dispute.refund_request.save()
             
             # Create timeline entry
             DisputeTimeline.objects.create(
@@ -375,6 +380,22 @@ def resolve_dispute(request, dispute_id):
         # Get order details
         order = dispute.order
         is_escrow_order = order.use_escrow if hasattr(order, 'use_escrow') else False
+        
+        # Check if escrow payment is confirmed before resolving
+        if is_escrow_order:
+            try:
+                from payments.models import PaymentAddress
+                payment_address = PaymentAddress.objects.get(order_id=order.order_id)
+                if hasattr(payment_address, 'escrow'):
+                    escrow_payment = payment_address.escrow
+                    # If escrow exists but is essentially unconfirmed/created
+                    if escrow_payment.status == 'created': 
+                        return Response({
+                            'success': False,
+                            'message': 'The payment for this order is pending blockchain confirmation. Please wait for the transaction to be confirmed before proceeding.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Error checking escrow status in resolve_dispute: {e}")
         
         # Update dispute
         dispute.resolution = resolution
@@ -742,5 +763,78 @@ def get_dispute_statistics(request):
         return Response({
             'success': False,
             'message': 'Failed to fetch dispute statistics',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def close_dispute(request, dispute_id):
+    """Allow buyer to manually close a dispute if resolved"""
+    try:
+        dispute = get_object_or_404(Dispute, id=dispute_id)
+        
+        # Only buyer can close their own dispute
+        if dispute.buyer != request.user:
+            return Response({
+                'success': False,
+                'message': 'Only the buyer can close this dispute'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Can only close open or in_progress disputes
+        if dispute.status not in ['open', 'in_progress']:
+            return Response({
+                'success': False,
+                'message': 'This dispute cannot be closed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Close the dispute
+        dispute.status = 'closed'
+        dispute.resolution = 'dispute_dismissed'
+        dispute.resolution_reason = 'Buyer manually closed the dispute (Issue Resolved)'
+        dispute.resolved_at = timezone.now()
+        dispute.save()
+        
+        # Create timeline entry
+        DisputeTimeline.objects.create(
+            dispute=dispute,
+            action='Dispute Closed',
+            description=f"Buyer {request.user.username} manually closed the dispute. Issue marked as resolved.",
+            user=request.user
+        )
+        
+        # Notify Vendor
+        from shared.admin_notifications import send_user_notification
+        send_user_notification(
+            user=dispute.vendor,
+            notification_type='dispute',
+            title='Dispute Closed by Buyer',
+            message=f"Dispute {dispute.dispute_id} has been closed by the buyer. The issue is resolved.",
+            data={'dispute_id': str(dispute.id), 'order_id': str(dispute.order.id)}
+        )
+        
+        # Notify Admin
+        try:
+            from shared.admin_notifications import send_admin_notification
+            send_admin_notification(
+                notification_type='dispute',
+                title='Dispute Closed by Buyer',
+                message=f"Dispute {dispute.dispute_id} closed by buyer {request.user.username}.",
+                data={'dispute_id': str(dispute.id)},
+                priority='medium'
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'success': True,
+            'message': 'Dispute closed successfully',
+            'data': DisputeSerializer(dispute).data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error closing dispute: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to close dispute',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

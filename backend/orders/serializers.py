@@ -193,9 +193,8 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         
         # Reserve product quantity
         product.quantity_available -= quantity
-        # Do NOT set status to 'reserved' so it stays visible in listings
-        # if product.quantity_available == 0:
-        #     product.status = 'reserved'
+        if product.quantity_available == 0:
+            product.status = 'reserved'
         product.save()
         
         # Create order

@@ -7,6 +7,20 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+def clean_crypto_address(address):
+    """Strip URI prefixes and query params from crypto addresses"""
+    if not address:
+        return address
+    
+    address = address.strip()
+    if address.lower().startswith('bitcoin:'):
+        address = address[8:].split('?')[0]
+    elif address.lower().startswith('monero:'):
+        address = address[7:].split('?')[0]
+    
+    return address
+
+
 def validate_btc_address(address):
     """
     Validate Bitcoin address format.
@@ -14,6 +28,8 @@ def validate_btc_address(address):
     """
     if not address:
         return True
+    
+    address = clean_crypto_address(address)
     
     # Legacy (1...) and P2SH (3...): 26-35 chars, base58 (no 0, O, I, l)
     legacy_p2sh_regex = r'^[13][1-9A-HJ-NP-Za-km-z]{25,34}$'
@@ -27,16 +43,21 @@ def validate_xmr_address(address):
     """
     Validate Monero address format.
     Supports Standard (4...), Integrated (4...), and Subaddress (8...).
+    Also supports Stagenet (5...) and Testnet (9...).
     """
     if not address:
         return True
     
-    # Simple check for Monero address structure
-    # Standard: 95 chars, starts with 4
-    # Integrated: 106 chars, starts with 4
-    # Subaddress: 95 chars, starts with 8
-    xmr_regex = r'^[48][1-9A-HJ-NP-Za-km-z]{94,105}$'
+    address = clean_crypto_address(address)
     
+    # Monero addresses are Base58 encoded
+    # Standard/Subaddress/Stagenet/Testnet: 95 characters
+    # Integrated: 106 characters
+    # Starting characters: 4 (Mainnet), 8 (Subaddress), 5 (Stagenet), 9 (Testnet)
+    # Using [a-zA-Z0-9] for more permissive validation while keeping start char and length
+    xmr_regex = r'^[4589][a-zA-Z0-9]{94,110}$'
+    
+    # Be slightly more permissive with length (95 to 110) to account for potential new formats
     return bool(re.match(xmr_regex, address))
 
 

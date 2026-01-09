@@ -178,8 +178,51 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
   };
 
   const handleNotificationClick = async (notification: any) => {
-    // Just show notification details, don't mark as read
-    // The notification will be marked as read when bell icon is clicked
+    setNotificationDropdownOpen(false);
+
+    // Determine route based on notification type
+    let targetUrl = '';
+    const data = notification.data || {};
+
+    switch (notification.type) {
+      case 'message':
+        targetUrl = '/vendor/messages';
+        break;
+      case 'order':
+      case 'order_update':
+        if (data.order_id) {
+          targetUrl = `/vendor/orders/${data.order_id}`;
+        } else {
+          targetUrl = '/vendor/orders';
+        }
+        break;
+      case 'dispute':
+      case 'dispute_message':
+      case 'dispute_resolved':
+        if (data.dispute_id) {
+          targetUrl = `/vendor/disputes/${data.dispute_id}`;
+        } else {
+          targetUrl = '/vendor/disputes';
+        }
+        break;
+      case 'review':
+        targetUrl = '/vendor/reviews';
+        break;
+      case 'listing_approval':
+      case 'listing_rejection':
+        if (data.product_id) {
+          targetUrl = `/vendor/listings/${data.product_id}`;
+        } else {
+          targetUrl = '/vendor/listings';
+        }
+        break;
+      default:
+        targetUrl = '/vendor/notifications';
+    }
+
+    if (targetUrl) {
+      navigate(getLinkUrl(targetUrl));
+    }
   };
 
   // Auto-refresh notifications every 2 seconds (like admin header)
@@ -736,12 +779,12 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                   <>
                     <div className="divide-y divide-gray-800/50">
                       {sortedNotifications.slice(0, visibleCount).map((n: any) => (
-                        <div
+                        <DropdownMenuItem
                           key={n.id}
-                          className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors"
+                          className="px-4 py-3 hover:bg-gray-800/50 cursor-pointer border-b border-gray-800/50 transition-colors focus:bg-gray-800/50"
                           onClick={() => handleNotificationClick(n)}
                         >
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-start gap-3 w-full">
                             <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${n.unread
                               ? n.type === 'review'
                                 ? 'bg-theme-cyan'
@@ -763,11 +806,11 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                                   <Shield className="w-3 h-3 text-red-500 flex-shrink-0" />
                                 )}
                               </div>
-                              <p className="text-sm text-gray-400 line-clamp-2">{n.message}</p>
+                              <p className="text-sm text-gray-400 line-clamp-2 white-space-normal">{n.message}</p>
                               <p className="text-[10px] text-gray-500 mt-1">{n.time}</p>
                             </div>
                           </div>
-                        </div>
+                        </DropdownMenuItem>
                       ))}
 
                       {/* Sentinel for infinite scroll */}
@@ -779,17 +822,17 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
                     </div>
 
                     <div className="p-3 border-t border-gray-700 bg-gray-900 sticky bottom-0 z-20">
-                      <div
-                        className="w-full py-2.5 px-4 rounded-xl border border-theme-cyan/20 flex items-center justify-center cursor-pointer hover:bg-theme-cyan/10 hover:border-theme-cyan/50 transition-all duration-300 group"
-                        onClick={() => {
-                          handleNotificationDropdownOpen(false);
+                      <DropdownMenuItem
+                        className="w-full py-2.5 px-4 rounded-xl border border-theme-cyan/20 flex items-center justify-center cursor-pointer hover:bg-theme-cyan/10 hover:border-theme-cyan/50 focus:bg-theme-cyan/10 focus:border-theme-cyan/50 transition-all duration-300 group p-0"
+                        onSelect={() => {
+                          setNotificationDropdownOpen(false);
                           navigate(getLinkUrl('/vendor/notifications'));
                         }}
                       >
                         <span className="text-xs font-bold text-[#4df8ff] drop-shadow-[0_0_8px_rgba(77,248,255,0.3)]">
                           View All Notifications ({allNotifications.length})
                         </span>
-                      </div>
+                      </DropdownMenuItem>
                     </div>
                   </>
                 )}

@@ -218,7 +218,7 @@ export default function ForgotPassword() {
         onVerify={handleCaptchaVerify}
         siteKey="recovery-captcha"
         title="Security Verification"
-        instruction="find and click inside the open circle (the circle with a gap or opening) to verify you are human."
+        instruction="Please click on the highlighted circle to verify you are human."
       />
     </div>
   );

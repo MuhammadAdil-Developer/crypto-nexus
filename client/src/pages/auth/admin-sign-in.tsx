@@ -624,7 +624,7 @@ export default function AdminSignIn() {
         onError={handleCaptchaError}
         siteKey="admin-login-captcha"
         title="Security prompt"
-        instruction="find and click inside the open circle (the circle with a gap or opening) to verify you are human."
+        instruction="Please click on the highlighted circle to verify you are human."
       />
     </div>
   );

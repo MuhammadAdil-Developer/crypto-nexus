@@ -294,11 +294,20 @@ export default function VendorAddProduct() {
       return;
     }
 
-    // Check if vendor has required wallet addresses set (Requirement: BOTH must be set)
-    if (!btcAddressSet || !xmrAddressSet) {
+    // Check if vendor has required wallet addresses for the selected crypto
+    const acceptsBTC = formData.accepted_crypto.includes('BTC');
+    const acceptsXMR = formData.accepted_crypto.includes('XMR');
+    const missingBTC = acceptsBTC && !btcAddressSet;
+    const missingXMR = acceptsXMR && !xmrAddressSet;
+
+    if (missingBTC || missingXMR) {
+      const missingTypes = [];
+      if (missingBTC) missingTypes.push("Bitcoin (BTC)");
+      if (missingXMR) missingTypes.push("Monero (XMR)");
+
       toast({
-        title: "Validation Required",
-        description: "You must configure both Bitcoin (BTC) and Monero (XMR) payout addresses in your Settings before creating a listing.",
+        title: "Payout Address Required",
+        description: `You are accepting ${missingTypes.join(' and ')} for this listing, but you haven't configured the payout address in your Settings.`,
         variant: "destructive",
       });
       return;

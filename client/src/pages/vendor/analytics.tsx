@@ -16,6 +16,7 @@ export default function VendorAnalytics() {
   const [metrics, setMetrics] = useState({
     totalRevenueBTC: 0,
     totalRevenueXMR: 0,
+    totalRevenueUSD: 0,
     totalSales: 0,
     uniqueBuyers: 0,
     storeViews: 0,
@@ -28,7 +29,7 @@ export default function VendorAnalytics() {
   const [salesData, setSalesData] = useState<Array<{ month: string; btc: number; xmr: number; usd: number }>>([]);
   const [topProducts, setTopProducts] = useState<Array<{ name: string; sales: number; revenue: string; growth: number }>>([]);
   const [revenueBreakdown, setRevenueBreakdown] = useState<Array<{ source: string; amount: string; percentage: number; color: string }>>([]);
-  const [paymentPerf, setPaymentPerf] = useState({ avgBtc: 0, avgXmr: 0, popular: { name: "-", percent: 0 } });
+  const [paymentPerf, setPaymentPerf] = useState({ avgBtc: 0, avgXmr: 0, avgUsd: 0, popular: { name: "-", percent: 0 } });
 
   useEffect(() => {
     const load = async () => {
@@ -99,22 +100,38 @@ export default function VendorAnalytics() {
         const uniqueBuyerIds = new Set<string>();
         let totalRevenueBTC = 0;
         let totalRevenueXMR = 0;
+        let totalRevenueUSD = 0;
+
+        const validRevenueStatuses = ['paid', 'completed', 'delivered', 'confirmed', 'shipped', 'processing'];
 
         filteredOrders.forEach((order: any) => {
-          // Count unique buyers (support both raw and transformed shapes)
+          // Count unique buyers
           const buyerId = order?.buyer?.id || order?.buyer_details?.id;
           if (buyerId) {
             uniqueBuyerIds.add(String(buyerId));
           }
 
-          // Calculate revenue
-          const amount = parseFloat(order.total_amount || "0");
-          const currency = (order.crypto_currency || "").toUpperCase();
+          // Calculate revenue only for successful/paid orders
+          const orderStatus = (order.order_status || "").toLowerCase();
 
-          if (currency === "BTC" && !isNaN(amount)) {
-            totalRevenueBTC += amount;
-          } else if (currency === "XMR" && !isNaN(amount)) {
-            totalRevenueXMR += amount;
+          if (validRevenueStatuses.includes(orderStatus)) {
+            // Crypto Revenue
+            const amount = parseFloat(order.total_amount || "0");
+            const currency = (order.crypto_currency || "").toUpperCase();
+
+            if (currency === "BTC" && !isNaN(amount)) {
+              totalRevenueBTC += amount;
+            } else if (currency === "XMR" && !isNaN(amount)) {
+              totalRevenueXMR += amount;
+            }
+
+            // USD Revenue - Use product price if available (this is the most accurate USD revenue)
+            const productPrice = parseFloat(order.product?.price || order.listing?.price || 0);
+            const quantity = parseInt(order.quantity || 1);
+
+            if (!isNaN(productPrice)) {
+              totalRevenueUSD += (productPrice * quantity);
+            }
           }
         });
 
@@ -129,10 +146,17 @@ export default function VendorAnalytics() {
           return total;
         };
 
-        const currentRevenueBTC = calculateRevenue(filteredOrders, "BTC");
-        const currentRevenueXMR = calculateRevenue(filteredOrders, "XMR");
-        const prevRevenueBTC = calculateRevenue(previousOrders, "BTC");
-        const prevRevenueXMR = calculateRevenue(previousOrders, "XMR");
+        const currentRevenueBTC = calculateRevenue(filteredOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase())), "BTC");
+        const currentRevenueXMR = calculateRevenue(filteredOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase())), "XMR");
+        const prevRevenueBTC = calculateRevenue(previousOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase())), "BTC");
+        const prevRevenueXMR = calculateRevenue(previousOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase())), "XMR");
+
+        const currentRevenueUSD = filteredOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase()))
+          .reduce((sum, o) => sum + (parseFloat(o.product?.price || o.listing?.price || 0) * parseInt(o.quantity || 1)), 0);
+
+        const prevRevenueUSD = previousOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase()))
+          .reduce((sum, o) => sum + (parseFloat(o.product?.price || o.listing?.price || 0) * parseInt(o.quantity || 1)), 0);
+
         const prevSales = previousOrders.length;
         const currentSales = filteredOrders.length;
 
@@ -145,7 +169,7 @@ export default function VendorAnalytics() {
           return ((current - previous) / previous) * 100;
         };
 
-        const revenueTrend = calculateTrend(currentRevenueBTC + currentRevenueXMR, prevRevenueBTC + prevRevenueXMR);
+        const revenueTrend = calculateTrend(currentRevenueUSD, prevRevenueUSD);
         const salesTrend = calculateTrend(currentSales, prevSales);
 
         // For views, handle potential nesting issues and calculate trend
@@ -162,6 +186,7 @@ export default function VendorAnalytics() {
         const calculatedMetrics = {
           totalRevenueBTC: currentRevenueBTC,
           totalRevenueXMR: currentRevenueXMR,
+          totalRevenueUSD: currentRevenueUSD,
           totalSales: currentSales,
           uniqueBuyers: uniqueBuyerIds.size,
           storeViews: totalViews,
@@ -221,9 +246,12 @@ export default function VendorAnalytics() {
         console.log("Sales data:", monthBuckets);
 
         // Calculate top products from orders
-        const productMap: Record<string, { name: string; sales: number; revenue: number }> = {};
+        const productMap: Record<string, { name: string; sales: number; revenueUSD: number; btc: number; xmr: number }> = {};
 
         filteredOrders.forEach((order: any) => {
+          const orderStatus = (order.order_status || "").toLowerCase();
+          if (!validRevenueStatuses.includes(orderStatus)) return;
+
           const productId = order.product?.id || order.listing?.id;
           const productName = order.product?.headline ||
             order.product?.listing_title ||
@@ -236,22 +264,24 @@ export default function VendorAnalytics() {
           const key = String(productId);
 
           if (!productMap[key]) {
-            productMap[key] = { name: productName, sales: 0, revenue: 0 };
+            productMap[key] = { name: productName, sales: 0, revenueUSD: 0, btc: 0, xmr: 0 };
           }
 
           productMap[key].sales += 1;
 
-          // Add revenue
-          const amount = parseFloat(order.total_amount || "0");
+          // Add USD revenue
+          const productPrice = parseFloat(order.product?.price || order.listing?.price || 0);
+          const quantity = parseInt(order.quantity || 1);
+          if (!isNaN(productPrice)) {
+            productMap[key].revenueUSD += (productPrice * quantity);
+          }
+
+          // Add crypto revenue
+          const cryptoAmount = parseFloat(order.total_amount || "0");
           const currency = (order.crypto_currency || "").toUpperCase();
-
-          if (!isNaN(amount)) {
-            // Internal revenue tracking for sorting (simplified)
-            productMap[key].revenue += amount;
-
-            // Storage for currency-specific display if needed
-            if (!(productMap[key] as any).currencies) (productMap[key] as any).currencies = {};
-            (productMap[key] as any).currencies[currency] = ((productMap[key] as any).currencies[currency] || 0) + amount;
+          if (!isNaN(cryptoAmount)) {
+            if (currency === "BTC") productMap[key].btc += cryptoAmount;
+            else if (currency === "XMR") productMap[key].xmr += cryptoAmount;
           }
         });
 
@@ -259,15 +289,11 @@ export default function VendorAnalytics() {
           .sort((a, b) => b.sales - a.sales)
           .slice(0, 5)
           .map(p => {
-            const currencies = (p as any).currencies || {};
-            const revenueDisplay = Object.entries(currencies)
-              .map(([curr, amt]) => `${Number(amt).toFixed(4)} ${curr}`)
-              .join(" / ") || "0.0000 BTC";
-
             return {
               name: p.name,
               sales: p.sales,
-              revenue: revenueDisplay,
+              revenue: `$${p.revenueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              cryptoRevenue: `${p.btc > 0 ? p.btc.toFixed(5) + ' BTC' : ''}${p.btc > 0 && p.xmr > 0 ? ' / ' : ''}${p.xmr > 0 ? p.xmr.toFixed(4) + ' XMR' : ''}`,
               growth: 0
             };
           });
@@ -275,11 +301,15 @@ export default function VendorAnalytics() {
         setTopProducts(topProductsList);
         console.log("Top products:", topProductsList);
 
-        // Calculate payment performance
-        const btcOrders = filteredOrders.filter((o: any) =>
+        // Calculate payment performance - only for successful orders
+        const successfulOrders = filteredOrders.filter((o: any) =>
+          validRevenueStatuses.includes((o.order_status || "").toLowerCase())
+        );
+
+        const btcOrders = successfulOrders.filter((o: any) =>
           (o.crypto_currency || "").toUpperCase() === "BTC"
         );
-        const xmrOrders = filteredOrders.filter((o: any) =>
+        const xmrOrders = successfulOrders.filter((o: any) =>
           (o.crypto_currency || "").toUpperCase() === "XMR"
         );
 
@@ -292,8 +322,19 @@ export default function VendorAnalytics() {
           return total / orders.length;
         };
 
+        const calculateAverageUSD = (orders: any[]) => {
+          if (orders.length === 0) return 0;
+          const total = orders.reduce((sum, order) => {
+            const price = parseFloat(order.product?.price || order.listing?.price || 0);
+            const qty = parseInt(order.quantity || 1);
+            return sum + (price * qty);
+          }, 0);
+          return total / orders.length;
+        };
+
         const avgBtc = calculateAverage(btcOrders);
         const avgXmr = calculateAverage(xmrOrders);
+        const avgUsd = calculateAverageUSD(successfulOrders);
 
         // Calculate most popular payment method
         const paymentCounts: Record<string, number> = {};
@@ -311,6 +352,7 @@ export default function VendorAnalytics() {
         setPaymentPerf({
           avgBtc,
           avgXmr,
+          avgUsd,
           popular: {
             name: popularCurrency || "-",
             percent: totalOrders > 0 ? Math.round((popularCount / totalOrders) * 100) : 0
@@ -423,12 +465,21 @@ export default function VendorAnalytics() {
               {loading ? (
                 <SkeletonBlock className="h-8 w-24 mt-1" />
               ) : (
-                <>
-                  <h3 className="text-2xl sm:text-3xl font-black text-white">{metrics.totalRevenueBTC.toFixed(4)} <span className="text-sm text-gray-500 font-normal">BTC</span></h3>
-                  {metrics.totalRevenueXMR > 0 && (
-                    <p className="text-sm font-bold text-theme-cyan">{metrics.totalRevenueXMR.toFixed(4)} XMR</p>
-                  )}
-                </>
+                <div className="space-y-1">
+                  <h3 className="text-2xl sm:text-3xl font-black text-white">
+                    ${metrics.totalRevenueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </h3>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <p className="text-xs font-bold text-gray-400">
+                      {metrics.totalRevenueBTC.toFixed(5)} <span className="text-[10px] font-normal uppercase opacity-60">BTC</span>
+                    </p>
+                    {metrics.totalRevenueXMR > 0 && (
+                      <p className="text-xs font-bold text-theme-cyan">
+                        {metrics.totalRevenueXMR.toFixed(4)} <span className="text-[10px] font-normal uppercase opacity-60">XMR</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
             {!loading && (
@@ -624,11 +675,15 @@ export default function VendorAnalytics() {
                   <div className="bg-gray-900/50 rounded-xl p-4 space-y-3 border border-gray-800">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Avg. BTC Order</span>
-                      <span className="font-mono text-cyan-400">{paymentPerf.avgBtc.toFixed(4)} BTC</span>
+                      <span className="font-mono text-cyan-400">{paymentPerf.avgBtc.toFixed(5)} BTC</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Avg. XMR Order</span>
                       <span className="font-mono text-pink-400">{paymentPerf.avgXmr.toFixed(4)} XMR</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Avg. Order (USD)</span>
+                      <span className="font-mono text-green-400 font-bold">${paymentPerf.avgUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-800">
                       <span className="text-gray-400">Most Popular</span>
@@ -687,7 +742,10 @@ export default function VendorAnalytics() {
 
                   <div className="flex items-center justify-between sm:justify-end sm:space-x-8 pl-14 sm:pl-0">
                     <div className="text-left sm:text-right">
-                      <div className="font-mono font-bold text-cyan-400 text-sm sm:text-base">{product.revenue}</div>
+                      <div className="font-mono font-bold text-cyan-400 text-sm sm:text-base">{(product as any).revenue}</div>
+                      {(product as any).cryptoRevenue && (
+                        <div className="text-[10px] text-gray-400 font-medium">{(product as any).cryptoRevenue}</div>
+                      )}
                       <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Revenue</div>
                     </div>
                   </div>

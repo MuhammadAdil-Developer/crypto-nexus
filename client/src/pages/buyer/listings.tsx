@@ -302,7 +302,8 @@ function BuyerListingsContent() {
       );
     }
 
-    // DO NOT filter by quantity_available - show all products even if out of stock
+    // Filter by quantity_available - hide out of stock products as requested
+    filtered = filtered.filter(product => (product.quantity_available || 0) > 0);
 
     // Apply client-side sorting only if user explicitly selected a sort option.
     // Default 'server' preserves the order returned by the API (personalized ordering).

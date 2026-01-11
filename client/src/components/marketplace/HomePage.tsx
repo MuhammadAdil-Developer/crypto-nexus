@@ -193,7 +193,7 @@ export function HomePage() {
                   <div className="relative group">
                     <Input
                       type="text"
-                      placeholder={isLoading ? "Search for Accounts..." : (featuredCategories.length > 0 ? `Search ${featuredCategories.map(c => c.title).slice(0, 3).join(', ')}...` : "Search Netflix, Spotify, Gaming...")}
+                      placeholder={isLoading ? "Search for Accounts..." : (featuredCategories.length > 0 ? `Search ${featuredCategories.map(c => c.title).slice(0, 3).join(', ')}...` : "Search for Accounts...")}
                       className="pl-4 sm:pl-6 pr-16 sm:pr-20 py-4 sm:py-5 lg:py-6 rounded-2xl sm:rounded-3xl bg-white/5 backdrop-blur-md border-2 border-theme-cyan/30 text-text placeholder-muted focus:ring-4 focus:ring-theme-cyan/10 focus:border-theme-cyan text-sm sm:text-base lg:text-xl shadow-2xl transition-all duration-300 group-hover:border-theme-cyan/50"
                       data-testid="hero-search-input"
                       value={searchQuery}

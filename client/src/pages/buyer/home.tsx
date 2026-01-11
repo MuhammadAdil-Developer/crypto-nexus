@@ -143,6 +143,7 @@ function BuyerHomeContent() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [topVendorsData, setTopVendorsData] = useState<any[]>([]);
+  const [currentVendorSlide, setCurrentVendorSlide] = useState(0);
   const [categoriesData, setCategoriesData] = useState<any[]>([]);
   const [currentCategorySlide, setCurrentCategorySlide] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -369,8 +370,10 @@ function BuyerHomeContent() {
         });
 
         if (response.success && response.data) {
-          setTrendingProducts(response.data);
-          setCachedData(CACHE_KEYS.TRENDING_PRODUCTS, response.data);
+          // Only show active products with stock
+          const activeProducts = response.data.filter((p: any) => p.is_active && (p.quantity_available ?? 0) > 0);
+          setTrendingProducts(activeProducts);
+          setCachedData(CACHE_KEYS.TRENDING_PRODUCTS, activeProducts);
         } else {
           console.error("API returned success: false");
           setTrendingProducts([]);
@@ -386,6 +389,14 @@ function BuyerHomeContent() {
     fetchTrendingProducts();
   }, [trendingProductsFetched]);
 
+  // Hourly refresh for trending products
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTrendingProductsFetched(false);
+    }, 3600000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch approved vendors for Top Vendors section with actual statistics
   useEffect(() => {
     const loadTopVendors = async () => {
@@ -394,8 +405,8 @@ function BuyerHomeContent() {
         const headers: any = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        // Fetch approved vendors
-        const res = await fetch(`${API_BASE_URL}/vendors/approved/?limit=4`, { headers });
+        // Fetch approved vendors - Increased limit to allow sliding
+        const res = await fetch(`${API_BASE_URL}/vendors/approved/?limit=12`, { headers });
 
         if (res.ok) {
           const data = await res.json();
@@ -1697,11 +1708,29 @@ function BuyerHomeContent() {
                             size="sm"
                             className="border-gray-600 hover:border-gray-500"
                             onClick={() => {
-                              // Navigate to messages page and auto-open vendor chat
+                              // Navigate to messages page and auto-open vendor chat with product context
                               const vendorUsername = typeof order.vendor === 'string'
                                 ? order.vendor
                                 : order.vendor?.username || '';
-                              if (vendorUsername) {
+
+                              // Robust ID extraction
+                              const vendorId = (typeof order.vendor === 'object' ? order.vendor?.id : null) || order.vendor_id;
+                              const productId = order.product?.id || order.product_id || (order.product as any);
+                              const orderId = order.order_id || order.id;
+
+                              if (vendorUsername && productId && vendorId) {
+                                console.log('📨 Navigating to chat with:', { vendorUsername, vendorId, productId, orderId });
+                                navigate(`/buyer/messages`, {
+                                  state: {
+                                    autoOpenRecipientUsername: vendorUsername,
+                                    autoOpenRecipientId: vendorId,
+                                    autoOpenProductId: productId,
+                                    autoOpenOrderId: orderId,
+                                    autoOpenChat: true
+                                  }
+                                });
+                              } else if (vendorUsername) {
+                                // Fallback for simple vendor chat
                                 navigate(`/buyer/messages`, {
                                   state: {
                                     openVendorChat: vendorUsername,
@@ -1821,57 +1850,87 @@ function BuyerHomeContent() {
 
           {/* Top Vendors Section - Exactly like Image */}
           <section>
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide" style={{ color: '#AD0539' }}>
-                TOP VENDORS
-              </h2>
-              {/* <Link to="/vendors">
-                <Button variant="ghost" className="w-full sm:w-auto text-theme-cyan hover:text-pink-400">
-                  View All <ChevronRight className="w-4 h-4 ml-1 text-theme-cyan" />
-                </Button>
-              </Link> */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6 ml-5">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-wide" style={{ color: '#AD0539' }}>
+                  TOP VENDORS
+                </h2>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400"
+                    onClick={() => {
+                      const allVendors = topVendorsData.length > 0 ? topVendorsData : topVendors;
+                      const maxSlides = Math.ceil(allVendors.length / 4);
+                      setCurrentVendorSlide((prev) => (prev <= 0 ? maxSlides - 1 : prev - 1));
+                    }}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400"
+                    onClick={() => {
+                      const allVendors = topVendorsData.length > 0 ? topVendorsData : topVendors;
+                      const maxSlides = Math.ceil(allVendors.length / 4);
+                      setCurrentVendorSlide((prev) => (prev + 1 >= maxSlides ? 0 : prev + 1));
+                    }}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {(topVendorsData.length ? topVendorsData : topVendors).map((vendor) => (
-                <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
-                  <CardContent className="p-6 text-center">
-                    <div className="relative mb-4">
-                      <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{vendor.avatar}</span>
-                      </div>
-                      {vendor.verified && (
-                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                          <Verified className="w-3 h-3 text-white" />
+              {(() => {
+                const allVendors = topVendorsData.length > 0 ? topVendorsData : topVendors;
+                const startIndex = currentVendorSlide * 4;
+                const endIndex = startIndex + 4;
+                const visibleVendors = allVendors.slice(startIndex, endIndex);
+
+                return visibleVendors.map((vendor) => (
+                  <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
+                    <CardContent className="p-6 text-center">
+                      <div className="relative mb-4">
+                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">{vendor.avatar}</span>
                         </div>
-                      )}
-                    </div>
-                    <h3 className="font-semibold mb-2" style={{ color: '#AD0539' }}>{vendor.name}</h3>
-                    <p className="text-xs text-gray-400 mb-3">{vendor.specialization}</p>
-                    <div className="flex items-center justify-center space-x-1 mb-3">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-white">{vendor.rating.toFixed(1)}</span>
-                    </div>
-                    <div className="flex items-center justify-center space-x-2 mb-4">
-                      <Clock className="w-3 h-3 text-green-400" />
-                      <span className="text-xs text-green-400">{vendor.responseTime || '< 2 hours'}</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-gray-600"
-                      onClick={() => {
-                        const username = (vendor as any).vendor_username || (vendor.name || '').toLowerCase().replace(/\s+/g, '_');
-                        if (username) {
-                          window.location.href = `/vendor/public/${username}`;
-                        }
-                      }}
-                    >
-                      <Eye className="w-3 h-3 mr-2" />
-                      View Store
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                        {vendor.verified && (
+                          <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                            <Verified className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-semibold mb-2" style={{ color: '#AD0539' }}>{vendor.name}</h3>
+                      <p className="text-xs text-gray-400 mb-3">{vendor.specialization}</p>
+                      <div className="flex items-center justify-center space-x-1 mb-3">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <span className="text-sm text-white">{vendor.rating.toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center justify-center space-x-2 mb-4">
+                        <Clock className="w-3 h-3 text-green-400" />
+                        <span className="text-xs text-green-400">{vendor.responseTime || '< 2 hours'}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-gray-600"
+                        onClick={() => {
+                          const username = (vendor as any).vendor_username || (vendor.name || '').toLowerCase().replace(/\s+/g, '_');
+                          if (username) {
+                            window.location.href = `/vendor/public/${username}`;
+                          }
+                        }}
+                      >
+                        <Eye className="w-3 h-3 mr-2" />
+                        View Store
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ));
+              })()}
             </div>
           </section>
 

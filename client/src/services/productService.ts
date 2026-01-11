@@ -222,6 +222,14 @@ class ProductService {
     });
   }
 
+  // Bulk delete products
+  async bulkDeleteProducts(productIds: number[]): Promise<{ success: boolean; message: string; count: number }> {
+    return this.makeRequest<{ success: boolean; message: string; count: number }>('/bulk-delete/', {
+      method: 'POST',
+      body: { product_ids: productIds },
+    });
+  }
+
   // Get categories
   async getCategories(): Promise<{
     success: boolean;

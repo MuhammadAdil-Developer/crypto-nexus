@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import disputeService, { Dispute } from "@/services/disputeService";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { PageBanner } from "@/components/PageBanner";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export default function BuyerMyDisputes() {
   const { toast } = useToast();
@@ -26,9 +26,28 @@ export default function BuyerMyDisputes() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
 
+  const location = useLocation();
+
   useEffect(() => {
     fetchMyDisputes();
   }, [page, statusFilter]);
+
+  // Auto-open dispute details if openDisputeId is provided in navigation state
+  useEffect(() => {
+    const navState = location.state as any;
+    if (navState?.openDisputeId && disputes.length > 0) {
+      const disputeToOpen = disputes.find(d =>
+        d.id.toString() === navState.openDisputeId.toString() ||
+        d.dispute_id?.toString() === navState.openDisputeId.toString()
+      );
+
+      if (disputeToOpen) {
+        handleViewDetails(disputeToOpen);
+        // Clear state to prevent re-opening on refresh
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, disputes]);
 
   const fetchMyDisputes = async () => {
     try {

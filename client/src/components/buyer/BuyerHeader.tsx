@@ -143,13 +143,56 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
   };
 
   const handleNotificationClick = async (notification: any) => {
+    setNotificationDropdownOpen(false);
+
     // Navigate based on notification type
-    if (notification.type === 'vendor_invitation' && notification.actionUrl) {
-      navigate(notification.actionUrl);
-    } else if (notification.type === 'review') {
-      // Navigate to orders page or open review modal
-      console.log('🔍 Review notification clicked:', notification);
-      // You can add navigation logic here
+    let targetUrl = '';
+
+    switch (notification.type) {
+      case 'message':
+      case 'product_message':
+        targetUrl = '/buyer/messages';
+        break;
+      case 'order':
+      case 'order_update':
+      case 'payment_confirmation':
+      case 'refund':
+        targetUrl = '/buyer/orders';
+        break;
+      case 'dispute':
+      case 'dispute_message':
+      case 'dispute_resolved':
+        targetUrl = '/buyer/my-disputes';
+        break;
+      case 'review':
+        targetUrl = '/buyer/orders';
+        break;
+      case 'vendor_invitation':
+        if (notification.actionUrl) {
+          targetUrl = notification.actionUrl;
+        } else {
+          targetUrl = '/buyer/notifications';
+        }
+        break;
+      case 'security':
+        targetUrl = '/buyer/settings';
+        break;
+      case 'ticket':
+      case 'ticket_response':
+        targetUrl = '/buyer/support';
+        break;
+      default:
+        targetUrl = '/buyer/notifications';
+    }
+
+    if (targetUrl) {
+      if (notification.type === 'order' || notification.type === 'order_update' || notification.type === 'payment_confirmation' || notification.type === 'refund') {
+        navigate(targetUrl, { state: { openOrderId: notification.orderId } });
+      } else if (notification.type === 'dispute' || notification.type === 'dispute_message' || notification.type === 'dispute_resolved') {
+        navigate(targetUrl, { state: { openDisputeId: notification.disputeId } });
+      } else {
+        navigate(targetUrl);
+      }
     }
   };
 

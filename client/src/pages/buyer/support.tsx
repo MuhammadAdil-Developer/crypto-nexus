@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { HelpCircle, MessageSquare, FileText, Phone, Mail, ChevronDown, Search, Loader2, MoreVertical, Plus, X, Play, BookOpen, Users } from "lucide-react";
+import { HelpCircle, MessageSquare, FileText, Phone, Mail, ChevronDown, Search, Loader2, MoreVertical, Plus, X, Play, BookOpen, Users, Shield, Zap, ExternalLink, Lock, ChevronRight } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import ticketService from "@/services/ticketService";
+import contentService from "@/services/contentService";
 import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
 import { PageBanner } from "@/components/PageBanner";
 
@@ -85,10 +96,21 @@ export default function BuyerSupport() {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
 
+  // Close ticket confirmation dialog state
+  const [closeTicketDialogOpen, setCloseTicketDialogOpen] = useState(false);
+  const [ticketToClose, setTicketToClose] = useState<any>(null);
+  const [isClosingTicket, setIsClosingTicket] = useState(false);
+
   // Modal states for support resources
   const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isForumModalOpen, setIsForumModalOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [dynamicResources, setDynamicResources] = useState<any[]>([]);
+  const [forumCategories, setForumCategories] = useState<any[]>([]);
+  const [forumPosts, setForumPosts] = useState<any[]>([]);
+  const [isResourcesLoading, setIsResourcesLoading] = useState(true);
+  const [isModerationModalOpen, setIsModerationModalOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const filteredFAQ = faqData.filter(item =>
     item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,7 +120,34 @@ export default function BuyerSupport() {
   useEffect(() => {
     fetchTickets();
     fetchStatistics();
+    fetchDynamicContent();
   }, []);
+
+  const fetchDynamicContent = async () => {
+    setIsResourcesLoading(true);
+    const [resResult, catResult, postResult] = await Promise.all([
+      contentService.getResources(),
+      contentService.getCategories(),
+      contentService.getPosts()
+    ]);
+
+    if (resResult.success) {
+      const data = resResult.data;
+      setDynamicResources(Array.isArray(data) ? data : (data.results || []));
+    }
+
+    if (catResult.success) {
+      const data = catResult.data;
+      setForumCategories(Array.isArray(data) ? data : (data.results || []));
+    }
+
+    if (postResult.success) {
+      const data = postResult.data;
+      setForumPosts(Array.isArray(data) ? data : (data.results || []));
+    }
+
+    setIsResourcesLoading(false);
+  };
 
   const fetchTickets = async () => {
     try {
@@ -228,6 +277,41 @@ export default function BuyerSupport() {
 
   const getPriorityDisplay = (priority: string) => {
     return priority.charAt(0).toUpperCase() + priority.slice(1);
+  };
+
+  const handleCloseTicket = async () => {
+    if (!ticketToClose) return;
+
+    try {
+      setIsClosingTicket(true);
+      const response = await ticketService.closeTicket(ticketToClose.id);
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket closed successfully"
+        });
+        await fetchTickets();
+        await fetchStatistics();
+        setCloseTicketDialogOpen(false);
+        setTicketToClose(null);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to close ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error closing ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to close ticket",
+        variant: "destructive"
+      });
+    } finally {
+      setIsClosingTicket(false);
+    }
   };
 
   return (
@@ -452,7 +536,20 @@ export default function BuyerSupport() {
                   </SelectContent>
                 </Select>
                 <Button
-                  onClick={() => setIsCreatingTicket(true)}
+                  onClick={() => {
+                    // Scroll to ticket form section
+                    const ticketFormSection = document.getElementById('ticket-form-section');
+                    if (ticketFormSection) {
+                      ticketFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      // Focus on first input field after scroll
+                      setTimeout(() => {
+                        const subjectInput = document.getElementById('subject');
+                        if (subjectInput) {
+                          subjectInput.focus();
+                        }
+                      }, 500);
+                    }
+                  }}
                   size="sm"
                   className="bg-theme-cyan hover:bg-theme-cyan/90 text-black w-full sm:w-auto"
                 >
@@ -531,6 +628,18 @@ export default function BuyerSupport() {
                             <MessageSquare className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          {ticket.status !== 'closed' && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTicketToClose(ticket);
+                                setCloseTicketDialogOpen(true);
+                              }}
+                              className="text-theme-red"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Close Ticket
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -542,51 +651,69 @@ export default function BuyerSupport() {
         </Card>
 
         {/* Support Resources */}
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardHeader>
-            <CardTitle>Additional Resources</CardTitle>
+        <Card className="border border-gray-700 bg-gray-900 overflow-hidden shadow-2xl">
+          <CardHeader className="bg-gradient-to-r from-gray-800/50 to-transparent">
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-accent" />
+              Additional Resources
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-gray-800 rounded-lg">
-                <FileText className="w-8 h-8 text-theme-cyan mx-auto mb-3" />
-                <h4 className="font-medium mb-2">User Guide</h4>
-                <p className="text-sm text-gray-400 mb-3">Complete guide to using our platform</p>
+              {/* Resources & Guides Card */}
+              <div className="text-center p-6 bg-gray-800 hover:bg-gray-750 transition-all rounded-xl border border-gray-700 hover:border-accent/40 group relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-accent/20 group-hover:bg-accent transition-colors" />
+                <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-accent group-hover:scale-110 transition-transform">
+                  <BookOpen className="w-7 h-7" />
+                </div>
+                <h4 className="font-bold text-white mb-2 text-lg">Resources & Guides</h4>
+                <p className="text-sm text-gray-400 mb-4 h-10 line-clamp-2">Complete platform guides, step-by-step tutorials and documentation.</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer"
+                  className="border-accent/30 text-accent hover:bg-accent hover:text-bg font-bold w-full"
                   onClick={() => setIsUserGuideModalOpen(true)}
                 >
-                  Read Guide
+                  View All Resources
                 </Button>
               </div>
 
-              <div className="text-center p-4 bg-gray-800 rounded-lg">
-                <MessageSquare className="w-8 h-8 text-theme-red mx-auto mb-3" />
-                <h4 className="font-medium mb-2">Community Forum</h4>
-                <p className="text-sm text-gray-400 mb-3">Connect with other users and get tips</p>
+              {/* Forum Categories Card */}
+              <div className="text-center p-6 bg-gray-800 hover:bg-gray-750 transition-all rounded-xl border border-gray-700 hover:border-theme-red/40 group relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-theme-red/20 group-hover:bg-theme-red transition-colors" />
+                <div className="w-14 h-14 bg-theme-red/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-theme-red group-hover:scale-110 transition-transform">
+                  <MessageSquare className="w-7 h-7" />
+                </div>
+                <h4 className="font-bold text-white mb-2 text-lg">Forum Categories</h4>
+                <p className="text-sm text-gray-400 mb-4 h-10 line-clamp-2">Browse the community forum by categories and interest.</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer"
+                  className="border-theme-red/30 text-theme-red hover:bg-theme-red hover:text-white font-bold w-full"
                   onClick={() => setIsForumModalOpen(true)}
                 >
-                  Visit Forum
+                  Browse Categories
                 </Button>
               </div>
 
-              <div className="text-center p-4 bg-gray-800 rounded-lg">
-                <HelpCircle className="w-8 h-8 text-theme-cyan mx-auto mb-3" />
-                <h4 className="font-medium mb-2">Video Tutorials</h4>
-                <p className="text-sm text-gray-400 mb-3">Step-by-step video guides</p>
+              {/* Forum Moderation / Posts Card */}
+              <div className="text-center p-6 bg-gray-800 hover:bg-gray-750 transition-all rounded-xl border border-gray-700 hover:border-theme-cyan/40 group relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-theme-cyan/20 group-hover:bg-theme-cyan transition-colors" />
+                <div className="w-14 h-14 bg-theme-cyan/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-theme-cyan group-hover:scale-110 transition-transform">
+                  <Shield className="w-7 h-7" />
+                </div>
+                <h4 className="font-bold text-white mb-2 text-lg">Forum Moderation</h4>
+                <p className="text-sm text-gray-400 mb-4 h-10 line-clamp-2">View the latest discussions and reported forum content status.</p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer"
-                  onClick={() => setIsVideoModalOpen(true)}
+                  className="border-theme-cyan/30 text-theme-cyan hover:bg-theme-cyan hover:text-black font-bold w-full"
+                  onClick={() => {
+                    setCategoryFilter(null);
+                    setIsModerationModalOpen(true);
+                  }}
                 >
-                  Watch Videos
+                  View Discussions
                 </Button>
               </div>
             </div>
@@ -611,10 +738,10 @@ export default function BuyerSupport() {
             <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
               <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-theme-red">
-                    <BookOpen className="w-5 h-5 text-white" />
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-accent">
+                    <BookOpen className="w-5 h-5 text-black" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">User Guide</h2>
+                  <h2 className="text-2xl font-bold text-white">Resources & Guides</h2>
                 </div>
                 <button
                   onClick={() => setIsUserGuideModalOpen(false)}
@@ -624,35 +751,32 @@ export default function BuyerSupport() {
                 </button>
               </div>
               <div className="p-6 space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-white">Getting Started</h3>
-                  <div className="space-y-3 text-gray-300">
-                    <p>Welcome to AccountZ Club! This guide will help you navigate our platform and make the most of your experience.</p>
-                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                      <h4 className="font-semibold text-white">Creating Your Account</h4>
-                      <p className="text-sm">Sign up with a unique username and secure password. We recommend enabling two-factor authentication for added security.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {dynamicResources.map((res) => (
+                    <div key={res.id} className="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-accent/30 transition-all">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                          {res.icon === 'FileText' ? <FileText className="w-5 h-5" /> :
+                            res.icon === 'PlayCircle' ? <Play className="w-5 h-5" /> :
+                              res.icon === 'MessageSquare' ? <MessageSquare className="w-5 h-5" /> :
+                                <BookOpen className="w-5 h-5" />}
+                        </div>
+                        <h4 className="font-bold text-white">{res.title}</h4>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-4 line-clamp-2">{res.description}</p>
+                      <Button
+                        variant="link"
+                        className="text-accent p-0 h-auto hover:underline flex items-center gap-2"
+                        onClick={() => res.link && window.open(res.link, '_blank')}
+                      >
+                        {res.link_text || 'Access Guide'}
+                        <ExternalLink className="w-3 h-3" />
+                      </Button>
                     </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                      <h4 className="font-semibold text-white">Making Your First Purchase</h4>
-                      <p className="text-sm">Browse our marketplace, select a product, and proceed to checkout. You can pay with Bitcoin (BTC) or Monero (XMR).</p>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                      <h4 className="font-semibold text-white">Understanding Escrow</h4>
-                      <p className="text-sm">All purchases are protected by escrow. Your payment is held until you confirm receipt of your digital product.</p>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                      <h4 className="font-semibold text-white">Managing Orders</h4>
-                      <p className="text-sm">Track all your orders from the Orders section. You'll receive notifications for status updates.</p>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                      <h4 className="font-semibold text-white">Contacting Vendors</h4>
-                      <p className="text-sm">Use the Messages feature to communicate with vendors about your purchases or ask questions.</p>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 space-y-2">
-                      <h4 className="font-semibold text-white">Dispute Resolution</h4>
-                      <p className="text-sm">If you encounter any issues, you can open a dispute. Our support team will review and help resolve the matter.</p>
-                    </div>
-                  </div>
+                  ))}
+                  {dynamicResources.length === 0 && (
+                    <div className="col-span-2 py-12 text-center text-gray-500 italic">No guides available yet.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -678,65 +802,70 @@ export default function BuyerSupport() {
                 </button>
               </div>
               <div className="p-6 space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-white">Join Our Community</h3>
-                  <p className="text-gray-300">Connect with other users, share tips, and get help from experienced members of our community.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {forumCategories.map(cat => (
+                    <div
+                      key={cat.id}
+                      className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 hover:border-accent/40 transition-colors cursor-pointer group"
+                      onClick={() => {
+                        setCategoryFilter(cat.id);
+                        setIsModerationModalOpen(true);
+                      }}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg bg-accent/10 text-accent group-hover:bg-accent group-hover:text-bg transition-colors">
+                          {cat.icon === 'Shield' ? <Shield className="w-4 h-4" /> :
+                            cat.icon === 'Zap' ? <Zap className="w-4 h-4" /> :
+                              cat.icon === 'HelpCircle' ? <HelpCircle className="w-4 h-4" /> :
+                                <MessageSquare className="w-4 h-4" />}
+                        </div>
+                        <h4 className="font-semibold text-white group-hover:text-accent transition-colors">{cat.name}</h4>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-3 line-clamp-2 italic">{cat.description || "No description provided."}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{cat.post_count || 0} topics</span>
+                        <span className="text-accent underline group-hover:no-underline font-bold">Visit Community</span>
+                      </div>
+                    </div>
+                  ))}
+                  {forumCategories.length === 0 && (
+                    <div className="col-span-2 py-12 text-center text-gray-500 italic">No forum categories have been created yet.</div>
+                  )}
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                      <h4 className="font-semibold text-white mb-2">General Discussion</h4>
-                      <p className="text-sm text-gray-400 mb-3">Share experiences and discuss platform features</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>1,234 topics</span>
-                        <span>5,678 posts</span>
-                      </div>
+                <div className="bg-gray-800/30 rounded-xl p-5 border border-gray-700">
+                  <h4 className="font-bold text-white mb-3 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-theme-red" />
+                    Forum Guidelines
+                  </h4>
+                  <ul className="text-sm text-gray-400 space-y-2 list-disc list-inside">
+                    <li>Maintain respect and professional conduct.</li>
+                    <li>No promotional content or unauthorized links.</li>
+                    <li>Reporting bugs and security issues is encouraged.</li>
+                    <li>Read pinned threads for specific category rules.</li>
+                  </ul>
+                </div>
+
+                <div className="bg-accent/5 rounded-xl p-5 border border-accent/20 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                      <BookOpen className="w-6 h-6" />
                     </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                      <h4 className="font-semibold text-white mb-2">Buyer Tips & Tricks</h4>
-                      <p className="text-sm text-gray-400 mb-3">Learn from experienced buyers</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>456 topics</span>
-                        <span>2,345 posts</span>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                      <h4 className="font-semibold text-white mb-2">Payment Help</h4>
-                      <p className="text-sm text-gray-400 mb-3">Get help with cryptocurrency payments</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>234 topics</span>
-                        <span>1,567 posts</span>
-                      </div>
-                    </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                      <h4 className="font-semibold text-white mb-2">Security & Privacy</h4>
-                      <p className="text-sm text-gray-400 mb-3">Best practices for staying secure</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>189 topics</span>
-                        <span>987 posts</span>
-                      </div>
+                    <div>
+                      <h4 className="font-bold text-white">Need Detailed Help?</h4>
+                      <p className="text-xs text-gray-400">Check out our comprehensive platform user guides.</p>
                     </div>
                   </div>
-
-                  <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                    <h4 className="font-semibold text-white mb-2">Forum Guidelines</h4>
-                    <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                      <li>Be respectful to all community members</li>
-                      <li>No spam or promotional content</li>
-                      <li>Keep discussions relevant to the platform</li>
-                      <li>Report any inappropriate behavior</li>
-                    </ul>
-                  </div>
-
                   <Button
-                    className="w-full bg-theme-red hover:bg-theme-red-dark text-white"
+                    variant="link"
                     onClick={() => {
-                      toast({
-                        title: "Forum Access",
-                        description: "Forum registration will be available soon!",
-                      });
+                      setIsForumModalOpen(false);
+                      setIsUserGuideModalOpen(true);
                     }}
+                    className="text-accent font-bold hover:no-underline flex items-center gap-2"
                   >
-                    Join Forum
+                    Open User Guide
+                    <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -744,6 +873,77 @@ export default function BuyerSupport() {
           </div>
         )}
 
+        {/* Forum Moderation / Posts Modal */}
+        {isModerationModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(to bottom, #010717, #14182B)' }}>
+              <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-6 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-theme-cyan">
+                    <Shield className="w-5 h-5 text-black" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Forum Moderation</h2>
+                </div>
+                <button
+                  onClick={() => setIsModerationModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-gray-400 text-sm">
+                    {categoryFilter
+                      ? `Viewing posts in: ${forumCategories.find(c => c.id === categoryFilter)?.name}`
+                      : "Viewing current moderated discussions and public forum posts."}
+                  </p>
+                  {categoryFilter && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCategoryFilter(null)}
+                      className="text-accent hover:text-accent/80 h-auto p-0 flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Clear Filter
+                    </Button>
+                  )}
+                </div>
+                {forumPosts
+                  .filter(post => !categoryFilter || post.category === categoryFilter)
+                  .map((post) => (
+                    <div key={post.id} className="bg-gray-800/30 p-5 rounded-xl border border-gray-800 hover:bg-gray-800/50 transition-all">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-lg text-white">{post.title}</h4>
+                        <Badge className="bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20">
+                          {post.category_name}
+                        </Badge>
+                      </div>
+                      <p className="text-gray-400 text-sm mb-4 line-clamp-2">{post.content}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-300">By {post.author_name}</span>
+                          <span>•</span>
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          {post.is_pinned && <Badge className="bg-blue-500/20 text-blue-400 border-none scale-90">Pinned</Badge>}
+                          {post.is_locked && <Badge className="bg-gray-600 text-white border-none flex items-center gap-1 scale-90">Locked</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                {forumPosts.length === 0 && (
+                  <div className="py-24 text-center">
+                    <MessageSquare className="w-12 h-12 text-gray-700 mx-auto mb-4" />
+                    <p className="text-gray-500 italic text-lg">No discussions available for viewing.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Video Tutorials Modal */}
         {isVideoModalOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -840,6 +1040,43 @@ export default function BuyerSupport() {
             </div>
           </div>
         )}
+
+        {/* Close Ticket Confirmation Dialog */}
+        <AlertDialog open={closeTicketDialogOpen} onOpenChange={setCloseTicketDialogOpen}>
+          <AlertDialogContent className="bg-gray-900 border border-gray-700">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white flex items-center gap-2">
+                <X className="w-5 h-5 text-theme-red" />
+                Close Support Ticket
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-400">
+                {ticketToClose && (
+                  <>
+                    Are you sure you want to close ticket <span className="font-semibold text-white">{ticketToClose.ticket_id}</span>?
+                    <br /><br />
+                    You can still view the ticket and its conversation history later, but no further updates will be made.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+                disabled={isClosingTicket}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleCloseTicket}
+                disabled={isClosingTicket}
+                className="bg-theme-red hover:bg-theme-red/90 text-white"
+              >
+                {isClosingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Close Ticket
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </BuyerLayout>
   );

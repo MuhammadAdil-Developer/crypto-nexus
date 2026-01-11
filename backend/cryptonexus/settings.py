@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'disputes',
     'tickets',
     'wishlist',
+    'content',
 ]
 
 MIDDLEWARE = [

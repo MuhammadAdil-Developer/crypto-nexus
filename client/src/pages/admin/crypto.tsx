@@ -30,7 +30,11 @@ export default function AdminCrypto() {
   const [isLoading, setIsLoading] = useState(true);
   const [logsContent, setLogsContent] = useState<string | null>(null);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
+  const [configContent, setConfigContent] = useState<string | null>(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<string>("");
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState("nodes");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -59,16 +63,30 @@ export default function AdminCrypto() {
   };
 
   const handleNodeAction = async (symbol: string, action: string) => {
+    if (action === 'restart' && !isRestartConfirmOpen) {
+      setSelectedNode(symbol);
+      setIsRestartConfirmOpen(true);
+      return;
+    }
+
+    const actionKey = `${symbol}-${action}`;
     try {
+      setActionLoading(prev => ({ ...prev, [actionKey]: true }));
       const result = await paymentService.performNodeAction(symbol, action);
-      toast({
-        title: `${action.charAt(0).toUpperCase() + action.slice(1)} Successful`,
-        description: result.message,
-      });
+
       if (action === 'logs' && result.logs) {
         setLogsContent(result.logs);
         setSelectedNode(symbol);
         setIsLogsOpen(true);
+      } else if (action === 'configure' && result.config) {
+        setConfigContent(result.config);
+        setSelectedNode(symbol);
+        setIsConfigOpen(true);
+      } else {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
       }
     } catch (error: any) {
       toast({
@@ -76,6 +94,9 @@ export default function AdminCrypto() {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }));
+      if (action === 'restart') setIsRestartConfirmOpen(false);
     }
   };
 
@@ -118,6 +139,8 @@ export default function AdminCrypto() {
 
   useEffect(() => {
     fetchCryptoStatus();
+    // Refresh security status notifications for admin
+    paymentService.triggerSecurityNotifications();
   }, []);
 
   const filteredTransactions = useMemo(() => {
@@ -222,25 +245,145 @@ export default function AdminCrypto() {
 
   return (
     <>
-      {/* Logs Dialog */}
-      <Dialog open={isLogsOpen} onOpenChange={setIsLogsOpen}>
-        <DialogContent className="max-w-4xl bg-surface border-border text-white">
-          <DialogHeader>
-            <DialogTitle>{selectedNode} Node Logs</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Real-time synchronization and system logs
-            </DialogDescription>
-          </DialogHeader>
-          <div className="bg-bg p-4 rounded-lg font-mono text-sm overflow-y-auto max-h-[60vh] whitespace-pre-wrap border border-border text-accent">
-            {logsContent || "No logs available."}
+      {/* Restart Confirmation Dialog */}
+      <Dialog open={isRestartConfirmOpen} onOpenChange={setIsRestartConfirmOpen}>
+        <DialogContent className="max-w-md bg-gray-900 border-gray-800 text-white p-0 overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold">Node Restart Required</DialogTitle>
+                <DialogDescription className="text-gray-400">
+                  Are you sure you want to restart the {selectedNode} node?
+                </DialogDescription>
+              </div>
+            </div>
+            <div className="bg-black/20 border border-white/5 p-4 rounded-xl mb-6">
+              <p className="text-sm text-gray-300 leading-relaxed italic">
+                "Restarting the blockchain node may temporarily disrupt active payment monitoring and synchronization for approximately 2-5 minutes."
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsRestartConfirmOpen(false)}
+                className="border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleNodeAction(selectedNode, 'restart')}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl px-6"
+                disabled={actionLoading[`${selectedNode}-restart`]}
+              >
+                {actionLoading[`${selectedNode}-restart`] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Confirm Restart
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-3 mt-4">
-            <Button variant="outline" onClick={() => handleNodeAction(selectedNode, 'logs')} className="border-border text-gray-300">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
+        </DialogContent>
+      </Dialog>
+
+      {/* Nodes Logs Dialog */}
+      <Dialog open={isLogsOpen} onOpenChange={setIsLogsOpen}>
+        <DialogContent className="bg-gray-900 border-gray-800 max-w-4xl max-h-[80vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-6 pb-2 border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-white flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-theme-cyan animate-pulse" />
+                  Live Node Logs: {selectedNode}
+                </DialogTitle>
+                <DialogDescription className="text-gray-400 mt-1">
+                  Real-time synchronization and network events
+                </DialogDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white"
+                onClick={() => handleNodeAction(selectedNode, 'logs')}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Logs
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-6 pt-4 bg-black/40 font-mono text-sm">
+            <pre className="text-gray-300 whitespace-pre-wrap break-all leading-relaxed">
+              {logsContent || 'Retrieving live logs...'}
+            </pre>
+          </div>
+          <div className="p-4 border-t border-gray-800 bg-gray-950 flex justify-end">
+            <Button onClick={() => setIsLogsOpen(false)} variant="outline" className="border-gray-800 text-gray-300 hover:text-white hover:bg-gray-900 rounded-xl px-6">
+              Close Terminal
             </Button>
-            <Button onClick={() => setIsLogsOpen(false)} className="bg-accent text-bg hover:bg-accent-2">
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nodes Config Dialog */}
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[80vh] overflow-hidden flex flex-col p-0 shadow-2xl shadow-black/50">
+          <DialogHeader className="p-6 pb-2 border-b border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-theme-cyan/10 rounded-lg">
+                <Settings className="w-5 h-5 text-theme-cyan" />
+              </div>
+              <div>
+                <DialogTitle className="text-white text-xl font-bold">Node Configuration: {selectedNode}</DialogTitle>
+                <DialogDescription className="text-gray-400 mt-1">
+                  View system-wide crypto engine settings
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-8 bg-black/20">
+            <div className="space-y-6">
+              <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-start gap-4">
+                <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-200 leading-relaxed font-medium">
+                  <strong>Production Warning:</strong> Manual configuration changes are currently read-only through this panel. To modify credentials or network ports, please update the <code className="text-white px-1.5 py-0.5 bg-black/40 rounded">.env</code> file on the host server directly.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-widest text-gray-500">Current Parameters</h4>
+                <div className="grid grid-cols-1 gap-2">
+                  {configContent ? configContent.split('\n').map((line, idx) => {
+                    const parts = line.split('=');
+                    const key = parts[0];
+                    const val = parts.slice(1).join('=');
+                    return (
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-white/5 border border-white/5 rounded-xl group hover:bg-white/[0.08] transition-all">
+                        <span className="text-gray-400 font-mono text-xs font-bold uppercase tracking-tight">{key}</span>
+                        <span className="text-white font-mono text-sm break-all mt-1 sm:mt-0">{val}</span>
+                      </div>
+                    );
+                  }) : (
+                    <div className="py-12 text-center text-gray-600 italic">No configuration data found</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 border-t border-gray-800 bg-gray-950 flex justify-end gap-3">
+            <Button onClick={() => setIsConfigOpen(false)} variant="outline" className="border-gray-800 text-gray-300 hover:text-white hover:bg-gray-900 font-bold rounded-xl px-6">
               Close
+            </Button>
+            <Button
+              className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-black rounded-xl px-8 shadow-lg shadow-theme-cyan/10"
+              onClick={() => {
+                toast({
+                  title: "Action Not Permitted",
+                  description: "For security, configuration edits are restricted to server-side CLI only.",
+                  variant: "destructive"
+                });
+              }}
+            >
+              Request Edit Access
             </Button>
           </div>
         </DialogContent>
@@ -342,28 +485,34 @@ export default function AdminCrypto() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50 min-w-[80px]"
                           data-testid={`restart-node-${node.symbol.toLowerCase()}`}
                           onClick={() => handleNodeAction(node.symbol, 'restart')}
+                          disabled={actionLoading[`${node.symbol}-restart`]}
                         >
+                          {actionLoading[`${node.symbol}-restart`] ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
                           Restart
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50 min-w-[90px]"
                           data-testid={`settings-node-${node.symbol.toLowerCase()}`}
                           onClick={() => handleNodeAction(node.symbol, 'configure')}
+                          disabled={actionLoading[`${node.symbol}-configure`]}
                         >
+                          {actionLoading[`${node.symbol}-configure`] ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
                           Configure
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
+                          className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50 min-w-[100px]"
                           data-testid={`logs-node-${node.symbol.toLowerCase()}`}
                           onClick={() => handleNodeAction(node.symbol, 'logs')}
+                          disabled={actionLoading[`${node.symbol}-logs`]}
                         >
+                          {actionLoading[`${node.symbol}-logs`] ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
                           View Logs
                         </Button>
                       </div>
@@ -413,8 +562,9 @@ export default function AdminCrypto() {
                         className="w-full border-border text-gray-300 hover:text-white hover:bg-surface-2/50 justify-start"
                         data-testid="backup-wallets"
                         onClick={() => handleNodeAction('BTC', 'backup')}
+                        disabled={actionLoading['BTC-backup']}
                       >
-                        <Lock className="w-4 h-4 mr-2" />
+                        {actionLoading['BTC-backup'] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
                         Backup Wallet Files
                       </Button>
                       <Button
@@ -422,8 +572,9 @@ export default function AdminCrypto() {
                         className="w-full border-border text-gray-300 hover:text-white hover:bg-surface-2/50 justify-start"
                         data-testid="rotate-keys"
                         onClick={() => handleNodeAction('BTC', 'rotate_keys')}
+                        disabled={actionLoading['BTC-rotate_keys']}
                       >
-                        <RefreshCw className="w-4 h-4 mr-2" />
+                        {actionLoading['BTC-rotate_keys'] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                         Rotate API Keys
                       </Button>
                       <Button
@@ -431,8 +582,9 @@ export default function AdminCrypto() {
                         className="w-full border-border text-gray-300 hover:text-white hover:bg-surface-2/50 justify-start"
                         data-testid="rescan-blockchain"
                         onClick={() => handleNodeAction('BTC', 'rescan')}
+                        disabled={actionLoading['BTC-rescan']}
                       >
-                        <RefreshCw className="w-4 h-4 mr-2" />
+                        {actionLoading['BTC-rescan'] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                         Rescan Blockchain
                       </Button>
                     </div>
@@ -488,7 +640,7 @@ export default function AdminCrypto() {
                             size="sm"
                             className="flex-1 border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
                             data-testid={`release-funds-${wallet.currency.toLowerCase()}`}
-                            onClick={() => handleBulkAction('release_expired')}
+                            onClick={() => navigate('/admin/payouts', { state: { showPrompt: true, filter: wallet.currency } })}
                           >
                             <Unlock className="w-4 h-4 mr-2" />
                             Release Funds
@@ -524,7 +676,7 @@ export default function AdminCrypto() {
                         variant="outline"
                         className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50 flex-1 sm:flex-none"
                         data-testid="release-all-expired"
-                        onClick={() => handleBulkAction('release_expired')}
+                        onClick={() => navigate('/admin/payouts', { state: { action: 'release_expired' } })}
                       >
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Release All Expired (48h)
@@ -537,15 +689,6 @@ export default function AdminCrypto() {
                       >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Export Escrow Report
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50"
-                        data-testid="backup-escrow-keys"
-                        onClick={() => handleBulkAction('backup_keys')}
-                      >
-                        <Lock className="w-4 h-4 mr-2" />
-                        Backup Escrow Keys
                       </Button>
                     </div>
                   </div>

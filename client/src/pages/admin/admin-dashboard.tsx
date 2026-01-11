@@ -24,6 +24,8 @@ import Branding from "./branding";
 import Settings from "./settings";
 import Notifications from "./notifications";
 import AdminCommunications from "./communications";
+import Earnings from "./earnings";
+import ContentManagement from "./content-management";
 
 // Component mapping
 const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
@@ -49,6 +51,8 @@ const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
   "settings": Settings,
   "notifications": Notifications,
   "communications": AdminCommunications,
+  "earnings": Earnings,
+  "content": ContentManagement,
 };
 
 // Section name mapping for breadcrumbs
@@ -75,6 +79,8 @@ const SECTION_NAMES: Record<string, string> = {
   "settings": "Settings",
   "notifications": "Notifications",
   "communications": "Communications Center",
+  "earnings": "Earnings & Profits",
+  "content": "Content Management",
 };
 
 export default function AdminDashboard() {

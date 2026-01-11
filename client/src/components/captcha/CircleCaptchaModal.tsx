@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, X, Shield } from 'lucide-react';
+import { X, Check, Shield, Rocket } from 'lucide-react';
 
 interface CircleCaptchaModalProps {
   isOpen: boolean;
@@ -12,418 +12,243 @@ interface CircleCaptchaModalProps {
   instruction?: string;
 }
 
-interface Circle {
-  id: string;
-  x: number;
-  y: number;
-  radius: number;
-  isOpen: boolean;
-  isTarget: boolean;
-}
-
-interface CaptchaState {
-  circles: Circle[];
-  targetCircle: Circle | null;
-  isVerified: boolean;
-  attempts: number;
-  maxAttempts: number;
-}
-
 export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
   isOpen,
   onClose,
   onVerify,
   onError,
-  siteKey = 'default',
-  title = 'Security Verification',
-  instruction = 'Please click on the highlighted circle to verify you are human.'
+  title = 'Launch Verification',
+  instruction = 'Drag the rocket to the target zone to complete verification.'
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [state, setState] = useState<CaptchaState>({
-    circles: [],
-    targetCircle: null,
-    isVerified: false,
-    attempts: 0,
-    maxAttempts: 3
-  });
+  const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [videoError, setVideoError] = useState(false);
+  const [sliderPosition, setSliderPosition] = useState(0);
+  const [targetPosition, setTargetPosition] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [attempts, setAttempts] = useState(0);
 
-  const generateCaptcha = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const trackRef = useRef<HTMLDivElement>(null);
+  // Remove unused sliderRef if not needed for logic, but helpful for debugging/extensions
+  // const sliderRef = useRef<HTMLDivElement>(null); 
+  const maxAttempts = 3;
+  const tolerance = 5; // Percentage tolerance
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = 350;
-    const height = 200;
-    canvas.width = width;
-    canvas.height = height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    const circles: Circle[] = [];
-    const numCircles = 14 + Math.floor(Math.random() * 6);
-
-    for (let i = 0; i < numCircles; i++) {
-      const radius = 14 + Math.random() * 20;
-      const x = radius + Math.random() * (width - 2 * radius);
-      const y = radius + Math.random() * (height - 2 * radius);
-
-      circles.push({
-        id: `circle-${i}`,
-        x,
-        y,
-        radius,
-        isOpen: Math.random() > 0.75,
-        isTarget: false
-      });
-    }
-
-    const openCircles = circles.filter(c => c.isOpen);
-    if (openCircles.length === 0) {
-      circles[0].isOpen = true;
-      circles[0].isTarget = true;
-    } else {
-      const targetIndex = Math.floor(Math.random() * openCircles.length);
-      openCircles[targetIndex].isTarget = true;
-    }
-
-    drawBackgroundPattern(ctx, width, height);
-    circles.forEach(circle => drawCircle(ctx, circle));
-    drawDecorativeElements(ctx, width, height);
-
-    setState(prev => ({
-      ...prev,
-      circles,
-      targetCircle: circles.find(c => c.isTarget) || null,
-      isVerified: false,
-      attempts: 0
-    }));
-  };
-
-  const drawBackgroundPattern = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, '#b91c72');
-    gradient.addColorStop(0.5, '#8b1656');
-    gradient.addColorStop(1, '#5d0e39');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x < width; x += 25) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < height; y += 25) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-  };
-
-  const drawCircle = (ctx: CanvasRenderingContext2D, circle: Circle) => {
-    ctx.save();
-
-    if (circle.isOpen) {
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = circle.isTarget ? 3.5 : 2.5;
-      ctx.beginPath();
-      ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      if (circle.isTarget) {
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
-        ctx.stroke();
-      }
-    } else {
-      const gradient = ctx.createRadialGradient(
-        circle.x - circle.radius * 0.3,
-        circle.y - circle.radius * 0.3,
-        0,
-        circle.x,
-        circle.y,
-        circle.radius
-      );
-      gradient.addColorStop(0, '#d11372c2');
-      gradient.addColorStop(1, '#aa0a57c5');
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
-      ctx.fill();
-    }
-
-    ctx.restore();
-  };
-
-  const drawDecorativeElements = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 1;
-
-    const linePoints = [
-      { x1: 60, y1: 40, x2: 140, y2: 90 },
-      { x1: 140, y1: 90, x2: 230, y2: 60 },
-      { x1: 230, y1: 60, x2: 320, y2: 110 },
-      { x1: 320, y1: 110, x2: 390, y2: 70 },
-      { x1: 90, y1: 140, x2: 170, y2: 170 },
-      { x1: 170, y1: 170, x2: 250, y2: 200 },
-      { x1: 250, y1: 200, x2: 340, y2: 160 },
-      { x1: 110, y1: 220, x2: 200, y2: 240 }
-    ];
-
-    linePoints.forEach(point => {
-      ctx.beginPath();
-      ctx.moveTo(point.x1, point.y1);
-      ctx.lineTo(point.x2, point.y2);
-      ctx.stroke();
-    });
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.font = '9px monospace';
-
-    const textElements = [
-      { text: 'secure', x: 70, y: 50, angle: -0.15 },
-      { text: 'verify', x: 160, y: 100, angle: 0.1 },
-      { text: 'captcha', x: 250, y: 70, angle: -0.1 },
-      { text: 'auth', x: 340, y: 120, angle: 0.15 },
-      { text: 'protect', x: 100, y: 150, angle: 0.12 },
-      { text: 'secure', x: 190, y: 180, angle: -0.08 },
-      { text: 'verify', x: 270, y: 210, angle: 0.1 }
-    ];
-
-    textElements.forEach(element => {
-      ctx.save();
-      ctx.translate(element.x, element.y);
-      ctx.rotate(element.angle);
-      ctx.fillText(element.text, 0, 0);
-      ctx.restore();
-    });
-  };
-
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (state.isVerified || state.attempts >= state.maxAttempts) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas || !state.targetCircle) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const adjustedX = x * scaleX;
-    const adjustedY = y * scaleY;
-
-    const distance = Math.sqrt(
-      Math.pow(adjustedX - state.targetCircle.x, 2) + Math.pow(adjustedY - state.targetCircle.y, 2)
-    );
-
-    if (distance <= state.targetCircle.radius) {
-      setIsLoading(true);
-      const token = `captcha_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      setTimeout(() => {
-        setState(prev => ({ ...prev, isVerified: true }));
-        onVerify(token);
-        setIsLoading(false);
-        setTimeout(() => onClose(), 800);
-      }, 500);
-    } else {
-      setState(prev => ({ ...prev, attempts: prev.attempts + 1 }));
-      if (state.attempts + 1 >= state.maxAttempts) {
-        onError?.('Maximum attempts exceeded. Please refresh and try again.');
-      }
-    }
-  };
-
-  const handleRefresh = () => {
-    generateCaptcha();
-  };
-
+  // Generate random target position
   useEffect(() => {
     if (isOpen) {
-      generateCaptcha();
-      setVideoError(false);
+      resetCaptcha();
     }
   }, [isOpen]);
+
+  const resetCaptcha = () => {
+    // Target position between 60% and 90%
+    const newTarget = 60 + Math.random() * 30;
+    setTargetPosition(newTarget);
+    setSliderPosition(0);
+    setIsVerified(false);
+    setIsLoading(false);
+    setIsDragging(false);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (isVerified || isLoading) return;
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+    if (!isDragging || !trackRef.current) return;
+
+    const trackRect = trackRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+
+    // Calculate percentage
+    let newPosition = ((clientX - trackRect.left) / trackRect.width) * 100;
+
+    // Clamp between 0 and 100
+    newPosition = Math.max(0, Math.min(100, newPosition));
+
+    setSliderPosition(newPosition);
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    // Verify position
+    if (Math.abs(sliderPosition - targetPosition) <= tolerance) {
+      handleSuccess();
+    } else {
+      // Snap back if failed
+      setSliderPosition(0);
+      setAttempts(prev => prev + 1);
+
+      if (attempts + 1 >= maxAttempts) {
+        onError?.('Verification failed. Maximum attempts reached.');
+        setTimeout(onClose, 1000);
+      }
+    }
+  };
+
+  const handleSuccess = () => {
+    setIsLoading(true);
+    setSliderPosition(targetPosition); // Snap to target
+
+    setTimeout(() => {
+      setIsVerified(true);
+      const token = `rocket_captcha_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      onVerify(token);
+
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    }, 600);
+  };
+
+  // Global event listeners for drag
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleMouseMove);
+      window.addEventListener('touchend', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, sliderPosition, targetPosition]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center backdrop-blur-sm overflow-y-auto py-4 px-4" style={{ alignItems: 'center', minHeight: '100vh' }}>
-      {/* Animated Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ec4899' fill-opacity='0.15'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0-5.523-4.477-10-10-10z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          animation: 'drift 20s ease-in-out infinite'
-        }} />
+    <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center backdrop-blur-md p-4">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse delay-700"></div>
       </div>
 
-      {/* Geometric Accents */}
-      <div className="absolute top-8 left-8 w-24 h-24 border-2 border-pink-500/20 rounded-lg rotate-12 animate-pulse"></div>
-      <div className="absolute bottom-12 right-12 w-32 h-32 border-2 border-purple-500/20 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
-      <div className="absolute top-1/4 right-16 w-16 h-16 bg-gradient-to-br from-pink-500/10 to-purple-500/10 rotate-45 animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="relative w-full max-w-sm bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-300 scale-100">
 
-      {/* Devil Video/GIF - Positioned at Top, Centered */}
-      <div className="relative z-40 mb-4 flex-shrink-0" style={{ order: 1 }}>
-        <div className="relative">
-          <div className="w-28 h-28 rounded-full overflow-hidden" style={{
-            border: 'none'
-          }}>
-            {!videoError ? (
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-                style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
-                onError={() => {
-                  console.log('Video failed to load, trying GIF fallback');
-                  setVideoError(true);
-                }}
-              >
-                <source src="/assets/captcha/devil-video.mp4" type="video/mp4" />
-                <source src="/assets/captcha/devil-video.webm" type="video/webm" />
-              </video>
-            ) : (
-              <img
-                src="/assets/captcha/devil-video.gif"
-                alt="Security Animation"
-                className="w-full h-full object-cover"
-                style={{ filter: 'brightness(1.3) contrast(1.4) saturate(1.5)' }}
-                onError={(e) => {
-                  console.log('GIF also failed to load, showing fallback emoji');
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-            )}
-            <div className="w-full h-full flex items-center justify-center text-white text-4xl font-bold" style={{ display: 'none', background: 'transparent' }}>
-              👹
+        {/* Header */}
+        <div className="bg-gradient-to-r from-gray-900 to-gray-950 p-4 border-b border-gray-800 flex justify-between items-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:20px_20px]" />
+          <div className="flex items-center gap-2 relative z-10">
+            <Shield className="w-5 h-5 text-blue-500" />
+            <span className="font-semibold text-gray-100">{title}</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-800 relative z-10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {isVerified ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in zoom-in duration-300">
+              <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-4 relative">
+                <div className="absolute inset-0 border-2 border-green-500 rounded-full animate-ping opacity-20"></div>
+                <Check className="w-10 h-10 text-green-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Verification Complete</h3>
+              <p className="text-gray-400 text-sm">You may proceed securely.</p>
             </div>
-          </div>
-          {/* Pulsing Ring Animation - Removed */}
-        </div>
-      </div>
-
-      {/* Main Captcha Modal - Below Video */}
-      <div className="relative border-2 border-pink-500/30 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-y-auto flex-shrink-0" style={{
-        background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.7) 0%, rgba(20, 20, 20, 0.7) 50%, rgba(236, 72, 153, 0.3) 100%)',
-        boxShadow: '0 0 50px rgba(236, 72, 153, 0.3), 0 20px 50px rgba(0, 0, 0, 0.5)',
-        maxHeight: 'calc(100vh - 200px)',
-        order: 2
-      }}>
-        {/* Close Button - Top Right */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-gray-800/80 hover:bg-gray-700 border border-gray-600 flex items-center justify-center transition-all duration-300 hover:scale-110 group"
-        >
-          <X className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
-        </button>
-
-        {/* Instruction Header */}
-        <div className="px-12 pt-5 pb-3 text-center relative">
-          <h3 className="text-base font-semibold text-white mb-1.5">{title}</h3>
-          <p className="text-xs text-gray-300 leading-relaxed px-2">{instruction}</p>
-        </div>
-
-        {/* Captcha Canvas */}
-        <div className="px-4 pb-6">
-          <div className="relative rounded-xl overflow-hidden border-2 border-pink-500/40 shadow-lg">
-            <canvas
-              ref={canvasRef}
-              onClick={handleCanvasClick}
-              className="cursor-pointer w-full"
-              style={{
-                background: 'linear-gradient(135deg, #8b1656 0%, #5d0e39 50%, #3d0926 100%)',
-              }}
-            />
-
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                <div className="text-center">
-                  <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                  <p className="text-white text-sm font-medium">Verifying...</p>
+          ) : (
+            <div className="space-y-8">
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-3 ring-1 ring-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                  <Rocket className="w-6 h-6 text-blue-400" />
                 </div>
+                <p className="text-gray-300 text-sm font-medium">{instruction}</p>
               </div>
-            )}
 
-            {state.isVerified && (
-              <div className="absolute inset-0 flex items-center justify-center bg-green-900/80 backdrop-blur-sm">
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center mx-auto mb-3 animate-bounce">
-                    <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="text-white text-lg font-bold">Verified Successfully!</p>
-                </div>
-              </div>
-            )}
-          </div>
+              {/* Slider Track Container */}
+              <div className="relative py-4 select-none touch-none">
+                <div
+                  ref={trackRef}
+                  className="h-12 bg-gray-900 rounded-full border border-gray-700 relative overflow-hidden shadow-inner cursor-pointer"
+                >
+                  {/* Grid Pattern/Texture in Track */}
+                  <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,transparent_50%,rgba(255,255,255,0.1)_50%)] bg-[size:10px_100%]"></div>
 
-          {/* Controls */}
-          <div className="mt-4 flex justify-between items-center">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="border-2 border-pink-500/40 bg-gray-800/50 text-white hover:bg-pink-500/20 hover:border-pink-500/60 transition-all duration-300 group flex items-center gap-2 px-4 py-2"
-            >
-              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-            </Button>
-
-            <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-700">
-              <div className="flex gap-1">
-                {[...Array(state.maxAttempts)].map((_, i) => (
+                  {/* Target Zone */}
                   <div
-                    key={i}
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i < state.attempts ? 'bg-red-500' : 'bg-gray-600'
-                      }`}
-                  />
-                ))}
-              </div>
-              <span className="text-gray-400 text-xs font-medium ml-1">
-                {state.attempts}/{state.maxAttempts}
-              </span>
-            </div>
-          </div>
+                    className="absolute top-1 bottom-1 rounded-full bg-blue-500/10 border border-blue-500/40 flex items-center justify-center animate-pulse"
+                    style={{
+                      left: `${targetPosition}%`,
+                      width: '44px',
+                      transform: 'translateX(-50%)',
+                      boxShadow: '0 0 10px rgba(59, 130, 246, 0.2)'
+                    }}
+                  >
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
+                  </div>
 
-          {state.attempts >= state.maxAttempts && (
-            <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-lg p-2 text-center">
-              <p className="text-red-400 text-xs font-medium">Maximum attempts exceeded. Please refresh and try again.</p>
+                  {/* Progress Trail */}
+                  <div
+                    className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-blue-600/30 to-purple-600/30 transition-all duration-75 ease-linear"
+                    style={{ width: `${sliderPosition}%` }}
+                  ></div>
+
+                  {/* Draggable Slider Thumb */}
+                  <div
+                    className="absolute top-1 bottom-1 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full shadow-lg cursor-grab active:cursor-grabbing flex items-center justify-center z-10 transition-transform active:scale-95 hover:brightness-110"
+                    style={{
+                      left: `${sliderPosition}%`,
+                      transform: 'translateX(-50%)'
+                    }}
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleMouseDown}
+                  >
+                    {isLoading ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Rocket className={`w-5 h-5 text-white ${isDragging ? 'rotate-45' : ''} transition-transform duration-300 drop-shadow-md`} />
+                    )}
+                  </div>
+                </div>
+
+                {/* Feedback Text */}
+                <div className="text-center mt-3 h-4">
+                  {isDragging ? (
+                    <span className="text-[10px] text-blue-400 animate-pulse font-medium tracking-widest uppercase">
+                      Targeting...
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-gray-600 font-medium tracking-wide">
+                      {attempts > 0 ? `${maxAttempts - attempts} attempts remaining` : 'Slide to verify'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Security Footer */}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-800/50 mt-2">
+                <div className="flex gap-1">
+                  {[...Array(maxAttempts)].map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-1.5 h-1.5 rounded-full transition-colors ${i < attempts ? 'bg-red-500' : 'bg-gray-800'
+                        }`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                  <Shield className="w-3 h-3" />
+                  <span>Secure Enclave</span>
+                </div>
+              </div>
+
             </div>
           )}
-
-          {/* AccountzClub Branding */}
-          <div className="mt-4 mb-2 text-center">
-            <p className="text-gray-500 text-xs">Protected by <span className="text-pink-500 font-semibold">AccountzClub Security</span></p>
-          </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes drift {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(10px, 10px) rotate(5deg); }
-          50% { transform: translate(0, 20px) rotate(0deg); }
-          75% { transform: translate(-10px, 10px) rotate(-5deg); }
-        }
-      `}</style>
 
       {/* Logo Below Modal - Always Below, Never Above, Centered */}
       <div className="relative z-40 mt-4 flex-shrink-0" style={{ order: 3 }}>

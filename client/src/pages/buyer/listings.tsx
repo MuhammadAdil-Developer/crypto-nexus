@@ -70,7 +70,7 @@ function BuyerListingsContent() {
   const [selectedCrypto, setSelectedCrypto] = useState<"all" | "BTC" | "XMR">("all");
   // Default to server-provided ordering (personalized) so different buyers see different orders
   const [sortBy, setSortBy] = useState("server");
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("list");
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<{ id: string, name: string, count: number }[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -534,11 +534,11 @@ function BuyerListingsContent() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* View Mode Toggle - Only shown on large screens */}
-              <div className="hidden md:flex border border-gray-700/50 rounded-2xl overflow-hidden bg-black/40 h-12 p-1.5 gap-1 shadow-inner">
+              {/* View Mode Toggle - Now visible on mobile */}
+              <div className="flex border border-gray-700/50 rounded-2xl overflow-hidden bg-black/40 h-12 p-1.5 gap-1 shadow-inner">
                 {[
-                  { mode: "grid", icon: Grid },
                   { mode: "list", icon: ListIcon },
+                  { mode: "grid", icon: Grid },
                   { mode: "table", icon: Table }
                 ].map(({ mode, icon: Icon }) => (
                   <Button

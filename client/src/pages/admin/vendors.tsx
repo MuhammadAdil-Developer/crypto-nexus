@@ -1033,43 +1033,44 @@ export default function AdminVendors() {
 
                     return true;
                   }).map((application) => (
-                    <div key={application.id} className="border border-border rounded-lg p-6 bg-gray-800/50" data-testid={`pending-vendor-${application.id}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3 mb-4">
+                    <div key={application.id} className="border border-border rounded-lg p-4 sm:p-6 bg-gray-800/50" data-testid={`pending-vendor-${application.id}`}>
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex items-start space-x-3 mb-4 w-full">
                           <Checkbox
                             id={`select-application-${application.id}`}
                             checked={selectedApplications.includes(application.id)}
                             onCheckedChange={() => handleSelectApplication(application.id)}
+                            className="mt-1"
                           />
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             {/* Header Section */}
-                            <div className="flex items-center mb-4">
-                              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center mb-4 gap-3">
+                              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <Store className="w-5 h-5 text-blue-400" />
                               </div>
-                              <div>
-                                <h3 className="text-lg font-semibold text-white">{application.business_name}</h3>
-                                <p className="text-gray-300">Owner: {application.vendor_username}</p>
-                                <p className="text-sm text-gray-400">Applied {application.created_at_formatted}</p>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-base sm:text-lg font-semibold text-white truncate">{application.business_name}</h3>
+                                <p className="text-sm sm:text-base text-gray-300 truncate">Owner: {application.vendor_username}</p>
+                                <p className="text-xs sm:text-sm text-gray-400">Applied {application.created_at_formatted}</p>
                               </div>
                             </div>
 
                             {/* Basic Details Section */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
                               <div>
-                                <p className="text-sm text-gray-400">Category</p>
-                                <p className="text-white font-medium">{application.category_display}</p>
+                                <p className="text-xs sm:text-sm text-gray-400">Category</p>
+                                <p className="text-sm sm:text-base text-white font-medium truncate">{application.category_display}</p>
                               </div>
                               <div>
-                                <p className="text-sm text-gray-400">Commission Rate</p>
-                                <p className="text-white font-medium">5%</p>
+                                <p className="text-xs sm:text-sm text-gray-400">Commission Rate</p>
+                                <p className="text-sm sm:text-base text-white font-medium">5%</p>
                               </div>
                             </div>
 
                             {/* Business Description */}
                             <div>
-                              <p className="text-sm text-gray-400">Business Description</p>
-                              <p className="text-gray-300 text-sm leading-relaxed">
+                              <p className="text-xs sm:text-sm text-gray-400 mb-1">Business Description</p>
+                              <p className="text-gray-300 text-xs sm:text-sm leading-relaxed line-clamp-3">
                                 {application.store_description}
                               </p>
                             </div>
@@ -1077,31 +1078,35 @@ export default function AdminVendors() {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex flex-col space-y-2 ml-6">
+                        <div className="flex flex-row lg:flex-col gap-2 mt-3 lg:mt-0 lg:ml-6 w-full lg:w-auto">
                           <Button
-                            className="bg-transparent hover:bg-green-500 text-white text-sm px-4 py-2"
+                            className="bg-transparent hover:bg-green-500 text-white text-xs sm:text-sm px-3 sm:px-4 py-2 flex-1 lg:flex-initial lg:w-full"
                             data-testid={`approve-vendor-${application.id}`}
                             onClick={() => handleApprove(application.id)}
                           >
-                            <Check className="w-4 h-4 mr-2" />
-                            Approve
+                            <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Approve</span>
+                            <span className="sm:hidden">✓</span>
                           </Button>
                           <Button
                             variant="outline"
-                            className="hover:bg-red-500 hover:text-white text-sm px-4 py-2"
+                            className="hover:bg-red-500 hover:text-white text-xs sm:text-sm px-3 sm:px-4 py-2 flex-1 lg:flex-initial lg:w-full"
                             data-testid={`reject-vendor-${application.id}`}
                             onClick={() => handleReject(application.id)}
                           >
-                            <X className="w-4 h-4 mr-2" />
-                            Reject
+                            <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Reject</span>
+                            <span className="sm:hidden">✕</span>
                           </Button>
                           <Button
                             variant="outline"
-                            className="border-gray-600 text-gray-100 hover:bg-gray-700 text-sm px-4 py-2"
+                            className="border-gray-600 text-gray-100 hover:bg-gray-700 text-xs sm:text-sm px-3 sm:px-4 py-2 flex-1 lg:flex-initial lg:w-full"
                             data-testid={`review-vendor-${application.id}`}
                             onClick={() => handleReview(application)}
                           >
-                            Review
+                            <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 lg:hidden" />
+                            <span className="hidden lg:inline">Review</span>
+                            <span className="lg:hidden">👁</span>
                           </Button>
                         </div>
                       </div>

@@ -71,6 +71,8 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         time: new Date(n.created_at).toLocaleString(),
         unread: !n.is_read,
         productId: n.data?.product_id,
+        orderId: n.data?.order_id,
+        disputeId: n.data?.dispute_id,
         productTitle: n.data?.product_headline || n.data?.productTitle,
         actionUrl: n.data?.action_url
       }));

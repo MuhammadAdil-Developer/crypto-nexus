@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Filter, MessageSquare, Ban, Lock, Flag, Plus, Trash2, Loader2, Eye, ChevronDown, User, Clock, Download } from "lucide-react";
+import { Search, Filter, MessageSquare, Ban, Lock, Flag, Plus, Trash2, Loader2, Eye, ChevronDown, ChevronLeft, ChevronRight, User, Clock, Download, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { messagingService } from "@/services/messagingService";
+import { format } from "date-fns";
 
 export default function AdminMessages() {
   const { toast } = useToast();
@@ -117,6 +118,13 @@ export default function AdminMessages() {
   const [showLockDialog, setShowLockDialog] = useState(false);
   const [conversationToLock, setConversationToLock] = useState<any>(null);
 
+  // User Reports states
+  const [reports, setReports] = useState<any[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [reportStatusFilter, setReportStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
   // Dynamic stats
   const [stats, setStats] = useState({
     totalConversations: 0,
@@ -131,7 +139,49 @@ export default function AdminMessages() {
 
   useEffect(() => {
     fetchConversations();
+    fetchReports();
   }, []);
+
+  const fetchReports = async () => {
+    try {
+      setLoadingReports(true);
+      const data = await messagingService.getUserReports(reportStatusFilter === "all" ? undefined : reportStatusFilter);
+      setReports(data || []);
+      setCurrentPage(1); // Reset to first page when fetching new data
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load user reports",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const handleUpdateReportStatus = async (reportId: string, newStatus: string) => {
+    try {
+      await messagingService.updateReportStatus(reportId, newStatus);
+
+      // Update local state
+      setReports(prev => prev.map(report =>
+        report.id === reportId ? { ...report, status: newStatus } : report
+      ));
+
+      toast({
+        title: "Success",
+        description: `Report status updated to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating report status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update report status",
+        variant: "destructive"
+      });
+    }
+  };
 
   const fetchConversations = async () => {
     try {
@@ -171,7 +221,7 @@ export default function AdminMessages() {
 
   const filteredConversations = conversations.filter(conversation => {
     // Get participant usernames for search
-    const participantUsernames = conversation.participants?.map(p => p.username).join(' ') || '';
+    const participantUsernames = conversation.participants?.map((p: any) => p.username).join(' ') || '';
 
     const matchesSearch = participantUsernames.toLowerCase().includes(searchQuery.toLowerCase()) ||
       conversation.product?.headline?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -369,6 +419,12 @@ export default function AdminMessages() {
           >
             Blocked Keywords
           </TabsTrigger>
+          <TabsTrigger
+            value="reports"
+            className="py-2.5 text-xs font-bold uppercase tracking-widest text-gray-400 data-[state=active]:bg-gray-800 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"
+          >
+            User Reports
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="conversations">
@@ -430,7 +486,7 @@ export default function AdminMessages() {
                   filteredConversations.map((conversation) => {
                     // Get participant usernames
                     const participants = conversation.participants || [];
-                    const participantNames = participants.map(p => p.username).join(' ↔ ');
+                    const participantNames = participants.map((p: any) => p.username).join(' ↔ ');
 
                     return (
                       <div
@@ -617,6 +673,166 @@ export default function AdminMessages() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="reports">
+          <Card className="crypto-card mb-6">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white">User Reports</CardTitle>
+              <Select
+                value={reportStatusFilter}
+                onValueChange={(val) => {
+                  setReportStatusFilter(val);
+                  // Trigger refetch when filter changes
+                  setTimeout(() => fetchReports(), 0);
+                }}
+              >
+                <SelectTrigger className="w-40 bg-surface-2 border-border text-white">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Reports</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="reviewing">Under Review</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="dismissed">Dismissed</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loadingReports ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-accent" />
+                  <p className="text-gray-400">Loading reports...</p>
+                </div>
+              ) : reports.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Flag className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400">No reports found matching criteria</p>
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {reports
+                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                    .map((report) => (
+                      <div
+                        key={report.id}
+                        className="border-b border-border p-6 hover:bg-surface-2/50 transition-colors"
+                      >
+                        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={
+                                report.status === 'pending' ? 'destructive' :
+                                  report.status === 'resolved' ? 'default' :
+                                    report.status === 'dismissed' ? 'secondary' : 'outline'
+                              } className="uppercase text-[10px]">
+                                {report.status}
+                              </Badge>
+                              <span className="text-gray-400 text-sm">
+                                {/* Using fallback since date-fns format call might need valid Date object */}
+                                {new Date(report.created_at).toLocaleString()}
+                              </span>
+                            </div>
+
+                            <div className="flex items-start gap-2">
+                              <div className="font-semibold text-white">
+                                Reporter: <span className="text-accent">{report.reporter}</span>
+                              </div>
+                              <span className="text-gray-500">reported</span>
+                              <div className="font-semibold text-white">
+                                Target: <span className="text-danger">{report.reported_user}</span>
+                              </div>
+                            </div>
+
+                            <div className="bg-surface-1 p-3 rounded text-sm text-gray-300 border border-gray-800">
+                              <p><strong className="text-gray-400">Reason:</strong> {report.reason}</p>
+                              <p className="mt-1"><strong className="text-gray-400">Description:</strong> {report.description}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2 min-w-[140px]">
+                            {report.status !== 'resolved' && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white w-full"
+                                onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
+                              >
+                                <CheckCircle className="w-3 h-3 mr-2" /> Resolve
+                              </Button>
+                            )}
+
+                            {report.status !== 'dismissed' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-gray-600 text-gray-300 hover:bg-gray-800 w-full"
+                                onClick={() => handleUpdateReportStatus(report.id, 'dismissed')}
+                              >
+                                Dismiss
+                              </Button>
+                            )}
+
+                            {report.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() => handleUpdateReportStatus(report.id, 'reviewing')}
+                              >
+                                Mark Reviewing
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </CardContent>
+
+            {/* Pagination Controls */}
+            {reports.length > itemsPerPage && (
+              <div className="p-4 border-t border-gray-800 flex items-center justify-between">
+                <div className="text-sm text-gray-400">
+                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, reports.length)} to {Math.min(currentPage * itemsPerPage, reports.length)} of {reports.length} reports
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-700 hover:bg-gray-800"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(reports.length / itemsPerPage) }).map((_, i) => (
+                      <Button
+                        key={i}
+                        variant={currentPage === i + 1 ? "default" : "ghost"}
+                        size="sm"
+                        className={`w-8 h-8 p-0 ${currentPage === i + 1 ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-800'}`}
+                        onClick={() => setCurrentPage(i + 1)}
+                      >
+                        {i + 1}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-700 hover:bg-gray-800"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(reports.length / itemsPerPage)))}
+                    disabled={currentPage === Math.ceil(reports.length / itemsPerPage)}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Chat Modal - responsive */}
@@ -627,7 +843,7 @@ export default function AdminMessages() {
               {selectedConversation && (
                 <div>
                   <h3 className="text-lg font-semibold">
-                    {selectedConversation.participants?.map(p => p.username).join(' ↔ ')}
+                    {selectedConversation.participants?.map((p: any) => p.username).join(' ↔ ')}
                   </h3>
                   <p className="text-sm text-gray-400">
                     Product: {selectedConversation.product?.headline}

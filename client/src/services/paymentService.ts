@@ -135,6 +135,23 @@ class PaymentService {
     }
   }
 
+  async getAdminEarningsAnalytics(): Promise<any> {
+    try {
+      const response = await api.get('/payments/admin/earnings/');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Failed to get earnings analytics');
+    }
+  }
+
+  async triggerSecurityNotifications(): Promise<void> {
+    try {
+      await api.post('/payments/admin/trigger-security-notifications/');
+    } catch (error: any) {
+      console.error('Failed to trigger security notifications:', error);
+    }
+  }
+
   async downloadAuthenticatedFile(url: string, filename: string): Promise<void> {
     try {
       // If URL already contains the full API path, strip it to avoid doubling up with baseURL

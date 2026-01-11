@@ -309,19 +309,20 @@ def assign_ticket(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def close_ticket(request, pk):
-    """Close ticket (admin only)"""
-    if not is_admin_user(request.user):
-        return Response(
-            {'error': 'Admin access required'}, 
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
+    """Close ticket (admin or ticket owner)"""
     try:
         ticket = Ticket.objects.get(id=pk)
     except Ticket.DoesNotExist:
         return Response(
             {'error': 'Ticket not found'}, 
             status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Allow admin or ticket owner to close the ticket
+    if not is_admin_user(request.user) and ticket.user != request.user:
+        return Response(
+            {'error': 'You can only close your own tickets'}, 
+            status=status.HTTP_403_FORBIDDEN
         )
     
     ticket.status = 'closed'

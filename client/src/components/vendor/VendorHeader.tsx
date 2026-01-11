@@ -186,42 +186,50 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
 
     switch (notification.type) {
       case 'message':
+      case 'product_message':
         targetUrl = '/vendor/messages';
         break;
       case 'order':
       case 'order_update':
-        if (data.order_id) {
-          targetUrl = `/vendor/orders/${data.order_id}`;
-        } else {
-          targetUrl = '/vendor/orders';
-        }
+      case 'payment_confirmation':
+      case 'refund':
+        targetUrl = '/vendor/orders';
         break;
       case 'dispute':
       case 'dispute_message':
       case 'dispute_resolved':
-        if (data.dispute_id) {
-          targetUrl = `/vendor/disputes/${data.dispute_id}`;
-        } else {
-          targetUrl = '/vendor/disputes';
-        }
+        targetUrl = '/vendor/disputes';
         break;
       case 'review':
         targetUrl = '/vendor/reviews';
         break;
       case 'listing_approval':
       case 'listing_rejection':
-        if (data.product_id) {
-          targetUrl = `/vendor/listings/${data.product_id}`;
+        if (notification.productId) {
+          targetUrl = `/vendor/listings/${notification.productId}`;
         } else {
           targetUrl = '/vendor/listings';
         }
+        break;
+      case 'ticket':
+      case 'ticket_response':
+        targetUrl = '/vendor/support';
+        break;
+      case 'security':
+        targetUrl = '/vendor/settings';
         break;
       default:
         targetUrl = '/vendor/notifications';
     }
 
     if (targetUrl) {
-      navigate(getLinkUrl(targetUrl));
+      if (notification.type === 'order' || notification.type === 'order_update' || notification.type === 'payment_confirmation' || notification.type === 'refund') {
+        navigate(getLinkUrl(targetUrl), { state: { openOrderId: notification.orderId } });
+      } else if (notification.type === 'dispute' || notification.type === 'dispute_message' || notification.type === 'dispute_resolved') {
+        navigate(getLinkUrl(targetUrl), { state: { openDisputeId: notification.disputeId } });
+      } else {
+        navigate(getLinkUrl(targetUrl));
+      }
     }
   };
 

@@ -47,7 +47,7 @@ class ConversationListCreateView(generics.ListCreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ConversationDetailView(generics.RetrieveAPIView):
+class ConversationDetailView(generics.RetrieveDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ConversationSerializer
     
@@ -296,13 +296,17 @@ def create_product_conversation(request):
                 }
                 content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n📋 **Order:** {refund.order.order_id if refund.order else 'N/A'}\n👤 **Vendor:** {product.vendor.username}"
             except Exception:
-                # Fallback if refund not found
+                # Fallback if refund not found - still include product details
                 product_info = {
                     'product_id': str(product.id),
                     'product_title': product.headline,
+                    'product_price': str(product.price),
+                    'product_image': str(product.main_image) if product.main_image else None,
+                    'vendor_username': product.vendor.username,
+                    'vendor_id': str(product.vendor.id),
                     'refund_id': refund_id
                 }
-                content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n👤 **Vendor:** {product.vendor.username}"
+                content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
         elif dispute_id:
             # Get dispute details for the message
             try:
@@ -320,13 +324,17 @@ def create_product_conversation(request):
                 }
                 content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n📋 **Order:** {dispute.order.order_id if dispute.order else 'N/A'}\n👤 **Vendor:** {product.vendor.username}"
             except Exception:
-                # Fallback if dispute not found
+                # Fallback if dispute not found - still include product details
                 product_info = {
                     'product_id': str(product.id),
                     'product_title': product.headline,
+                    'product_price': str(product.price),
+                    'product_image': str(product.main_image) if product.main_image else None,
+                    'vendor_username': product.vendor.username,
+                    'vendor_id': str(product.vendor.id),
                     'dispute_id': dispute_id
                 }
-                content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n👤 **Vendor:** {product.vendor.username}"
+                content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
         else:
             # Regular product reference (shouldn't reach here, but just in case)
             product_info = {
@@ -351,13 +359,34 @@ def create_product_conversation(request):
     else:
         # For regular product conversations, check if one already exists
         # STRICT CHECK: Must match product AND exact participants (sender & recipient)
+        # We try to find a regular thread, avoiding ones that were created specifically for refunds/disputes
         existing_conversations = Conversation.objects.filter(
             product_id=product.id
-        ).filter(participants=sender).filter(participants=recipient)
+        ).filter(participants=sender).filter(participants=recipient).order_by('-updated_at')
 
-        existing_conversation = existing_conversations.first()
+        # Try to find a conversation that doesn't have a refund/dispute reference
+        # This is a heuristic since we don't have a 'type' field, but we check if the first message 
+        # (usually the reference message) has refund/dispute metadata
+        existing_conversation = None
+        for conv in existing_conversations:
+            # Check if this conversation is a specialized one
+            # Look at the product reference messages in this conversation
+            try:
+                ref_msg = Message.objects.filter(conversation=conv, message_type='product_reference').first()
+                if ref_msg and not (ref_msg.metadata.get('refund_id') or ref_msg.metadata.get('dispute_id')):
+                    existing_conversation = conv
+                    break
+            except Exception:
+                # Fallback to just using the first one if check fails
+                existing_conversation = conv
+                break
         
-        if existing_conversation:
+        # If no regular conversation found, but we found ANY, we could still fall back
+        # but the safest is to let it create a new one if it's strictly a new order thread
+        if not existing_conversation and existing_conversations.exists():
+            # If all found were refund/dispute related, it's better to create a fresh regular one
+            pass # Let it create below
+        elif existing_conversation:
             serializer = ConversationSerializer(existing_conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         
@@ -365,6 +394,29 @@ def create_product_conversation(request):
         conversation = Conversation.objects.create(product=product)
         conversation.participants.add(sender, recipient)
         conversation.save()
+
+        # Create initial product reference message for the new conversation
+        from shared.models import Message
+        # Construct product info metadata
+        product_info = {
+            'product_id': str(product.id),
+            'product_title': product.headline,
+            'product_price': str(product.price),
+            'product_image': str(product.main_image) if product.main_image else None,
+            'vendor_username': product.vendor.username,
+            'vendor_id': str(product.vendor.id)
+        }
+        
+        content = f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
+        
+        Message.objects.create(
+            conversation=conversation,
+            sender=sender,
+            recipient=recipient,
+            content=content,
+            message_type='product_reference',
+            metadata=product_info
+        )
     
     serializer = ConversationSerializer(conversation, context={'request': request})
     # Include refund_id/dispute_id in response so frontend can track it
@@ -1101,4 +1153,118 @@ def get_user_attachments(request, user_id):
         })
     except Exception as e:
         logger.error(f"Error getting user attachments: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_user(request):
+    """Report a user"""
+    try:
+        from shared.models import UserReport
+        
+        reported_user_id = request.data.get('reported_user_id')
+        reason = request.data.get('reason')
+        description = request.data.get('description')
+        conversation_id = request.data.get('conversation_id')
+        message_id = request.data.get('message_id')
+        
+        if not reported_user_id or not reason:
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        reported_user = User.objects.get(id=reported_user_id)
+        
+        # Check if already reported
+        existing_report = UserReport.objects.filter(
+            reporter=request.user,
+            reported_user=reported_user,
+            conversation_id=conversation_id,
+            status='pending'
+        ).first()
+        
+        if existing_report:
+             return Response({'message': 'You have already reported this user for this conversation'})
+
+        UserReport.objects.create(
+            reporter=request.user,
+            reported_user=reported_user,
+            reason=reason,
+            description=description,
+            conversation_id=conversation_id,
+            message_id=message_id
+        )
+        
+        return Response({'message': 'User reported successfully'})
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_reports(request):
+    """Get all user reports (Admin only)"""
+    if not (hasattr(request.user, 'user_type') and request.user.user_type == 'admin'):
+        return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+    try:
+        from shared.models import UserReport
+        
+        filter_status = request.query_params.get('filter', 'all')
+        queryset = UserReport.objects.all().select_related('reporter', 'reported_user').order_by('-created_at')
+        
+        if filter_status and filter_status != 'all':
+            queryset = queryset.filter(status=filter_status)
+            
+        reports = queryset
+        
+        data = []
+        for report in reports:
+            data.append({
+                'id': str(report.id),
+                'reporter': report.reporter.username,
+                'reported_user': report.reported_user.username,
+                'reason': report.get_reason_display(),
+                'description': report.description,
+                'status': report.status,
+                'admin_notes': report.admin_notes,
+                'created_at': report.created_at.isoformat(),
+                'conversation_id': str(report.conversation_id) if report.conversation_id else None
+            })
+            
+        return Response({'data': data})
+        
+    except Exception as e:
+        print(f"Error fetching user reports: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_report_status(request, report_id):
+    """Update report status (Admin only)"""
+    if not (hasattr(request.user, 'user_type') and request.user.user_type == 'admin'):
+        return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+    try:
+        from shared.models import UserReport
+        report = UserReport.objects.get(id=report_id)
+        
+        status_val = request.data.get('status')
+        admin_notes = request.data.get('admin_notes')
+        
+        if status_val:
+            report.status = status_val
+        if admin_notes is not None:
+             report.admin_notes = admin_notes
+            
+        report.save()
+        
+        return Response({'message': 'Report updated successfully'})
+        
+    except UserReport.DoesNotExist:
+        return Response({'error': 'Report not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

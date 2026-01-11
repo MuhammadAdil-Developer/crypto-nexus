@@ -426,7 +426,7 @@ export default function BuyerSettings() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Commit Wallet Protocol
+                    update Wallet
                   </>
                 )}
               </Button>
@@ -607,7 +607,7 @@ export default function BuyerSettings() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    Synchronize Account Settings
+                    Update Settings
                   </>
                 )}
               </Button>

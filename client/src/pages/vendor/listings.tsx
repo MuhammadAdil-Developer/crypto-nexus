@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -121,6 +122,12 @@ export default function VendorListings() {
   // Rejection reason dialog state
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [selectedRejectionProduct, setSelectedRejectionProduct] = useState<VendorProduct | null>(null);
+
+  // Bulk selection state
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [confirmDeleteText, setConfirmDeleteText] = useState("");
 
   // Check if vendor is blocked from non-escrow listings and fetch selling fee
   useEffect(() => {
@@ -244,6 +251,61 @@ export default function VendorListings() {
     }
   };
 
+  // Bulk selection logic
+  const toggleSelectProduct = (productId: number) => {
+    setSelectedProductIds(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const currentPaginatedIds = getPaginatedProducts().map(p => p.id);
+    const allSelected = currentPaginatedIds.every(id => selectedProductIds.includes(id));
+
+    if (allSelected) {
+      setSelectedProductIds(prev => prev.filter(id => !currentPaginatedIds.includes(id)));
+    } else {
+      setSelectedProductIds(prev => [...new Set([...prev, ...currentPaginatedIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProductIds.length === 0) return;
+
+    try {
+      setIsBulkDeleting(true);
+      const response = await vendorService.bulkDeleteProducts(selectedProductIds);
+
+      if (response.success) {
+        showToast({
+          title: "Listings Deleted",
+          message: `Successfully deleted ${response.count} listings`,
+          type: "success"
+        });
+        setSelectedProductIds([]);
+        await fetchVendorData();
+      } else {
+        showToast({
+          title: "Error",
+          message: response.message || "Failed to delete listings",
+          type: "error"
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        title: "Error",
+        message: err.message || "An unexpected error occurred",
+        type: "error"
+      });
+    } finally {
+      setIsBulkDeleting(false);
+      setBulkDeleteDialogOpen(false);
+      setConfirmDeleteText("");
+    }
+  };
+
   // Filter products based on search and filters
   const getFilteredProducts = () => {
     return products.filter(product => {
@@ -339,22 +401,24 @@ export default function VendorListings() {
           type="vendor"
         />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-3 mb-8">
-          <Button
-            variant="outline"
-            onClick={() => navigate(getLinkUrl('/vendor/listings/bulk-upload'))}
-            className="bg-gray-800/50 border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-xl h-12 px-6 font-semibold shadow-sm backdrop-blur-sm"
-          >
-            <Upload className="w-5 h-5 mr-2" />
-            Bulk Actions
-          </Button>
-          <Button
-            onClick={() => navigate(getLinkUrl('/vendor/listings/add'))}
-            className="bg-theme-red hover:bg-theme-red-dark text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg w-full sm:w-auto shadow-lg shadow-theme-red/20 rounded-xl font-bold transition-all"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add New Account
-          </Button>
+        <div className="flex flex-col sm:flex-row justify-end items-center gap-3 mb-8">
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => navigate(getLinkUrl('/vendor/listings/bulk-upload'))}
+              className="bg-gray-800/50 border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-xl h-12 px-6 font-semibold shadow-sm backdrop-blur-sm flex-1 sm:flex-initial"
+            >
+              <Upload className="w-5 h-5 mr-2" />
+              Bulk Actions
+            </Button>
+            <Button
+              onClick={() => navigate(getLinkUrl('/vendor/listings/add'))}
+              className="bg-theme-red hover:bg-theme-red-dark text-white px-4 sm:px-6 lg:px-8 h-12 text-sm sm:text-base lg:text-lg shadow-lg shadow-theme-red/20 rounded-xl font-bold transition-all flex-1 sm:flex-initial"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Add New
+            </Button>
+          </div>
         </div>
 
         {/* Small Fee Info */}
@@ -488,8 +552,22 @@ export default function VendorListings() {
 
         {/* Products Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-lg sm:text-xl font-bold text-white">Products ({filteredProducts.length})</CardTitle>
+          <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-4">
+              <CardTitle className="text-lg sm:text-xl font-bold text-white">Products ({filteredProducts.length})</CardTitle>
+              {selectedProductIds.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 rounded-lg h-9 px-4 font-bold transition-all"
+                  disabled={isBulkDeleting}
+                >
+                  {isBulkDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                  Delete Selected ({selectedProductIds.length})
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -497,9 +575,16 @@ export default function VendorListings() {
               <div className="block lg:hidden space-y-3 sm:space-y-4 p-4 sm:p-6">
                 {getPaginatedProducts().map((product) => (
                   <div key={product.id} className="group bg-gray-900/40 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 sm:p-5 hover:bg-gray-800/60 transition-all duration-300 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-4 left-4 z-20">
+                      <Checkbox
+                        checked={selectedProductIds.includes(product.id)}
+                        onCheckedChange={() => toggleSelectProduct(product.id)}
+                        className="border-gray-600 bg-gray-800 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                      />
+                    </div>
                     <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:from-white/10 transition-colors" />
 
-                    <div className="flex items-start gap-4 mb-4 relative z-10">
+                    <div className="flex items-start gap-4 mb-4 relative z-10 pl-8">
                       <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-950/50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-800 shadow-inner">
                         <img
                           src={getImageUrl(product.main_image) || placeholderImage}
@@ -621,6 +706,13 @@ export default function VendorListings() {
               <table className="w-full hidden lg:table">
                 <thead className="bg-gray-800/50">
                   <tr>
+                    <th className="p-4 w-10 text-center">
+                      <Checkbox
+                        checked={getPaginatedProducts().length > 0 && getPaginatedProducts().every(p => selectedProductIds.includes(p.id))}
+                        onCheckedChange={toggleSelectAll}
+                        className="border-gray-600 bg-gray-800 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                      />
+                    </th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Product</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Status</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-300">Price</th>
@@ -633,7 +725,14 @@ export default function VendorListings() {
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {getPaginatedProducts().map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-800/50">
+                    <tr key={product.id} className={`hover:bg-gray-800/50 transition-colors ${selectedProductIds.includes(product.id) ? 'bg-theme-cyan/5' : ''}`}>
+                      <td className="p-4 items-center justify-center">
+                        <Checkbox
+                          checked={selectedProductIds.includes(product.id)}
+                          onCheckedChange={() => toggleSelectProduct(product.id)}
+                          className="mx-auto border-gray-600 bg-gray-800 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                        />
+                      </td>
                       <td className="p-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -855,10 +954,10 @@ export default function VendorListings() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </div >
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      < AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} >
         <AlertDialogContent className="bg-card border-gray-600 mx-4 sm:mx-auto max-w-[95vw] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white text-base sm:text-lg">Delete Product</AlertDialogTitle>
@@ -878,10 +977,10 @@ export default function VendorListings() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Rejection Reason Dialog */}
-      <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
+      < Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen} >
         <DialogContent className="bg-card border-gray-600 max-w-[95vw] sm:max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2 text-base sm:text-lg">
@@ -928,7 +1027,62 @@ export default function VendorListings() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog >
+      {/* Bulk Delete Confirmation Dialog (Strong Confirmation) */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={(open) => {
+        setBulkDeleteDialogOpen(open);
+        if (!open) setConfirmDeleteText("");
+      }}>
+        <AlertDialogContent className="bg-gray-900 border-red-500/30 mx-4 sm:mx-auto max-w-[95vw] sm:max-w-md shadow-[0_0_50px_rgba(239,68,68,0.2)]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-red-500/10 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-500" />
+              </div>
+              <AlertDialogTitle className="text-white text-xl font-bold">Confirmation Required</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-gray-300 text-sm sm:text-base space-y-3">
+              <p className="font-semibold text-red-400">
+                You are about to delete {selectedProductIds.length} listings permanently!
+              </p>
+              <p>
+                This action <span className="text-red-500 font-bold underline">cannot be undone</span>. All selected product data, images, and history will be wiped.
+              </p>
+              <div className="bg-black/40 p-4 rounded-xl border border-gray-800 mt-4">
+                <p className="text-xs text-gray-400 mb-3 uppercase tracking-widest font-bold">Type <span className="text-white">"DELETE"</span> to confirm</p>
+                <Input
+                  value={confirmDeleteText}
+                  onChange={(e) => setConfirmDeleteText(e.target.value.toUpperCase())}
+                  placeholder="Type DELETE here..."
+                  className="bg-gray-950 border-gray-700 text-white placeholder:text-gray-600 focus:border-red-500/50 focus:ring-red-500/20 rounded-lg h-11"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-3 mt-4">
+            <AlertDialogCancel className="border-gray-700 bg-transparent text-gray-400 hover:bg-gray-800 hover:text-white w-full sm:w-auto h-11 rounded-xl">
+              I changed my mind
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                if (confirmDeleteText !== "DELETE") {
+                  e.preventDefault();
+                  return;
+                }
+                handleBulkDelete();
+              }}
+              className={`w-full sm:w-auto h-11 rounded-xl font-bold transition-all shadow-lg ${confirmDeleteText === "DELETE"
+                ? "bg-red-600 hover:bg-red-700 text-white shadow-red-600/20"
+                : "bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700"
+                }`}
+              disabled={isBulkDeleting || confirmDeleteText !== "DELETE"}
+            >
+              {isBulkDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Confirm Bulk Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

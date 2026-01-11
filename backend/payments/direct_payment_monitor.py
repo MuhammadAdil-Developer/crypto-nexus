@@ -103,23 +103,42 @@ class DirectPaymentMonitor:
         try:
             logger.info(f"Checking REAL BTC payment for {payment.vendor_address}, amount: {payment.amount}")
             
+            from django.conf import settings
+            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 3)
+            
             # Method 1: Use BTCPay Server Wallet API (if available)
             if self.btcpay_service:
                 try:
                     # Get wallet transactions
                     transactions = self._get_btcpay_wallet_transactions()
-                    if transactions:
-                        if self._match_btc_transaction(transactions, payment):
-                            self._confirm_payment(payment, "btcpay_wallet")
-                            return
+                    matched_tx = self._match_btc_transaction(transactions, payment)
+                    if matched_tx:
+                        confs = matched_tx.get('confirmations', 0)
+                        if confs >= required_confs:
+                            self._confirm_payment(payment, "btcpay_wallet", confs)
+                        else:
+                            logger.info(f"BTC Payment detected but confirmations too low: {confs}/{required_confs}")
+                            # Optionally update payment with current confirmations
+                            payment.confirmations = confs
+                            payment.latest_activity = timezone.now()
+                            payment.save()
+                        return
                 except Exception as e:
                     logger.warning(f"BTCPay wallet check failed: {e}")
             
             # Method 2: Use external blockchain API (BlockCypher/Blockstream)
             try:
                 transactions = self._get_blockchain_transactions(payment.vendor_address)
-                if self._match_btc_transaction(transactions, payment):
-                    self._confirm_payment(payment, "blockchain_api")
+                matched_tx = self._match_btc_transaction(transactions, payment)
+                if matched_tx:
+                    confs = matched_tx.get('confirmations', 0)
+                    if confs >= required_confs:
+                        self._confirm_payment(payment, "blockchain_api", confs)
+                    else:
+                        logger.info(f"BTC Payment detected but confirmations too low: {confs}/{required_confs}")
+                        payment.confirmations = confs
+                        payment.latest_activity = timezone.now()
+                        payment.save()
                     return
             except Exception as e:
                 logger.warning(f"Blockchain API check failed: {e}")
@@ -127,8 +146,27 @@ class DirectPaymentMonitor:
             # Method 3: Use Blockstream API (free, reliable)
             try:
                 transactions = self._get_blockstream_transactions(payment.vendor_address)
-                if self._match_btc_transaction(transactions, payment):
-                    self._confirm_payment(payment, "blockstream_api")
+                matched_tx = self._match_btc_transaction(transactions, payment)
+                if matched_tx:
+                    # Blockstream API usually returns 'status': {'confirmed': true, 'block_height': ...}
+                    # We might need to calculate confirmations if not explicit
+                    confs = 0
+                    if matched_tx.get('status', {}).get('confirmed'):
+                        # Calculate confs if block_height available
+                        block_height = matched_tx.get('status', {}).get('block_height')
+                        current_height = self._get_btc_height()
+                        if block_height and current_height:
+                             confs = current_height - block_height + 1
+                        else:
+                             confs = 1 # At least 1 if confirmed
+                    
+                    if confs >= required_confs:
+                        self._confirm_payment(payment, "blockstream_api", confs)
+                    else:
+                        logger.info(f"BTC Payment detected but confirmations too low: {confs}/{required_confs}")
+                        payment.confirmations = confs
+                        payment.latest_activity = timezone.now()
+                        payment.save()
                     return
             except Exception as e:
                 logger.warning(f"Blockstream API check failed: {e}")
@@ -151,13 +189,24 @@ class DirectPaymentMonitor:
                 logger.warning("Monero service not available")
                 return
             
+            from django.conf import settings
+            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 10)
+            
             # Use Monero RPC to check for incoming transactions
             try:
                 # Get incoming transfers for the address
                 incoming_transfers = self.monero_service.get_incoming_transfers(monitor_address)
                 
-                if self._match_xmr_transaction(incoming_transfers, payment):
-                    self._confirm_payment(payment, "monero_rpc")
+                matched_tx = self._match_xmr_transaction(incoming_transfers, payment)
+                if matched_tx:
+                    confs = matched_tx.get('confirmations', 0)
+                    if confs >= required_confs:
+                        self._confirm_payment(payment, "monero_rpc", confs)
+                    else:
+                        logger.info(f"XMR Payment detected but confirmations too low: {confs}/{required_confs}")
+                        payment.confirmations = confs
+                        payment.latest_activity = timezone.now()
+                        payment.save()
                     return
                     
             except Exception as e:
@@ -167,6 +216,11 @@ class DirectPaymentMonitor:
             
         except Exception as e:
             logger.error(f"Error checking XMR payment: {e}")
+    
+    def _get_btc_height(self):
+        """Helper to get current BTC height (placeholder)"""
+        # In production, cache this or get from API
+        return 850000 # Placeholder
     
     def _match_xmr_transaction(self, transfers, payment):
         """Match Monero transfers to payment"""
@@ -179,11 +233,16 @@ class DirectPaymentMonitor:
             for transfer in transfers:
                 try:
                     # Check if transfer is recent enough
-                    transfer_time = datetime.fromtimestamp(transfer.get('timestamp', 0), tz=timezone.utc)
+                    # Make sure to handle timestamp correctly
+                    ts = transfer.get('timestamp', 0)
+                    if not ts: continue
+                    
+                    transfer_time = datetime.fromtimestamp(ts, tz=timezone.utc)
                     if transfer_time < cutoff_time:
                         continue
                     
                     # Check if amount matches (with 1.6% tolerance for fees/fluctuations)
+                    # Amount is in atomic units (piconero)
                     transfer_amount = transfer.get('amount', 0) / 1000000000000  # Convert atomic units to XMR
                     
                     tolerance = target_amount * 0.016

@@ -465,8 +465,6 @@ export default function SignUp() {
         onVerify={handleCaptchaVerify}
         onError={handleCaptchaError}
         siteKey="register-captcha"
-        title="Security Verification Required"
-        instruction="Please click on the highlighted circle to verify you are human."
       />
     </div>
   );

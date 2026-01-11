@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { MessagesPanel } from "@/components/buyer/MessagesPanel";
@@ -73,46 +73,116 @@ export default function BuyerMessages() {
     ];
   }, [conversations]);
 
+  // Track initialization per location key to allow re-runs on new navigation intent
+  const lastProcessedKey = useRef<string | null>(null);
+
   useEffect(() => {
-    // Check for product context from ProductDetailModal
-    const context = messagingService.getProductContextFromStorage();
-    if (context) {
-      setProductContext(context);
-      handleProductConversation(context);
-    }
+    const navState: any = location.state;
+    const currentKey = location.key;
 
-    loadConversations();
+    // Only run if we haven't processed this specific navigation yet
+    if (lastProcessedKey.current === currentKey) return;
 
-    // Listen for messages marked as read to update conversation unread counts
+    const initializeChat = async () => {
+      console.log('🚀 Buyer Chat Initialization - Key:', currentKey, 'NavState:', navState);
+
+      // 1. Load conversations first
+      setLoading(true);
+      let allConversations: any[] = [];
+      try {
+        allConversations = await messagingService.getConversations();
+        setConversations(allConversations);
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+      } finally {
+        setLoading(false);
+      }
+
+      // 2. Check for Actions (Navigation State)
+      // Priority 1: Open specific product chat (Precise IDs)
+      if (navState?.autoOpenProductId && navState?.autoOpenRecipientId) {
+        console.log('🎯 Priority 1: Opening product chat for:', navState.autoOpenProductId, 'vendor:', navState.autoOpenRecipientId);
+        await handleProductConversation({
+          id: navState.autoOpenProductId,
+          vendorId: navState.autoOpenRecipientId,
+          title: navState.autoOpenRecipientUsername ? `Chat with ${navState.autoOpenRecipientUsername}` : 'Product Chat'
+        });
+        lastProcessedKey.current = currentKey;
+        // Commented out replaceState to avoid losing context on re-renders, 
+        // using the key-based check instead for stability.
+        return;
+      }
+
+      // Priority 2: Fallback to username
+      if (navState?.openVendorChat && navState?.autoOpenChat) {
+        console.log('🎯 Priority 2: Searching by vendor username:', navState.openVendorChat);
+        const vendorUsername = navState.openVendorChat;
+        const target = allConversations.find(conv =>
+          conv.other_user?.username === vendorUsername ||
+          conv.vendor?.username === vendorUsername ||
+          conv.vendor_username === vendorUsername
+        );
+
+        if (target) {
+          setAutoSelectConversation(target.id);
+        }
+        lastProcessedKey.current = currentKey;
+        return;
+      }
+
+      // Priority 3: Check for stored product context
+      const context = messagingService.getProductContextFromStorage();
+      if (context && context.id) {
+        console.log('🎯 Priority 3: Opening stored product context');
+        setProductContext(context);
+        await handleProductConversation(context);
+        lastProcessedKey.current = currentKey;
+        return;
+      }
+
+      // Priority 4: Restore from localStorage
+      const savedConversation = localStorage.getItem('selectedConversation');
+      if (savedConversation) {
+        try {
+          const conversation = JSON.parse(savedConversation);
+          const found = allConversations.find(conv => conv.id === conversation.id);
+          if (found) {
+            console.log('🎯 Priority 4: Restoring previous session:', found.id);
+            setAutoSelectConversation(found.id);
+          }
+        } catch (error) {
+          console.error('Error restoring saved conversation:', error);
+        }
+      }
+
+      lastProcessedKey.current = currentKey;
+    };
+
+    initializeChat();
+
+    // WebSocket event handlers (Mount once)
     const handleMessagesMarkedRead = () => {
       loadConversations();
     };
-
     window.addEventListener('messages_marked_read', handleMessagesMarkedRead);
 
-    // Listen for real-time conversation updates
     const handleConversationUpdate = (data: any) => {
       if (data?.conversation) {
         setConversations(prev => {
-          // Remove old conversation if exists
           const filtered = prev.filter(conv => conv.id !== data.conversation.id);
-          // Add updated conversation at the top
           return [data.conversation, ...filtered];
         });
       }
     };
 
-    // Listen for new messages to update conversation list
     const handleNewMessage = (data: any) => {
       if (data?.conversation_id) {
-        // Update conversation in list without full refresh
         setConversations(prev => {
           const updated = prev.map(conv =>
             conv.id === data.conversation_id
               ? { ...conv, updated_at: new Date().toISOString(), last_message: data }
               : conv
           );
-          // Sort by updated_at descending
           return updated.sort((a, b) =>
             new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
           );
@@ -121,14 +191,13 @@ export default function BuyerMessages() {
     };
 
     realtimeService.subscribe('new_message', handleNewMessage);
-
     realtimeService.subscribe('conversation_updated', handleConversationUpdate);
 
     return () => {
       window.removeEventListener('messages_marked_read', handleMessagesMarkedRead);
       realtimeService.unsubscribe('conversation_updated', handleConversationUpdate);
     };
-  }, []);
+  }, [location.state]);
 
   const loadConversations = async () => {
     try {
@@ -147,63 +216,41 @@ export default function BuyerMessages() {
     }
   };
 
-  // Auto-open vendor chat if navigated with state
-  useEffect(() => {
-    const navState: any = location.state as any;
-    if (navState?.openVendorChat && navState?.autoOpenChat) {
-      setAutoSelectConversation(navState.openVendorChat);
-      // Clean the state
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-
   const handleProductConversation = async (context: any) => {
     try {
-      // Ensure vendorId is available and properly formatted
-      if (!context.vendorId) {
-        toast({
-          title: "Error",
-          description: "Vendor information not available. Please try again.",
-          variant: "destructive",
-        });
+      // 1. Validate Context
+      if (!context.id || !context.vendorId) {
+        console.warn('⚠️ handleProductConversation: Missing product or vendor ID', context);
         return;
       }
 
-      // Try to get existing conversation for this product
-      let conversation;
-      try {
-        conversation = await messagingService.getConversationByProduct(context.id);
-      } catch (error: any) {
-        // If no conversation exists (404), create one
-        if (error.message?.includes('No conversation found')) {
-          // Both IDs should be UUID strings - ensure they are strings
-          const productId = String(context.id);
-          const vendorId = String(context.vendorId);
+      console.log('🔄 Handling product conversation for:', context.id, 'with vendor:', context.vendorId);
 
-          conversation = await messagingService.createProductConversation(
-            productId,
-            vendorId
-          );
-        } else {
-          throw error; // Re-throw if it's a different error
-        }
+      // 2. Get or Create Conversation (Backend handles the lookup logic)
+      const conversation = await messagingService.createProductConversation(
+        context.id,
+        context.vendorId
+      );
+
+      if (!conversation || !conversation.id) {
+        throw new Error("Failed to resolve conversation");
       }
 
-      // Update conversations list
-      await loadConversations();
+      // 3. Update local list (to ensure it exists in the UI)
+      const freshConversations = await messagingService.getConversations();
+      setConversations(freshConversations);
 
-      // Auto-select the conversation
-      if (conversation && conversation.id) {
-        setAutoSelectConversation(conversation.id);
-      }
+      // 4. Select by ID
+      console.log('✅ Selecting conversation:', conversation.id);
+      setAutoSelectConversation(conversation.id);
 
       toast({
-        title: "Conversation Started",
-        description: `Chatting about ${context.title}`,
+        title: "Conversation Ready",
+        description: `Chatting about ${context.title || 'Product'}`,
       });
     } catch (error: any) {
       console.error('Error handling product conversation:', error);
-      const errorMessage = error.response?.data?.error || error.message || "Failed to start conversation";
+      const errorMessage = error.message || "Failed to start conversation";
       toast({
         title: "Error",
         description: errorMessage,

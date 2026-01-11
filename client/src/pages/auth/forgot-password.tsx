@@ -217,8 +217,6 @@ export default function ForgotPassword() {
         onClose={() => setShowCaptchaModal(false)}
         onVerify={handleCaptchaVerify}
         siteKey="recovery-captcha"
-        title="Security Verification"
-        instruction="Please click on the highlighted circle to verify you are human."
       />
     </div>
   );

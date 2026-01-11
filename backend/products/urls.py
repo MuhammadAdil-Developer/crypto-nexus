@@ -31,6 +31,7 @@ urlpatterns = [
     path('bulk-upload/simple/', views.bulk_upload_simple, name='bulk_upload_simple'),
     path('bulk-upload/template/', views.get_bulk_upload_template, name='get_bulk_upload_template'),
     path('bulk-upload/debug/', views.debug_csv_columns, name='debug_csv_columns'),
+    path('bulk-delete/', views.bulk_delete_products, name='bulk_delete_products'),
     
     # Credentials
     path('<int:product_id>/reveal-credentials/', views.reveal_credentials, name='reveal_credentials'),

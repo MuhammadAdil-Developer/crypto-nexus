@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -349,6 +349,33 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     navigate(`/buyer/create-dispute?orderId=${order.id}`);
   };
 
+  const handleMessageSeller = (order: Order) => {
+    if (!order.product || !order.vendor) {
+      toast({
+        title: "Error",
+        description: "Cannot message seller: missing product or vendor info",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Navigating to messages with:', {
+      autoOpenProductId: order.product.id,
+      autoOpenRecipientId: order.vendor.id,
+      autoOpenRecipientUsername: order.vendor.username,
+      autoOpenOrderId: order.order_id
+    });
+
+    navigate('/buyer/messages', {
+      state: {
+        autoOpenProductId: order.product.id,
+        autoOpenRecipientId: order.vendor.id,
+        autoOpenRecipientUsername: order.vendor.username,
+        autoOpenOrderId: order.order_id
+      }
+    });
+  };
+
   useEffect(() => {
     // Fetch refund requests for all orders
     const fetchRefundRequests = async () => {
@@ -610,6 +637,9 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             <DropdownMenuContent align="end" className="w-48 bg-gray-900 border-gray-700">
                               <DropdownMenuItem onClick={() => handleViewDetails(order)} className="text-gray-300">
                                 <Info className="w-4 h-4 mr-2" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleMessageSeller(order)} className="text-gray-300">
+                                <MessageSquare className="w-4 h-4 mr-2" /> Message Seller
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleLeaveReview(order)} className="text-gray-300">
                                 <Star className="w-4 h-4 mr-2" /> Leave Review

@@ -93,12 +93,23 @@ export function MessagesPanel({
   // Auto-select conversation if provided
   useEffect(() => {
     if (autoSelectConversation && localConversations.length > 0) {
-      const conversation = localConversations.find(conv =>
-        conv.vendor?.username === autoSelectConversation ||
-        conv.vendor_username === autoSelectConversation
-      );
-      if (conversation && !selectedConversation) {
-        setSelectedConversation(conversation);
+      // Priority 1: Match by conversation ID (Precise)
+      let conversation = localConversations.find(conv => String(conv.id) === String(autoSelectConversation));
+
+      // Priority 2: Fallback to vendor username (Legacy)
+      if (!conversation) {
+        conversation = localConversations.find(conv =>
+          conv.vendor?.username === autoSelectConversation ||
+          conv.vendor_username === autoSelectConversation ||
+          conv.other_user?.username === autoSelectConversation
+        );
+      }
+
+      if (conversation) {
+        // Only trigger if it's different from current
+        if (selectedConversation?.id !== conversation.id) {
+          handleConversationSelect(conversation);
+        }
         if (onConversationSelected) {
           onConversationSelected();
         }
@@ -460,6 +471,9 @@ export function MessagesPanel({
 
   // Restore selected conversation from localStorage when conversations load
   useEffect(() => {
+    // ABORT if we have an auto-selection pending
+    if (autoSelectConversation) return;
+
     if (conversations && conversations.length > 0) {
       const savedConversation = localStorage.getItem('selectedConversation');
       if (savedConversation && !selectedConversation) {
@@ -474,7 +488,7 @@ export function MessagesPanel({
         }
       }
     }
-  }, [conversations]);
+  }, [conversations, autoSelectConversation]);
 
   // Auto-select conversation when coming from product page
   useEffect(() => {
@@ -573,8 +587,18 @@ export function MessagesPanel({
           title: "Chat Blocked",
           description: "This conversation has been blocked",
         });
-        // Refresh conversation to get updated status
-        await handleConversationSelect(selectedConversation);
+
+        // Update local state immediately
+        const updatedConversation = { ...selectedConversation, is_active: false };
+        setSelectedConversation(updatedConversation);
+
+        // Update list state
+        setLocalConversations(prev => prev.map(c =>
+          c.id === selectedConversation.id ? { ...c, is_active: false } : c
+        ));
+
+        // Refresh parent data
+        if (onRefresh) onRefresh();
       } else {
         toast({
           title: "Error",
@@ -604,8 +628,18 @@ export function MessagesPanel({
           title: "Chat Unblocked",
           description: "This conversation has been unblocked",
         });
-        // Refresh conversation to get updated status
-        await handleConversationSelect(selectedConversation);
+
+        // Update local state immediately
+        const updatedConversation = { ...selectedConversation, is_active: true };
+        setSelectedConversation(updatedConversation);
+
+        // Update list state
+        setLocalConversations(prev => prev.map(c =>
+          c.id === selectedConversation.id ? { ...c, is_active: true } : c
+        ));
+
+        // Refresh parent data
+        if (onRefresh) onRefresh();
       } else {
         toast({
           title: "Error",
@@ -625,19 +659,33 @@ export function MessagesPanel({
   const handleDeleteChat = async () => {
     if (!selectedConversation) return;
 
-    // For now, just lock the conversation
-    // In future, you can implement actual deletion
+    if (!confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
+      return;
+    }
+
     try {
-      const response = await messagingService.lockConversation(selectedConversation.id, true);
-      if (response.success) {
-        setIsConversationLocked(true);
-        setShowUserProfileModal(false);
-        toast({
-          title: "Chat Deleted",
-          description: "This conversation has been deleted",
-        });
-      }
+      await messagingService.deleteConversation(selectedConversation.id);
+
+      toast({
+        title: "Chat Deleted",
+        description: "This conversation has been deleted",
+      });
+
+      // Update UI immediately
+      setShowUserProfileModal(false);
+
+      // Remove from local list
+      setLocalConversations(prev => prev.filter(c => c.id !== selectedConversation.id));
+
+      // Clear selection
+      setSelectedConversation(null);
+      setMessages([]);
+
+      // Refresh parent data
+      if (onRefresh) onRefresh();
+
     } catch (error: any) {
+      console.error('Delete chat error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete chat",

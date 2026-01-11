@@ -18,7 +18,15 @@ import {
   Lock,
   Palette,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Search,
+  Layout,
+  Settings,
+  HelpCircle,
+  Activity,
+  LogOut,
+  FileText,
+  Terminal
 } from "lucide-react";
 
 export const ADMIN_NAV_ITEMS = [
@@ -154,6 +162,12 @@ export const ADMIN_GROUPED_NAV = [
         icon: Store,
         href: "/admin/vendors",
         badge: { text: "7", type: "warning" }
+      },
+      {
+        title: "Manage Content",
+        icon: FileText,
+        href: "/admin/content",
+        badge: null
       }
     ]
   },
@@ -209,6 +223,12 @@ export const ADMIN_GROUPED_NAV = [
     category: "Financial",
     icon: Bitcoin,
     items: [
+      {
+        title: "Earnings Overview",
+        icon: BarChart3,
+        href: "/admin/earnings",
+        badge: null
+      },
       {
         title: "Crypto",
         icon: Bitcoin,

@@ -6,12 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, DollarSign, Wallet, RefreshCw, Check, X, Clock, Download } from "lucide-react";
+import { Search, DollarSign, Wallet, RefreshCw, Check, X, Clock, Download, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { useLocation, useNavigate } from "react-router-dom";
+import paymentService from "@/services/paymentService";
 
 interface PayoutData {
   id: number;
@@ -61,7 +63,12 @@ export default function AdminPayouts() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(10);
+  const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
+
+  const [showPayoutPrompt, setShowPayoutPrompt] = useState(false);
+  const [isBulkReleasing, setIsBulkReleasing] = useState(false);
 
   // Fetch payouts from API
   const fetchPayouts = async () => {
@@ -225,6 +232,53 @@ export default function AdminPayouts() {
     fetchRefunds();
   }, []);
 
+  // Handle incoming redirect state from Admin Crypto
+  useEffect(() => {
+    if (location.state) {
+      const { showPrompt, filter, action } = location.state as any;
+
+      if (showPrompt) {
+        setShowPayoutPrompt(true);
+      }
+
+      if (filter) {
+        setTypeFilter('escrow');
+        setSearchTerm(filter); // Search for the specific currency
+      }
+
+      if (action === 'release_expired') {
+        // Automatically open the bulk confirmation or show a specific toast
+        toast({
+          title: "Escrow Filtered",
+          description: "All expired payouts are now highlighted below.",
+        });
+      }
+
+      // Clear state so it doesn't trigger on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state]);
+
+  const handleBulkEscrowRelease = async () => {
+    try {
+      setIsBulkReleasing(true);
+      const result = await paymentService.performBulkEscrowAction('release_expired');
+      toast({
+        title: "Bulk Action Success",
+        description: result.message,
+      });
+      fetchPayouts();
+    } catch (error: any) {
+      toast({
+        title: "Bulk Action Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkReleasing(false);
+    }
+  };
+
   const getStatusType = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -306,6 +360,42 @@ export default function AdminPayouts() {
 
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-3 md:p-6">
+      {/* Payout Instructions Dialog */}
+      <Dialog open={showPayoutPrompt} onOpenChange={setShowPayoutPrompt}>
+        <DialogContent className="max-w-lg bg-gray-900 border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-accent" />
+              </span>
+              Escrow Payout Management
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 mt-2">
+              You have been redirected to the payout management center.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-surface-2/50 border border-border p-4 rounded-xl">
+              <h4 className="text-white font-medium mb-2">How it works:</h4>
+              <ul className="text-sm text-gray-300 space-y-2 list-disc pl-4">
+                <li>Funded escrow payments appear here once the buyer confirms the order.</li>
+                <li>You can manually (Release) individual payments to vendors.</li>
+                <li>Expired payouts (48h+ after shipment) can be released in bulk.</li>
+                <li>Once released, the system initiates the blockchain transaction.</li>
+              </ul>
+            </div>
+            <p className="text-sm text-gray-400">
+              Check the <span className="text-accent font-bold">"Ready"</span> status payouts below to start processing.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-accent text-bg hover:bg-accent-2 font-bold" onClick={() => setShowPayoutPrompt(false)}>
+              Got it, let's proceed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* API Status */}
       {loading && (
         <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 text-blue-300 mb-6">
@@ -335,19 +425,23 @@ export default function AdminPayouts() {
         </div>
       )}
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">Payouts & Refunds</h1>
           <p className="text-gray-300 mt-1 text-sm sm:text-base">Manage vendor payouts and customer refund requests</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
-          <Button variant="outline" size="sm" className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50  w-full sm:w-auto">
+          <Button
+            className="bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/40 border-0 h-11 px-6 rounded-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2"
+            onClick={handleBulkEscrowRelease}
+            disabled={isBulkReleasing}
+          >
+            {isBulkReleasing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+            Release All Escrow Payouts
+          </Button>
+          <Button variant="outline" size="sm" className="border-border text-gray-300 hover:text-white hover:bg-surface-2/50  w-full sm:w-auto h-11 px-4">
             <Download className="w-4 h-4 sm:mr-2" />
             <span className="sm:inline">Export Report</span>
-          </Button>
-          <Button size="sm" className="bg-accent text-bg hover:bg-accent-2 w-full sm:w-auto">
-            Process All
           </Button>
         </div>
       </div>

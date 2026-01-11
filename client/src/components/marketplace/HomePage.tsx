@@ -50,7 +50,9 @@ export function HomePage() {
         ]);
 
         const products = (productsRes as any).data || (productsRes as any).results || [];
-        setFeaturedListings(products as Product[]);
+        // Only show active products with stock
+        const activeProducts = products.filter((p: Product) => p.is_active && (p.quantity_available ?? 0) > 0);
+        setFeaturedListings(activeProducts as Product[]);
 
         const categoriesData = (categoriesRes as any).data || [];
         let processedCats: any[] = [];
@@ -98,7 +100,7 @@ export function HomePage() {
       setDisplayListings(shuffled.slice(0, 3));
     };
     rotate();
-    const interval = setInterval(rotate, 5000);
+    const interval = setInterval(rotate, 3600000); // Change every 1 hour
     return () => clearInterval(interval);
   }, [featuredListings]);
 
@@ -131,11 +133,6 @@ export function HomePage() {
 
   return (
     <>
-      <link rel="preload" as="image" href="/images/vendor-main-bg.png" />
-      <link rel="preload" as="image" href="/images/ac-logo-monogram.png" />
-      <link rel="preload" as="image" href="/images/the-one-and-only.png" />
-      <link rel="preload" as="image" href="/images/logo.png" />
-
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulseSlow { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
@@ -146,14 +143,21 @@ export function HomePage() {
         .animate-pulse-slow { animation: pulseSlow 3s ease-in-out infinite; }
         .shimmer { animation: shimmer 2s infinite; }
         .homepage-font { font-family: 'Orbitron', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        img { image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
       `}</style>
 
-      <div className="min-h-screen relative vendor-main-background homepage-font">
-        <div className="absolute inset-0 opacity-20">
-          <img src="/images/vendor-main-bg.png" alt="Background" className="w-full h-full object-cover" loading="eager" fetchPriority="high" />
+      <div className="min-h-screen relative bg-[#0a0a0f] homepage-font">
+        <div className="fixed inset-0 z-0">
+          <img
+            src="/images/vendor-main-bg.png"
+            alt="Background"
+            className="w-full h-full object-cover"
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
         </div>
-        <div className="absolute inset-0 opacity-10">
+        <div className="fixed inset-0 opacity-10 z-0 pointer-events-none">
           <div className="absolute inset-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A6033E' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
         </div>
 
@@ -164,10 +168,24 @@ export function HomePage() {
               <div className="space-y-4 sm:space-y-6 lg:space-y-8 relative z-10 p-3 sm:p-0">
                 <div className="flex flex-col items-center justify-center py-4 sm:py-6">
                   <div className="mb-3 sm:mb-4">
-                    <img src="/images/ac-logo-monogram.png" alt="AC Logo Monogram" className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 object-contain" style={{ filter: 'brightness(1) contrast(1.1) saturate(0.9)', imageRendering: '-webkit-optimize-contrast' }} />
+                    <img
+                      src="/images/ac-logo-monogram.png"
+                      alt="AC Logo Monogram"
+                      className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 object-contain"
+                      style={{ filter: 'brightness(1) contrast(1.1) saturate(0.9)' }}
+                      loading="eager"
+                      fetchPriority="high"
+                    />
                   </div>
                   <div className="mb-0">
-                    <img src="/images/the-one-and-only.png" alt="THE ONE AND ONLY" className="h-5 sm:h-6 lg:h-7 object-contain" style={{ filter: 'brightness(0.75) contrast(1.2) saturate(0.85)', imageRendering: '-webkit-optimize-contrast' }} />
+                    <img
+                      src="/images/the-one-and-only.png"
+                      alt="THE ONE AND ONLY"
+                      className="h-5 sm:h-6 lg:h-7 object-contain"
+                      style={{ filter: 'brightness(0.75) contrast(1.2) saturate(0.85)' }}
+                      loading="eager"
+                      fetchPriority="high"
+                    />
                   </div>
                 </div>
 

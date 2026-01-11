@@ -279,6 +279,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         elif order.order_status == OrderStatus.DELIVERED.value:
             # For delivered orders, allow confirmation
             pass
+        elif order.order_status == OrderStatus.DISPUTED.value:
+            # Allow confirming disputed orders (Buyer resolves in favor of vendor)
+            pass
         else:
             return Response(
                 {"error": "Order must be paid (with credentials) or delivered before confirmation"},
@@ -288,6 +291,26 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Update order status
         order.order_status = OrderStatus.CONFIRMED.value
         order.confirmed_at = timezone.now()
+        
+        # Auto-resolve dispute if open (Buyer decided to confirm/release)
+        if order.dispute_opened:
+            try:
+                # Use filter().first() to avoid crash if related_name issue (though OneToOne or related_name='dispute' usually works)
+                # Model definition says related_name='refund_disputes', but logic in resolve_dispute used order.dispute
+                # Let's check model definition again in memory or assume order.dispute works if defined.
+                # Actually, earlier view_file of models.py showed related_name='refund_disputes' on order field in OrderDispute.
+                # But resolve_dispute used order.dispute.
+                # Let's use safe approach: matches = OrderDispute.objects.filter(order=order)
+                disputes = OrderDispute.objects.filter(order=order, status__in=['open', 'investigating'])
+                for dispute in disputes:
+                    dispute.status = 'resolved'
+                    dispute.resolution = 'vendor_wins'
+                    dispute.resolution_notes = 'Automatically resolved via buyer confirmation'
+                    dispute.resolved_at = timezone.now()
+                    dispute.save()
+            except Exception as e:
+                logger.error(f"Failed to auto-resolve dispute for order {order.order_id}: {e}")
+                
         order.save()
         
         # Release payment to vendor if escrow was used

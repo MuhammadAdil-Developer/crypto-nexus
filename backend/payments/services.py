@@ -1212,7 +1212,10 @@ class PaymentService:
                 order.payment_confirmed_at = timezone.now()
                 
                 # Set product credentials for paid orders (like in confirm_payment_success)
-                if order.product.credentials and not order.product_credentials:
+                # Only if delivery type is 'instant_auto' OR specifically configured for auto-delivery
+                is_auto_delivery = order.product.delivery_time == 'instant_auto'
+                
+                if order.product.credentials and not order.product_credentials and is_auto_delivery:
                     order.product_credentials = {
                         'credentials': order.product.credentials,
                         'delivered_at': timezone.now().isoformat(),
@@ -1222,7 +1225,9 @@ class PaymentService:
                     }
                     order.product.credentials_visible = True
                     order.product.save()
-                    logger.info(f"Product credentials set for order {order_id}")
+                    logger.info(f"Product credentials set for order {order_id} (Auto-Delivery)")
+                elif not is_auto_delivery:
+                    logger.info(f"Order {order_id} is Manual Delivery (type: {order.product.delivery_time}). Credentials NOT auto-released.")
                 
                 # Create notifications for buyer and vendor when payment is confirmed
                 try:
@@ -1632,8 +1637,9 @@ class PaymentService:
             payment_address = PaymentAddress.objects.get(order_id=order_id)
             escrow = payment_address.escrow
             
-            if escrow.status != 'funded':
-                logger.warning(f"Cannot release escrow for order {order_id}: status is {escrow.status} (expected 'funded')")
+            # Allow releasing if status is 'funded' OR 'disputed'
+            if escrow.status not in ['funded', 'disputed']:
+                logger.warning(f"Cannot release escrow for order {order_id}: status is {escrow.status} (expected 'funded' or 'disputed')")
                 return False
             
             # Release escrow

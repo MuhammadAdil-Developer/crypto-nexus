@@ -22,11 +22,11 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch conversations');
     }
-    
+
     return response.json();
   }
 
@@ -39,11 +39,11 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch all conversations');
     }
-    
+
     return response.json();
   }
 
@@ -56,11 +56,11 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch messages');
     }
-    
+
     return response.json();
   }
 
@@ -72,44 +72,44 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch conversation');
     }
-    
+
     return response.json();
   }
 
   async getMessages(conversationId: string): Promise<any[]> {
     const token = localStorage.getItem('accessToken');
-    
+
     const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationId}/messages/`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch messages');
     }
-    
+
     const data = await response.json();
     return data;
   }
 
   async createProductConversation(productId: string | number, recipientId: string | number, refundId?: string, disputeId?: string): Promise<any> {
     const token = localStorage.getItem('accessToken');
-    
+
     // Convert both IDs to strings (they are UUIDs)
     const productIdStr = String(productId);
     const recipientIdStr = String(recipientId);
-    
+
     const requestBody: any = {
       product_id: productIdStr,
       recipient_id: recipientIdStr,
     };
-    
+
     // Add refund_id or dispute_id if provided (for creating separate conversations)
     if (refundId) {
       requestBody.refund_id = refundId;
@@ -117,7 +117,7 @@ class MessagingService {
     if (disputeId) {
       requestBody.dispute_id = disputeId;
     }
-    
+
     const response = await fetch(`${API_BASE_URL}/messaging/conversations/create-product/`, {
       method: 'POST',
       headers: {
@@ -126,13 +126,13 @@ class MessagingService {
       },
       body: JSON.stringify(requestBody),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error || errorData.message || 'Failed to create conversation';
       throw new Error(errorMessage);
     }
-    
+
     return response.json();
   }
 
@@ -146,7 +146,7 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error('No conversation found for this product');
@@ -155,7 +155,7 @@ class MessagingService {
       const errorMessage = errorData.error || 'Failed to fetch conversation by product';
       throw new Error(errorMessage);
     }
-    
+
     return response.json();
   }
 
@@ -168,11 +168,11 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to mark messages as read');
     }
-    
+
     // Trigger refresh of notifications after marking as read
     // The backend should send unread_count_update event, but we refresh just in case
     if (typeof window !== 'undefined') {
@@ -189,7 +189,7 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to report message');
     }
@@ -225,7 +225,7 @@ class MessagingService {
       },
       body: JSON.stringify({ content }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to edit message');
     }
@@ -240,9 +240,24 @@ class MessagingService {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to delete message');
+    }
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationId}/`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
     }
   }
 
@@ -252,17 +267,17 @@ class MessagingService {
     if (this.ws) {
       this.ws.close();
     }
-    
+
     this.conversationId = conversationId;
     const token = localStorage.getItem('accessToken');
     const wsUrl = getWebSocketUrl(`/ws/chat/${conversationId}/?token=${token}`);
-    
+
     this.ws = new WebSocket(wsUrl);
-    
+
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
+
         switch (data.type) {
           case 'chat_message':
             if (this.onMessageCallback && data.data) {
@@ -315,11 +330,11 @@ class MessagingService {
         console.error('Error parsing WebSocket message:', error);
       }
     };
-    
+
     this.ws.onclose = () => {
       this.ws = null;
     };
-    
+
     this.ws.onerror = (error) => {
       console.error('WebSocket connection error:', error);
     };
@@ -335,7 +350,7 @@ class MessagingService {
 
   async sendMessage(message: string, conversationId?: string, attachment?: File): Promise<any> {
     const convId = conversationId || this.conversationId;
-    
+
     if (!convId) {
       throw new Error('No conversation ID available');
     }
@@ -348,18 +363,18 @@ class MessagingService {
   async sendMessageViaAPI(conversationId: string, content: string, attachment?: File, onProgress?: (progress: number) => void): Promise<any> {
     const token = localStorage.getItem('accessToken');
     const conversationIdStr = String(conversationId);
-    
+
     if (attachment) {
       // Use FormData for file uploads
       const formData = new FormData();
       formData.append('conversation', conversationIdStr);
       formData.append('content', content || '');
       formData.append('attachment', attachment);
-      
+
       // Use XMLHttpRequest for progress tracking
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        
+
         // Track upload progress
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable && onProgress) {
@@ -367,7 +382,7 @@ class MessagingService {
             onProgress(percentComplete);
           }
         });
-        
+
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
@@ -387,11 +402,11 @@ class MessagingService {
             }
           }
         });
-        
+
         xhr.addEventListener('error', () => {
           reject(new Error('Network error while sending file'));
         });
-        
+
         xhr.open('POST', `${API_BASE_URL}/messaging/conversations/${conversationIdStr}/messages/`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
@@ -403,7 +418,7 @@ class MessagingService {
         content: content,
         message_type: 'text',
       };
-      
+
       const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationIdStr}/messages/`, {
         method: 'POST',
         headers: {
@@ -412,21 +427,21 @@ class MessagingService {
         },
         body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error || errorData.message || 'Failed to send message';
         throw new Error(errorMessage);
       }
-      
+
       return await response.json();
     }
   }
-  
+
   async sendMessageWithAttachment(conversationId: string, content: string, attachment: File, onProgress?: (progress: number) => void): Promise<any> {
     return await this.sendMessageViaAPI(conversationId, content, attachment, onProgress);
   }
-  
+
   async blockUser(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/messaging/users/${userId}/block/`, {
@@ -436,7 +451,7 @@ class MessagingService {
           'Content-Type': 'application/json',
         },
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         return { success: true, message: data.message || 'User blocked successfully' };
@@ -448,7 +463,7 @@ class MessagingService {
       return { success: false, error: 'Network error while blocking user' };
     }
   }
-  
+
   async unblockUser(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/messaging/users/${userId}/unblock/`, {
@@ -458,7 +473,7 @@ class MessagingService {
           'Content-Type': 'application/json',
         },
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         return { success: true, message: data.message || 'User unblocked successfully' };
@@ -470,7 +485,7 @@ class MessagingService {
       return { success: false, error: 'Network error while unblocking user' };
     }
   }
-  
+
   async getBlockedUsers(): Promise<{ success: boolean; data?: any[]; error?: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/messaging/users/blocked/`, {
@@ -479,7 +494,7 @@ class MessagingService {
           'Content-Type': 'application/json',
         },
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         return { success: true, data: data.data || [] };
@@ -491,7 +506,7 @@ class MessagingService {
       return { success: false, error: 'Network error while getting blocked users' };
     }
   }
-  
+
   async reportUser(
     reportedUserId: string,
     reason: string,
@@ -514,7 +529,7 @@ class MessagingService {
           message_id: messageId,
         }),
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         return { success: true, message: data.message || 'User reported successfully' };
@@ -526,7 +541,7 @@ class MessagingService {
       return { success: false, error: 'Network error while reporting user' };
     }
   }
-  
+
   async getUserAttachments(userId: string): Promise<{ success: boolean; data?: any[]; error?: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/messaging/users/${userId}/attachments/`, {
@@ -535,7 +550,7 @@ class MessagingService {
           'Content-Type': 'application/json',
         },
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         return { success: true, data: data.data || [] };
@@ -578,19 +593,19 @@ class MessagingService {
   setProductContextInStorage(context: any): void {
     localStorage.setItem('productContext', JSON.stringify(context));
     if (context.isDispute) {
-      localStorage.setItem('disputeContext', JSON.stringify({ 
-        disputeId: context.disputeId, 
-        conversationId: context.conversationId || context.id 
+      localStorage.setItem('disputeContext', JSON.stringify({
+        disputeId: context.disputeId,
+        conversationId: context.conversationId || context.id
       }));
     }
     if (context.isRefund) {
-      localStorage.setItem('refundContext', JSON.stringify({ 
-        refundId: context.refundId, 
-        conversationId: context.conversationId || context.id 
+      localStorage.setItem('refundContext', JSON.stringify({
+        refundId: context.refundId,
+        conversationId: context.conversationId || context.id
       }));
     }
   }
-  
+
   getProductContextFromStorage(): any {
     const context = localStorage.getItem('productContext');
     if (context) {
@@ -676,6 +691,39 @@ class MessagingService {
       return data.results;
     }
     return [];
+  }
+
+  async getUserReports(filter: string = 'all'): Promise<any[]> {
+    const response = await fetch(`${this.baseUrl}/messaging/users/reports/?filter=${filter}`, {
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch user reports');
+    }
+
+    const data = await response.json();
+    return data.data || []; // Expecting { data: [...] }
+  }
+
+  async updateReportStatus(reportId: string, status: string, adminNotes?: string): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/messaging/users/reports/${reportId}/`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status, admin_notes: adminNotes }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update report status');
+    }
+
+    return response.json();
   }
 }
 

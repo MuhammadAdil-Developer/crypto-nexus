@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,6 +172,7 @@ const getPriorityColor = (priority: string) => {
 
 export default function VendorOrders() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [orders, setOrders] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -196,6 +197,23 @@ export default function VendorOrders() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Auto-open order details if openOrderId is provided in navigation state
+  useEffect(() => {
+    const navState = location.state as any;
+    if (navState?.openOrderId && orders.length > 0) {
+      const orderToOpen = orders.find(o =>
+        (o.order_id && o.order_id.toString() === navState.openOrderId.toString()) ||
+        (o.numericId && o.numericId.toString() === navState.openOrderId.toString())
+      );
+
+      if (orderToOpen) {
+        handleViewDetails(orderToOpen);
+        // Clean the state so it doesn't show again on refresh
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, orders]);
 
   const fetchOrders = async () => {
     try {

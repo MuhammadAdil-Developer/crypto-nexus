@@ -71,7 +71,7 @@ class VendorService {
       // Active listings are approved products that are currently active
       const activeListings = products.filter(p => p.status === 'approved' && p.is_active !== false).length;
       // Out of stock is specifically when quantity is 0
-      const outOfStock = products.filter(p => p.quantity_available === 0 || p.quantity_available === '0').length;
+      const outOfStock = products.filter(p => Number(p.quantity_available) === 0).length;
       const underReview = products.filter(p => p.status === 'pending_approval').length;
 
       // For sales and revenue, we would need to fetch orders, but for now return 0
@@ -147,7 +147,7 @@ class VendorService {
       // Calculate Product Stats
       const totalProducts = products.length;
       const activeListings = products.filter(p => p.status === 'approved' && (p.is_active !== false)).length;
-      const outOfStock = products.filter(p => (p.quantity_available === 0 || p.quantity_available === '0') && p.status === 'approved').length;
+      const outOfStock = products.filter(p => Number(p.quantity_available) === 0 && p.status === 'approved').length;
       const underReview = products.filter(p => p.status === 'pending_approval' || p.status === 'under_review').length;
 
       // Calculate Revenue & Sales (USD based)
@@ -316,6 +316,19 @@ class VendorService {
       return {
         success: false,
         message: error.message || 'Failed to delete product'
+      };
+    }
+  }
+
+  async bulkDeleteProducts(productIds: number[]) {
+    try {
+      const response = await productService.bulkDeleteProducts(productIds);
+      return response;
+    } catch (error: any) {
+      console.error('Error bulk deleting products:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to bulk delete products'
       };
     }
   }

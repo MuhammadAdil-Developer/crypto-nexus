@@ -18,7 +18,9 @@ from .views import (
     unblock_user,
     get_blocked_users,
     report_user,
-    get_user_attachments
+    get_user_attachments,
+    get_user_reports,
+    update_report_status
 )
 
 urlpatterns = [
@@ -49,6 +51,8 @@ urlpatterns = [
     path('users/<uuid:user_id>/unblock/', unblock_user, name='unblock-user'),
     path('users/blocked/', get_blocked_users, name='blocked-users'),
     path('users/report/', report_user, name='report-user'),
+    path('users/reports/', get_user_reports, name='get-user-reports'),
+    path('users/reports/<uuid:report_id>/', update_report_status, name='update-report-status'),
     path('users/<uuid:user_id>/attachments/', get_user_attachments, name='user-attachments'),
 ]
 

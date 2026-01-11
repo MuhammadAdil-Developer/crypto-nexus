@@ -534,8 +534,6 @@ export default function SignIn() {
         onVerify={handleCaptchaVerify}
         onError={handleCaptchaError}
         siteKey="login-captcha"
-        title="Security prompt"
-        instruction="Please click on the highlighted circle to verify you are human."
       />
     </div>
   );

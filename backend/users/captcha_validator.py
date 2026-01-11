@@ -34,8 +34,8 @@ class CaptchaValidator:
                     'message': 'Captcha token is required'
                 }
             
-            # Parse token format: captcha_{timestamp}_{random_string}
-            if not token.startswith('captcha_'):
+            # Parse token format: captcha_{timestamp}_{random_string} or rocket_captcha_{timestamp}_{random_string}
+            if not (token.startswith('captcha_') or token.startswith('rocket_captcha_') or token.startswith('math_captcha_')):
                 print("❌ Invalid token format")  # Debug log
                 return {
                     'success': False,
@@ -45,14 +45,29 @@ class CaptchaValidator:
             # Extract timestamp and validate
             try:
                 parts = token.split('_')
-                if len(parts) < 3:
-                    print("❌ Token parts insufficient")  # Debug log
+                timestamp = None
+                
+                # Dynamic timestamp finder: look for the first part that is a long digit string
+                for part in parts:
+                    if part.isdigit() and len(part) > 8: # timestamp is usually huge
+                        timestamp = int(part)
+                        break
+                
+                if timestamp is None:
+                    # Fallback for specific known formats
+                    if token.startswith('math_captcha_') or token.startswith('rocket_captcha_'):
+                         if len(parts) >= 4 and parts[2].isdigit():
+                            timestamp = int(parts[2])
+                    elif len(parts) >= 3 and parts[1].isdigit():
+                        timestamp = int(parts[1])
+                
+                if timestamp is None:
+                    print(f"❌ Could not extract timestamp from {token}") 
                     return {
                         'success': False,
-                        'message': 'Invalid captcha token format'
+                        'message': 'Invalid captcha token structure'
                     }
-                
-                timestamp = int(parts[1])
+
                 current_time = int(time.time() * 1000)  # Convert to milliseconds to match frontend
                 
                 print(f"🔍 Token timestamp: {timestamp}, Current time: {current_time}")  # Debug log

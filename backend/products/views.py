@@ -1469,6 +1469,42 @@ def delete_product(request, product_id):
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_delete_products(request):
+    """Bulk delete products (soft delete)"""
+    try:
+        product_ids = request.data.get('product_ids', [])
+        if not product_ids:
+            return Response({
+                'success': False,
+                'message': 'No product IDs provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Determine if user is admin
+        is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+        
+        if is_admin:
+            products = Product.objects.filter(id__in=product_ids)
+        else:
+            products = Product.objects.filter(id__in=product_ids, vendor=request.user)
+        
+        count = products.count()
+        products.update(is_deleted=True)
+        
+        return Response({
+            'success': True,
+            'message': f'Successfully deleted {count} products',
+            'count': count
+        })
+    except Exception as e:
+        logger.error(f"Error bulk deleting products: {str(e)}")
+        return Response({
+            'success': False,
+            'message': 'Failed to bulk delete products',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_category_subcategories(request, category_id):

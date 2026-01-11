@@ -6,13 +6,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { HelpCircle, Plus, Search, MoreVertical, MessageSquare, FileText, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { HelpCircle, Plus, Search, MoreVertical, MessageSquare, FileText, CheckCircle, Clock, AlertCircle, Loader2, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import ticketService, { CreateTicketData } from "@/services/ticketService";
 import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
@@ -158,6 +168,11 @@ export default function VendorSupport() {
     description: ""
   });
 
+  // Close ticket confirmation dialog state
+  const [closeTicketDialogOpen, setCloseTicketDialogOpen] = useState(false);
+  const [ticketToClose, setTicketToClose] = useState<any>(null);
+  const [isClosingTicket, setIsClosingTicket] = useState(false);
+
   useEffect(() => {
     fetchTickets();
     fetchStatistics();
@@ -277,6 +292,41 @@ export default function VendorSupport() {
       case 'high': return 'High';
       case 'urgent': return 'Urgent';
       default: return priority;
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    if (!ticketToClose) return;
+
+    try {
+      setIsClosingTicket(true);
+      const response = await ticketService.closeTicket(ticketToClose.id);
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Ticket closed successfully"
+        });
+        await fetchTickets();
+        await fetchStatistics();
+        setCloseTicketDialogOpen(false);
+        setTicketToClose(null);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to close ticket",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error closing ticket:', error);
+      toast({
+        title: "Error",
+        description: "Failed to close ticket",
+        variant: "destructive"
+      });
+    } finally {
+      setIsClosingTicket(false);
     }
   };
 
@@ -528,6 +578,18 @@ export default function VendorSupport() {
                           <FileText className="w-4 h-4 mr-2" />
                           View Details
                         </DropdownMenuItem>
+                        {ticket.status !== 'closed' && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setTicketToClose(ticket);
+                              setCloseTicketDialogOpen(true);
+                            }}
+                            className="text-theme-red"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Close Ticket
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -621,6 +683,43 @@ export default function VendorSupport() {
           fetchStatistics();
         }}
       />
+
+      {/* Close Ticket Confirmation Dialog */}
+      <AlertDialog open={closeTicketDialogOpen} onOpenChange={setCloseTicketDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border border-gray-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <X className="w-5 h-5 text-theme-red" />
+              Close Support Ticket
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              {ticketToClose && (
+                <>
+                  Are you sure you want to close ticket <span className="font-semibold text-white">{ticketToClose.ticket_id}</span>?
+                  <br /><br />
+                  You can still view the ticket and its conversation history later, but no further updates will be made.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
+              disabled={isClosingTicket}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCloseTicket}
+              disabled={isClosingTicket}
+              className="bg-theme-red hover:bg-theme-red/90 text-white"
+            >
+              {isClosingTicket && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Close Ticket
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
 
   );

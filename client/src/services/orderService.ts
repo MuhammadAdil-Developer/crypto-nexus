@@ -190,6 +190,9 @@ class OrderService {
       if (response.data.results) {
         return response.data.results;
       }
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch orders'));
@@ -285,6 +288,17 @@ class OrderService {
     }
   }
 
+  async deliverOrder(orderId: string, credentials: any): Promise<Order> {
+    try {
+      const response = await api.post(`/orders/${orderId}/deliver/`, {
+        credentials
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(extractErrorMessage(error, 'Failed to deliver order'));
+    }
+  }
+
   async markAsDelivered(orderId: string): Promise<Order> {
     try {
       const response = await api.post(`/orders/${orderId}/mark_delivered/`);
@@ -321,6 +335,9 @@ class OrderService {
       if (response.data.results) {
         return response.data.results;
       }
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch order history'));
@@ -335,6 +352,9 @@ class OrderService {
       if (response.data.results) {
         return response.data.results;
       }
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch vendor orders'));
@@ -348,6 +368,9 @@ class OrderService {
       // Handle both paginated and non-paginated responses
       if (response.data.results) {
         return response.data.results;
+      }
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
       }
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {

@@ -110,7 +110,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_product_credentials(self, obj):
         """Get product credentials for paid, confirmed, and delivered orders"""
-        if obj.product_credentials and (obj.order_status == 'paid' or obj.order_status == 'confirmed' or obj.order_status == 'completed'):
+        valid_statuses = ['paid', 'confirmed', 'delivered', 'completed']
+        if obj.product_credentials and obj.order_status in valid_statuses:
             return obj.product_credentials
         return None
 

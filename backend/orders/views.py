@@ -259,6 +259,49 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.delivered_at = timezone.now()
         order.product_credentials = request.data.get('credentials', {})
         order.save()
+
+        # Create notification for buyer
+        try:
+            from shared.models import Notification
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            
+            Notification.objects.create(
+                user=order.buyer,
+                type='order',
+                title='Product Delivered!',
+                message=f'Credentials for "{order.product.headline}" are now available in your order details.',
+                data={
+                    'order_id': order.order_id,
+                    'type': 'order_update',
+                    'status': 'delivered'
+                }
+            )
+
+            # Real-time alert
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f'realtime_{order.buyer.id}',
+                    {
+                        'type': 'order_notification',
+                        'data': {
+                            'id': f'deliver_{order.order_id}_{int(timezone.now().timestamp())}',
+                            'type': 'order',
+                            'title': 'Product Delivered!',
+                            'message': f'Your account for {order.product.headline} is ready.',
+                            'is_read': False,
+                            'data': {
+                                'orderId': order.order_id,
+                                'type': 'order_update',
+                                'status': 'delivered'
+                            },
+                            'created_at': timezone.now().isoformat()
+                        }
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Failed to create delivery notification for order {order.order_id}: {str(e)}")
         
         return Response({"message": "Product delivered successfully"})
     
@@ -271,7 +314,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Or if order is delivered (for physical products)
         if order.order_status == OrderStatus.PAID.value:
             # For paid orders, check if credentials are available
-            if not order.product_credentials:
+            # Fix: Allow confirmation without credentials if it's manual delivery
+            is_manual = order.product.delivery_method == 'manual' or order.product.delivery_time == 'manual_24h'
+            if not order.product_credentials and not is_manual:
                 return Response(
                     {"error": "Product credentials not available yet"},
                     status=status.HTTP_400_BAD_REQUEST

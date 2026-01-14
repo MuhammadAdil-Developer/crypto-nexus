@@ -176,11 +176,28 @@ export default function VendorEditProduct() {
       try {
         const user = authService.getCurrentUser();
         if (user) {
+          // First check: use the unified status endpoint
           const vendorStatus = await vendorService.checkApplicationStatus(user.username);
+          let btcSet = false;
+          let xmrSet = false;
+
           if (vendorStatus.success && vendorStatus.data) {
-            setBtcAddressSet(!!vendorStatus.data.btc_address);
-            setXmrAddressSet(!!vendorStatus.data.xmr_address);
+            btcSet = !!(vendorStatus.data.btc_address || vendorStatus.data.btc_payout_address);
+            xmrSet = !!(vendorStatus.data.xmr_address || vendorStatus.data.xmr_payout_address);
           }
+
+          // Second check: fall back to the actual user profile (source of truth for Settings > Payment)
+          if (!btcSet || !xmrSet) {
+            const profileResponse = await vendorService.getProfile();
+            if (profileResponse.success && profileResponse.data) {
+              const userData = profileResponse.data;
+              if (!btcSet) btcSet = !!(userData.btc_payout_address || userData.btc_address);
+              if (!xmrSet) xmrSet = !!(userData.xmr_payout_address || userData.xmr_address);
+            }
+          }
+
+          setBtcAddressSet(btcSet);
+          setXmrAddressSet(xmrSet);
         }
       } catch (error) {
         console.error('Error checking vendor status:', error);
@@ -291,6 +308,16 @@ export default function VendorEditProduct() {
         type: 'error',
         title: "Validation Error",
         message: "You must save your Monero wallet address in Settings > Payment before listing XMR products."
+      });
+      return;
+    }
+
+    // Auto-delivery validation
+    if (formData.delivery_method === 'auto' && (!formData.credentials || !formData.credentials.trim())) {
+      showToast({
+        type: 'error',
+        title: "Validation Error",
+        message: "Credentials are required for Auto-Delivery products. Please provide account details."
       });
       return;
     }
@@ -677,7 +704,7 @@ export default function VendorEditProduct() {
                         ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
                         : placeholderImage)}
                     alt="Main product image"
-                    className="w-full h-48 object-cover rounded-lg border border-gray-600"
+                    className="w-full h-48 object-contain rounded-lg border border-gray-600 bg-gray-900/50"
                     onError={(e) => {
                       e.currentTarget.src = placeholderImage;
                     }}
@@ -857,6 +884,23 @@ export default function VendorEditProduct() {
                   placeholder="e.g., N/A"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="credentials" className="text-gray-300">Credentials {formData.delivery_method === 'auto' && <span className="text-theme-red">*</span>}</Label>
+                <Textarea
+                  id="credentials"
+                  name="credentials"
+                  value={formData.credentials}
+                  onChange={handleInputChange}
+                  className="bg-gray-800 border-gray-600 text-white min-h-[80px]"
+                  placeholder={formData.delivery_method === 'auto' ? "Enter account credentials (Required for Auto-Delivery)" : "Enter account credentials (Optional for Manual Delivery)"}
+                />
+                <p className="text-[10px] text-gray-500">
+                  {formData.delivery_method === 'auto'
+                    ? "For auto-delivery, these will be sent to the buyer immediately."
+                    : "For manual delivery, you can leave this empty and provide details later."}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -869,14 +913,29 @@ export default function VendorEditProduct() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="delivery_method" className="text-gray-300">Delivery Method</Label>
-                  <Input
-                    id="delivery_method"
-                    name="delivery_method"
-                    value={formData.delivery_method}
-                    onChange={handleInputChange}
-                    className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="e.g., instant"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={formData.delivery_method === 'auto' ? 'default' : 'outline'}
+                      className={`h-10 ${formData.delivery_method === 'auto' ? 'bg-theme-cyan text-black' : 'border-gray-600 text-gray-400'}`}
+                      onClick={() => setFormData(prev => ({ ...prev, delivery_method: 'auto', delivery_time: 'instant_auto' }))}
+                    >
+                      Auto
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.delivery_method === 'manual' ? 'default' : 'outline'}
+                      className={`h-10 ${formData.delivery_method === 'manual' ? 'bg-theme-cyan text-black' : 'border-gray-600 text-gray-400'}`}
+                      onClick={() => setFormData(prev => ({ ...prev, delivery_method: 'manual', delivery_time: 'manual_24h' }))}
+                    >
+                      Manual
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    {formData.delivery_method === 'auto'
+                      ? "Auto: Credentials will be sent instantly after payment (Required)."
+                      : "Manual: You will deliver credentials manually later (Optional for now)."}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="delivery_time" className="text-gray-300">Delivery Time</Label>
@@ -886,7 +945,7 @@ export default function VendorEditProduct() {
                     value={formData.delivery_time}
                     onChange={handleInputChange}
                     className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="e.g., manual_24h"
+                    placeholder="e.g., instant_auto or manual_24h"
                   />
                 </div>
               </div>
@@ -1040,19 +1099,19 @@ export default function VendorEditProduct() {
                       ? getImageUrl(product.main_images[0])
                       : placeholderImage))}
                 alt={formData.listing_title || formData.headline}
-                className="w-full h-48 object-cover rounded-lg"
+                className="w-full h-48 object-contain rounded-lg bg-gray-900/50"
                 onError={(e) => {
                   e.currentTarget.src = placeholderImage;
                 }}
               />
             </div>
             <div>
-              <h3 className="font-semibold text-white text-lg">{formData.listing_title || 'Untitled Product'}</h3>
-              <p className="text-gray-400">
-                {product?.category_name || 'No Category'} • {product?.sub_category_name || 'No Sub-category'}
+              <h3 className="font-semibold text-white text-lg truncate">{formData.headline || 'Untitled Product'}</h3>
+              <p className="text-gray-400 text-sm">
+                {product?.category_name || formData.category || 'No Category'}
               </p>
               <div className="mt-2">
-                <span className="text-2xl font-bold text-theme-cyan">${formData.price || 0}</span>
+                <span className="text-2xl font-bold text-theme-cyan">${formData.price ? parseFloat(formData.price).toFixed(2) : '0.00'}</span>
                 <span className="text-sm text-gray-400 ml-2">Stock: {formData.quantity_available || 0}</span>
               </div>
               <div className="mt-2">

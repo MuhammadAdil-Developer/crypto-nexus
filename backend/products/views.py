@@ -1624,6 +1624,16 @@ def bulk_upload_csv(request):
                 if not delivery_time:
                     delivery_time = 'instant_auto'
 
+                # Delivery method (manual vs auto)
+                # User wants 'auto' to require credentials, 'manual' to be optional
+                delivery_method = get_val(row, 'delivery_method', 'method').lower()
+                if not delivery_method:
+                    delivery_method = 'auto'
+                
+                if delivery_method == 'auto' and not credentials:
+                    errors.append(f"Row {row_num}: Credentials are required for auto delivery accounts.")
+                    continue
+
                 # Map to product fields
                 product_data = {
                     'headline': headline,
@@ -1634,6 +1644,7 @@ def bulk_upload_csv(request):
                     'price': smart_parse_price(price_val or '0'),
                     'additional_info': additional_info,
                     'delivery_time': delivery_time,
+                    'delivery_method': delivery_method,
                     'credentials': credentials,
                     'account_balance': account_balance,
                     'quantity_available': quantity_available,
@@ -1715,8 +1726,16 @@ def bulk_upload_simple(request):
                     errors.append("No active category found")
                     continue
                 
-                # Ensure credentials field is not empty for bulk upload
-                if not product_data.get('credentials', '').strip():
+                # Delivery method and credential validation
+                delivery_method = product_data.get('delivery_method', 'auto').lower()
+                if delivery_method == 'auto' and not product_data.get('credentials', '').strip():
+                    errors.append(f"Product '{product_data.get('headline')}': Credentials are required for auto delivery.")
+                    continue
+                
+                # Ensure credentials field has a placeholder if manual and empty
+                if delivery_method == 'manual' and not product_data.get('credentials', '').strip():
+                    product_data['credentials'] = '' # Backend allows empty for manual
+                elif not product_data.get('credentials', '').strip():
                     product_data['credentials'] = 'Credentials will be provided after purchase'
                 
                 # Add vendor ID to product data
@@ -1793,7 +1812,7 @@ def parse_text_format(text_data):
                 # Handle credentials field (6th field if present)
                 credentials = parts[5] if len(parts) > 5 and parts[5].strip() else 'Credentials will be provided after purchase'
                 
-                # Handle optional fields: quantity and escrow
+                # Handle optional fields: quantity, escrow, delivery_method
                 quantity = 1
                 if len(parts) > 6 and parts[6].strip().isdigit():
                     quantity = int(parts[6].strip())
@@ -1802,6 +1821,12 @@ def parse_text_format(text_data):
                 if len(parts) > 7:
                     escrow = parts[7].strip().lower() in ['true', '1', 'yes', 'on']
                 
+                method = 'auto'
+                if len(parts) > 8:
+                    method = parts[8].strip().lower()
+                    if method not in ['auto', 'manual']:
+                        method = 'auto'
+
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
@@ -1811,8 +1836,9 @@ def parse_text_format(text_data):
                     'credentials': credentials,
                     'quantity_available': quantity,
                     'escrow_enabled': escrow,
+                    'delivery_method': method,
                     'access_type': 'full_ownership',
-                    'delivery_time': 'instant_auto',
+                    'delivery_time': 'instant_auto' if method == 'auto' else 'manual_24h',
                     'additional_info': '',
                     'account_balance': ''
                 }
@@ -1828,7 +1854,7 @@ def parse_text_format(text_data):
                 # Handle credentials field (6th field if present)
                 credentials = parts[5] if len(parts) > 5 and parts[5].strip() else 'Credentials will be provided after purchase'
                 
-                # Handle optional fields: quantity and escrow
+                # Handle optional fields: quantity, escrow, delivery_method
                 quantity = 1
                 if len(parts) > 6 and parts[6].strip().isdigit():
                     quantity = int(parts[6].strip())
@@ -1836,6 +1862,12 @@ def parse_text_format(text_data):
                 escrow = False
                 if len(parts) > 7:
                     escrow = parts[7].strip().lower() in ['true', '1', 'yes', 'on']
+
+                method = 'auto'
+                if len(parts) > 8:
+                    method = parts[8].strip().lower()
+                    if method not in ['auto', 'manual']:
+                        method = 'auto'
 
                 product = {
                     'headline': parts[0],
@@ -1846,8 +1878,9 @@ def parse_text_format(text_data):
                     'credentials': credentials,
                     'quantity_available': quantity,
                     'escrow_enabled': escrow,
+                    'delivery_method': method,
                     'access_type': 'full_ownership',
-                    'delivery_time': 'instant_auto',
+                    'delivery_time': 'instant_auto' if method == 'auto' else 'manual_24h',
                     'additional_info': '',
                     'account_balance': ''
                 }
@@ -1909,11 +1942,11 @@ def get_bulk_upload_template(request):
         template = {
             'headers': [
                 'headline', 'website', 'account_type', 'access_type', 
-                'description', 'price', 'credentials', 'delivery_time', 'account_quantity', 'escrow_enabled', 'additional_info', 'account_balance'
+                'description', 'price', 'credentials', 'delivery_method', 'delivery_time', 'account_quantity', 'escrow_enabled', 'additional_info', 'account_balance'
             ],
             'sample_data': [
                 'Sample Product', 'example.com', 'social', 'full_ownership',
-                'Sample description', '10.00', '{"username":"sample_user","password":"sample_pass"}', 'instant_auto', '5', 'true', 'Additional info', '100.00'
+                'Sample description', '10.00', '{"username":"sample_user","password":"sample_pass"}', 'auto', 'instant_auto', '5', 'true', 'Additional info', '100.00'
             ]
         }
         

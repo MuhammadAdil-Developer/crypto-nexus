@@ -366,7 +366,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                           : placeholderImage)
                       }
                       alt={product.headline || 'Product'}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain bg-black/50"
                       onError={(e) => {
                         e.currentTarget.src = placeholderImage;
                       }}
@@ -375,7 +375,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     <img
                       src={placeholderImage}
                       alt="Placeholder"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain bg-black/50"
                     />
                   )}
                 </div>

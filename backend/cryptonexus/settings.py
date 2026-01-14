@@ -22,6 +22,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://88.99.143.151:3000",
     "http://127.0.0.1:5000",
     "http://127.0.0.1:3000",
+    "http://accountzclub.com",
+    "https://accountzclub.com",
+    "http://accsclub.cc",
+    "https://accsclub.cc",
+    "http://accountz.club",
+    "https://accountz.club",
+    "http://accountz2.club",
+    "https://accountz2.club",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

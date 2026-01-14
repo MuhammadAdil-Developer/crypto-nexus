@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Key, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -620,17 +620,23 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center flex-wrap gap-2 justify-end max-w-[50%]">
                           <Badge
-                            className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border ${getStatusColor(order.order_status)}`}
+                            className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase border whitespace-nowrap ${getStatusColor(order.order_status)}`}
                             variant="outline"
                           >
                             {getStatusDisplay(order.order_status)}
                           </Badge>
 
+                          {(order.order_status === "delivered" || (order.product_credentials && Object.keys(order.product_credentials).length > 0)) && (
+                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase animate-pulse whitespace-nowrap">
+                              <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" /> Ready
+                            </Badge>
+                          )}
+
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-gray-700">
+                              <Button variant="ghost" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0 rounded-full hover:bg-gray-700">
                                 <MoreVertical className="w-4 h-4 text-gray-400" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -749,7 +755,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
                         <div className="flex-1" />
 
-                        <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                        <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto mt-1 sm:mt-0 justify-end">
                           {/* Cancel Button */}
                           {(order.order_status === "pending_payment" || order.order_status === "pending") && (
                             <Button
@@ -762,8 +768,8 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             </Button>
                           )}
 
-                          {/* Review Button */}
-                          {(order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") && (
+                          {/* Review Button - Only show after confirmed/completed to reduce clutter */}
+                          {(order.order_status === "confirmed" || order.order_status === "completed") && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -774,25 +780,26 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             </Button>
                           )}
 
-                          {/* Escrow Approve Button */}
-                          {order.use_escrow && order.order_status === 'paid' && (
+                          {/* Escrow Approve Button - Show for Paid or Delivered orders */}
+                          {order.use_escrow && (order.order_status === 'paid' || order.order_status === 'delivered') && (
                             <Button
                               onClick={() => handleApproveOrderClick(order)}
                               disabled={isApproving === order.order_id}
-                              className="flex-1 sm:flex-initial bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-green-500/20"
+                              className="flex-1 sm:flex-initial bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-green-500/20 h-9 px-4"
                             >
-                              {isApproving === order.order_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3 mr-2" /> Approve Escrow</>}
+                              {isApproving === order.order_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-4 h-4 mr-2" /> Approve Escrow</>}
                             </Button>
                           )}
 
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-bold text-xs"
-                            onClick={() => handleViewDetails(order)}
-                          >
-                            Details
-                          </Button>
+                          {/* Deliver/Credentials Button */}
+                          {(order.order_status === "delivered" || (order.product_credentials && Object.keys(order.product_credentials).length > 0)) && (
+                            <Button
+                              onClick={() => handleViewDetails(order)}
+                              className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs shadow-lg shadow-blue-500/20 ring-2 ring-blue-500/30 h-9 px-4"
+                            >
+                              <Key className="w-3 h-3 mr-2" /> Get Credentials
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

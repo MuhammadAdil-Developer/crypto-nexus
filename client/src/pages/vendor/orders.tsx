@@ -35,14 +35,12 @@ const transformOrderData = (apiOrder: Order) => {
     const orderStatus = apiOrder.order_status?.toLowerCase();
 
     if (paymentStatus === 'paid') {
-      if (orderStatus === 'completed') {
+      if (orderStatus === 'completed' || orderStatus === 'confirmed') {
         return 'Completed';
-      } else if (orderStatus === 'paid') {
-        return 'Completed';
-      } else if (orderStatus === 'processing' || orderStatus === 'pending_payment') {
-        return 'Completed';
-      } else if (orderStatus === 'pending') {
-        return 'Completed';
+      } else if (orderStatus === 'delivered') {
+        return 'Delivered';
+      } else if (orderStatus === 'paid' || orderStatus === 'processing' || orderStatus === 'payment_received') {
+        return 'Paid';
       }
     }
 
@@ -59,12 +57,15 @@ const transformOrderData = (apiOrder: Order) => {
         return 'Pending';
       case 'processing':
         return 'Processing';
+      case 'delivered':
+        return 'Delivered';
       case 'completed':
+      case 'confirmed':
         return 'Completed';
       case 'cancelled':
         return 'Cancelled';
       case 'paid':
-        return 'Completed';
+        return 'Paid';
       default:
         return 'Pending';
     }
@@ -152,6 +153,10 @@ const getStatusColor = (status: string) => {
       return "bg-orange-500/10 text-orange-400 border-orange-500/20";
     case "Cancelled":
       return "bg-red-500/10 text-red-400 border-red-500/20";
+    case "Paid":
+      return "bg-green-500/10 text-green-400 border-green-500/20";
+    case "Delivered":
+      return "bg-blue-500/10 text-blue-400 border-blue-500/20";
     default:
       return "bg-gray-700 text-gray-300 border-gray-600";
   }
@@ -189,6 +194,10 @@ export default function VendorOrders() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [orderForRefund, setOrderForRefund] = useState<any>(null);
+  const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
+  const [orderToDeliver, setOrderToDeliver] = useState<any>(null);
+  const [deliveryCredentials, setDeliveryCredentials] = useState("");
+  const [isDelivering, setIsDelivering] = useState(false);
   const { showToast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -289,6 +298,59 @@ export default function VendorOrders() {
   const handleCloseStatusModal = () => {
     setIsStatusModalOpen(false);
     setOrderToUpdate(null);
+  };
+
+  const handleOpenDeliverModal = (order: any) => {
+    setOrderToDeliver(order);
+    setDeliveryCredentials("");
+    setIsDeliverModalOpen(true);
+  };
+
+  const handleCloseDeliverModal = () => {
+    setIsDeliverModalOpen(false);
+    setOrderToDeliver(null);
+    setDeliveryCredentials("");
+  };
+
+  const handleDeliverSubmit = async () => {
+    if (!orderToDeliver || !deliveryCredentials.trim()) {
+      showToast({
+        title: "Error",
+        message: "Please enter product credentials",
+        type: "error"
+      });
+      return;
+    }
+
+    setIsDelivering(true);
+    try {
+      await orderService.deliverOrder(orderToDeliver.numericId, {
+        credentials: deliveryCredentials
+      });
+
+      showToast({
+        title: "Success",
+        message: "Product delivered successfully",
+        type: "success"
+      });
+
+      // Update local state
+      setOrders(prev => prev.map(o =>
+        o.numericId === orderToDeliver.numericId
+          ? { ...o, status: "Delivered", rawOrderStatus: "delivered" }
+          : o
+      ));
+
+      handleCloseDeliverModal();
+    } catch (error: any) {
+      showToast({
+        title: "Delivery Failed",
+        message: error.message || "Failed to deliver product",
+        type: "error"
+      });
+    } finally {
+      setIsDelivering(false);
+    }
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -788,6 +850,11 @@ export default function VendorOrders() {
                               <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)} className="cursor-pointer">
                                 <Star className="w-4 h-4 mr-2" /> View Reviews
                               </DropdownMenuItem>
+                              {(order.status === "Paid" || order.rawOrderStatus === "paid") && (
+                                <DropdownMenuItem onClick={() => handleOpenDeliverModal(order)} className="cursor-pointer text-green-400 hover:text-green-300">
+                                  <CheckCircle className="w-4 h-4 mr-2" /> Deliver Product
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() => handleRequestRefund(order)}
                                 className={order.status === "Completed" || order.status === "Processing" ? "text-orange-400 cursor-pointer" : "text-gray-500 cursor-not-allowed"}
@@ -1023,6 +1090,73 @@ export default function VendorOrders() {
           </div>
         )
       }
+
+      {/* Delivery Modal */}
+      {isDeliverModalOpen && orderToDeliver && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500/10 rounded-lg">
+                  <Package className="w-5 h-5 text-green-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Deliver Product</h3>
+              </div>
+              <button onClick={handleCloseDeliverModal} className="text-gray-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+                <p className="text-xs text-gray-400 uppercase font-black tracking-widest mb-1">Order Details</p>
+                <p className="text-sm text-white font-medium mb-1">#{orderToDeliver.id}</p>
+                <p className="text-sm text-theme-cyan font-bold">{orderToDeliver.product}</p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-theme-red" />
+                  Product Credentials / Message
+                </label>
+                <textarea
+                  value={deliveryCredentials}
+                  onChange={(e) => setDeliveryCredentials(e.target.value)}
+                  placeholder="Enter login details, download links, or specific instructions for the buyer..."
+                  className="w-full bg-gray-800 border border-gray-700 rounded-xl p-4 text-white placeholder:text-gray-500 focus:ring-2 focus:ring-green-500/20 focus:border-green-500/50 transition-all h-40 resize-none font-mono text-sm"
+                />
+                <p className="text-[10px] text-gray-500 italic">
+                  * Note: These details will be visible to the buyer once they access the order details.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseDeliverModal}
+                  className="flex-1 border-gray-700 text-gray-400 hover:bg-gray-800"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDeliverSubmit}
+                  disabled={isDelivering || !deliveryCredentials.trim()}
+                  className="flex-3 bg-green-600 hover:bg-green-700 text-white font-bold"
+                >
+                  {isDelivering ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Delivering...
+                    </>
+                  ) : (
+                    "Confirm Delivery"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Dialog open={isReviewsOpen} onOpenChange={setIsReviewsOpen}>
         <DialogContent className="bg-gray-900 border border-gray-700 max-w-2xl">

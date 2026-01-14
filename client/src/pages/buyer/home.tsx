@@ -51,6 +51,7 @@ import { orderService } from "@/services/orderService";
 import { productService, Product } from "@/services/productService";
 import { messagingService } from "@/services/messagingService";
 import { useMessaging } from "@/contexts/MessagingContext";
+import { usePendingOrder, PendingOrderProvider } from "@/contexts/PendingOrderContext";
 
 // Add these interfaces at the top of the file (after imports)
 
@@ -147,41 +148,36 @@ function BuyerHomeContent() {
   const [categoriesData, setCategoriesData] = useState<any[]>([]);
   const [currentCategorySlide, setCurrentCategorySlide] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
-  const [isLoadingOrdersData, setIsLoadingOrdersData] = useState(true);
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [activeOrders, setActiveOrders] = useState(0);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [isReviewOpen, setIsReviewOpen] = useState(false);
-  const [reviewProductId, setReviewProductId] = useState<number | null>(null);
-  const [reviewRating, setReviewRating] = useState<number>(5);
-  const [reviewComment, setReviewComment] = useState<string>("");
-  const [ordersError, setOrdersError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
-  // Messaging state is now handled by MessagingProvider
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [homeSearchQuery, setHomeSearchQuery] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [ordersFetched, setOrdersFetched] = useState(false);
   const [wishlistFetched, setWishlistFetched] = useState(false);
   const [trendingProductsFetched, setTrendingProductsFetched] = useState(false);
   const [recentActivityFetched, setRecentActivityFetched] = useState(false);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const { activeOrder, timeRemaining, pendingOrdersCount, refreshPendingOrders } = usePendingOrder();
   const { toast } = useToast();
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [activeOrders, setActiveOrders] = useState(0);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [homeSearchQuery, setHomeSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<any>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
+  const [isLoadingOrdersData, setIsLoadingOrdersData] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewProductId, setReviewProductId] = useState<number | null>(null);
 
   // Get messaging data from context
   const { unreadCount, isLoading: isLoadingMessages } = useMessaging();
@@ -370,8 +366,12 @@ function BuyerHomeContent() {
         });
 
         if (response.success && response.data) {
-          // Only show active products with stock
-          const activeProducts = response.data.filter((p: any) => p.is_active && (p.quantity_available ?? 0) > 0);
+          // Only show active products with stock - Relaxed filtering
+          const activeProducts = response.data.filter((p: any) => {
+            const isActive = p.is_active !== false; // Allow if undefined or null
+            const hasStock = p.quantity_available !== 0; // Allow if undefined or null, only block if exactly 0
+            return isActive && hasStock;
+          });
           setTrendingProducts(activeProducts);
           setCachedData(CACHE_KEYS.TRENDING_PRODUCTS, activeProducts);
         } else {
@@ -690,7 +690,7 @@ function BuyerHomeContent() {
       // Direct API call with better error handling
       const ordersData = await orderService.getOrders();
 
-      const orders = Array.isArray(ordersData) ? ordersData : (ordersData.results || []);
+      const orders = Array.isArray(ordersData) ? ordersData : (ordersData.results || ordersData.data || []);
 
       // Cache the orders data
       setCachedData(CACHE_KEYS.ORDERS_DATA, orders);
@@ -730,25 +730,9 @@ function BuyerHomeContent() {
     );
 
     if (pendingOrders.length > 0) {
-      // Sort by created_at (most recent first) to show newest pending order
-      const sortedPending = pendingOrders.sort((a: any, b: any) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      const lastOrder = sortedPending[0];
-
-      setActiveOrder(lastOrder);
-      setPendingOrdersCount(pendingOrders.length);
-
-      const orderCreatedAt = new Date(lastOrder.created_at).getTime();
-      const expiresAt = orderCreatedAt + (120 * 60 * 1000); // 2 hours
-      const now = Date.now();
-      const remainingSeconds = Math.max(0, Math.floor((expiresAt - now) / 1000));
-
-      setTimeRemaining(remainingSeconds);
-    } else {
-      setActiveOrder(null);
-      setPendingOrdersCount(0);
-      setTimeRemaining(0);
+      // PendingOrderContext will handle these through regular refreshes
+      // but we can trigger a refresh if we want immediate sync
+      refreshPendingOrders();
     }
 
     // Process recent orders
@@ -766,92 +750,85 @@ function BuyerHomeContent() {
     setActiveOrders(activeOrdersList.length);
   };
 
-  // Immediate order fetch function - with caching
-  const fetchOrderImmediately = async () => {
-    await fetchOrdersData(false); // Use cache if available
+  // Helper to calculate time ago
+  const getTimeAgo = (date: string | Date) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return Math.floor(seconds) + " seconds ago";
   };
 
-  // Fetch active order - only once on mount
-  useEffect(() => {
-    if (ordersFetched) return;
+  const updateActivityTimestamps = () => {
+    setRecentActivity(prev => prev.map(activity => ({
+      ...activity,
+      time: getTimeAgo(activity.rawTime || new Date())
+    })));
+  };
 
-    fetchOrderImmediately().then(() => {
-      setOrdersFetched(true);
-    });
-  }, [ordersFetched]);
-
-  // Interval to check for new orders (only when there are active orders) - REDUCED FREQUENCY
-  useEffect(() => {
-    // Only poll if there are active orders or pending payments
-    if (activeOrders > 0 || pendingOrdersCount > 0) {
-      const interval = setInterval(() => {
-        fetchOrdersData();
-      }, 300000); // Every 5 minutes instead of 2 minutes - reduce auto-reload
-
-      return () => clearInterval(interval);
-    }
-  }, [activeOrders, pendingOrdersCount]);
-
-  // REMOVED visibility change handler - it was causing unnecessary reloads
-  // Real-time notifications will handle updates instead
-
-
-  // Fetch recent activity from API (real notifications only, no static fallback)
   const fetchRecentActivity = async (force = false) => {
     if (recentActivityFetched && !force) return;
 
-    try {
-      const response = await messagingService.getRecentActivity();
-      // Handle both direct array and response.data format
-      const activity = Array.isArray(response) ? response : (response?.data || response || []);
+    // Try cache first
+    if (!force) {
+      const cached = getCachedData(CACHE_KEYS.RECENT_ACTIVITY);
+      if (cached) {
+        setRecentActivity(cached);
+        setRecentActivityFetched(true);
+        return;
+      }
+    }
 
-      if (activity && Array.isArray(activity) && activity.length > 0) {
-        const formattedActivity = activity.map((act: any) => ({
-          id: act.id,
-          type: act.type || 'message',
-          title: act.title || 'New message from vendor',
-          description: act.description || act.message || '',
-          time: act.time || 'Just now',
-          status: act.status || 'info'
+    try {
+      // Derive activity from orders
+      const response = await orderService.getOrders();
+      if (response && Array.isArray(response)) {
+        const activities = response.slice(0, 5).map((order: any) => ({
+          id: `order-${order.id}`,
+          type: 'order',
+          title: `Order #${order.order_id || order.id}`,
+          description: `Status: ${order.status}`,
+          time: getTimeAgo(order.updated_at || order.created_at),
+          rawTime: order.updated_at || order.created_at,
+          status: order.status === 'delivered' ? 'success' :
+            order.status === 'cancelled' ? 'error' :
+              order.status === 'processing' ? 'info' : 'warning'
         }));
-        setRecentActivity(formattedActivity);
-        setCachedData(CACHE_KEYS.RECENT_ACTIVITY, formattedActivity);
-      } else {
-        // No activities - show empty state
-        setRecentActivity([]);
-        setCachedData(CACHE_KEYS.RECENT_ACTIVITY, []);
+
+        setRecentActivity(activities);
+        setCachedData(CACHE_KEYS.RECENT_ACTIVITY, activities);
       }
     } catch (error) {
       console.error('Error fetching recent activity:', error);
-      // Show empty state on error, not static data
-      setRecentActivity([]);
     } finally {
       setRecentActivityFetched(true);
     }
   };
 
+  // Fetch recent activity and orders on mount
   useEffect(() => {
     fetchRecentActivity();
-
-    // Refresh activity every 15 seconds to get new notifications
-    const interval = setInterval(() => {
-      fetchRecentActivity(true);
-    }, 15000);
-
-    return () => clearInterval(interval);
+    fetchOrdersData();
   }, []);
 
   // Listen for order creation events to refresh
   useEffect(() => {
     const handleOrderCreated = () => {
       // Refresh orders and recent activity when order is created
-      fetchOrdersData(true);
+      refreshPendingOrders();
       fetchRecentActivity(true);
     };
 
     window.addEventListener('order_created', handleOrderCreated);
     return () => window.removeEventListener('order_created', handleOrderCreated);
-  }, []);
+  }, [refreshPendingOrders]);
 
   // Review prompt (realtime) -> toast/CTA
   useEffect(() => {
@@ -866,43 +843,7 @@ function BuyerHomeContent() {
     return () => window.removeEventListener('review_prompt', handler as any);
   }, []);
 
-  // Persist timer state
-  useEffect(() => {
-    if (activeOrder && timeRemaining > 0) {
-      localStorage.setItem('activeOrderTimer', JSON.stringify({
-        orderId: activeOrder.order_id,
-        timeRemaining: timeRemaining,
-        orderCreatedAt: activeOrder.created_at,
-        orderData: {
-          order_id: activeOrder.order_id,
-          product: activeOrder.product,
-          total_amount: activeOrder.total_amount,
-          crypto_currency: activeOrder.crypto_currency,
-          payment_address: activeOrder.payment_address,
-          created_at: activeOrder.created_at
-        }
-      }));
-    } else {
-      localStorage.removeItem('activeOrderTimer');
-    }
-  }, [activeOrder, timeRemaining]);
-
-  // Timer countdown
-  useEffect(() => {
-    if (activeOrder && timeRemaining > 0) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            cancelExpiredOrder();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [activeOrder, timeRemaining]);
+  // Timer countdown and cancellation logic is now in PendingOrderContext
 
   // Update activity timestamps
   useEffect(() => {
@@ -913,110 +854,7 @@ function BuyerHomeContent() {
     return () => clearInterval(timestampTimer);
   }, []);
 
-  // Orders data is now fetched in the main fetchOrdersData function
 
-  const cancelExpiredOrder = async () => {
-    if (!activeOrder) return;
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-
-      const productName = activeOrder.product?.headline || activeOrder.product?.listing_title || "Product";
-
-      // Call backend API to expire the order (this will also send notifications)
-      const response = await fetch(`http://localhost:8000/api/v1/orders/expire/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ order_id: activeOrder.order_id })
-      });
-
-      if (response.ok) {
-        // Order expired successfully
-        setActiveOrder(null);
-        setTimeRemaining(0);
-        setPendingOrdersCount(0);
-        localStorage.removeItem('activeOrderTimer');
-
-        // Refresh orders and recent activity to show notifications
-        fetchOrdersData(true);
-        fetchRecentActivity(true);
-
-        toast({
-          title: "Order Expired",
-          description: `Order ${activeOrder.order_id} has expired due to payment timeout`,
-          variant: "destructive",
-        });
-      } else {
-        // Fallback: try to update status to cancelled
-        const orderIdStr = activeOrder.order_id?.toString() || '';
-        if (orderIdStr) {
-          try {
-            const response = await orderService.updateOrderStatus(orderIdStr, 'cancelled');
-            if (response) {
-              setActiveOrder(null);
-              setTimeRemaining(0);
-              setPendingOrdersCount(0);
-              localStorage.removeItem('activeOrderTimer');
-            }
-          } catch (err) {
-            console.error('Failed to cancel order:', err);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to expire order:', error);
-      toast({
-        title: "Error",
-        description: "Failed to expire order",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // These functions are now consolidated into fetchOrdersData()
-  const addOrderCancellationNotification = (orderId: string, productName: string) => {
-    const newActivity = {
-      id: Date.now(),
-      type: "order_cancelled",
-      title: "Order Cancelled",
-      description: `Your order ${orderId} for "${productName}" was cancelled due to payment timeout`,
-      time: "Just now",
-      status: "warning"
-    };
-
-    setRecentActivity(prev => [newActivity, ...prev.slice(0, 9)]);
-
-    toast({
-      title: "Order Cancelled",
-      description: `Order ${orderId} was cancelled due to payment timeout`,
-      variant: "destructive",
-    });
-  };
-
-  const updateActivityTimestamps = () => {
-    setRecentActivity(prev => prev.map(activity => {
-      if (activity.time === "Just now") {
-        return { ...activity, time: "1 min ago" };
-      } else if (activity.time === "1 min ago") {
-        return { ...activity, time: "2 min ago" };
-      } else if (activity.time === "2 min ago") {
-        return { ...activity, time: "5 min ago" };
-      } else if (activity.time === "5 min ago") {
-        return { ...activity, time: "10 min ago" };
-      } else if (activity.time === "10 min ago") {
-        return { ...activity, time: "15 min ago" };
-      } else if (activity.time === "15 min ago") {
-        return { ...activity, time: "30 min ago" };
-      } else if (activity.time === "30 min ago") {
-        return { ...activity, time: "1 hour ago" };
-      }
-      return activity;
-    }));
-  };
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -1077,52 +915,9 @@ function BuyerHomeContent() {
         onClose={() => setShowTermsModal(false)}
       />
       {/* Order Payment Banner */}
-      {activeOrder && !isLoadingOrder && timeRemaining > 0 && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-[#A6033E]/30 to-[#590120]/30 border-b border-red-900/50 text-white px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-6 flex-1 min-w-0">
-            <div className="flex items-center space-x-2 flex-shrink-0 ml-16">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="font-medium whitespace-nowrap">Payment Required:</span>
-            </div>
-            <div className="flex items-center space-x-4 text-sm min-w-0 overflow-hidden">
-              <span className="whitespace-nowrap">ID: <span className="font-mono">{activeOrder.order_id}</span></span>
-              <span className="whitespace-nowrap">Product: <span className="font-semibold truncate max-w-20">{activeOrder.product?.headline || 'N/A'}</span></span>
-              <span className="whitespace-nowrap">Amount: <span className="font-mono font-semibold">{activeOrder.total_amount} {activeOrder.crypto_currency}</span></span>
-              <span className="whitespace-nowrap">Address: <span className="font-mono">{activeOrder.payment_address ? activeOrder.payment_address.slice(0, 12) + '...' : 'Loading...'}</span></span>
-              <span className="flex items-center space-x-1 whitespace-nowrap">
-                <Clock className="w-4 h-4" />
-                <span className="font-mono font-bold">{formatTime(timeRemaining)}</span>
-                <span>left</span>
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => activeOrder.payment_address && copyToClipboard(activeOrder.payment_address)}
-              className="text-white hover:bg-theme-red-dark"
-              disabled={!activeOrder.payment_address}
-            >
-              <Copy className="w-4 h-4" />
-            </Button>
-            {pendingOrdersCount > 1 && (
-              <Link to="/buyer/orders">
-                <Button size="sm" className="bg-theme-red text-white hover:bg-theme-red-dark">
-                  View All ({pendingOrdersCount})
-                </Button>
-              </Link>
-            )}
-            <Link to="/buyer/payment-test">
-              <Button size="sm" className="bg-white text-theme-red hover:bg-gray-100">
-                Pay Now
-              </Button>
-            </Link>
-          </div>
-        </div>
-      )}
 
-      <BuyerLayout hasBanner={!!(activeOrder && !isLoadingOrder && timeRemaining > 0)}>
+
+      <BuyerLayout hasBanner={!!(activeOrder && timeRemaining > 0)}>
         {/* Announcements Banner - Moved outside main content div for full width/no spacing */}
         {announcements.length > 0 && (
           <div className="z-40 backdrop-blur-md w-full px-4">
@@ -2065,7 +1860,9 @@ function BuyerHomeContent() {
 export default function BuyerHome() {
   return (
     <CartProvider>
-      <BuyerHomeContent />
+      <PendingOrderProvider>
+        <BuyerHomeContent />
+      </PendingOrderProvider>
     </CartProvider>
   );
 }

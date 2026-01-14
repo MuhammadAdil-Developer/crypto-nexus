@@ -589,7 +589,7 @@ export default function VendorListings() {
                         <img
                           src={getImageUrl(product.main_image) || placeholderImage}
                           alt={product.headline}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-gray-900/50"
                           onError={(e) => {
                             e.currentTarget.src = placeholderImage;
                           }}
@@ -739,7 +739,7 @@ export default function VendorListings() {
                             <img
                               src={getImageUrl(product.main_image) || placeholderImage}
                               alt={product.headline}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain bg-gray-900/50"
                               onError={(e) => {
                                 e.currentTarget.src = placeholderImage;
                               }}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Filter, Grid, List as ListIcon, Table, ChevronDown, Star, Eye, Heart, ShoppingCart, TrendingUp, Coins } from "lucide-react";
+import { Search, Filter, Grid, List as ListIcon, Table, ChevronDown, Star, Eye, Heart, ShoppingCart, TrendingUp, Coins, Zap } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { ProductCard } from "@/components/buyer/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ interface Product {
   account_type: string;
   verification_level: string;
   delivery_method: string;
+  delivery_time?: string;
   status: string;
   created_at: string;
   main_image?: string | null;
@@ -68,6 +69,7 @@ function BuyerListingsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedCrypto, setSelectedCrypto] = useState<"all" | "BTC" | "XMR">("all");
+  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState<"all" | "manual" | "instant">("all");
   // Default to server-provided ordering (personalized) so different buyers see different orders
   const [sortBy, setSortBy] = useState("server");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("list");
@@ -175,14 +177,14 @@ function BuyerListingsContent() {
     setCurrentPage(1);
     setHasMore(true);
     fetchProducts(1, true);
-  }, [selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy]);
+  }, [selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
 
   // Fetch all products when searching (for cross-page search)
   useEffect(() => {
-    if (searchQuery || selectedCrypto !== "all" || minPrice || maxPrice || selectedCategory !== "all" || sortBy !== "server") {
+    if (searchQuery || selectedCrypto !== "all" || minPrice || maxPrice || selectedCategory !== "all" || sortBy !== "server" || selectedDeliveryMethod !== "all") {
       fetchAllProducts();
     }
-  }, [searchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy]);
+  }, [searchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
 
   // Infinite Scroll Observer
   useEffect(() => {
@@ -270,8 +272,8 @@ function BuyerListingsContent() {
 
   // Filter and sort products - use allProducts for search to search across all pages
   useEffect(() => {
-    // Use allProducts if searching, otherwise use current page products
-    const sourceProducts = searchQuery ? allProducts : products;
+    // Use allProducts if searching or filtering by delivery method, otherwise use current page products
+    const sourceProducts = (searchQuery || selectedDeliveryMethod !== "all") ? allProducts : products;
     let filtered = [...sourceProducts];
 
     // Apply category filter
@@ -305,11 +307,33 @@ function BuyerListingsContent() {
     // Filter by quantity_available - hide out of stock products as requested
     filtered = filtered.filter(product => (product.quantity_available || 0) > 0);
 
+    // Apply delivery method filter
+    if (selectedDeliveryMethod !== "all") {
+      filtered = filtered.filter(product => {
+        // Check both delivery_method and delivery_time
+        const method = (product.delivery_method || "").toLowerCase();
+        const time = (product.delivery_time || "").toLowerCase();
+        const combined = `${method} ${time}`;
+
+        if (selectedDeliveryMethod === "auto") {
+          // Check for 'instant', 'auto', or 'automatic' in either field
+          return combined.includes("instant") || combined.includes("auto");
+        }
+
+        // For manual
+        if (selectedDeliveryMethod === "manual") {
+          return combined.includes("manual");
+        }
+
+        return method === selectedDeliveryMethod;
+      });
+    }
+
     // Apply client-side sorting only if user explicitly selected a sort option.
     // Default 'server' preserves the order returned by the API (personalized ordering).
 
     setFilteredProducts(filtered);
-  }, [products, allProducts, searchQuery, selectedCategory, selectedCrypto, sortBy]);
+  }, [products, allProducts, searchQuery, selectedCategory, selectedCrypto, sortBy, selectedDeliveryMethod]);
 
   const fetchProducts = async (page = currentPage, isInitial = false) => {
     if (isFetchingMore && !isInitial) return;
@@ -322,11 +346,12 @@ function BuyerListingsContent() {
       if (!token) return;
 
       const cryptoParam = selectedCrypto !== "all" ? `&crypto=${selectedCrypto}` : '';
-      const priceParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
+      const dateParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
       const categoryParam = selectedCategory !== "all" ? `&category=${selectedCategory}` : '';
       const sortParam = sortBy !== "server" ? `&sort_mode=${sortBy}` : '';
+      // Removed deliveryParam to rely on client-side filtering as backend support is uncertain
 
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}${sortParam}`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${cryptoParam}${dateParam}${categoryParam}${sortParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -427,7 +452,7 @@ function BuyerListingsContent() {
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-theme-cyan transition-colors w-5 h-5" />
                 <Input
-                  placeholder="Search accounts, vendors, or keywords..."
+                  placeholder="Search accounts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-12 h-12 bg-black/40 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all rounded-2xl shadow-2xl"
@@ -534,6 +559,37 @@ function BuyerListingsContent() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Delivery Method Filter */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="hidden lg:flex h-12 items-center justify-between gap-3 bg-black/40 border-gray-700/50 text-gray-300 hover:bg-gray-800/60 hover:text-white transition-all rounded-2xl px-5 min-w-[170px]">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-theme-cyan" />
+                      <span className="text-xs uppercase tracking-widest font-black font-mono">
+                        {selectedDeliveryMethod === "all" ? "All Delivery" : selectedDeliveryMethod === "manual" ? "Manual" : "Auto"}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-gray-950 border-gray-800 text-gray-300 min-w-[180px] rounded-2xl shadow-2xl p-2 backdrop-blur-xl">
+                  {[
+                    { id: "all", label: "All Methods" },
+                    { id: "manual", label: "Manual Delivery" },
+                    { id: "auto", label: "Auto Delivery" }
+                  ].map((method) => (
+                    <DropdownMenuItem
+                      key={method.id}
+                      onClick={() => setSelectedDeliveryMethod(method.id as "all" | "manual" | "instant")}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
+                    >
+                      <span>{method.label}</span>
+                      {selectedDeliveryMethod === method.id && <span className="text-theme-cyan font-black text-xs">✓</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {/* View Mode Toggle - Now visible on mobile */}
               <div className="flex border border-gray-700/50 rounded-2xl overflow-hidden bg-black/40 h-12 p-1.5 gap-1 shadow-inner">
                 {[
@@ -564,7 +620,7 @@ function BuyerListingsContent() {
           <div className="flex items-center gap-3">
             <div className="h-6 w-1 bg-theme-red rounded-full" />
             <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">
-              Discovered <span className="text-white">{searchQuery ? filteredProducts.length : pagination.total_count}</span> Artifacts
+              Discovered <span className="text-white">{(searchQuery || selectedDeliveryMethod !== "all") ? filteredProducts.length : pagination.total_count}</span> Artifacts
             </span>
             {isLoading && (
               <div className="flex items-center gap-2 text-xs text-theme-cyan animate-pulse">
@@ -657,7 +713,7 @@ function BuyerListingsContent() {
                                 <img
                                   src={getImageUrl(product.main_image) || placeholderImage}
                                   alt={product.listing_title}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-contain bg-gray-900/50"
                                   onError={(e) => {
                                     e.currentTarget.src = placeholderImage;
                                   }}

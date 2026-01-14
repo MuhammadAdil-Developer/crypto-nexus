@@ -355,16 +355,19 @@ def check_application_status(request, username):
                 'message': 'You can only check your own application status'
             }, status=status.HTTP_403_FORBIDDEN)
         
+        # Always try to get associated user to get current payout addresses
+        try:
+            user = User.objects.get(username=username)
+            user_btc = user.btc_payout_address
+            user_xmr = user.xmr_payout_address
+        except User.DoesNotExist:
+            user_btc = ''
+            user_xmr = ''
+
         try:
             application = VendorApplication.objects.get(vendor_username=username)
-            # Find associated user to get current payout addresses
-            try:
-                user = User.objects.get(username=username)
-                btc_address = user.btc_payout_address or application.btc_address
-                xmr_address = user.xmr_payout_address or application.xmr_address
-            except User.DoesNotExist:
-                btc_address = application.btc_address
-                xmr_address = application.xmr_address
+            btc_address = user_btc or application.btc_address
+            xmr_address = user_xmr or application.xmr_address
 
             return Response({
                 'success': True,
@@ -376,6 +379,8 @@ def check_application_status(request, username):
                     'created_at': application.created_at,
                     'btc_address': btc_address,
                     'xmr_address': xmr_address,
+                    'btc_payout_address': user_btc or '',
+                    'xmr_payout_address': user_xmr or '',
                     'business_name': application.business_name,
                     'contact': application.contact,
                     'phone': application.phone,
@@ -391,8 +396,10 @@ def check_application_status(request, username):
                 'data': {
                     'has_application': False,
                     'status': None,
-                    'btc_address': '',
-                    'xmr_address': ''
+                    'btc_address': user_btc or '',
+                    'xmr_address': user_xmr or '',
+                    'btc_payout_address': user_btc or '',
+                    'xmr_payout_address': user_xmr or '',
                 }
             }, status=status.HTTP_200_OK)
             

@@ -354,7 +354,8 @@ export default function BulkUpload() {
                     <li>• Access Type (required)</li>
                     <li>• Description (required)</li>
                     <li>• Price (required)</li>
-                    <li>• Credentials (required) - JSON format: {`{"username":"v","password":"v"}`}</li>
+                    <li>• Credentials (required for 'auto') - JSON format: {`{"username":"v","password":"v"}`}</li>
+                    <li>• Delivery Method (optional: auto/manual, default: auto)</li>
                     <li>• Delivery Time (required)</li>
                     <li>• Account Quantity (optional, default: 1)</li>
                     <li>• Escrow Enabled (optional, default: false)</li>
@@ -381,7 +382,7 @@ export default function BulkUpload() {
                     Enter one account per line using this format:
                   </p>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap">
-                    Account Name | Website | Account Type | Price | Description | Credentials | Quantity | Escrow
+                    Account Name | Website | Account Type | Price | Description | Credentials | Quantity | Escrow | Method (auto/manual)
                   </code>
                 </div>
                 <div>
@@ -390,15 +391,16 @@ export default function BulkUpload() {
                     <li>• Account Name (required)</li>
                     <li>• Website (required)</li>
                     <li>• Account Type (required)</li>
-                    <li>• Price (required) - e.g. 15.00 (USD price is preferred)</li>
+                    <li>• Price (required) - e.g. 15.00</li>
                     <li>• Description (required)</li>
-                    <li>• Credentials (required) - JSON format: {`{"username":"value","password":"value"}`}</li>
+                    <li>• Credentials (required for 'auto')</li>
+                    <li>• Delivery Method ('auto' or 'manual')</li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="font-semibold text-white mb-2">Example:</h4>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap break-words">
-                    Premium Netflix | netflix.com | streaming | 15.00 | 4K Ultra HD | {`{"u":"n","p":"pw"}`} | 5 | true
+                    Premium Netflix | netflix.com | streaming | 15.00 | 4K Ultra HD | {`{"u":"n","p":"pw"}`} | 5 | true | auto
                   </code>
                 </div>
                 <div>

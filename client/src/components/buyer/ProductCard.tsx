@@ -324,7 +324,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <img
                 src={getImageUrl(getProductImage()) || placeholderImage}
                 alt={product.listing_title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain bg-gray-900/50"
                 onError={(e) => {
                   e.currentTarget.src = placeholderImage;
                 }}
@@ -428,7 +428,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 bg-gray-800/40 rounded-lg overflow-hidden">
               {getProductImage() ? (
-                <img src={getProductImage() || undefined} alt={product.listing_title} className="w-full h-full object-cover" />
+                <img src={getProductImage() || undefined} alt={product.listing_title} className="w-full h-full object-contain bg-gray-950/40" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-500">📦</div>
               )}
@@ -492,11 +492,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           {/* Status Badges - Smaller */}
           <div className="absolute top-1 left-1 flex flex-col space-y-0.5">
             {/* Stock Status Badge */}
-            {product.quantity_available > 0 ? (
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1 py-0.5">
-                In Stock
-              </Badge>
-            ) : (
+            {/* Stock Status Badge */}
+            {product.quantity_available <= 0 && (
               <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs px-1 py-0.5">
                 Out of Stock
               </Badge>

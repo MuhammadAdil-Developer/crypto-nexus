@@ -277,10 +277,7 @@ export default function VenderSignIn() {
             }}
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
-              if (video.duration && video.currentTime >= video.duration - 2.2) {
-                video.pause();
-                video.currentTime = video.duration - 2.2;
-              }
+
             }}
             onEnded={(e) => {
               e.currentTarget.pause();

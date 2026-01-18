@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from django.http import JsonResponse
 from shared.maintenance import MaintenanceMode
 from users.views import IsAdminUser
 import logging
@@ -181,3 +182,26 @@ class AdminCommunicationView(viewsets.ViewSet):
             'success': True, 
             'message': f'Notification sent to {count} users'
         })
+
+def handler404(request, exception=None):
+    """
+    Custom 404 handler to return JSON instead of HTML
+    """
+    response_data = {
+        'success': False,
+        'message': 'The requested resource was not found on this server.',
+        'error_code': 'not_found'
+    }
+    return JsonResponse(response_data, status=404)
+
+
+def handler500(request):
+    """
+    Custom 500 handler to return JSON instead of HTML
+    """
+    response_data = {
+        'success': False,
+        'message': 'An internal server error occurred. Our team has been notified.',
+        'error_code': 'internal_server_error'
+    }
+    return JsonResponse(response_data, status=500)

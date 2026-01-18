@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { CartProvider, useCart } from "@/contexts/CartContext";
 import CartSidebar from "@/components/buyer/CartSidebar";
@@ -56,6 +57,7 @@ interface Product {
   gallery_images: string[];
   tags: string[];
   special_features: string[];
+  account_balance?: string | null;
   quantity_available: number;
   rating?: number;
   review_count?: number;
@@ -434,7 +436,7 @@ function BuyerListingsContent() {
         </Button>
       </div>
 
-      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-10 pb-20 px-4 sm:px-6">
+      <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-10 pb-20 px-4 sm:px-6">
         {/* Premium Header Banner */}
         <PageBanner
           title="Marketplace"
@@ -720,7 +722,23 @@ function BuyerListingsContent() {
                                 />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-white font-medium truncate">{product.listing_title}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-white font-medium truncate">{product.listing_title}</p>
+                                  {product.account_balance && product.account_balance !== 'NaN' && (
+                                    <TooltipProvider delayDuration={100}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex-shrink-0 flex items-center justify-center px-2 h-5 rounded-full border border-theme-cyan/50 bg-theme-cyan/10 text-theme-cyan text-[9px] font-bold cursor-help transition-all hover:bg-theme-cyan/20">
+                                            BAL: {parseFloat(product.account_balance) ? `$${parseFloat(product.account_balance).toFixed(2)}` : product.account_balance}
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="bg-black/90 backdrop-blur-md border-theme-cyan/30 p-2 rounded-lg">
+                                          <p className="text-[10px] font-bold text-white">BALANCE: {parseFloat(product.account_balance) ? `$${parseFloat(product.account_balance).toFixed(2)}` : product.account_balance}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
                                 <p className="text-gray-400 text-xs truncate">{product.description?.substring(0, 50)}...</p>
                               </div>
                             </div>

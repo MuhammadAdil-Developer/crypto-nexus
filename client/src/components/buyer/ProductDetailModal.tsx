@@ -356,7 +356,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
             <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
               {/* Product Images - Responsive height */}
               <div className="space-y-3 sm:space-y-4">
-                <div className="h-40 sm:h-48 md:h-56 bg-gray-800/30 rounded-lg sm:rounded-xl overflow-hidden border border-gray-600/20">
+                <div className="h-40 sm:h-48 md:h-56 bg-white/5 rounded-lg sm:rounded-xl overflow-hidden border border-white/10">
                   {product.main_image || (product.main_images && product.main_images.length > 0) ? (
                     <img
                       src={
@@ -366,7 +366,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                           : placeholderImage)
                       }
                       alt={product.headline || 'Product'}
-                      className="w-full h-full object-contain bg-black/50"
+                      className="w-full h-full object-contain bg-transparent"
                       onError={(e) => {
                         e.currentTarget.src = placeholderImage;
                       }}
@@ -375,7 +375,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     <img
                       src={placeholderImage}
                       alt="Placeholder"
-                      className="w-full h-full object-contain bg-black/50"
+                      className="w-full h-full object-contain bg-transparent"
                     />
                   )}
                 </div>
@@ -459,7 +459,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     <span className="text-gray-400 sm:text-center sm:flex-1">Delivery Time:</span>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0">
-                    <span className="text-white font-medium">{product.account_balance || 'N/A'}</span>
+                    <div className="flex items-center">
+                      {product.account_balance ? (
+                        <div className="flex-shrink-0 flex items-center justify-center min-w-[40px] px-3 h-8 rounded-full border border-theme-cyan shadow-[0_0_15px_rgba(34,211,238,0.3)] bg-theme-cyan/10 text-theme-cyan text-sm font-bold">
+                          BALANCE: ${product.account_balance}
+                        </div>
+                      ) : (
+                        <span className="text-white font-medium">N/A</span>
+                      )}
+                    </div>
                     <div className="sm:flex-1 flex sm:justify-center">
                       <Badge className={`${getDeliveryTimeColor(product.delivery_time)} text-[10px] sm:text-xs`}>
                         {getDeliveryTimeDisplay(product.delivery_time)}

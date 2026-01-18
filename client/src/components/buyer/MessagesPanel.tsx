@@ -887,6 +887,11 @@ export function MessagesPanel({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatPrice = (price: any) => {
+    const parsed = parseFloat(price || 0);
+    return isNaN(parsed) ? '0.00' : parsed.toFixed(2);
+  };
+
   const getVendorFromConversation = (conversation: any) => {
     if (!conversation.participants) return null;
     // Find the participant who is not the current user
@@ -1294,7 +1299,7 @@ export function MessagesPanel({
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-xs ${isRefund ? 'text-orange-700' : isDispute ? 'text-red-700' : 'text-blue-700'} mb-1`}>This message is related to:</p>
                                   <h4 className={`font-medium text-sm ${textColor} truncate`}>{message.metadata?.product_title}</h4>
-                                  <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${message.metadata?.product_price} • {message.metadata?.vendor_username}</p>
+                                  <p className={`text-xs ${isRefund ? 'text-orange-800' : isDispute ? 'text-red-800' : 'text-blue-800'}`}>${formatPrice(message.metadata?.product_price || message.metadata?.price)} • {message.metadata?.vendor_username}</p>
                                 </div>
                               </div>
                             </div>
@@ -1525,7 +1530,7 @@ export function MessagesPanel({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-green-100 mb-1">This message is related to:</p>
                       <h4 className="font-semibold text-white truncate">{productReferenceData.product_title}</h4>
-                      <p className="text-xs text-green-200">${productReferenceData.product_price} • {productReferenceData.vendor_username}</p>
+                      <p className="text-xs text-green-200">${formatPrice(productReferenceData.product_price)} • {productReferenceData.vendor_username}</p>
                     </div>
                     <Button
                       size="sm"

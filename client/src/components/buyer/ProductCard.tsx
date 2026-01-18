@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, Heart, ShoppingCart, Eye, User, Shield, Clock, Plus, Check, Lock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ProductDetailModal from './ProductDetailModal';
 import PaymentModal from './PaymentModal';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +16,7 @@ interface Product {
   id: number;
   listing_title: string;
   description: string;
+  account_balance?: string | null;
   vendor: {
     id: number;
     username: string;
@@ -89,6 +91,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   // Legacy support
   const formatBTCEquivalent = (price: string) => formatCryptoPrice(price, 'BTC');
+
+  // Format Balance Display
+  const renderBalance = (balance: string | null | undefined, size: 'sm' | 'md' = 'sm') => {
+    if (!balance || balance === 'NaN') return null;
+
+    const numeric = parseFloat(balance);
+    const isNumeric = !isNaN(numeric);
+    const displayValue = isNumeric ? `$${numeric.toFixed(2)}` : balance;
+
+    // For very long text, truncate in the small badge
+    const finalValue = !isNumeric && displayValue.length > 15 ? displayValue.substring(0, 12) + '...' : displayValue;
+
+    return (
+      <TooltipProvider delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`flex-shrink-0 flex items-center justify-center px-2 rounded-full border border-theme-cyan shadow-[0_0_10px_rgba(34,211,238,0.2)] bg-theme-cyan/10 text-theme-cyan font-bold tracking-tight cursor-help transition-all hover:bg-theme-cyan/20 ${size === 'sm' ? 'min-w-[32px] h-6 text-[10px]' : 'min-w-[36px] h-7 text-[11px]'
+              }`}>
+              BAL: {finalValue}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent
+            className="bg-black/90 backdrop-blur-md border-theme-cyan/30 p-3 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-200"
+            side="top"
+          >
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-theme-cyan/70">Verified Credit</p>
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider">BALANCE: {isNumeric ? `$${numeric.toFixed(2)}` : balance}</h4>
+              <p className="text-[10px] text-gray-400">Pre-loaded assets available on this account</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   const getProductImage = () => {
     // Priority: main_image > gallery_images[0] > main_images[0] > null
@@ -312,7 +349,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   const listViewCard = (
     <Card className="bg-gray-950 border border-gray-800/80 rounded-xl shadow-sm">
       <CardContent className="p-0">
-        <div className="hidden lg:grid grid-cols-[2fr,1.2fr,1fr,1fr,1fr,0.7fr,auto] gap-4 items-center px-4 py-3 text-sm text-gray-200">
+        <div className="hidden lg:grid grid-cols-[3.2fr,1.2fr,1fr,1fr,1.2fr,0.6fr,auto] gap-4 items-center px-4 py-3 text-sm text-gray-200">
           <div
             className="flex items-center gap-3 min-w-0 cursor-pointer rounded-lg hover:bg-gray-900/70 transition-colors px-2 py-1"
             onClick={handleViewProduct}
@@ -332,7 +369,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-base font-semibold text-white truncate">{product.listing_title}</p>
+                <p className="text-base font-semibold text-white truncate flex-1">{product.listing_title}</p>
+                {renderBalance(product.account_balance)}
               </div>
               <p className="text-xs text-gray-400 truncate">{product.description}</p>
             </div>
@@ -534,10 +572,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         {/* Product Info - Fixed height with proper spacing */}
         <div className="p-4 pb-3 flex flex-col flex-1" style={{ backgroundColor: '#0E1A26' }}>
           <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xl font-bold text-white leading-tight line-clamp-1 uppercase tracking-wider" style={{ fontFamily: "'Orbitron', sans-serif" }}>
-                {product.listing_title}
-              </h3>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2 overflow-hidden">
+                <h3 className="text-xl font-bold text-white leading-tight truncate uppercase tracking-wider flex-1" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                  {product.listing_title}
+                </h3>
+                {renderBalance(product.account_balance, 'md')}
+              </div>
             </div>
             <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">
               {product.description}

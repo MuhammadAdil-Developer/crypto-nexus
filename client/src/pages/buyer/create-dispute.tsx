@@ -23,7 +23,10 @@ interface Order {
   };
   order_status: string;
   total_amount: string;
+  delivered_at: string | null;
+  confirmed_at: string | null;
   created_at: string;
+  use_escrow: boolean;
 }
 
 function CreateDisputeContent() {
@@ -66,6 +69,33 @@ function CreateDisputeContent() {
     try {
       setLoading(true);
       const order = await orderService.getOrder(orderId);
+
+      // Validation Check: Must be Escrow
+      if (!order.use_escrow) {
+        toast({
+          title: "Access Denied",
+          description: "Disputes are only available for escrow-protected orders.",
+          variant: "destructive"
+        });
+        navigate('/buyer/orders');
+        return;
+      }
+
+      // Validation Check: Must be within 72 hours
+      const disputeWindowHours = 72;
+      const referenceTime = order.delivered_at || order.confirmed_at || order.created_at;
+      const hoursSinceReference = (new Date().getTime() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
+
+      if (hoursSinceReference > disputeWindowHours) {
+        toast({
+          title: "Window Expired",
+          description: "The dispute window for this order has expired (72 hours).",
+          variant: "destructive"
+        });
+        navigate('/buyer/orders');
+        return;
+      }
+
       setOrder(order);
     } catch (error) {
       console.error('Error fetching order details:', error);

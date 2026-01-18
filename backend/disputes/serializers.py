@@ -42,11 +42,45 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         order_id = attrs.get('order')
         order = get_object_or_404(Order, id=order_id)
+        
         if request and hasattr(request, 'user'):
+            # 1. Ownership check
             if order.buyer != request.user:
                 raise serializers.ValidationError({
                     'order': 'You can only create disputes for your own orders.'
                 })
+            
+            # 2. Escrow check - Non-escrow deals cannot be disputed
+            if not order.use_escrow:
+                raise serializers.ValidationError({
+                    'order': 'Disputes are only available for escrow-protected deals.'
+                })
+                
+            # 3. Time limit check - Normally 72 hours (3 days)
+            # Use delivered_at if available, otherwise confirmed_at, otherwise created_at
+            base_time = order.delivered_at or order.confirmed_at or order.created_at
+            if base_time:
+                from django.utils import timezone
+                from datetime import timedelta
+                
+                # Ensure base_time is a datetime object
+                if isinstance(base_time, str):
+                    from django.utils.dateparse import parse_datetime
+                    base_time = parse_datetime(base_time)
+                
+                if base_time:
+                    # Check if more than 72 hours have passed
+                    if timezone.now() > base_time + timedelta(hours=72):
+                        raise serializers.ValidationError({
+                            'order': 'The dispute window for this order has expired (72 hours limit).'
+                        })
+
+            # 4. Active dispute check
+            if hasattr(order, 'dispute') and order.dispute:
+                raise serializers.ValidationError({
+                    'order': 'A dispute already exists for this order.'
+                })
+
         # Attach resolved order for use in create()
         attrs['resolved_order'] = order
         return attrs

@@ -83,6 +83,7 @@ interface OrdersTableProps {
 export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: OrdersTableProps) {
   const [selectedProduct, setSelectedProduct] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [scrollToCredentials, setScrollToCredentials] = useState(false);
   const [isApproving, setIsApproving] = useState<string | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewProductId, setReviewProductId] = useState<number | null>(null);
@@ -322,14 +323,16 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     setTimers(prev => ({ ...prev, ...newTimers }));
   }, [orders]);
 
-  const handleViewDetails = (order: Order) => {
+  const handleViewDetails = (order: Order, scrollToCreds = false) => {
     setSelectedProduct(order);
+    setScrollToCredentials(scrollToCreds);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedProduct(null);
+    setScrollToCredentials(false);
   };
 
   const handleLeaveReview = (order: Order) => {
@@ -593,8 +596,20 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                   !isRefunded &&
                   !hasPendingRefund;
 
-                const canCreateDispute = (order.order_status === "paid" || order.order_status === "delivered") &&
-                  !order.dispute_opened;
+                // Dispute Logic:
+                // 1. Must be Escrow
+                // 2. Status must be paid, delivered, or confirmed
+                // 3. Must be within the 72-hour window since delivery/created
+                // 4. No existing dispute
+                const disputeWindowHours = 72;
+                const referenceTime = order.delivered_at || order.confirmed_at || order.created_at;
+                const hoursSinceReference = (new Date().getTime() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
+                const isWithinWindow = hoursSinceReference <= disputeWindowHours;
+
+                const canCreateDispute = order.use_escrow &&
+                  (order.order_status === "paid" || order.order_status === "delivered" || order.order_status === "confirmed") &&
+                  !order.dispute_opened &&
+                  isWithinWindow;
 
                 return (
                   <div
@@ -628,11 +643,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             {getStatusDisplay(order.order_status)}
                           </Badge>
 
-                          {(order.order_status === "delivered" || (order.product_credentials && Object.keys(order.product_credentials).length > 0)) && (
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase animate-pulse whitespace-nowrap">
-                              <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" /> Ready
-                            </Badge>
-                          )}
+
 
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -641,7 +652,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48 bg-gray-900 border-gray-700">
-                              <DropdownMenuItem onClick={() => handleViewDetails(order)} className="text-gray-300">
+                              <DropdownMenuItem onClick={() => handleViewDetails(order, false)} className="text-gray-300">
                                 <Info className="w-4 h-4 mr-2" /> View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleMessageSeller(order)} className="text-gray-300">
@@ -791,15 +802,44 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             </Button>
                           )}
 
-                          {/* Deliver/Credentials Button */}
-                          {(order.order_status === "delivered" || (order.product_credentials && Object.keys(order.product_credentials).length > 0)) && (
-                            <Button
-                              onClick={() => handleViewDetails(order)}
-                              className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs shadow-lg shadow-blue-500/20 ring-2 ring-blue-500/30 h-9 px-4"
-                            >
-                              <Key className="w-3 h-3 mr-2" /> Get Credentials
-                            </Button>
-                          )}
+                          {/* Deliver/Credentials Section */}
+                          {(order.order_status === "delivered" || order.order_status === "paid" || order.order_status === "confirmed" || order.order_status === "completed" || (order.product_credentials && Object.keys(order.product_credentials).length > 0)) && (() => {
+                            // Check if this is manual delivery
+                            const deliveryTime = (order.product?.delivery_time || '').toLowerCase();
+                            const deliveryMethod = (order.product?.delivery_method || '').toLowerCase();
+                            const isManualDelivery = deliveryTime.includes('manual') || deliveryMethod.includes('manual');
+                            const hasCredentials = order.product_credentials && Object.keys(order.product_credentials).length > 0;
+
+                            if (isManualDelivery && !hasCredentials) {
+                              // Manual delivery without credentials yet
+                              return (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                                  <span className="text-[10px] sm:text-xs text-amber-400/80 flex items-center">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Credentials will be delivered manually
+                                  </span>
+                                  <button
+                                    onClick={() => handleMessageSeller(order)}
+                                    className="text-theme-cyan text-[10px] sm:text-xs underline hover:text-cyan-300 transition-colors font-medium flex items-center"
+                                  >
+                                    <MessageSquare className="w-3 h-3 mr-1" />
+                                    Contact Vendor
+                                  </button>
+                                </div>
+                              );
+                            }
+
+                            // Auto delivery OR manual with credentials available
+                            return (
+                              <button
+                                onClick={() => handleViewDetails(order, true)}
+                                className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm underline font-medium transition-colors flex items-center gap-1"
+                              >
+                                <Key className="w-3 h-3" />
+                                View Credentials
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -818,6 +858,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
             order={selectedProduct}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
+            scrollToCredentials={scrollToCredentials}
           />
         )
       }

@@ -102,11 +102,22 @@ class Order(BaseModel):
     @property
     def can_dispute(self):
         """Check if user can still dispute"""
-        if self.delivered_at:
+        # 1. Must be escrow
+        if not self.use_escrow:
+            return False
+            
+        # 2. Status check - only specific statuses can be disputed
+        from .models import OrderStatus
+        if self.order_status not in [OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]:
+            return False
+
+        # 3. Time limit - 72 hours from delivery OR order creation
+        reference_time = self.delivered_at or self.confirmed_at or self.created_at
+        if reference_time:
             from django.utils import timezone
             from datetime import timedelta
-            # 48 hours from delivery
-            dispute_deadline = self.delivered_at + timedelta(hours=48)
+            # 72 hours window
+            dispute_deadline = reference_time + timedelta(hours=72)
             return timezone.now() <= dispute_deadline
         return False
 

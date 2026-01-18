@@ -240,6 +240,7 @@ class ProductService {
       slug: string;
       description?: string;
       icon?: string;
+      product_count?: number;
       subcategories: Array<{
         id: number;
         name: string;

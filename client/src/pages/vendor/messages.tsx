@@ -1111,6 +1111,11 @@ export default function VendorMessages() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatPrice = (price: any) => {
+    const parsed = parseFloat(price || 0);
+    return isNaN(parsed) ? '0.00' : parsed.toFixed(2);
+  };
+
   const getBuyerFromConversation = (conversation: any) => {
     if (!conversation.participants) return null;
     // Find the participant who is not the current user (vendor)
@@ -1546,7 +1551,7 @@ export default function VendorMessages() {
                                     {isDispute ? 'Dispute Context' : isRefund ? 'Refund Context' : 'Product Context'}
                                   </p>
                                   <h4 className={`font-bold text-sm text-white truncate`}>{message.metadata?.product_title || message.metadata?.title}</h4>
-                                  <p className="text-xs text-gray-400">${message.metadata?.product_price || message.metadata?.price || '0.00'}</p>
+                                  <p className="text-xs text-gray-400">${formatPrice(message.metadata?.product_price || message.metadata?.price)}</p>
                                 </div>
                               </div>
                             </div>
@@ -1743,7 +1748,7 @@ export default function VendorMessages() {
                               {productReferenceData.isDispute ? 'Dispute Context' : productReferenceData.isRefund ? 'Refund Context' : 'Product Inquiry'}
                             </p>
                             <h4 className="text-sm font-medium text-white truncate">{productReferenceData.product_title}</h4>
-                            <p className="text-xs text-gray-400">${productReferenceData.product_price || '0.00'}</p>
+                            <p className="text-xs text-gray-400">${formatPrice(productReferenceData.product_price)}</p>
                           </div>
                         </div>
                         <Button

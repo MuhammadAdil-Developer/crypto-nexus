@@ -110,9 +110,10 @@ interface OrderProductModalProps {
   order: Order;
   isOpen: boolean;
   onClose: () => void;
+  scrollToCredentials?: boolean;
 }
 
-export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isOpen, onClose }) => {
+export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isOpen, onClose, scrollToCredentials = false }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showFullAdditionalInfo, setShowFullAdditionalInfo] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
@@ -123,6 +124,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
   const { toast } = useToast();
+  const credentialsSectionRef = React.useRef<HTMLDivElement>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (isOpen && order?.product?.id) {
@@ -130,6 +133,35 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
       fetchProductReviews();
     }
   }, [isOpen, order?.product?.id]);
+
+  // Auto-scroll to credentials section when modal opens with scrollToCredentials=true
+  React.useEffect(() => {
+    if (isOpen && scrollToCredentials && credentialsSectionRef.current) {
+      // Ensure credentials section is visible/expanded
+      setShowCredentials(true);
+
+      // Delay to wait for modal transition and state update to finish
+      const timer = setTimeout(() => {
+        if (credentialsSectionRef.current) {
+          credentialsSectionRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+
+          // Fallback check: if it didn't scroll enough, try again after another short delay
+          // (Sometimes animations interfere with the first attempt)
+          setTimeout(() => {
+            credentialsSectionRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }, 300);
+        }
+      }, 400); // 400ms is usually enough for most modal entry animations
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, scrollToCredentials]);
 
   const fetchVendorStats = async () => {
     const vendorUsername = order.product.vendor_username || order.product.vendor?.username;
@@ -340,11 +372,11 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(95vh-100px)] sm:max-h-[calc(90vh-120px)]">
+        <div ref={scrollContainerRef} className="overflow-y-auto max-h-[calc(95vh-100px)] sm:max-h-[calc(90vh-120px)]">
           <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
             {/* Product Images - Responsive height */}
             <div className="space-y-3 sm:space-y-4">
-              <div className="h-40 sm:h-48 md:h-56 bg-gray-800/30 rounded-lg sm:rounded-xl overflow-hidden border border-gray-600/20">
+              <div className="h-40 sm:h-48 md:h-56 bg-white/5 rounded-lg sm:rounded-xl overflow-hidden border border-white/10">
                 {order.product.main_image || (order.product.main_images && order.product.main_images.length > 0) ? (
                   <img
                     src={
@@ -354,7 +386,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                         : placeholderImage)
                     }
                     alt={order.product.headline || 'Product'}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-transparent"
                     onError={(e) => {
                       e.currentTarget.src = placeholderImage;
                     }}
@@ -363,7 +395,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <img
                     src={placeholderImage}
                     alt="Placeholder"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-transparent"
                   />
                 )}
               </div>
@@ -376,7 +408,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                     {order.product.gallery_images && order.product.gallery_images.map((image, index) => {
                       const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
                       return (
-                        <div key={`img-${index}`} className="aspect-square w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-gray-800/30 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
+                        <div key={`img-${index}`} className="aspect-square w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-white/5 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
                           <img
                             src={imageUrl}
                             alt={`${order.product.headline || 'Product'} ${index + 1}`}
@@ -569,21 +601,74 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
             {/* Credentials Section - For paid, confirmed, and delivered orders */}
             {(order.payment_status === 'paid' || order.order_status === 'paid' || order.order_status === 'confirmed' || order.order_status === 'delivered') && order.product_credentials && Object.keys(order.product_credentials).filter(k => order.product_credentials[k]).length > 0 && (
-              <div className="bg-green-900/10 border border-green-500/20 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-lg shadow-green-900/5">
+              <div ref={credentialsSectionRef} className="bg-green-900/10 border border-green-500/20 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-lg shadow-green-900/5">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <h3 className="text-sm sm:text-lg font-semibold text-white flex items-center">
                     <Key className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-400" />
                     Credentials
                   </h3>
-                  <Button
-                    onClick={() => setShowCredentials(!showCredentials)}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 sm:h-9 text-[10px] sm:text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
-                  >
-                    {showCredentials ? <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> : <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />}
-                    {showCredentials ? 'Hide' : 'Show'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => {
+                        // Download credentials as text file
+                        const getAllValues = (data: any): string[] => {
+                          if (!data) return [];
+                          if (typeof data === 'string') {
+                            const trimmed = data.trim();
+                            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                              try {
+                                return getAllValues(JSON.parse(trimmed));
+                              } catch {
+                                return [trimmed];
+                              }
+                            }
+                            return [trimmed];
+                          }
+                          if (Array.isArray(data)) {
+                            return data.flatMap(getAllValues);
+                          }
+                          if (typeof data === 'object') {
+                            return Object.entries(data).map(([key, val]) => `${key}: ${typeof val === 'object' ? JSON.stringify(val) : val}`);
+                          }
+                          return [String(data)];
+                        };
+
+                        const values = getAllValues(order.product_credentials);
+                        const uniqueValues = Array.from(new Set(values.filter(v => v && v.toString().trim() !== '')));
+                        const content = `Order ID: ${order.order_id}\nProduct: ${order.product.headline}\nDate: ${new Date().toLocaleString()}\n\n--- CREDENTIALS ---\n\n${uniqueValues.join('\n')}`;
+
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `credentials_${order.order_id}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        toast({
+                          title: "Downloaded!",
+                          description: "Credentials saved to file"
+                        });
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 sm:h-9 text-[10px] sm:text-xs border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                    >
+                      <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                      Download
+                    </Button>
+                    <Button
+                      onClick={() => setShowCredentials(!showCredentials)}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 sm:h-9 text-[10px] sm:text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
+                    >
+                      {showCredentials ? <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> : <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />}
+                      {showCredentials ? 'Hide' : 'Show'}
+                    </Button>
+                  </div>
                 </div>
 
                 {showCredentials && (

@@ -229,7 +229,7 @@ export function Overview() {
           setError('No dashboard data returned');
         }
       } catch (err: any) {
-        console.error('💥 Error fetching main dashboard stats:', err);
+        console.error('Error fetching main dashboard stats:', err);
         setError(err.message || 'Failed to fetch dashboard statistics');
       }
 
@@ -240,12 +240,12 @@ export function Overview() {
           setCryptoStatus(cryptoData);
         }
       } catch (err) {
-        console.error('💥 Error fetching crypto node status:', err);
+        console.error('Error fetching crypto node status:', err);
         // We don't set global error for this as it's secondary
       }
 
     } catch (error: any) {
-      console.error('💥 Error in dashboard initialization:', error);
+      console.error('Error in dashboard initialization:', error);
       setError('System initialization failed');
     } finally {
       setLoading(false);

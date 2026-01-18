@@ -8,6 +8,7 @@ export interface WishlistItem {
     headline: string;
     listing_title: string;
     price: string;
+    account_balance?: string | null;
     main_image: string;
     stock_quantity: number;
     vendor: {
@@ -15,6 +16,7 @@ export interface WishlistItem {
       username: string;
     };
     rating?: number;
+    quantity_available: number;
   };
   vendor_username: string;
   created_at: string;

@@ -25,6 +25,7 @@ export default function VendorEditProduct() {
   const [product, setProduct] = useState<VendorProduct | null>(null);
   const [btcAddressSet, setBtcAddressSet] = useState(false);
   const [xmrAddressSet, setXmrAddressSet] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Price conversion logic removed as we now use USD directly
 
@@ -321,6 +322,28 @@ export default function VendorEditProduct() {
       });
       return;
     }
+
+    // Validation
+    const newErrors: Record<string, string> = {};
+    if (!formData.headline.trim()) newErrors.headline = 'Headline is required';
+    if (!formData.website.trim()) newErrors.website = 'Website is required';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.price) newErrors.price = 'Price is required';
+    if (formData.account_balance && !/^\d+(\.\d+)?$/.test(formData.account_balance)) {
+      newErrors.account_balance = 'Balance must be a valid number (e.g., 50 or 50.00)';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      showToast({
+        type: 'error',
+        title: "Validation Error",
+        message: "Please fix the errors in the form."
+      });
+      return;
+    }
+    setErrors({});
+
 
     try {
       setSaving(true);
@@ -856,9 +879,10 @@ export default function VendorEditProduct() {
                     name="account_balance"
                     value={formData.account_balance}
                     onChange={handleInputChange}
-                    className="bg-gray-800 border-gray-600 text-white"
+                    className={`bg-gray-800 border-gray-600 text-white ${errors.account_balance ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                     placeholder="Enter account balance"
                   />
+                  {errors.account_balance && <p className="text-red-500 text-xs mt-1">{errors.account_balance}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="access_method" className="text-gray-300">Access Method</Label>

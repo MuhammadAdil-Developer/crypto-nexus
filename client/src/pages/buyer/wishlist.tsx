@@ -4,6 +4,7 @@ import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import wishlistService, { WishlistItem, WishlistStats } from "@/services/wishlistService";
 import { PageBanner } from "@/components/PageBanner";
 
@@ -359,9 +360,25 @@ export default function BuyerWishlist() {
                 {/* Content Section */}
                 <div className="p-5 flex flex-col h-[180px]">
                   <div className="flex-1">
-                    <h3 className="text-white font-bold text-lg mb-2 line-clamp-2 group-hover:text-theme-cyan transition-colors">
+                    <h3 className="text-white font-bold text-lg mb-1 line-clamp-2 group-hover:text-theme-cyan transition-colors">
                       {item.product_data?.headline || item.product_data?.listing_title || 'Unknown Product'}
                     </h3>
+                    {item.product_data?.account_balance && (
+                      <div className="flex mb-2">
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="bg-theme-cyan/20 text-theme-cyan border border-theme-cyan/30 text-[10px] font-bold px-2 py-0.5 rounded-full cursor-help transition-all hover:bg-theme-cyan/30">
+                                BALANCE: ${item.product_data.account_balance}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-black/90 backdrop-blur-md border-theme-cyan/30 p-2 rounded-lg">
+                              <p className="text-[10px] font-bold text-white uppercase tracking-wider">BALANCE: ${item.product_data.account_balance}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2 text-sm">

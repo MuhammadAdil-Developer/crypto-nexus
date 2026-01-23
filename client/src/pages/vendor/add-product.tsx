@@ -94,7 +94,8 @@ export default function VendorAddProduct() {
     delivery_method: "",
     special_features: [] as string[],
     auto_delivery_script: "",
-    notes_for_buyer: ""
+    notes_for_buyer: "",
+    is_giveaway: false
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -301,7 +302,6 @@ export default function VendorAddProduct() {
       submitData.append('access_type', formData.access_type);
       submitData.append('account_balance', formData.account_balance);
       submitData.append('description', formData.description);
-      submitData.append('price', formData.price);
       submitData.append('additional_info', formData.additional_info);
       submitData.append('delivery_time', formData.delivery_time);
       submitData.append('credentials', formData.credentials);
@@ -315,8 +315,13 @@ export default function VendorAddProduct() {
       if (formData.quantity_available) submitData.append('quantity_available', formData.quantity_available);
 
       // Escrow Settings
-      submitData.append('escrow_enabled', formData.escrow_enabled.toString());
+      submitData.append('escrow_enabled', (formData.is_giveaway ? false : formData.escrow_enabled).toString());
+      submitData.append('is_giveaway', formData.is_giveaway.toString());
       submitData.append('accepted_crypto', JSON.stringify(formData.accepted_crypto));
+
+      // Force price to 0 if Giveaway
+      const finalPrice = formData.is_giveaway ? "0" : formData.price;
+      submitData.append('price', finalPrice);
 
       // Media files
       if (formData.main_image) {
@@ -428,7 +433,7 @@ export default function VendorAddProduct() {
             </div>
           </div>
           <div className="text-center relative z-10">
-            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">Add New Product</h1>
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tighter mb-2">Add New Account</h1>
             <p className="text-gray-400 italic">Create a new account listing for the marketplace</p>
           </div>
         </div>
@@ -572,12 +577,16 @@ export default function VendorAddProduct() {
                     step="0.01"
                     placeholder="e.g., 10.00"
                     value={formData.price}
+                    disabled={formData.is_giveaway}
                     onChange={(e) => {
                       const val = e.target.value;
                       setFormData({ ...formData, price: val });
                     }}
-                    className={`bg-gray-900/50 border-gray-700/50 text-white font-mono rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.price ? 'border-red-500' : ''}`}
+                    className={`bg-gray-900/50 border-gray-700/50 text-white font-mono rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.price ? 'border-red-500' : ''} ${formData.is_giveaway ? 'opacity-50 cursor-not-allowed border-cyan-500/30 bg-cyan-900/10' : ''}`}
                   />
+                  {formData.is_giveaway && (
+                    <p className="text-[10px] text-cyan-400 mt-1 font-medium animate-pulse">✨ Giveaway Mode active: Price locked to $0.00</p>
+                  )}
                   <div className="flex flex-col gap-2 mt-2">
                     <div className="flex-1">
                       {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
@@ -716,7 +725,7 @@ export default function VendorAddProduct() {
                 </div>
                 <Switch
                   checked={formData.escrow_enabled}
-                  disabled={isVendorBlocked}
+                  disabled={isVendorBlocked || formData.is_giveaway}
                   onCheckedChange={(checked) => {
                     if (isVendorBlocked) {
                       toast({
@@ -729,6 +738,31 @@ export default function VendorAddProduct() {
                     setFormData({ ...formData, escrow_enabled: checked });
                   }}
                   className="data-[state=checked]:bg-theme-cyan"
+                />
+              </div>
+
+              {/* Giveaway Setting */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-cyan-900/10 border border-cyan-500/30">
+                <div>
+                  <h4 className="font-medium text-cyan-400 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Giveaway Mode
+                  </h4>
+                  <p className="text-sm text-gray-400">
+                    If enabled, this product will be listed for $0.00 and will be delivered instantly to the first buyer.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.is_giveaway}
+                  onCheckedChange={(checked) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      is_giveaway: checked,
+                      price: checked ? "0" : (prev.price === "0" ? "" : prev.price),
+                      escrow_enabled: checked ? false : prev.escrow_enabled
+                    }));
+                  }}
+                  className="data-[state=checked]:bg-cyan-500"
                 />
               </div>
             </CardContent>

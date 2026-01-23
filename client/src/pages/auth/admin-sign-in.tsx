@@ -365,60 +365,64 @@ export default function AdminSignIn() {
         {/* Fade gradient overlay on right edge to blend with right side */}
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/60 pointer-events-none"></div>
 
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center">
-          {/* Floating Elements */}
-          <div className="absolute top-20 right-20 w-16 h-16 bg-red-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce border border-red-400/30">
-            <Crown className="w-8 h-8 text-red-400" />
-          </div>
-          <div className="absolute bottom-32 left-20 w-12 h-12 bg-purple-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse border border-purple-400/30">
-            <Database className="w-6 h-6 text-purple-400" />
-          </div>
-          <div className="absolute top-1/3 left-16 w-14 h-14 bg-blue-400/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-bounce delay-300 border border-blue-400/30">
-            <Server className="w-7 h-7 text-blue-400" />
-          </div>
+        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12 text-center w-full h-full">
+          {!isVideoLoading && (
+            <>
+              {/* Floating Elements - Positioned to corners to avoid text overlap */}
+              <div className="absolute top-10 right-10 w-14 h-14 bg-red-400/10 backdrop-blur-md rounded-full flex items-center justify-center animate-bounce border border-red-400/20 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                <Crown className="w-7 h-7 text-red-400/70" />
+              </div>
+              <div className="absolute bottom-10 left-10 w-12 h-12 bg-purple-400/10 backdrop-blur-md rounded-full flex items-center justify-center animate-pulse border border-purple-400/20 shadow-[0_0_20px_rgba(168,85,247,0.2)]">
+                <Database className="w-6 h-6 text-purple-400/70" />
+              </div>
+              <div className="absolute top-1/4 left-8 w-12 h-12 bg-blue-400/10 backdrop-blur-md rounded-full flex items-center justify-center animate-bounce delay-300 border border-blue-400/20 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+                <Server className="w-6 h-6 text-blue-400/70" />
+              </div>
+            </>
+          )}
 
-          <div className="max-w-lg mx-auto text-center">
-            {/* Logo - Always visible, not dependent on video */}
-            <div className="mb-6">
+          <div className={`max-w-lg mx-auto text-center transition-all duration-1000 transform ${isVideoLoading ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+            {/* Logo - Now synchronized with loading state */}
+            <div className="mb-8">
               <img
                 src="/images/logo.png"
                 alt="AccountzClub Logo"
-                className="h-20 w-auto mx-auto"
+                className="h-20 w-auto mx-auto drop-shadow-[0_0_25px_rgba(239,68,68,0.3)]"
                 style={{
-                  opacity: 0.9,
+                  opacity: 1,
                   position: 'relative',
                   zIndex: 10
                 }}
               />
             </div>
-            {!isVideoLoading && (
-              <p className="text-lg text-purple-100/90 leading-relaxed font-medium font-sans">
-                Secure administrative access to manage the entire crypto marketplace ecosystem
-              </p>
-            )}
-          </div>
-          {!isVideoLoading && (
-            <div className="flex flex-col space-y-4 text-purple-200">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-red-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-red-500/30">
-                  <Crown className="w-5 h-5 text-red-400" />
+
+            <p className="text-xl text-purple-100/90 leading-relaxed font-semibold font-sans tracking-wide mb-10 drop-shadow-md">
+              Secure administrative access to manage the entire crypto marketplace ecosystem
+            </p>
+
+            <div className="flex flex-col space-y-6 text-purple-200/90 items-start max-w-xs mx-auto">
+              <div className="flex items-center space-x-4 group cursor-default">
+                <div className="w-12 h-12 bg-red-500/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-red-500/20 transition-all duration-300 group-hover:bg-red-500/20 group-hover:scale-110 shadow-lg shadow-red-900/20">
+                  <Crown className="w-6 h-6 text-red-500" />
                 </div>
-                <span className="text-lg">Administrative Control</span>
+                <span className="text-lg font-medium tracking-tight">Administrative Control</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-purple-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/30">
-                  <Shield className="w-5 h-5 text-purple-400" />
+
+              <div className="flex items-center space-x-4 group cursor-default">
+                <div className="w-12 h-12 bg-purple-500/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-purple-500/20 transition-all duration-300 group-hover:bg-purple-500/20 group-hover:scale-110 shadow-lg shadow-purple-900/20">
+                  <Shield className="w-6 h-6 text-purple-500" />
                 </div>
-                <span className="text-lg">System Management</span>
+                <span className="text-lg font-medium tracking-tight">System Management</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-blue-500/30">
-                  <Database className="w-6 h-6 text-blue-400" />
+
+              <div className="flex items-center space-x-4 group cursor-default">
+                <div className="w-12 h-12 bg-blue-500/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-blue-500/20 transition-all duration-300 group-hover:bg-blue-500/20 group-hover:scale-110 shadow-lg shadow-blue-900/20">
+                  <Server className="w-6 h-6 text-blue-500" />
                 </div>
-                <span className="text-lg">Full System Access</span>
+                <span className="text-lg font-medium tracking-tight">Full System Access</span>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 

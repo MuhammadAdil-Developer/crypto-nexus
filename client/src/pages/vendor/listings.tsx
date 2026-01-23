@@ -553,20 +553,33 @@ export default function VendorListings() {
         {/* Products Table */}
         <Card className="border border-gray-700 bg-gray-900 backdrop-blur-sm relative z-10">
           <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
               <CardTitle className="text-lg sm:text-xl font-bold text-white">Products ({filteredProducts.length})</CardTitle>
-              {selectedProductIds.length > 0 && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setBulkDeleteDialogOpen(true)}
-                  className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 rounded-lg h-9 px-4 font-bold transition-all"
-                  disabled={isBulkDeleting}
-                >
-                  {isBulkDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                  Delete Selected ({selectedProductIds.length})
-                </Button>
-              )}
+              <div className="flex items-center flex-wrap gap-2">
+                {/* Mobile Select All */}
+                <div className="flex items-center gap-2 lg:hidden bg-gray-800/50 px-3 py-1.5 rounded-lg border border-gray-700/50">
+                  <Checkbox
+                    id="select-all-mobile"
+                    checked={getPaginatedProducts().length > 0 && getPaginatedProducts().every(p => selectedProductIds.includes(p.id))}
+                    onCheckedChange={toggleSelectAll}
+                    className="border-gray-500 bg-gray-900 data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                  />
+                  <label htmlFor="select-all-mobile" className="text-xs font-bold text-gray-400 uppercase tracking-wider cursor-pointer">Select All</label>
+                </div>
+
+                {selectedProductIds.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                    className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 rounded-lg h-9 px-4 font-bold transition-all shadow-lg shadow-red-500/5"
+                    disabled={isBulkDeleting}
+                  >
+                    {isBulkDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                    Delete ({selectedProductIds.length})
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -587,7 +600,7 @@ export default function VendorListings() {
                     <div className="flex items-start gap-4 mb-4 relative z-10 pl-8">
                       <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-950/50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-800 shadow-inner">
                         <img
-                          src={getImageUrl(product.main_image) || placeholderImage}
+                          src={product.main_image || placeholderImage}
                           alt={product.headline}
                           className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-gray-900/50"
                           onError={(e) => {
@@ -604,6 +617,11 @@ export default function VendorListings() {
                             <Badge className="bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-yellow-500 border-yellow-500/30 text-[10px] sm:text-xs px-2 py-0.5 font-bold">
                               <Lock className="w-3 h-3 mr-1" />
                               ESCROW
+                            </Badge>
+                          )}
+                          {product.is_giveaway && (
+                            <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-[10px] sm:text-xs px-2 py-0.5 font-bold">
+                              GIVEAWAY
                             </Badge>
                           )}
                         </div>
@@ -737,7 +755,7 @@ export default function VendorListings() {
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                             <img
-                              src={getImageUrl(product.main_image) || placeholderImage}
+                              src={product.main_image || placeholderImage}
                               alt={product.headline}
                               className="w-full h-full object-contain bg-gray-900/50"
                               onError={(e) => {
@@ -789,17 +807,28 @@ export default function VendorListings() {
                               ESCROW
                             </Badge>
                           )}
+                          {product.is_giveaway && (
+                            <Badge className="bg-cyan-500 text-black border-none text-xs px-1.5 py-0.5 mt-1">
+                              GIVEAWAY
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
-                        <span className="text-gray-400 text-xs font-mono ml-2">
-                          {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
-                            <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
-                          ) : (
-                            <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
-                          )}
-                        </span>
+                        {product.is_giveaway ? (
+                          <span className="text-cyan-400 font-black uppercase tracking-wider">Free Giveaway</span>
+                        ) : (
+                          <>
+                            <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
+                            <span className="text-gray-400 text-xs font-mono ml-2">
+                              {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
+                                <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
+                              ) : (
+                                <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
+                              )}
+                            </span>
+                          </>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>

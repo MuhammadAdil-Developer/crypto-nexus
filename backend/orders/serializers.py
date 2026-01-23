@@ -46,7 +46,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_status_display', 'use_escrow', 'escrow_fee', 'dispute_opened',
             'dispute_reason', 'payment_expires_at', 'delivered_at', 'confirmed_at',
             'dispute_opened_at', 'product_credentials', 'is_payment_expired',
-            'can_dispute', 'dispute', 'created_at', 'updated_at'
+            'can_dispute', 'dispute', 'is_giveaway', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_id', 'created_at', 'updated_at', 'is_payment_expired',
@@ -189,8 +189,9 @@ class CreateOrderSerializer(serializers.ModelSerializer):
             # Both vendor and product have escrow disabled - no escrow
             use_escrow = False
         
-        # Update validated_data with escrow decision
+        # Update validated_data with escrow decision and giveaway status
         validated_data['use_escrow'] = use_escrow
+        validated_data['is_giveaway'] = product.is_giveaway
         
         # Reserve product quantity
         product.quantity_available -= quantity

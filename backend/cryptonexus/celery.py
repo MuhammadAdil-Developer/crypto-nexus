@@ -42,6 +42,10 @@ app.conf.beat_schedule = {
         'task': 'payments.tasks.auto_release_escrow_payouts', 
         'schedule': crontab(minute=0, hour='*/1'),  # Every hour
     },
+    'auto-cancel-orders': {
+        'task': 'orders.tasks.auto_cancel_expired_orders_task',
+        'schedule': crontab(minute='*/5'),  # Every 5 minutes
+    },
 }
 
 @app.task(bind=True)

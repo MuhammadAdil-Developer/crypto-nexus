@@ -30,8 +30,10 @@ class IsAdminUser(BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        # Check if user has admin user_type
-        if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':
+        # Check if user has admin user_type or is superuser/staff
+        if (hasattr(request.user, 'user_type') and request.user.user_type == 'admin') or \
+           request.user.is_superuser or \
+           request.user.is_staff:
             return True
         
         return False
@@ -708,6 +710,20 @@ def admin_update_user(request, user_id):
         from django.shortcuts import get_object_or_404
         user = get_object_or_404(User, id=user_id, is_deleted=False)
         
+        if str(user.id) == str(request.user.id):
+            # Check if attempting to deactivate or change role
+            if 'is_active' in request.data and request.data.get('is_active') is False:
+                return Response({
+                    'success': False,
+                    'message': 'You cannot suspend your own administrative account.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if 'user_type' in request.data and request.data.get('user_type') != 'admin':
+                return Response({
+                    'success': False,
+                    'message': 'You cannot change your own administrative role.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = AdminUserUpdateSerializer(user, data=request.data, partial=True)
         
         if serializer.is_valid():
@@ -741,6 +757,13 @@ def delete_user(request, user_id):
     try:
         from django.shortcuts import get_object_or_404
         user = get_object_or_404(User, id=user_id, is_deleted=False)
+        
+        if str(user.id) == str(request.user.id):
+            return Response({
+                'success': False,
+                'message': 'You cannot delete your own administrative account.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         user.is_deleted = True
         user.is_active = False
         user.save()

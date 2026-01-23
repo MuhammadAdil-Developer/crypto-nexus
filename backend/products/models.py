@@ -99,6 +99,7 @@ class Product(BaseModel):
     # Credentials - Hidden until payment confirmed
     credentials = models.TextField(blank=True)  # testemail@test.com:testuser66:testpassword
     credentials_visible = models.BooleanField(default=False)  # Auto-set to True after payment
+    is_giveaway = models.BooleanField(default=False) # Skip payment if 0$
     
     # Escrow Settings
     escrow_enabled = models.BooleanField(default=False)  # Enable escrow for this product

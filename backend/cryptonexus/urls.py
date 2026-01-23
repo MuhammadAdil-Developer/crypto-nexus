@@ -7,6 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # API Endpoints
+    path('api/v1/system/', include('shared.urls')),  # System/Maintenance endpoints - Moved up for priority
     path('api/v1/', include('users.urls')),
     path('api/v1/products/', include('products.urls')),  # Fixed: added 'products/' prefix
     path('api/v1/', include('orders.urls')),
@@ -19,7 +20,6 @@ urlpatterns = [
     path('api/v1/wishlist/', include('wishlist.urls')),
     path('api/v1/', include('admin.urls')),
     path('api/v1/content/', include('content.urls')),
-    path('api/v1/system/', include('shared.urls')),  # System/Maintenance endpoints
 ]
 
 # Serve media files in development

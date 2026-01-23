@@ -34,6 +34,8 @@ class ProductSerializer(serializers.ModelSerializer):
     gallery_images = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
     
+    main_image = serializers.SerializerMethodField()
+    
     def get_vendor(self, obj):
         if obj.vendor:
             return {
@@ -60,6 +62,15 @@ class ProductSerializer(serializers.ModelSerializer):
             }
         return None
     
+    def get_main_image(self, obj):
+        """Return absolute URL for main image"""
+        if not obj.main_image:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.main_image.url)
+        return obj.main_image.url
+
     def get_gallery_images(self, obj):
         """Convert gallery image paths to full URLs"""
         if not obj.gallery_images:
@@ -72,6 +83,8 @@ class ProductSerializer(serializers.ModelSerializer):
                     urls.append(path)
                 elif path.startswith('media/'):
                     urls.append(request.build_absolute_uri(f'/{path}'))
+                elif path.startswith('/media/'):
+                    urls.append(request.build_absolute_uri(path))
                 else:
                     urls.append(request.build_absolute_uri(f'/media/{path}'))
             return urls
@@ -103,7 +116,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'gallery_images', 'documents', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
-            'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason', 'accepted_crypto'
+            'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason', 'accepted_crypto', 'is_giveaway'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
@@ -118,6 +131,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     gallery_images = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
     final_price = serializers.SerializerMethodField()
+    main_image = serializers.SerializerMethodField()
 
     def get_final_price(self, obj):
         """Calculate final price after discount"""
@@ -125,6 +139,15 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             discount = obj.price * (obj.discount_percentage / 100)
             return obj.price - discount
         return obj.price
+    
+    def get_main_image(self, obj):
+        """Return absolute URL for main image"""
+        if not obj.main_image:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.main_image.url)
+        return obj.main_image.url
     
     def get_gallery_images(self, obj):
         """Convert gallery image paths to full URLs"""
@@ -138,6 +161,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                     urls.append(path)
                 elif path.startswith('media/'):
                     urls.append(request.build_absolute_uri(f'/{path}'))
+                elif path.startswith('/media/'):
+                    urls.append(request.build_absolute_uri(path))
                 else:
                     urls.append(request.build_absolute_uri(f'/media/{path}'))
             return urls
@@ -172,7 +197,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'delivery_method', 'special_features', 'region_restrictions',
             'tags', 'documents', 'main_images', 'auto_delivery_script',
             'notes_for_buyer', 'discount_percentage', 'escrow_enabled', 'accepted_crypto',
-            'final_price', 'credentials'
+            'final_price', 'credentials', 'is_giveaway'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
@@ -218,7 +243,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             'main_image', 'main_images', 'tags',
             'account_age', 'quantity_available', 'special_features', 
             'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
-            'category', 'sub_category', 'escrow_enabled', 'accepted_crypto'
+            'category', 'sub_category', 'escrow_enabled', 'accepted_crypto', 'is_giveaway'
         ]
     
     def validate(self, data):
@@ -386,11 +411,19 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             if key not in validated_data:
                 validated_data[key] = default_value
         
-        # Process main image if provided
+        # Process main image if provided - Manual Save to ensure consistency
         main_image = validated_data.pop('main_image', None)
         if main_image:
-            validated_data['main_image'] = main_image
-        
+            try:
+                from django.core.files.storage import default_storage
+                file_path = default_storage.save(f'products/images/{main_image.name}', main_image)
+                validated_data['main_image'] = file_path
+                print(f"DEBUG: Manually saved main_image to {file_path}")
+            except Exception as e:
+                print(f"DEBUG: Error saving main_image: {e}")
+                # Fallback to standard save if manual fails (though unlikely if storage works)
+                validated_data['main_image'] = main_image
+
         # Process account_age - convert string to date if provided
         if 'account_age' in validated_data and validated_data['account_age']:
             try:
@@ -514,8 +547,8 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """Custom validation for product updates"""
         # Validate price
-        if data.get('price', 0) <= 0:
-            raise serializers.ValidationError("Price must be greater than 0")
+        if data.get('price', 0) < 0:
+            raise serializers.ValidationError("Price must be 0 or greater")
         
         # Validate description length
         if len(data.get('description', '')) < 10:
@@ -526,9 +559,17 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Update product with file handling"""
         # Process main image if provided
+        # Process main image if provided - Manual Save
         main_image = validated_data.pop('main_image', None)
         if main_image:
-            validated_data['main_image'] = main_image
+            try:
+                from django.core.files.storage import default_storage
+                file_path = default_storage.save(f'products/images/{main_image.name}', main_image)
+                validated_data['main_image'] = file_path
+                print(f"DEBUG: Manually saved main_image (update) to {file_path}")
+            except Exception as e:
+                print(f"DEBUG: Error saving main_image (update): {e}")
+                validated_data['main_image'] = main_image
         
         # Update product
         for attr, value in validated_data.items():

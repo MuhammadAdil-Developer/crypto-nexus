@@ -63,6 +63,7 @@ class Order(BaseModel):
     escrow_fee = models.DecimalField(max_digits=20, decimal_places=8, default=0)
     dispute_opened = models.BooleanField(default=False)
     dispute_reason = models.TextField(blank=True)
+    is_giveaway = models.BooleanField(default=False)
     
     # Timestamps
     payment_expires_at = models.DateTimeField(null=True, blank=True)

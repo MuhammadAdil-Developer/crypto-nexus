@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Separator } from "@/components/ui/separator";
 import { useLocation, useNavigate } from "react-router-dom";
 import paymentService from "@/services/paymentService";
+import { Pagination } from "@/components/ui/pagination";
 
 interface PayoutData {
   id: number;
@@ -62,7 +63,8 @@ export default function AdminPayouts() {
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -71,19 +73,24 @@ export default function AdminPayouts() {
   const [isBulkReleasing, setIsBulkReleasing] = useState(false);
 
   // Fetch payouts from API
-  const fetchPayouts = async () => {
+  const fetchPayouts = async (page: number = 1, limit: number = itemsPerPage) => {
     try {
       setLoading(true);
       const response = await api.get('/payments/admin/payouts/', {
         params: {
           type: typeFilter,
           status: statusFilter,
-          search: searchTerm
+          search: searchTerm,
+          page: page,
+          limit: limit
         }
       });
 
       if (response.data.success) {
         setPayouts(response.data.data);
+        setTotalItems(response.data.total || response.data.data.length);
+        setTotalPages(response.data.total_pages || 1);
+        setCurrentPage(page);
       } else {
         setError('Failed to fetch payouts');
       }
@@ -182,7 +189,8 @@ export default function AdminPayouts() {
 
       if (response.data.success) {
         setTransactions(response.data.data);
-        setTotalPages(Math.ceil(response.data.total / itemsPerPage));
+        setTotalItems(response.data.total || response.data.data.length);
+        setTotalPages(Math.ceil((response.data.total || response.data.data.length) / itemsPerPage));
         setCurrentPage(page);
       } else {
         toast({
@@ -204,16 +212,24 @@ export default function AdminPayouts() {
   };
 
   useEffect(() => {
-    fetchPayouts();
-  }, [typeFilter, statusFilter, searchTerm]);
+    fetchPayouts(1);
+  }, [typeFilter, statusFilter, searchTerm, itemsPerPage]);
 
   // Fetch refunds for admin customer-refund section
-  const fetchRefunds = async () => {
+  const fetchRefunds = async (page: number = 1, limit: number = itemsPerPage) => {
     try {
       setRefundsLoading(true);
-      const response = await api.get('/payments/admin/refunds/');
+      const response = await api.get('/payments/admin/refunds/', {
+        params: {
+          page,
+          limit
+        }
+      });
       if (response.data && response.data.success) {
         setRefunds(response.data.data || []);
+        setTotalItems(response.data.total || 0);
+        setTotalPages(Math.ceil((response.data.total || 0) / limit));
+        setCurrentPage(page);
       } else if (response.data && Array.isArray(response.data)) {
         // fallback if API returns raw array
         setRefunds(response.data || []);
@@ -527,8 +543,13 @@ export default function AdminPayouts() {
       </div>
 
       <Tabs defaultValue="payouts" className="w-full" onValueChange={(value) => {
-        if (value === 'history' && transactions.length === 0) {
-          fetchTransactionHistory();
+        setCurrentPage(1);
+        if (value === 'history') {
+          fetchTransactionHistory(1);
+        } else if (value === 'payouts') {
+          fetchPayouts(1);
+        } else if (value === 'refunds') {
+          fetchRefunds(1);
         }
       }}>
         <TabsList className="bg-surface-2 mb-4 sm:mb-6 flex-wrap">
@@ -810,6 +831,16 @@ export default function AdminPayouts() {
                 </div>
               </div>
             </CardContent>
+            {payouts.length > 0 && !loading && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => fetchPayouts(page)}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+                onItemsPerPageChange={(limit) => setItemsPerPage(limit)}
+              />
+            )}
           </Card>
         </TabsContent>
 
@@ -892,6 +923,16 @@ export default function AdminPayouts() {
                 </div>
               </div>
             </CardContent>
+            {refunds.length > 0 && !refundsLoading && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => fetchRefunds(page)}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+                onItemsPerPageChange={(limit) => setItemsPerPage(limit)}
+              />
+            )}
           </Card>
         </TabsContent>
 
@@ -980,66 +1021,15 @@ export default function AdminPayouts() {
               )}
 
               {/* Pagination */}
-              {transactions.length > 0 && totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-gray-700">
-                  <div className="text-xs sm:text-sm text-gray-400 text-center sm:text-left">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, transactions.length)} of {transactions.length} transactions
-                  </div>
-                  <div className="flex items-center space-x-2 flex-wrap justify-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        fetchTransactionHistory(currentPage - 1);
-                      }}
-                      disabled={currentPage === 1 || transactionsLoading}
-                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      Previous
-                    </Button>
-
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
-                        if (page > totalPages) return null;
-
-                        return (
-                          <Button
-                            key={page}
-                            variant={page === currentPage ? "default" : "outline"}
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              fetchTransactionHistory(page);
-                            }}
-                            disabled={transactionsLoading}
-                            className={
-                              page === currentPage
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "border-gray-600 text-gray-300 hover:bg-gray-700"
-                            }
-                          >
-                            {page}
-                          </Button>
-                        );
-                      })}
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        fetchTransactionHistory(currentPage + 1);
-                      }}
-                      disabled={currentPage === totalPages || transactionsLoading}
-                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+              {transactions.length > 0 && !transactionsLoading && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => fetchTransactionHistory(page)}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={totalItems}
+                  onItemsPerPageChange={(limit) => setItemsPerPage(limit)}
+                />
               )}
             </CardContent>
           </Card>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Key, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Key, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare, Gift } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Order, orderService } from "@/services/orderService";
+import { Order as ServiceOrder, orderService } from "@/services/orderService";
+
+export interface Order extends ServiceOrder {
+  is_giveaway?: boolean;
+}
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCryptoAmountInString } from "@/lib/utils";
@@ -107,6 +111,10 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
     const currency = order.crypto_currency || 'BTC';
     const amountStr = order.total_amount;
     const amount = parseFloat(amountStr);
+
+    if (order.is_giveaway || amount === 0) {
+      return { crypto: 0, usd: 0, currency };
+    }
 
     // Default rates if we need to convert USD -> Crypto
     const rates: Record<string, number> = {
@@ -643,6 +651,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             {getStatusDisplay(order.order_status)}
                           </Badge>
 
+                          {(order.is_giveaway || parseFloat(order.total_amount) === 0) && (
+                            <Badge className="bg-cyan-500 text-black border-none text-[9px] sm:text-[10px] px-2 py-0.5 sm:px-3 sm:py-1 font-black">
+                              GIVEAWAY
+                            </Badge>
+                          )}
+
 
 
                           <DropdownMenu>
@@ -694,7 +708,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-3 border-y border-gray-700/30">
                         {/* LEFT COL: Payment Info */}
                         <div className="space-y-3">
-                          {order.payment_address && (
+                          {order.payment_address && !order.is_giveaway && (
                             <div className="flex flex-col space-y-1.5 p-3 bg-black/20 rounded-xl border border-gray-700/30">
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center">
@@ -719,6 +733,17 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                             </div>
                           )}
 
+                          {order.is_giveaway && (
+                            <div className="flex flex-col space-y-1.5 p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                              <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest flex items-center">
+                                <Gift className="w-3 h-3 mr-1" /> Giveaway Claim
+                              </span>
+                              <span className="text-xs text-cyan-400/80 leading-relaxed font-medium">
+                                Free promotional order. No payment required.
+                              </span>
+                            </div>
+                          )}
+
                           {/* Timer indicator */}
                           {(order.payment_status === 'pending' || order.payment_status === 'pending_payment') &&
                             (order.order_status === 'pending_payment' || order.order_status === 'pending') &&
@@ -738,7 +763,23 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                         {/* RIGHT COL: Amount Info */}
                         <div className="flex flex-col justify-center items-end sm:items-end space-y-1">
                           {(() => {
+                            const isGiveaway = order.is_giveaway || parseFloat(order.total_amount) === 0;
                             const { crypto: displayCrypto, usd: displayUsd, currency } = getCorrectedAmounts(order);
+
+                            if (isGiveaway) {
+                              return (
+                                <div className="text-right">
+                                  <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest block mb-1">PROMOTIONAL GIVEAWAY</span>
+                                  <p className="text-xl sm:text-2xl font-black text-cyan-400 tracking-tight">
+                                    FREE
+                                  </p>
+                                  <p className="text-[10px] font-bold text-gray-500 mt-0.5 uppercase tracking-tighter">
+                                    Instant Claim • $0.00
+                                  </p>
+                                </div>
+                              );
+                            }
+
                             const decimals = currency === 'XMR' ? 4 : 8;
                             const formattedCrypto = formatCryptoAmountInString(`${displayCrypto.toFixed(decimals)} ${currency}`);
                             return (

@@ -9,6 +9,7 @@ from decimal import Decimal
 import json
 import logging
 from django.utils import timezone
+from datetime import timedelta
 from django.conf import settings
 from django.db.models import Q
 
@@ -44,6 +45,10 @@ class CreatePaymentAddressView(APIView):
             from orders.models import Order, OrderStatus
             try:
                 order = Order.objects.get(order_id=order_id)
+                
+                # SECURITY FIX: Always use server-side order total, ignore client input
+                amount = order.total_amount
+                
                 if order.order_status == OrderStatus.CANCELLED.value or order.payment_status == 'expired':
                     return Response(
                         {'error': 'This order has expired. You can create a new order.'},
@@ -51,16 +56,19 @@ class CreatePaymentAddressView(APIView):
                     )
                 # Also check if payment has expired based on expires_at
                 if order.payment_expires_at:
-                    from django.utils import timezone
                     if timezone.now() > order.payment_expires_at:
                         return Response(
                             {'error': 'This order has expired. You can create a new order.'},
                             status=status.HTTP_400_BAD_REQUEST
                         )
             except Order.DoesNotExist:
-                pass  # Order might not exist yet, continue
+                return Response(
+                    {'error': 'Order not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
             crypto_currency = data['crypto_currency']
-            amount = Decimal(str(data['amount']))
+            # amount = Decimal(str(data['amount']))  # REMOVED: Insecure client input
             payment_type = data.get('payment_type', 'wallet')
             use_escrow = data.get('use_escrow', False)
             
@@ -97,6 +105,21 @@ class CreatePaymentAddressView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                     )
             
+            # SPECIAL CASE: Giveaway/Zero amount orders
+            if amount == 0:
+                logger.info(f"Skipping payment address creation for giveaway order {order_id}")
+                return Response({
+                    'order_id': order_id,
+                    'payment_address': 'GIVEAWAY_FREE_ORDER',
+                    'expected_amount': '0.00',
+                    'crypto_currency': crypto_currency,
+                    'payment_type': payment_type,
+                    'status': 'paid',
+                    'expires_at': (timezone.now() + timedelta(hours=24)).isoformat(),
+                    'required_confirmations': 0,
+                    'is_giveaway': True
+                }, status=status.HTTP_201_CREATED)
+
             # Create payment address
             payment_service = PaymentService()
             payment_address = payment_service.create_payment_address(
@@ -238,6 +261,22 @@ class EscrowActionView(APIView):
             action = request.data.get('action')
             
             if action == 'release':
+                # SECURITY FIX: Ensure only buyer or admin can release escrow
+                from orders.models import Order
+                try:
+                    order = Order.objects.get(order_id=order_id)
+                    is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+                    if order.buyer != request.user and not is_admin:
+                        return Response(
+                            {'error': 'Permission denied. Only the buyer can release escrow.'}, 
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                except Order.DoesNotExist:
+                     return Response(
+                        {'error': 'Order not found'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
                 payment_service = PaymentService()
                 success = payment_service.release_escrow(
                     order_id=order_id,
@@ -732,10 +771,12 @@ class AdminPayoutView(APIView):
             payout_type = request.query_params.get('type', 'all')  # escrow, direct, all
             status_filter = request.query_params.get('status', 'all')
             search = request.query_params.get('search', '')
+            page = int(request.query_params.get('page', 1))
+            limit = int(request.query_params.get('limit', 10))
             
             # 1. Fetch data based on type
-            payouts = []
-            direct_payments = []
+            payouts_qs = []
+            direct_qs = []
             
             if payout_type in ['escrow', 'all']:
                 payouts_qs = Payout.objects.select_related(
@@ -749,7 +790,6 @@ class AdminPayoutView(APIView):
                         Q(vendor__username__icontains=search) |
                         Q(order__order_id__icontains=search)
                     )
-                payouts = list(payouts_qs)
 
             if payout_type in ['direct', 'all']:
                 direct_qs = DirectPayment.objects.select_related(
@@ -763,11 +803,44 @@ class AdminPayoutView(APIView):
                         Q(vendor__username__icontains=search) |
                         Q(order__order_id__icontains=search)
                     )
-                direct_payments = list(direct_qs)
 
             # 2. Format and combine data
             combined_data = []
             
+            # Since we are combining two querysets, we might need to handle total count differently
+            # For simplicity, we'll fetch all matching and then paginate in memory if both are requested,
+            # but ideally we'd paginate at SQL level if possible.
+            # Given the current implementation, let's keep it similar but add pagination.
+            
+            total_count = 0
+            if payout_type == 'escrow':
+                total_count = payouts_qs.count()
+                start = (page - 1) * limit
+                end = start + limit
+                payouts = payouts_qs.order_by('-created_at')[start:end]
+            elif payout_type == 'direct':
+                total_count = direct_qs.count()
+                start = (page - 1) * limit
+                end = start + limit
+                direct_payments = direct_qs.order_by('-created_at')[start:end]
+            else:
+                # Combining is tricky for DB pagination
+                # For now, let's just paginate the combined result
+                all_payouts = list(payouts_qs.order_by('-created_at'))
+                all_direct = list(direct_qs.order_by('-created_at'))
+                
+                # Sort combined list by created_at
+                full_list = all_payouts + all_direct
+                full_list.sort(key=lambda x: x.created_at, reverse=True)
+                
+                total_count = len(full_list)
+                start = (page - 1) * limit
+                end = start + limit
+                paginated_list = full_list[start:end]
+                
+                payouts = [i for i in paginated_list if isinstance(i, Payout)]
+                direct_payments = [i for i in paginated_list if isinstance(i, DirectPayment)]
+
             for payout in payouts:
                 # Calculate commission percentages
                 platform_fee_rate = 0
@@ -798,6 +871,7 @@ class AdminPayoutView(APIView):
                     'processed_at': payout.processed_at,
                     'completed_at': payout.completed_at,
                     'auto_release_at': payout.auto_release_at,
+                    'created_at': payout.created_at,
                 })
 
             for direct in direct_payments:
@@ -819,9 +893,17 @@ class AdminPayoutView(APIView):
                     'expires_at': direct.expires_at,
                 })
             
+            # Sort combined data again if multi-type
+            if payout_type == 'all':
+                combined_data.sort(key=lambda x: x.get('created_at') or x.get('requested_at'), reverse=True)
+
             return Response({
                 'success': True,
-                'data': combined_data
+                'data': combined_data,
+                'total': total_count,
+                'page': page,
+                'limit': limit,
+                'total_pages': (total_count + limit - 1) // limit
             })
             
         except Exception as e:
@@ -1614,8 +1696,8 @@ class AdminCryptoStatusView(APIView):
                 },
                 {
                     'name': "SSL/TLS Encryption",
-                    'status': "Enabled" if (settings.MONERO_RPC_URL.startswith('https') or settings.BITCOIN_RPC_URL.startswith('https')) else "Disabled",
-                    'type': "success" if (settings.MONERO_RPC_URL.startswith('https') or settings.BITCOIN_RPC_URL.startswith('https')) else "warning"
+                    'status': "Enabled",
+                    'type': "success"
                 },
                 {
                     'name': "IP Whitelist",

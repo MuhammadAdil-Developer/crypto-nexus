@@ -80,8 +80,11 @@ class CommissionSettings(models.Model):
     
     @classmethod
     def get_settings(cls):
-        """Get the current commission settings, create default if none exist"""
+        """Get the current commission settings, create default if none exist. 
+        Uses a constant UUID to ensure only one record ever exists."""
+        SETTINGS_ID = '00000000-0000-0000-0000-000000000001'
         settings, created = cls.objects.get_or_create(
+            id=SETTINGS_ID,
             defaults={
                 'platform_fee_rate': 5.00,
                 'escrow_fee_rate': 1.00,

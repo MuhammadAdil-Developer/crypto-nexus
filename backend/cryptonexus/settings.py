@@ -13,31 +13,35 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # CORS Configuration - Production settings
 CORS_ALLOWED_ORIGINS = [
-    "http://94.130.201.44:5000",
-    "http://88.99.143.151:5000",
-    "http://88.99.143.151:3000",
-    "http://127.0.0.1:5000",
-    "http://127.0.0.1:3000",
-    "http://accountzclub.com",
     "https://accountzclub.com",
-    "http://accsclub.cc",
     "https://accsclub.cc",
-    "http://accountz.club",
     "https://accountz.club",
-    "http://accountz2.club",
     "https://accountz2.club",
+    "https://accs.club",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://accountzclub.com",
+    "https://accsclub.cc",
+    "https://accountz.club",
+    "https://accountz2.club",
+    "https://accs.club",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False  # Set to False for production security
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
-if '88.99.143.151' not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append('88.99.143.151')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+for host in ['api.accountzclub.com', 'accountzclub.com', 'accsclub.cc', 'accountz.club', 'accountz2.club', 'accs.club']:
+    if host not in ALLOWED_HOSTS and host:
+        ALLOWED_HOSTS.append(host)
+
+# Allow localhost always (per user request to fix DisallowedHost)
+ALLOWED_HOSTS.extend(['localhost', '127.0.0.1', 'localhost:8000'])
 
 # Application definition
 INSTALLED_APPS = [
@@ -214,12 +218,19 @@ if cors_origins:
 else:
     # Default origins if not set in environment
     CORS_ALLOWED_ORIGINS = [
-        "http://94.130.201.44:5000",
-        "http://88.99.143.151:5000",
-        "http://88.99.143.151:3000",
-        "http://127.0.0.1:5000",
-        "http://127.0.0.1:3000",
+        "https://accountzclub.com",
+        "https://accsclub.cc",
+        "https://accountz.club",
+        "https://accountz2.club",
+        "https://accs.club",
     ]
+    # Always add localhost origins for now
+    CORS_ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ])
 CORS_ALLOW_CREDENTIALS = True
 
 # Redis Configuration
@@ -319,30 +330,31 @@ os.makedirs(os.path.join(BASE_DIR, 'static'), exist_ok=True)
 os.makedirs(os.path.join(BASE_DIR, 'media'), exist_ok=True) 
 
 # Payment System Configuration - INTEGRATION
+# Payment System Configuration - INTEGRATION
 # BTCPay Server (Bitcoin)
 BTCPAY_SERVER_URL = os.environ.get('BTCPAY_SERVER_URL', 'https://pay.accountzclub.com')
-BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7')  # Correct Store ID from BTCPay dashboard
-BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', 'f66dd13f59806719fcee1eb31be75057ea47c1fd')    # Working Greenfield API key
-BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '2E8LrToLhNwHmZUwGCkKGzg8tSXx')
+BTCPAY_STORE_ID = os.environ.get('BTCPAY_STORE_ID', '')
+BTCPAY_API_KEY = os.environ.get('BTCPAY_API_KEY', '')
+BTCPAY_WEBHOOK_SECRET = os.environ.get('BTCPAY_WEBHOOK_SECRET', '')
 
 # Monero RPC (Monero)
-MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://127.0.0.1:18082/json_rpc')  # Local Wallet RPC
-MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', 'monerouser')
-MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', 'moneropass123')
-MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', 'testwallet')
+MONERO_RPC_URL = os.environ.get('MONERO_RPC_URL', 'http://127.0.0.1:18082/json_rpc')
+MONERO_RPC_USER = os.environ.get('MONERO_RPC_USER', '')
+MONERO_RPC_PASSWORD = os.environ.get('MONERO_RPC_PASSWORD', '')
+MONERO_WALLET_PASSWORD = os.environ.get('MONERO_WALLET_PASSWORD', '')
 
 # Admin Wallet Addresses (for direct payments)
-ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', 'bc1qp6s2rj9krysak7raq92ufcwysn8lkmxp05csdh')  # Set mainnet BTC address via environment variable
-ADMIN_XMR_ADDRESS = os.environ.get('ADMIN_XMR_ADDRESS', '4AdUndXHHZ6cFd8VZJ3x4L9eDz3r7gHhKkLmNnPpQqRrSsTtUuVvWwXxYyZz')
+ADMIN_BTC_ADDRESS = os.environ.get('ADMIN_BTC_ADDRESS', '')
+ADMIN_XMR_ADDRESS = os.environ.get('ADMIN_XMR_ADDRESS', '')
 
 # Bitcoin Core RPC (for direct Bitcoin operations)
-BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://88.99.143.151:8332')  # Mainnet port
-BITCOIN_RPC_USER = os.environ.get('BITCOIN_RPC_USER', 'bitcoinuser')
-BITCOIN_RPC_PASSWORD = os.environ.get('BITCOIN_RPC_PASSWORD', 'bitcoinpass123')
+BITCOIN_RPC_URL = os.environ.get('BITCOIN_RPC_URL', 'http://88.99.143.151:8332')
+BITCOIN_RPC_USER = os.environ.get('BITCOIN_RPC_USER', '')
+BITCOIN_RPC_PASSWORD = os.environ.get('BITCOIN_RPC_PASSWORD', '')
 
 # Network Configuration - MAINNET (Production)
-BITCOIN_NETWORK = os.environ.get('BITCOIN_NETWORK', 'mainnet')  # mainnet for production
-MONERO_NETWORK = os.environ.get('MONERO_NETWORK', 'mainnet')    # mainnet for production
+BITCOIN_NETWORK = os.environ.get('BITCOIN_NETWORK', 'mainnet')
+MONERO_NETWORK = os.environ.get('MONERO_NETWORK', 'mainnet')
 
 SITE_URL = os.environ.get('SITE_URL', 'http://88.99.143.151:8000')
 PAYMENT_EXPIRY_HOURS = int(os.environ.get('PAYMENT_EXPIRY_HOURS', '2'))

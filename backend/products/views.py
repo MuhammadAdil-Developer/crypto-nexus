@@ -320,6 +320,11 @@ def get_vendor_products(request):
         
         serializer = ProductSerializer(products, many=True, context={'request': request})
         
+        # Debug logging for image URLs
+        if len(serializer.data) > 0:
+            logger.info(f"Debug Vendor Products Image: {serializer.data[0].get('main_image')}")
+            print(f"DEBUG_IMAGE_URL: {serializer.data[0].get('main_image')}")
+        
         return Response({
             'success': True,
             'message': 'Vendor products retrieved successfully',

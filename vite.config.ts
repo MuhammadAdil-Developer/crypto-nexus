@@ -15,13 +15,22 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, "client"),
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
     sourcemap: false,
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        entryFileNames: 'a/[hash].js',
+        chunkFileNames: 'a/[hash].js',
+        assetFileNames: 'a/[hash].[ext]',
+        manualChunks: {
+          c: ['react', 'react-dom', 'react-router-dom'],
+        }
       },
     },
   },

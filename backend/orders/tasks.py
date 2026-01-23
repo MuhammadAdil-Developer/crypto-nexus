@@ -9,7 +9,90 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 import logging
 
+from .models import Order, OrderStatus
+
 logger = logging.getLogger(__name__)
+
+
+@shared_task
+def auto_cancel_expired_orders_task():
+    """
+    Task to automatically cancel orders where payment has expired.
+    Runs periodically to free up product stock.
+    """
+    try:
+        from django.utils import timezone
+        
+        # Find orders that are pending payment and have expired
+        # status__in includes both model field strings and Enum values for safety
+        expired_orders = Order.objects.filter(
+            order_status__in=['pending_payment', 'pending'],
+            payment_status__in=['pending', 'pending_payment'],
+            payment_expires_at__lt=timezone.now()
+        )
+        
+        cancelled_count = 0
+        
+        for order in expired_orders:
+            try:
+                # Cancel order
+                order.order_status = 'cancelled'
+                order.payment_status = 'expired'
+                order.save()
+                
+                # Release product quantity
+                product = order.product
+                product.quantity_available += order.quantity
+                if product.status == 'reserved':
+                    product.status = 'approved'
+                product.save()
+                
+                # Create notifications
+                try:
+                    from shared.admin_notifications import notify_admin_order_expired, send_user_notification
+                    
+                    # Notify admin
+                    notify_admin_order_expired(order)
+                    
+                    # Notify buyer
+                    send_user_notification(
+                        user=order.buyer,
+                        notification_type='order_status_changed',
+                        title='Order Expired',
+                        message=f'Your order {order.order_id} for "{order.product.headline}" has expired because payment was not completed within the time limit.',
+                        data={
+                            'order_id': order.order_id,
+                            'action_url': f'/buyer/orders'
+                        }
+                    )
+                    
+                    # Notify vendor
+                    send_user_notification(
+                        user=order.vendor,
+                        notification_type='order_status_changed',
+                        title='Order Expired',
+                        message=f'Order {order.order_id} from {order.buyer.username} has expired due to non-payment.',
+                        data={
+                            'order_id': order.order_id,
+                            'action_url': f'/vendor/orders'
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending expiration notifications for {order.order_id}: {e}")
+                
+                cancelled_count += 1
+                logger.info(f"Auto-cancelled expired order {order.order_id}")
+                
+            except Exception as e:
+                logger.error(f"Error processing expired order {order.order_id}: {e}")
+                continue
+                
+        return f"Successfully auto-cancelled {cancelled_count} expired orders"
+        
+    except Exception as e:
+        logger.error(f"Error in auto_cancel_expired_orders_task: {e}")
+        return f"Error auto-cancelling orders: {str(e)}"
+
 
 @shared_task
 def send_review_prompt_task(buyer_id, product_id, order_id):

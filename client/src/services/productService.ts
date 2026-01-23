@@ -60,6 +60,7 @@ export interface Product {
   accepted_crypto?: string[];
   escrow_enabled?: boolean;
   quantity_available: number;
+  is_giveaway?: boolean;
 }
 
 export interface ProductListResponse {

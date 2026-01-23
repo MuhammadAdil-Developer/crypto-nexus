@@ -12,13 +12,13 @@
 ### Key Features and Functionality
 *   **Dynamic Marketplace**: Real-time filtering, search, and adaptive grid/list/table views.
 
-![Homepage Screenshot](screenshots/account-catelog.webp)
+![Homepage Screenshot](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/account-catelog.webp)
 
 *   **Native Crypto Integration**: Native support for Bitcoin (BTC) and Monero (XMR) with automated payment monitoring.
 *   **Self-Custody Escrow**: Funds are locked in system-monitored escrow until buyer release or dispute resolution.
 *   **Account Economy**: Visual balance badges (BAL: $) with localized tooltips for asset clarity.
 
-![Product Card Screenshot](screenshots/product-card.webp)
+![Product Card Screenshot](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/product-card.webp)
 *   **Bulk Inventory System**: Vendor-side CSV/bulk upload for thousands of account credentials.
 *   **Real-time Messaging**: WebSocket-powered chat with inline product/order context references.
 
@@ -117,7 +117,7 @@ Postgres is configured via `DATABASE_URL`. It uses connection pooling (via `djan
 
 ## 5. Content Management Guide (Admin Panel)
 
-![Payment Modal Screenshot](screenshots/payment-modal.webp)
+![Payment Modal Screenshot](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/payment-modal.webp)
 ### Admin Login
 *   **URL**: `https://accountzclub.com/6f2c9b681c3b4cf9a8c4-admin-access-control-panel-login` (High-security path).
 *   **Roles**: Superuser (Full control), Staff (Moderator), Payout Manager.
@@ -125,12 +125,13 @@ Postgres is configured via `DATABASE_URL`. It uses connection pooling (via `djan
 ### Management Activities
 *   **Add/Edit Listings**: Navigate to 'Products' to approve or hide vendor items.
 
-![admin-product Screenshot](screenshots/admin-product.webp)
+![admin-product Screenshot](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/admin-product.webp)
+
 *   **Handle Menus**: Navigation paths are managed in the `App.tsx` and sidebar components.
 *   **Media Management**: Located in the 'Media' section; supports automated resizing and deletion.
 *   **Messaging Management**: Access to chat logs for dispute resolution.
 
-![chat-communication Screenshot](screenshots/chat-communication.webp)
+![chat-communication Screenshot](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/chat-communication.webp)
 
 ---
 
@@ -139,24 +140,24 @@ Postgres is configured via `DATABASE_URL`. It uses connection pooling (via `djan
 2.  **Moderator**: Dispute resolution, support ticket management, product approval.
 3.  **Vendor**: Product listing, inventory tracking, payout requests, buyer messaging.
 
-![Vendor Dashboard - Inventory management and Sales analytics](screenshots/vendor-dashboard.webp)
+![Vendor Dashboard - Inventory management and Sales analytics](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/vendor-dashboard.webp)
 
-![Vendor Dashboard - Inventory management and Sales analytics](screenshots/vender-order.webp)
+![Vendor Dashboard - Inventory management and Sales analytics](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/vender-order.webp)
 
-![Vendor Dashboard - Inventory management and Sales analytics](screenshots/vender-analytics.webp)
+![Vendor Dashboard - Inventory management and Sales analytics](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/vender-analytics.webp)
 
 
 4.  **Buyer**: Browsing, Cart/Purchase, Wishlist, Order tracking, Feedback.
 
-![Buyer Dashboard - Overview of recent orders and wishlist](screenshots/buyer-dashboard.webp)
+![Buyer Dashboard - Overview of recent orders and wishlist](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/buyer-dashboard.webp)
 
-![Buyer Dashboard - Overview of recent orders and wishlist](screenshots/buyer-order.webp)
+![Buyer Dashboard - Overview of recent orders and wishlist](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/buyer-order.webp)
 
 ### Instructions for Managing Users
 Admins can search users by username in the Admin Panel to reset passwords, change types (Buyer to Vendor), or apply bans.
 
-![admin-user](screenshots/admin-user.webp)
-![admin-user-edit](screenshots/admin-user-edit.webp)
+![admin-user](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/admin-user.webp)
+![admin-user-edit](https://raw.githubusercontent.com/MuhammadAdil-Developer/crypto-nexus/new-code/screenshots/admin-user-edit.webp)
 
 ---
 

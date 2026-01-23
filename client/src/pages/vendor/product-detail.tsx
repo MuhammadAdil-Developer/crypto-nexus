@@ -240,6 +240,11 @@ export default function VendorProductDetail() {
                   ESCROW PROTECTED
                 </Badge>
               )}
+              {product.is_giveaway && (
+                <Badge className="bg-cyan-500 text-black border-none font-bold">
+                  GIVEAWAY
+                </Badge>
+              )}
               <span className="text-gray-400">ID: {product.id}</span>
             </div>
           </div>
@@ -321,12 +326,24 @@ export default function VendorProductDetail() {
                 <div className="flex items-center space-x-2">
                   <DollarSign className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Base Price:</span>
-                  <span className="text-white">${product.price || 0}</span>
+                  <span className="text-white">
+                    {product.is_giveaway ? (
+                      <span className="text-cyan-400 font-bold">FREE - $0.00</span>
+                    ) : (
+                      `$${product.price || 0}`
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <DollarSign className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400">Final Price:</span>
-                  <span className="text-theme-cyan font-bold">${product.final_price || product.price || 0}</span>
+                  <span className="text-theme-cyan font-bold">
+                    {product.is_giveaway ? (
+                      <span className="text-cyan-400">FREE - $0.00</span>
+                    ) : (
+                      `$${product.final_price || product.price || 0}`
+                    )}
+                  </span>
                 </div>
                 {(product.discount_percentage || 0) > 0 && (
                   <div className="flex items-center space-x-2">

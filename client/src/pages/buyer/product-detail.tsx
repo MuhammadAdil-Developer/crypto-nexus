@@ -56,6 +56,7 @@ interface Product {
   status: string;
   is_featured?: boolean;
   accepted_crypto?: string[];
+  is_giveaway?: boolean;
 }
 
 interface Review {
@@ -323,6 +324,11 @@ const ProductDetailPage: React.FC = () => {
           {product.website && (
             <p className="text-gray-300 text-base sm:text-lg">{product.website}</p>
           )}
+          {product.is_giveaway && (
+            <Badge className="mt-3 bg-cyan-500 text-black border-none text-xs px-3 py-1 font-black">
+              🎁 FREE GIVEAWAY
+            </Badge>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -354,17 +360,30 @@ const ProductDetailPage: React.FC = () => {
 
               {/* Price */}
               <div className="mt-4 bg-blue-500/10 rounded-lg p-4 border border-blue-500/30">
-                <div className="text-4xl font-bold text-blue-400">
-                  ${parseFloat(product.price).toFixed(2)}
-                </div>
-                <div className="flex flex-col gap-1 mt-2">
-                  {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) && (
-                    <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
-                  )}
-                  {product.accepted_crypto?.includes('XMR') && (
-                    <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</span>
-                  )}
-                </div>
+                {product.is_giveaway ? (
+                  <>
+                    <div className="text-4xl font-black text-cyan-400 uppercase tracking-tighter">
+                      FREE GIFT
+                    </div>
+                    <div className="text-gray-400 text-lg font-medium mt-1">
+                      Promotional Giveaway • $0.00
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-4xl font-bold text-blue-400">
+                      ${parseFloat(product.price).toFixed(2)}
+                    </div>
+                    <div className="flex flex-col gap-1 mt-2">
+                      {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) && (
+                        <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
+                      )}
+                      {product.accepted_crypto?.includes('XMR') && (
+                        <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

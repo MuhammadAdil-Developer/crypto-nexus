@@ -1,7 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
+from users.views import IsAdminUser
 from decimal import Decimal
 import logging
 
@@ -98,22 +99,10 @@ class CommissionSettingsView(APIView):
 
 class CommissionHistoryView(APIView):
     """API for commission earnings history"""
-    permission_classes = [IsAuthenticated]
-    
-    def check_permissions(self, request):
-        """Check if user is admin"""
-        if not request.user.is_authenticated:
-            return False
-        # Check if user is admin (either is_staff or user_type == 'admin')
-        return request.user.is_staff or getattr(request.user, 'user_type', None) == 'admin'
+    permission_classes = [IsAuthenticated, IsAdminUser]
     
     def get(self, request):
         """Get commission earnings history"""
-        if not self.check_permissions(request):
-            return Response(
-                {'success': False, 'error': 'Permission denied. Admin access required.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         try:
             from .models import Payout, DirectPayment
             from django.db.models import Sum, Count
@@ -204,15 +193,28 @@ class CommissionHistoryView(APIView):
             except Exception as e:
                 logger.error(f"Error processing direct payment commissions: {e}")
             
+            # Get pagination parameters
+            page = int(request.query_params.get('page', 1))
+            limit = int(request.query_params.get('limit', 10))
+            
             # Sort by commission earned
             try:
                 commission_history.sort(key=lambda x: float(x['commission_earned'].split()[0]), reverse=True)
             except Exception as e:
                 logger.error(f"Error sorting commission history: {e}")
             
+            total_count = len(commission_history)
+            start = (page - 1) * limit
+            end = start + limit
+            paginated_history = commission_history[start:end]
+            
             return Response({
                 'success': True,
-                'data': commission_history
+                'data': paginated_history,
+                'total': total_count,
+                'page': page,
+                'limit': limit,
+                'total_pages': (total_count + limit - 1) // limit
             })
             
         except Exception as e:
@@ -227,21 +229,10 @@ class CommissionHistoryView(APIView):
 
 class VendorFeesView(APIView):
     """Get and update vendor-specific fees"""
-    permission_classes = [IsAuthenticated]
-    
-    def check_permissions(self, request):
-        """Check if user is admin"""
-        if not request.user.is_authenticated:
-            return False
-        return request.user.is_staff or getattr(request.user, 'user_type', None) == 'admin'
+    permission_classes = [IsAuthenticated, IsAdminUser]
     
     def get(self, request):
         """Get all vendors with their fees"""
-        if not self.check_permissions(request):
-            return Response(
-                {'success': False, 'error': 'Permission denied. Admin access required.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         try:
             from django.contrib.auth import get_user_model
             User = get_user_model()
@@ -249,8 +240,17 @@ class VendorFeesView(APIView):
             # Get all vendors
             vendors = User.objects.filter(user_type='vendor', is_active=True).order_by('username')
             
+            # Get pagination parameters
+            page = int(request.query_params.get('page', 1))
+            limit = int(request.query_params.get('limit', 10))
+            
+            total_count = vendors.count()
+            start = (page - 1) * limit
+            end = start + limit
+            page_qs = vendors[start:end]
+            
             vendor_fees_data = []
-            for vendor in vendors:
+            for vendor in page_qs:
                 try:
                     vendor_fee = VendorFee.objects.get(vendor=vendor)
                     fee_rate = float(vendor_fee.commission_rate) if vendor_fee.commission_rate else None
@@ -272,7 +272,11 @@ class VendorFeesView(APIView):
             
             return Response({
                 'success': True,
-                'data': vendor_fees_data
+                'data': vendor_fees_data,
+                'total': total_count,
+                'page': page,
+                'limit': limit,
+                'total_pages': (total_count + limit - 1) // limit
             })
             
         except Exception as e:
@@ -284,11 +288,6 @@ class VendorFeesView(APIView):
     
     def put(self, request):
         """Update vendor-specific fee"""
-        if not self.check_permissions(request):
-            return Response(
-                {'success': False, 'error': 'Permission denied. Admin access required.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         try:
             vendor_id = request.data.get('vendor_id')
             commission_rate = request.data.get('commission_rate')

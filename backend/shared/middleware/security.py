@@ -50,6 +50,10 @@ class SecurityMiddleware:
         if not settings.DEBUG:
             response['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
             
-        # Content Security Policy (Basic) - Allow loading from self and CDN/APIs
-        # Note: This can be tricky with inline scripts, so we start permissive
-        # response['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data:;"
+        # SECURITY: Remove tech stack fingerprints
+        if 'Server' in response:
+            del response['Server']
+        if 'X-Powered-By' in response:
+            del response['X-Powered-By']
+        
+        return response

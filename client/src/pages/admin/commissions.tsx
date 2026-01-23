@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Percent, Save, AlertCircle, History, Users } from "lucide-react";
 import { toast } from "sonner";
+import { Pagination } from "@/components/ui/pagination";
 import axios from "axios";
 
 import { API_BASE_URL } from '@/config/api';
@@ -66,12 +67,12 @@ export default function AdminCommissions() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<CommissionSettings>>({});
-  
+
   // Commission history state
   const [commissionHistory, setCommissionHistory] = useState<CommissionHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  
+
   // Vendor fees state
   const [vendorFees, setVendorFees] = useState<VendorFee[]>([]);
   const [vendorFeesLoading, setVendorFeesLoading] = useState(false);
@@ -79,12 +80,18 @@ export default function AdminCommissions() {
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
   const [editFeeValue, setEditFeeValue] = useState<string>("");
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
   // Fetch commission settings
   const fetchSettings = async () => {
     try {
       setLoading(true);
       const response = await api.get("/payments/admin/commission-settings/");
-      
+
       if (response.data.success) {
         setSettings(response.data.settings);
         setFormData(response.data.settings);
@@ -131,14 +138,23 @@ export default function AdminCommissions() {
   };
 
   // Fetch commission history
-  const fetchCommissionHistory = async (period: string = 'all') => {
+  const fetchCommissionHistory = async (page: number = 1, limit: number = itemsPerPage, period: string = 'all') => {
     try {
       setHistoryLoading(true);
       setHistoryError(null);
-      const response = await api.get(`/payments/admin/commission-history/?period=${period}`);
-      
+      const response = await api.get(`/payments/admin/commission-history/`, {
+        params: {
+          period,
+          page,
+          limit
+        }
+      });
+
       if (response.data.success) {
         setCommissionHistory(response.data.data);
+        setTotalItems(response.data.total || response.data.data.length);
+        setTotalPages(response.data.total_pages || 1);
+        setCurrentPage(page);
       }
     } catch (error: any) {
       console.error('Error fetching commission history:', error);
@@ -153,14 +169,22 @@ export default function AdminCommissions() {
   }, []);
 
   // Fetch vendor fees
-  const fetchVendorFees = async () => {
+  const fetchVendorFees = async (page: number = 1, limit: number = itemsPerPage) => {
     try {
       setVendorFeesLoading(true);
       setVendorFeesError(null);
-      const response = await api.get('/payments/admin/vendor-fees/');
-      
+      const response = await api.get('/payments/admin/vendor-fees/', {
+        params: {
+          page,
+          limit
+        }
+      });
+
       if (response.data.success) {
         setVendorFees(response.data.data);
+        setTotalItems(response.data.total || response.data.data.length);
+        setTotalPages(response.data.total_pages || 1);
+        setCurrentPage(page);
       } else {
         setVendorFeesError('Failed to fetch vendor fees');
       }
@@ -179,7 +203,7 @@ export default function AdminCommissions() {
         vendor_id: vendorId,
         commission_rate: commissionRate
       });
-      
+
       if (response.data.success) {
         toast.success(`Vendor fee updated successfully!`);
         setEditingVendor(null);
@@ -196,10 +220,11 @@ export default function AdminCommissions() {
 
   // Handle tab change to fetch commission history or vendor fees
   const handleTabChange = (value: string) => {
+    setCurrentPage(1);
     if (value === 'history') {
-      fetchCommissionHistory();
+      fetchCommissionHistory(1);
     } else if (value === 'vendors') {
-      fetchVendorFees();
+      fetchVendorFees(1);
     }
   };
 
@@ -216,7 +241,7 @@ export default function AdminCommissions() {
     try {
       setSaving(true);
       const response = await api.put("/payments/admin/commission-settings/", formData);
-      
+
       if (response.data.success) {
         setSettings(response.data.settings);
         toast.success("Commission settings updated successfully!");
@@ -249,7 +274,7 @@ export default function AdminCommissions() {
           <h1 className="text-xl sm:text-2xl font-bold text-white">Commission Management</h1>
           <p className="text-gray-300 mt-1 text-sm sm:text-base">Configure commission rates for the platform</p>
         </div>
-        <Button 
+        <Button
           onClick={handleSave}
           disabled={saving}
           size="sm"
@@ -290,27 +315,31 @@ export default function AdminCommissions() {
 
         <TabsContent value="settings">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            {/* Basic example inputs to avoid build break; extend as needed */}
             <div>
-              <Label className="text-gray-300 text-sm sm:text-base mb-2 block">Platform Fee %</Label>
-              <Input
-                type="number"
-                value={(formData.platform_fee_rate as any) ?? ''}
-                onChange={(e) => handleInputChange('platform_fee_rate', e.target.value)}
-                className="text-white border-gray-700 w-full"
-              />
+              <Label className="text-gray-300 text-sm sm:text-base mb-2 block font-bold uppercase tracking-wider">Platform Fee %</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={(formData.platform_fee_rate as any) ?? ''}
+                  onChange={(e) => handleInputChange('platform_fee_rate', e.target.value)}
+                  className="bg-gray-950 border-gray-700 text-white focus:border-accent w-full"
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">%</div>
+              </div>
             </div>
             <div>
-              <Label className="text-gray-300 text-sm sm:text-base mb-2 block">Escrow Fee %</Label>
-              <Input
-                type="number"
-                value={(formData.escrow_fee_rate as any) ?? ''}
-                onChange={(e) => handleInputChange('escrow_fee_rate', e.target.value)}
-                className="text-white border-gray-700 w-full"
-              />
-            </div>
-            <div className="sm:col-span-2 text-xs sm:text-sm text-gray-400">
-              Adjust additional category rates below as needed.
+              <Label className="text-gray-300 text-sm sm:text-base mb-2 block font-bold uppercase tracking-wider">Escrow Fee %</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={(formData.escrow_fee_rate as any) ?? ''}
+                  onChange={(e) => handleInputChange('escrow_fee_rate', e.target.value)}
+                  className="bg-gray-950 border-gray-700 text-white focus:border-accent w-full"
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">%</div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -422,6 +451,16 @@ export default function AdminCommissions() {
                 </div>
               )}
             </CardContent>
+            {vendorFees.length > 0 && !vendorFeesLoading && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => fetchVendorFees(page)}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+                onItemsPerPageChange={(limit) => setItemsPerPage(limit)}
+              />
+            )}
           </Card>
         </TabsContent>
 
@@ -468,6 +507,16 @@ export default function AdminCommissions() {
                 </div>
               )}
             </CardContent>
+            {commissionHistory.length > 0 && !historyLoading && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => fetchCommissionHistory(page)}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+                onItemsPerPageChange={(limit) => setItemsPerPage(limit)}
+              />
+            )}
           </Card>
         </TabsContent>
       </Tabs>

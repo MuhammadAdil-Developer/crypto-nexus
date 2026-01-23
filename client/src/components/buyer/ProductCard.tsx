@@ -48,6 +48,7 @@ interface Product {
   review_count?: number;
   escrow_enabled?: boolean;
   accepted_crypto?: string[];
+  is_giveaway?: boolean;
 }
 
 interface ProductCardProps {
@@ -359,7 +360,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           >
             <div className="w-10 h-10 bg-gray-800 rounded-md overflow-hidden flex-shrink-0">
               <img
-                src={getImageUrl(getProductImage()) || placeholderImage}
+                src={getProductImage() || placeholderImage}
                 alt={product.listing_title}
                 className="w-full h-full object-contain bg-gray-900/50"
                 onError={(e) => {
@@ -367,12 +368,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 }}
               />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-base font-semibold text-white truncate flex-1">{product.listing_title}</p>
-                {renderBalance(product.account_balance)}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-base font-semibold text-white truncate flex-1">{product.listing_title}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 truncate mt-1">{product.description}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  {renderBalance(product.account_balance)}
+                  {product.is_giveaway && (
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge className="bg-cyan-500 text-black border-none text-[9px] px-1.5 py-0 font-black cursor-help">
+                            GIVEAWAY
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-black/95 backdrop-blur-md border-cyan-500/30 p-2.5 rounded-xl shadow-2xl max-w-[200px]">
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Promotion</p>
+                            <p className="text-[11px] text-white leading-tight">Zero cost listing. First person to click "Buy" gets the account credentials delivered instantly!</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-gray-400 truncate">{product.description}</p>
             </div>
           </div>
           <div>
@@ -472,7 +496,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               )}
             </div>
             <div>
-              <p className="text-base font-semibold text-white">{product.listing_title}</p>
+              <p className="text-base font-semibold text-white">
+                {product.listing_title}
+                {product.is_giveaway && <span className="ml-2 text-[10px] bg-cyan-500 text-black px-1.5 py-0.5 rounded font-black">GIVEAWAY</span>}
+              </p>
               <p className="text-xs text-gray-400">{product.vendor.username}</p>
             </div>
           </div>
@@ -519,7 +546,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         {/* Product Image - Small width and height like Netflix cards */}
         <div className="relative h-[170px] overflow-hidden flex items-center justify-center p-8" style={{ backgroundColor: '#0E1A26' }}>
           <img
-            src={getImageUrl(getProductImage()) || placeholderImage}
+            src={getProductImage() || placeholderImage}
             alt={product.listing_title}
             className="max-w-[140px] max-h-[140px] object-contain group-hover:scale-110 transition-transform duration-500"
             onError={(e) => {
@@ -552,6 +579,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 <Lock className="w-2 h-2 mr-0.5" />
                 ESCROW
               </Badge>
+            )}
+            {product.is_giveaway && (
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge className="bg-cyan-500 text-black border-none text-xs px-1 py-0.5 shadow-lg font-black animate-pulse cursor-help">
+                      GIVEAWAY
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-black/95 backdrop-blur-md border-cyan-500/30 p-2.5 rounded-xl shadow-2xl max-w-[200px]">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Free Account</p>
+                      <p className="text-[11px] text-white leading-tight">Claim this account for $0. Instant delivery upon purchase.</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
 

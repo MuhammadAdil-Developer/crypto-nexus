@@ -62,6 +62,7 @@ interface Product {
   rating?: number;
   review_count?: number;
   accepted_crypto?: string[];
+  is_giveaway?: boolean;
 }
 
 function BuyerListingsContent() {
@@ -721,25 +722,46 @@ function BuyerListingsContent() {
                                   }}
                                 />
                               </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-white font-medium truncate">{product.listing_title}</p>
-                                  {product.account_balance && product.account_balance !== 'NaN' && (
-                                    <TooltipProvider delayDuration={100}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <div className="flex-shrink-0 flex items-center justify-center px-2 h-5 rounded-full border border-theme-cyan/50 bg-theme-cyan/10 text-theme-cyan text-[9px] font-bold cursor-help transition-all hover:bg-theme-cyan/20">
-                                            BAL: {parseFloat(product.account_balance) ? `$${parseFloat(product.account_balance).toFixed(2)}` : product.account_balance}
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="bg-black/90 backdrop-blur-md border-theme-cyan/30 p-2 rounded-lg">
-                                          <p className="text-[10px] font-bold text-white">BALANCE: {parseFloat(product.account_balance) ? `$${parseFloat(product.account_balance).toFixed(2)}` : product.account_balance}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-white font-medium truncate">{product.listing_title}</p>
+                                    <p className="text-gray-400 text-xs truncate mt-1">{product.description?.substring(0, 50)}...</p>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                    {product.account_balance && product.account_balance !== 'NaN' && (
+                                      <TooltipProvider delayDuration={100}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="flex-shrink-0 flex items-center justify-center px-2 h-5 rounded-full border border-theme-cyan/50 bg-theme-cyan/10 text-theme-cyan text-[9px] font-bold cursor-help transition-all hover:bg-theme-cyan/20">
+                                              BAL: {parseFloat(product.account_balance) ? `$${parseFloat(product.account_balance).toFixed(2)}` : product.account_balance}
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="bg-black/90 backdrop-blur-md border-theme-cyan/30 p-2 rounded-lg">
+                                            <p className="text-[10px] font-bold text-white">BALANCE: {parseFloat(product.account_balance) ? `$${parseFloat(product.account_balance).toFixed(2)}` : product.account_balance}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                    {product.is_giveaway && (
+                                      <TooltipProvider delayDuration={100}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge className="bg-cyan-500 text-black border-none text-[9px] px-1.5 py-0 font-black cursor-help">
+                                              GIVEAWAY
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="bg-black/95 backdrop-blur-md border-cyan-500/30 p-2.5 rounded-xl shadow-2xl max-w-[200px]">
+                                            <div className="space-y-1">
+                                              <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Promotion</p>
+                                              <p className="text-[11px] text-white leading-tight">This is a zero-cost giveaway. No crypto payment required. First buyer gets it instantly!</p>
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
                                 </div>
-                                <p className="text-gray-400 text-xs truncate">{product.description?.substring(0, 50)}...</p>
                               </div>
                             </div>
                           </td>

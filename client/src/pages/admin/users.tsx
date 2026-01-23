@@ -44,6 +44,7 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const currentUser = authService.getCurrentUser();
 
   // Existing Modal State
   const [addUserModalOpen, setAddUserModalOpen] = useState(false);
@@ -1249,74 +1250,76 @@ export default function AdminUsers() {
                     </td>
                   </tr>
                 ) : (
-                  getFilteredUsers().map((user) => (
-                    <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`user-row-${user.id}`}>
-                      <td className="p-4">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                            <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                  getFilteredUsers().map((user) => {
+                    const isSelf = currentUser && String(currentUser.id) === String(user.id);
+                    return (
+                      <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`user-row-${user.id}`}>
+                        <td className="p-4">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
+                              <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                            </div>
+                            <span className="font-medium text-white">{user.username}</span>
                           </div>
-                          <span className="font-medium text-white">{user.username}</span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-gray-300 text-muted">{user.email || 'Not Available'}</td>
-                      <td className="p-4">
-                        <Badge
-                          variant={user.user_type === "vendor" ? "secondary" : "outline"}
-                          className="text-gray-300"
-                        >
-                          {user.user_type === "vendor" ? "Vendor" : user.user_type === "admin" ? "Admin" : "Buyer"}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        {user.is_active === false ? (
-                          <StatusBadge
-                            status="Banned"
-                            type="danger"
-                          />
-                        ) : (
-                          <StatusBadge
-                            status={user.is_verified ? "Verified" : "Pending Verification"}
-                            type={user.is_verified ? "success" : "warning"}
-                          />
-                        )}
-                      </td>
-                      <td className="p-4 text-gray-300">{new Date(user.date_joined).toLocaleDateString()}</td>
-                      <td className="p-4 text-gray-300">Never</td>
-                      <td className="p-4 text-gray-300">{user.total_orders || 0}</td>
-                      <td className="p-4">
-                        {user.two_factor_enabled ? (
-                          <Badge className="bg-success/20 text-success border-success/30">Enabled</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-gray-500 border-gray-700">Disabled</Badge>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-400 hover:text-white"
-                            onClick={() => handleViewUser(user)}
-                            data-testid={`view-user-${user.id}`}
+                        </td>
+                        <td className="p-4 text-gray-300 text-muted">{user.email || 'Not Available'}</td>
+                        <td className="p-4">
+                          <Badge
+                            variant={user.user_type === "vendor" ? "secondary" : "outline"}
+                            className="text-gray-300"
                           >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-400 hover:text-white"
-                            onClick={() => handleEditUser(user)}
-                            data-testid={`edit-user-${user.id}`}
-                            disabled={loadingActions[`update_${user.id}`]}
-                          >
-                            {loadingActions[`update_${user.id}`] ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Edit className="w-4 h-4" />
-                            )}
-                          </Button>
-                          {/* <Button 
+                            {user.user_type === "vendor" ? "Vendor" : user.user_type === "admin" ? "Admin" : "Buyer"}
+                          </Badge>
+                        </td>
+                        <td className="p-4">
+                          {user.is_active === false ? (
+                            <StatusBadge
+                              status="Banned"
+                              type="danger"
+                            />
+                          ) : (
+                            <StatusBadge
+                              status={user.is_verified ? "Verified" : "Pending Verification"}
+                              type={user.is_verified ? "success" : "warning"}
+                            />
+                          )}
+                        </td>
+                        <td className="p-4 text-gray-300">{new Date(user.date_joined).toLocaleDateString()}</td>
+                        <td className="p-4 text-gray-300">Never</td>
+                        <td className="p-4 text-gray-300">{user.total_orders || 0}</td>
+                        <td className="p-4">
+                          {user.two_factor_enabled ? (
+                            <Badge className="bg-success/20 text-success border-success/30">Enabled</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-gray-500 border-gray-700">Disabled</Badge>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-white"
+                              onClick={() => handleViewUser(user)}
+                              data-testid={`view-user-${user.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-white"
+                              onClick={() => handleEditUser(user)}
+                              data-testid={`edit-user-${user.id}`}
+                              disabled={loadingActions[`update_${user.id}`]}
+                            >
+                              {loadingActions[`update_${user.id}`] ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Edit className="w-4 h-4" />
+                              )}
+                            </Button>
+                            {/* <Button 
                               variant="ghost" 
                               size="sm" 
                               className="text-gray-400 hover:text-white" 
@@ -1325,136 +1328,140 @@ export default function AdminUsers() {
                             >
                               <LogIn className="w-4 h-4" />
                             </Button> */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-400 hover:text-white"
-                            onClick={() => handleViewActivity(user)}
-                            data-testid={`view-activity-${user.id}`}
-                            disabled={loadingActivity}
-                          >
-                            {loadingActivity && selectedUser?.id === user.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <History className="w-4 h-4" />
-                            )}
-                          </Button>
-                          {user.is_active === false ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-success hover:text-green-400"
-                              onClick={() => handleVerifyUser(user)}
-                              data-testid={`unban-user-${user.id}`}
-                              title="Unban User"
-                              disabled={loadingActions[`verify_${user.id}`]}
+                              className="text-gray-400 hover:text-white"
+                              onClick={() => handleViewActivity(user)}
+                              data-testid={`view-activity-${user.id}`}
+                              disabled={loadingActivity}
                             >
-                              {loadingActions[`verify_${user.id}`] ? (
+                              {loadingActivity && selectedUser?.id === user.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
-                                <Unlock className="w-4 h-4" />
+                                <History className="w-4 h-4" />
                               )}
                             </Button>
-                          ) : !user.is_verified ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-success hover:text-green-400"
-                              onClick={() => handleVerifyUser(user)}
-                              data-testid={`verify-user-${user.id}`}
-                              title="Verify User"
-                              disabled={loadingActions[`verify_${user.id}`]}
-                            >
-                              {loadingActions[`verify_${user.id}`] ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <UserCheck className="w-4 h-4" />
-                              )}
-                            </Button>
-                          ) : null}
-                          {user.is_active !== false && user.is_verified && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-danger hover:text-red-400"
-                              onClick={() => handleBanUser(user)}
-                              data-testid={`ban-user-${user.id}`}
-                            >
-                              <Ban className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                            {user.is_active === false ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-gray-400 hover:text-white"
-                                data-testid={`more-actions-${user.id}`}
+                                className="text-success hover:text-green-400"
+                                onClick={() => handleVerifyUser(user)}
+                                data-testid={`unban-user-${user.id}`}
+                                title="Unban User"
+                                disabled={loadingActions[`verify_${user.id}`]}
                               >
-                                <MoreHorizontal className="w-4 h-4" />
+                                {loadingActions[`verify_${user.id}`] ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Unlock className="w-4 h-4" />
+                                )}
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-card border-border">
-                              <DropdownMenuItem
-                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                onClick={() => handleEditUser(user)}
+                            ) : !user.is_verified ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-success hover:text-green-400"
+                                onClick={() => handleVerifyUser(user)}
+                                data-testid={`verify-user-${user.id}`}
+                                title="Verify User"
+                                disabled={loadingActions[`verify_${user.id}`]}
                               >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Edit User
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                onClick={() => handleViewActivity(user)}
+                                {loadingActions[`verify_${user.id}`] ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <UserCheck className="w-4 h-4" />
+                                )}
+                              </Button>
+                            ) : null}
+                            {user.is_active !== false && user.is_verified && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`text-danger hover:text-red-400 ${isSelf ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={() => !isSelf && handleBanUser(user)}
+                                data-testid={`ban-user-${user.id}`}
+                                disabled={isSelf}
+                                title={isSelf ? "You cannot suspend yourself" : "Suspend User"}
                               >
-                                <UserCheck className="w-4 h-4 mr-2" />
-                                View Activity
-                              </DropdownMenuItem>
-                              {!user.is_verified && (
+                                <Ban className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-400 hover:text-white"
+                                  data-testid={`more-actions-${user.id}`}
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-card border-border">
                                 <DropdownMenuItem
                                   className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                  onClick={() => handleVerifyUser(user)}
+                                  onClick={() => handleEditUser(user)}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit User
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                  onClick={() => handleViewActivity(user)}
                                 >
                                   <UserCheck className="w-4 h-4 mr-2" />
-                                  Verify User
+                                  View Activity
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setResetPasswordModalOpen(true);
-                                  setResetPasswordData({ new_password: "", confirm_password: "" });
-                                }}
-                              >
-                                <Shield className="w-4 h-4 mr-2" />
-                                Reset Password
-                              </DropdownMenuItem>
-                              {user.two_factor_enabled && (
+                                {!user.is_verified && (
+                                  <DropdownMenuItem
+                                    className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
+                                    onClick={() => handleVerifyUser(user)}
+                                  >
+                                    <UserCheck className="w-4 h-4 mr-2" />
+                                    Verify User
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
-                                  className="text-warning hover:bg-warning/10 cursor-pointer"
+                                  className="text-gray-300 hover:bg-surface-2 hover:text-white cursor-pointer"
                                   onClick={() => {
-                                    setActionUser(user);
-                                    setDisable2FAConfirmOpen(true);
+                                    setSelectedUser(user);
+                                    setResetPasswordModalOpen(true);
+                                    setResetPasswordData({ new_password: "", confirm_password: "" });
                                   }}
                                 >
                                   <Shield className="w-4 h-4 mr-2" />
-                                  Disable 2FA
+                                  Reset Password
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator className="bg-border" />
-                              <DropdownMenuItem
-                                className="text-danger hover:bg-danger/10 hover:text-red-400 cursor-pointer"
-                                onClick={() => handleDeleteUser(user)}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete User
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                                {user.two_factor_enabled && (
+                                  <DropdownMenuItem
+                                    className="text-warning hover:bg-warning/10 cursor-pointer"
+                                    onClick={() => {
+                                      setActionUser(user);
+                                      setDisable2FAConfirmOpen(true);
+                                    }}
+                                  >
+                                    <Shield className="w-4 h-4 mr-2" />
+                                    Disable 2FA
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator className="bg-border" />
+                                <DropdownMenuItem
+                                  className={`text-danger hover:bg-danger/10 hover:text-red-400 cursor-pointer ${isSelf ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  onClick={() => !isSelf && handleDeleteUser(user)}
+                                  disabled={isSelf}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  {isSelf ? "Delete User (Self-Disabled)" : "Delete User"}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1668,12 +1675,15 @@ export default function AdminUsers() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-danger text-danger hover:bg-danger/10"
+                    className={`border-danger text-danger hover:bg-danger/10 ${currentUser && String(selectedUser.id) === String(currentUser.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={() => {
+                      if (currentUser && String(selectedUser.id) === String(currentUser.id)) return;
                       setUserDetailsModalOpen(false);
                       handleBanUser(selectedUser);
                     }}
                     data-testid="btn-ban-user-details"
+                    disabled={currentUser && String(selectedUser.id) === String(currentUser.id)}
+                    title={currentUser && String(selectedUser.id) === String(currentUser.id) ? "You cannot suspend yourself" : "Ban User"}
                   >
                     <Ban className="w-4 h-4 mr-2" />
                     Ban User
@@ -1770,9 +1780,9 @@ export default function AdminUsers() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-gray-300">Role / User Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={selectedUser && currentUser && String(selectedUser.id) === String(currentUser.id)}>
                         <FormControl>
-                          <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800" data-testid="edit-select-role">
+                          <SelectTrigger className={`!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800 ${selectedUser && currentUser && String(selectedUser.id) === String(currentUser.id) ? 'opacity-50 cursor-not-allowed' : ''}`} data-testid="edit-select-role">
                             <SelectValue />
                           </SelectTrigger>
                         </FormControl>
@@ -1793,9 +1803,9 @@ export default function AdminUsers() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-gray-300">Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={selectedUser && currentUser && String(selectedUser.id) === String(currentUser.id)}>
                         <FormControl>
-                          <SelectTrigger className="!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800" data-testid="edit-select-status">
+                          <SelectTrigger className={`!bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-400 focus:!bg-gray-800 ${selectedUser && currentUser && String(selectedUser.id) === String(currentUser.id) ? 'opacity-50 cursor-not-allowed' : ''}`} data-testid="edit-select-status">
                             <SelectValue />
                           </SelectTrigger>
                         </FormControl>

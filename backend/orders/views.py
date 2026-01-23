@@ -65,6 +65,31 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Create order
         order = serializer.save()
         
+        # GIVEAWAY LOGIC: If total amount is 0, mark as paid immediately and skip payment address generation
+        if order.total_amount == 0:
+            from django.utils import timezone
+            order.order_status = OrderStatus.PAID.value
+            order.payment_status = 'paid'
+            order.payment_confirmed_at = timezone.now()
+            
+            # Auto-fill credentials if it's instant delivery
+            if order.product.delivery_time == 'instant_auto' and order.product.credentials:
+                order.product_credentials = {
+                    'credentials': order.product.credentials,
+                    'delivered_at': timezone.now().isoformat(),
+                    'delivery_method': 'instant_auto',
+                    'notes': 'Giveaway success! Enjoy your account.'
+                }
+            
+            order.save()
+            logger.info(f"Giveaway order {order.order_id} processed for $0")
+            
+            # Prepare giveaway response
+            return Response(
+                OrderSerializer(order).data,
+                status=status.HTTP_201_CREATED
+            )
+        
         # Generate payment address using PaymentService
         try:
             from payments.services import PaymentService
@@ -481,12 +506,23 @@ class OrderViewSet(viewsets.ModelViewSet):
                 # Fallback: try to get by order_id from request data
                 order_id = request.data.get('order_id')
                 if order_id:
-                    order = Order.objects.get(order_id=order_id)
+                    try:
+                        order = Order.objects.get(order_id=order_id)
+                    except Order.DoesNotExist:
+                        return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
                 else:
                     return Response(
                         {"error": "Order not found"},
                         status=status.HTTP_404_NOT_FOUND
                     )
+            
+            # SECURITY FIX: Ensure requestor has permission
+            is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+            if order.buyer != request.user and order.vendor != request.user and not is_admin:
+                 return Response(
+                    {'error': 'Permission denied.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
             # AGGRESSIVE: Allow expiration even if status is not exactly PENDING_PAYMENT
             # Check if order is in any pending state

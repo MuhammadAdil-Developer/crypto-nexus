@@ -17,6 +17,7 @@ export interface Order extends ServiceOrder {
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCryptoAmountInString } from "@/lib/utils";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
 import { RequestRefundModal } from "./RequestRefundModal";
@@ -118,10 +119,10 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
     // Default rates if we need to convert USD -> Crypto
     const rates: Record<string, number> = {
-      'BTC': 100000,
-      'XMR': 170
+      'BTC': CRYPTO_PRICES.BTC || 100000,
+      'XMR': CRYPTO_PRICES.XMR || 170
     };
-    const rate = rates[currency] || 100000;
+    const rate = rates[currency] || (rates['BTC'] || 100000);
 
     let cryptoAmount = amount;
     let usdAmount = amount * rate;

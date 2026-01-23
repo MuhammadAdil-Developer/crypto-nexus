@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from "react";
 import { productService, Product } from '@/services/productService';
 
 import placeholderImage from "@/assets/placeholder.png";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -484,7 +485,7 @@ export function HomePage() {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                   }).format(priceNum);
-                  const approxBtc = (priceNum / 100000).toFixed(6);
+                  const approxBtc = (priceNum / CRYPTO_PRICES.BTC).toFixed(6);
 
                   return (
                     <Card key={listing.id} className="bg-[#0E1A26] border border-theme-cyan/10 hover:border-theme-cyan/40 transition-all duration-300 cursor-pointer group shadow-lg" data-testid={`listing-${listing.id}`}>

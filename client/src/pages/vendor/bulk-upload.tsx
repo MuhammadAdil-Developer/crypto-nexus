@@ -298,7 +298,7 @@ export default function BulkUpload() {
                     rows={10}
                   />
                   <p className="text-sm text-gray-400">
-                    Format: Account Name | Website | Account Type | Price (USD) | Description | Credentials | Quantity | Escrow (true/false)
+                    Format: Account Name | Website | Account Type | Price (USD) | Description | Credentials | Quantity | Escrow (true/false) | Method (auto/manual) | Account Balance
                   </p>
                 </div>
               </div>
@@ -382,7 +382,7 @@ export default function BulkUpload() {
                     Enter one account per line using this format:
                   </p>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap">
-                    Account Name | Website | Account Type | Price | Description | Credentials | Quantity | Escrow | Method (auto/manual)
+                    Account Name | Website | Account Type | Price | Description | Credentials | Quantity | Escrow | Method (auto/manual) | Account Balance
                   </code>
                 </div>
                 <div>
@@ -395,12 +395,13 @@ export default function BulkUpload() {
                     <li>• Description (required)</li>
                     <li>• Credentials (required for 'auto')</li>
                     <li>• Delivery Method ('auto' or 'manual')</li>
+                    <li>• Account Balance (optional)</li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="font-semibold text-white mb-2">Example:</h4>
                   <code className="block bg-gray-800 p-2 rounded text-xs text-theme-cyan font-mono whitespace-pre-wrap break-words">
-                    Premium Netflix | netflix.com | streaming | 15.00 | 4K Ultra HD | {`{"u":"n","p":"pw"}`} | 5 | true | auto
+                    Premium Netflix | netflix.com | streaming | 15.00 | 4K Ultra HD | {`{"u":"n","p":"pw"}`} | 5 | true | auto | $50 Balance
                   </code>
                 </div>
                 <div>

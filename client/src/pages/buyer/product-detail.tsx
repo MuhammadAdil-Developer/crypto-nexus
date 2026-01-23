@@ -10,6 +10,7 @@ import vendorService from '@/services/vendorService';
 import wishlistService from '@/services/wishlistService';
 import { API_BASE_URL, getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
+import { CRYPTO_PRICES } from '@/lib/priceUtils';
 
 interface Product {
   id: number;
@@ -376,10 +377,10 @@ const ProductDetailPage: React.FC = () => {
                     </div>
                     <div className="flex flex-col gap-1 mt-2">
                       {(!product.accepted_crypto || product.accepted_crypto.length === 0 || product.accepted_crypto.includes('BTC')) && (
-                        <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
+                        <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / CRYPTO_PRICES.BTC).toFixed(8))} BTC</span>
                       )}
                       {product.accepted_crypto?.includes('XMR') && (
-                        <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</span>
+                        <span className="text-gray-400 text-lg font-mono">≈ {parseFloat((parseFloat(product.price) / CRYPTO_PRICES.XMR).toFixed(8))} XMR</span>
                       )}
                     </div>
                   </>

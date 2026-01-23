@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import wishlistService, { WishlistItem, WishlistStats } from "@/services/wishlistService";
 import { PageBanner } from "@/components/PageBanner";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 
 // Helper functions for price formatting
 const formatUSD = (price: string) => {
@@ -18,10 +19,10 @@ const formatCryptoPrice = (price: string, currency: 'BTC' | 'XMR') => {
   let cryptoAmount = 0;
 
   if (currency === 'BTC') {
-    cryptoAmount = usdPrice / 100000;
+    cryptoAmount = usdPrice / CRYPTO_PRICES.BTC;
     return parseFloat(cryptoAmount.toFixed(8)).toString();
   } else {
-    cryptoAmount = usdPrice / 170;
+    cryptoAmount = usdPrice / CRYPTO_PRICES.XMR;
     return parseFloat(cryptoAmount.toFixed(8)).toString();
   }
 };

@@ -175,3 +175,50 @@ export function formatCryptoAmount(amount: number | string, currency: 'BTC' | 'X
 
 // Export crypto prices for use in components
 export { CRYPTO_PRICES };
+
+/**
+ * Update crypto prices from API
+ * This should be called on app initialization and periodically
+ */
+export async function refreshCryptoPrices(): Promise<void> {
+    try {
+        const { getApiUrl } = await import('../config/api');
+
+        // Fetch BTC Rate
+        try {
+            const btcResponse = await fetch(getApiUrl('payments/rates/?crypto=BTC&fiat=USD'));
+            if (btcResponse.ok) {
+                const data = await btcResponse.json();
+                if (data.rate) {
+                    const rate = parseFloat(data.rate);
+                    if (!isNaN(rate) && rate > 0) {
+                        CRYPTO_PRICES.BTC = rate;
+                        console.log(`Updated BTC Price: $${rate}`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch BTC rate:', e);
+        }
+
+        // Fetch XMR Rate
+        try {
+            const xmrResponse = await fetch(getApiUrl('payments/rates/?crypto=XMR&fiat=USD'));
+            if (xmrResponse.ok) {
+                const data = await xmrResponse.json();
+                if (data.rate) {
+                    const rate = parseFloat(data.rate);
+                    if (!isNaN(rate) && rate > 0) {
+                        CRYPTO_PRICES.XMR = rate;
+                        console.log(`Updated XMR Price: $${rate}`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch XMR rate:', e);
+        }
+
+    } catch (error) {
+        console.error('Error updating crypto prices:', error);
+    }
+}

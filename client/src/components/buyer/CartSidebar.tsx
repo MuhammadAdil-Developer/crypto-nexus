@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCart, CartItem } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
+import { CRYPTO_PRICES } from '@/lib/priceUtils';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
   // Format BTC equivalent
   const formatBTCEquivalent = (price: number | string) => {
     const num = typeof price === 'string' ? parseFloat(price) : price;
-    return parseFloat((num / 100000).toFixed(8)).toString();
+    return parseFloat((num / CRYPTO_PRICES.BTC).toFixed(8)).toString();
   };
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {
@@ -55,8 +56,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
     removeFromCart(productId);
     toast({
       title: "Removed from Cart",
-      message: `${productName} removed from your cart`,
-      type: "success"
+      description: `${productName} removed from your cart`,
     });
   };
 
@@ -64,8 +64,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
     clearCart();
     toast({
       title: "Cart Cleared",
-      message: "All items removed from your cart",
-      type: "success"
+      description: "All items removed from your cart",
     });
   };
 
@@ -73,8 +72,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
-        message: "Please add items to your cart before checkout",
-        type: "error"
+        description: "Please add items to your cart before checkout",
+        variant: "destructive"
       });
       return;
     }

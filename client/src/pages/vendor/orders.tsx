@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { productService } from "@/services/productService";
 import { RefundModal } from "@/components/vendor/RefundModal";
 import { PageBanner } from "@/components/PageBanner";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 
 // Transform API data to match existing structure
 const transformOrderData = (apiOrder: Order) => {
@@ -77,7 +78,7 @@ const transformOrderData = (apiOrder: Order) => {
     buyer: apiOrder.buyer.username,
     product: apiOrder.product.headline,
     amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
-    usdAmount: `$${(parseFloat(apiOrder.total_amount) * (apiOrder.crypto_currency === 'XMR' ? 170 : 100000)).toFixed(2)}`,
+    usdAmount: `$${(parseFloat(apiOrder.total_amount) * (apiOrder.crypto_currency === 'XMR' ? CRYPTO_PRICES.XMR : CRYPTO_PRICES.BTC)).toFixed(2)}`,
     status: getStatusDisplay(apiOrder),
     priority: "normal",
     date: date,
@@ -672,7 +673,7 @@ export default function VendorOrders() {
                 <h3 className="text-2xl sm:text-3xl font-black text-white truncate">
                   ${orders.reduce((sum, order) => {
                     const amount = parseFloat(order.amount.split(' ')[0]);
-                    const rate = order.paymentMethod === 'XMR' ? 170 : 100000;
+                    const rate = order.paymentMethod === 'XMR' ? CRYPTO_PRICES.XMR : CRYPTO_PRICES.BTC;
                     return sum + (amount * rate);
                   }, 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </h3>

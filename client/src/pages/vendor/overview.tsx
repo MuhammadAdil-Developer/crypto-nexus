@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { productService } from "@/services/productService";
 import vendorService from "@/services/vendorService";
 import { api, authService } from "@/services/authService";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 
 interface Order {
   id: string;
@@ -140,7 +141,7 @@ export default function VendorOverview() {
         });
 
         // Calculate BTC estimate
-        const btcEstimate = stats.revenue.total / 100000;
+        const btcEstimate = stats.revenue.total / CRYPTO_PRICES.BTC;
 
         setAdditionalStats({
           btcRevenue: `≈ ${btcEstimate.toFixed(8)} BTC`,

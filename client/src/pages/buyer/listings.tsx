@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CartProvider, useCart } from "@/contexts/CartContext";
 import CartSidebar from "@/components/buyer/CartSidebar";
 import BulkPurchaseModal from "@/components/buyer/BulkPurchaseModal";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 import { useSearchParams } from "react-router-dom";
 
 // Banner Assets
@@ -776,7 +777,7 @@ function BuyerListingsContent() {
                           <td className="p-4">
                             <div>
                               <span className="text-white font-bold block">${parseFloat(product.price).toFixed(2)}</span>
-                              <span className="text-gray-400 text-xs font-mono">≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</span>
+                              <span className="text-gray-400 text-xs font-mono">≈ {parseFloat((parseFloat(product.price) / CRYPTO_PRICES.BTC).toFixed(8))} BTC</span>
                             </div>
                           </td>
                           <td className="p-4">

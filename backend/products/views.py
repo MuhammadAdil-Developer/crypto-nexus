@@ -43,14 +43,30 @@ def smart_parse_price(price_str):
         
         # Determine conversion rate
         rate = Decimal('1')
-        if 'btc' in price_lower:
-            rate = Decimal('100000')
-        elif 'xmr' in price_lower:
-            rate = Decimal('170')
-        elif d_price < Decimal('0.1'):
-            # Auto-detect BTC if very small (less than 10 cents USD)
-            rate = Decimal('100000')
-            
+        
+        # Dynamic rate fetching
+        if 'btc' in price_lower or 'xmr' in price_lower or (d_price < Decimal('0.1') and 'usd' not in price_lower):
+            try:
+                from payments.services import PaymentService
+                service = PaymentService()
+                
+                if 'btc' in price_lower:
+                    rate = service.get_fiat_to_crypto_rate('BTC')
+                elif 'xmr' in price_lower:
+                    rate = service.get_fiat_to_crypto_rate('XMR')
+                elif d_price < Decimal('0.1'):
+                    # Auto-detect BTC if very small (less than 10 cents USD) and no currency specified
+                    rate = service.get_fiat_to_crypto_rate('BTC')
+            except Exception as e:
+                logger.warning(f"Failed to fetch dynamic rate in smart_parse_price: {e}")
+                # Fallback only if service fails
+                if 'btc' in price_lower:
+                    rate = Decimal('98000')
+                elif 'xmr' in price_lower:
+                    rate = Decimal('165')
+                elif d_price < Decimal('0.1'):
+                    rate = Decimal('98000')
+
         d_price = d_price * rate
         # Return as string (DRF DecimalField will handle the decimals)
         return str(d_price)
@@ -1832,6 +1848,10 @@ def parse_text_format(text_data):
                     if method not in ['auto', 'manual']:
                         method = 'auto'
 
+                balance = ''
+                if len(parts) > 9:
+                    balance = parts[9].strip()
+
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
@@ -1845,7 +1865,7 @@ def parse_text_format(text_data):
                     'access_type': 'full_ownership',
                     'delivery_time': 'instant_auto' if method == 'auto' else 'manual_24h',
                     'additional_info': '',
-                    'account_balance': ''
+                    'account_balance': balance
                 }
                 products.append(product)
         elif ',' in line:
@@ -1874,6 +1894,10 @@ def parse_text_format(text_data):
                     if method not in ['auto', 'manual']:
                         method = 'auto'
 
+                balance = ''
+                if len(parts) > 9:
+                    balance = parts[9].strip()
+
                 product = {
                     'headline': parts[0],
                     'website': parts[1],
@@ -1887,7 +1911,7 @@ def parse_text_format(text_data):
                     'access_type': 'full_ownership',
                     'delivery_time': 'instant_auto' if method == 'auto' else 'manual_24h',
                     'additional_info': '',
-                    'account_balance': ''
+                    'account_balance': balance
                 }
                 products.append(product)
     

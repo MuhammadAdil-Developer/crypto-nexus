@@ -599,6 +599,76 @@ class PaymentService:
     def __init__(self):
         self.btcpay = BTCPayServerService()
         self.monero = MoneroRPCService()
+
+    def get_fiat_to_crypto_rate(self, crypto_symbol: str, fiat_symbol: str = 'USD') -> Decimal:
+        """Get exchange rate from Crypto to Fiat (e.g. 1 BTC = ? USD)"""
+        try:
+            # Normalize symbols
+            crypto_symbol = crypto_symbol.upper()
+            fiat_symbol = fiat_symbol.upper()
+            
+            # 1. Try to fetch from CoinGecko API (for accurate live rates)
+            try:
+                # Map symbol to CoinGecko ID
+                coingecko_ids = {
+                    'BTC': 'bitcoin',
+                    'XMR': 'monero',
+                    'LTC': 'litecoin',
+                    'ETH': 'ethereum',
+                    'USDT': 'tether'
+                }
+                
+                coin_id = coingecko_ids.get(crypto_symbol)
+                if coin_id:
+                    url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies={fiat_symbol.lower()}"
+                    response = requests.get(url, timeout=5)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if coin_id in data and fiat_symbol.lower() in data[coin_id]:
+                            price = Decimal(str(data[coin_id][fiat_symbol.lower()]))
+                            
+                            # Prevent ZeroDivisionError or absurdly low prices
+                            if price <= 0:
+                                logger.warning(f"CoinGecko returned invalid price for {crypto_symbol}: {price}")
+                            else:
+                                # Update DB cache
+                                try:
+                                    from shared.models import CryptoCurrency
+                                    crypto_obj = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
+                                    if crypto_obj:
+                                        crypto_obj.current_price = price
+                                        crypto_obj.save()
+                                except Exception as db_e:
+                                    logger.warning(f"Failed to update crypto price in DB: {db_e}")
+                                    
+                                logger.info(f"Fetched live price for {crypto_symbol}: {price} {fiat_symbol}")
+                                return price
+            except Exception as api_e:
+                 logger.warning(f"CoinGecko API failed ({str(api_e)}), falling back to database")
+
+            # 2. Fallback to Database
+            from shared.models import CryptoCurrency
+            crypto = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
+            if crypto and crypto.current_price > 0:
+                logger.info(f"Using DB price for {crypto_symbol}: {crypto.current_price}")
+                return crypto.current_price
+                
+            # 3. Final Fallback (Hardcoded approximations as last resort)
+            fallbacks = {
+                'BTC': Decimal('98000'),  # Updated approximation
+                'XMR': Decimal('165'),
+                'LTC': Decimal('110'),
+                'ETH': Decimal('2700'),
+                'USDT': Decimal('1')
+            }
+            price = fallbacks.get(crypto_symbol, Decimal('0'))
+            logger.warning(f"Using hardcoded fallback for {crypto_symbol}: {price}")
+            return price
+            
+        except Exception as e:
+            logger.error(f"Error getting fiat to crypto rate: {str(e)}")
+            return Decimal('0')
     
     def create_payment_address(self, order_id: str, crypto_currency: str, 
                              amount: Decimal, payment_type: str = 'wallet',

@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/ToastContainer";
 import { getImageUrl, getApiUrl } from "@/config/api";
 import authService from "@/services/authService";
 import placeholderImage from "@/assets/placeholder.png";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 
 export default function VendorEditProduct() {
   const { id } = useParams<{ id: string }>();
@@ -588,13 +589,13 @@ export default function VendorEditProduct() {
                     <div className="text-right bg-orange-500/10 px-3 py-1.5 rounded border border-orange-500/20">
                       <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bitcoin (BTC)</p>
                       <p className="text-orange-400 font-bold font-mono text-sm">
-                        {formData.price ? (parseFloat(formData.price) / 100000).toFixed(8) : '0.00000000'}
+                        {formData.price ? (parseFloat(formData.price) / (CRYPTO_PRICES.BTC || 100000)).toFixed(8) : '0.00000000'}
                       </p>
                     </div>
                     <div className="text-right bg-blue-500/10 px-3 py-1.5 rounded border border-blue-500/20">
                       <p className="text-[10px] text-gray-400 uppercase tracking-wider">Monero (XMR)</p>
                       <p className="text-blue-400 font-bold font-mono text-sm">
-                        {formData.price ? (parseFloat(formData.price) / 170).toFixed(4) : '0.0000'}
+                        {formData.price ? (parseFloat(formData.price) / (CRYPTO_PRICES.XMR || 170)).toFixed(4) : '0.0000'}
                       </p>
                     </div>
                   </div>

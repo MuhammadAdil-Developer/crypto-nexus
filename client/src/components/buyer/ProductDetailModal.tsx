@@ -14,6 +14,7 @@ import wishlistService from '@/services/wishlistService';
 import PaymentModal from './PaymentModal';
 import { getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
+import { CRYPTO_PRICES } from '@/lib/priceUtils';
 
 interface Product {
   id: number;
@@ -219,11 +220,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
   const getCryptoEstimate = (price: string, crypto: string) => {
     const usdPrice = parseFloat(price);
     if (crypto === 'BTC') {
-      const btcPrice = usdPrice / 100000;
+      const rate = CRYPTO_PRICES.BTC || 100000;
+      const btcPrice = usdPrice / rate;
       return parseFloat(btcPrice.toFixed(8)).toString();
     }
     if (crypto === 'XMR') {
-      const xmrPrice = usdPrice / 170;
+      const rate = CRYPTO_PRICES.XMR || 170;
+      const xmrPrice = usdPrice / rate;
       return parseFloat(xmrPrice.toFixed(8)).toString();
     }
     return '0';

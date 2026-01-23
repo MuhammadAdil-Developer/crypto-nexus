@@ -56,6 +56,25 @@ function RouteDebugger() {
 function App() {
   console.log('App component rendering with React Router...');
 
+  // Refresh crypto prices on app load
+  useEffect(() => {
+    const initCryptoRates = async () => {
+      try {
+        const { refreshCryptoPrices } = await import('@/lib/priceUtils');
+        await refreshCryptoPrices();
+        console.log('Crypto prices initialized');
+      } catch (e) {
+        console.error('Failed to initialize crypto prices:', e);
+      }
+    };
+
+    initCryptoRates();
+
+    // Optional: Refresh periodically (every 5 minutes)
+    const interval = setInterval(initCryptoRates, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <ToastProvider>
       <Router>

@@ -11,6 +11,7 @@ import { productService } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
 import { getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
+import { CRYPTO_PRICES } from '@/lib/priceUtils';
 
 interface Order {
   order_id: string;
@@ -454,11 +455,21 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <div>
                     {(() => {
                       let btcAmt = parseFloat(order.total_amount);
-                      let usdAmt = btcAmt * 100000;
+                      const btcRate = CRYPTO_PRICES.BTC || 100000;
+                      const xmrRate = CRYPTO_PRICES.XMR || 170;
+                      const currentRate = order.crypto_currency === 'XMR' ? xmrRate : btcRate;
+
+                      let usdAmt = btcAmt * currentRate;
+                      // Heuristic to check if amount is USD instead of Crypto
                       if ((!order.crypto_currency || order.crypto_currency === 'BTC') && btcAmt > 50) {
                         usdAmt = btcAmt;
-                        btcAmt = usdAmt / 100000;
+                        btcAmt = usdAmt / btcRate;
+                      } else if (order.crypto_currency === 'XMR' && btcAmt > 200) {
+                        // Likely USD stored in amount field
+                        usdAmt = btcAmt;
+                        btcAmt = usdAmt / xmrRate;
                       }
+
                       return (
                         <>
                           <p className="text-2xl sm:text-3xl font-bold text-white font-mono">

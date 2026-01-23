@@ -43,6 +43,7 @@ import vendorService, { VendorProduct, VendorStats } from "@/services/vendorServ
 import wishlistService from "@/services/wishlistService";
 import placeholderImage from "@/assets/placeholder.png";
 import { getImageUrl } from "@/config/api";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 
 import { PageBanner } from "@/components/PageBanner";
 
@@ -637,9 +638,9 @@ export default function VendorListings() {
                           <span className="text-white font-black text-base">${parseFloat(product.price).toFixed(2)}</span>
                           <span className="text-gray-500 text-[10px] font-mono">
                             {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
-                              <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
+                              <>≈ {parseFloat((parseFloat(product.price) / (CRYPTO_PRICES.XMR || 170)).toFixed(8))} XMR</>
                             ) : (
-                              <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
+                              <>≈ {parseFloat((parseFloat(product.price) / (CRYPTO_PRICES.BTC || 100000)).toFixed(8))} BTC</>
                             )}
                           </span>
                         </div>
@@ -822,9 +823,9 @@ export default function VendorListings() {
                             <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
                             <span className="text-gray-400 text-xs font-mono ml-2">
                               {product.accepted_crypto && product.accepted_crypto.includes('XMR') && !product.accepted_crypto.includes('BTC') ? (
-                                <>≈ {parseFloat((parseFloat(product.price) / 170).toFixed(8))} XMR</>
+                                <>≈ {parseFloat((parseFloat(product.price) / (CRYPTO_PRICES.XMR || 170)).toFixed(8))} XMR</>
                               ) : (
-                                <>≈ {parseFloat((parseFloat(product.price) / 100000).toFixed(8))} BTC</>
+                                <>≈ {parseFloat((parseFloat(product.price) / (CRYPTO_PRICES.BTC || 100000)).toFixed(8))} BTC</>
                               )}
                             </span>
                           </>

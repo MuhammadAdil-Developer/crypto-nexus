@@ -18,7 +18,7 @@ import vendorService from "@/services/vendorService";
 // API Service
 import { API_BASE_URL, getApiUrl } from '@/config/api';
 import { productService } from "@/services/productService";
-import { CRYPTO_PRICES } from "@/lib/priceUtils";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
 interface ProductFormData {
   // Step 1: Basic Listing Info
@@ -53,13 +53,12 @@ interface ProductFormData {
 }
 
 export default function VendorAddProduct() {
-
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const { toast } = useToast();
-  const navigate = useNavigate();
-
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [formData, setFormData] = useState({
     // Client Required Fields
     headline: "",
@@ -600,13 +599,13 @@ export default function VendorAddProduct() {
                       <div className="text-right bg-orange-500/10 px-3 py-1.5 rounded border border-orange-500/20">
                         <p className="text-[10px] text-gray-400 uppercase tracking-wider">Bitcoin (BTC)</p>
                         <p className="text-orange-400 font-bold font-mono text-sm">
-                          {formData.price ? (parseFloat(formData.price) / (CRYPTO_PRICES.BTC || 100000)).toFixed(8) : '0.00000000'}
+                          {formData.price ? (parseFloat(formData.price) / btcPrice).toFixed(8) : '0.00000000'}
                         </p>
                       </div>
                       <div className="text-right bg-blue-500/10 px-3 py-1.5 rounded border border-blue-500/20">
                         <p className="text-[10px] text-gray-400 uppercase tracking-wider">Monero (XMR)</p>
                         <p className="text-blue-400 font-bold font-mono text-sm">
-                          {formData.price ? (parseFloat(formData.price) / (CRYPTO_PRICES.XMR || 170)).toFixed(4) : '0.0000'}
+                          {formData.price ? (parseFloat(formData.price) / xmrPrice).toFixed(4) : '0.0000'}
                         </p>
                       </div>
                     </div>

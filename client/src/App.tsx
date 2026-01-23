@@ -31,6 +31,7 @@ import ProductDetailPage from "./pages/buyer/product-detail";
 import PaymentTest from "./pages/buyer/payment-test";
 import BuyerMyReviews from "./pages/buyer/my-reviews";
 import BuyerNotifications from "./pages/buyer/notifications";
+import { PriceProvider } from './contexts/PriceContext';
 import { MaintenanceProvider } from './contexts/MaintenanceContext';
 import MaintenancePage from './pages/maintenance';
 import './index.css';
@@ -56,119 +57,103 @@ function RouteDebugger() {
 function App() {
   console.log('App component rendering with React Router...');
 
-  // Refresh crypto prices on app load
-  useEffect(() => {
-    const initCryptoRates = async () => {
-      try {
-        const { refreshCryptoPrices } = await import('@/lib/priceUtils');
-        await refreshCryptoPrices();
-        console.log('Crypto prices initialized');
-      } catch (e) {
-        console.error('Failed to initialize crypto prices:', e);
-      }
-    };
-
-    initCryptoRates();
-
-    // Optional: Refresh periodically (every 5 minutes)
-    const interval = setInterval(initCryptoRates, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <ToastProvider>
-      <Router>
-        <MaintenanceProvider>
-          <MessagingProvider>
-            <CartProvider>
-              <RouteDebugger />
-              <div className="App">
-                {/* Shadcn Toaster to ensure useToast toasts render */}
-                <Toaster />
-                {/* Token Expiration Modal - shows when session expires */}
-                <TokenExpirationModal />
-                <Routes>
-                  {/* Public Routes */}
-                  <Route path="/maintenance" element={<MaintenancePage />} />
-                  <Route path="/" element={<MarketplaceHome />} />
-                  <Route path="/sign-in" element={<SignIn />} />
-                  <Route path="/sign-up" element={<SignUp />} />
-                  <Route path="/6f2c9b681c3b4cf9a8c4-admin-access-control-panel-login" element={<AdminSignIn />} />
-                  <Route path="/vender-sign-in" element={<VenderSignIn />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/payment-test" element={<PaymentTest />} />
+    <PriceProvider>
+      <ToastProvider>
+        <Router>
+          <MaintenanceProvider>
+            <MessagingProvider>
+              <CartProvider>
+                <RouteDebugger />
+                <div className="App">
+                  {/* Shadcn Toaster to ensure useToast toasts render */}
+                  <Toaster />
+                  {/* Token Expiration Modal - shows when session expires */}
+                  <TokenExpirationModal />
+                  <Routes>
+                    {/* ... rest of the routes ... */}
+                    {/* Public Routes */}
+                    <Route path="/maintenance" element={<MaintenancePage />} />
+                    <Route path="/" element={<MarketplaceHome />} />
+                    <Route path="/sign-in" element={<SignIn />} />
+                    <Route path="/sign-up" element={<SignUp />} />
+                    <Route path="/6f2c9b681c3b4cf9a8c4-admin-access-control-panel-login" element={<AdminSignIn />} />
+                    <Route path="/vender-sign-in" element={<VenderSignIn />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/payment-test" element={<PaymentTest />} />
 
-                  {/* Buyer Dashboard Routes */}
-                  <Route path="/buyer/*" element={
-                    <ProtectedRoute requiredUserType="buyer">
-                      <BuyerCountsProvider>
-                        <BuyerDashboard />
-                      </BuyerCountsProvider>
-                    </ProtectedRoute>
-                  }>
-                    <Route index element={<BuyerHome />} />
-                    <Route path="dashboard" element={<BuyerHome />} />
-                    <Route path="home" element={<BuyerHome />} />
-                    <Route path="listings" element={<BuyerListings />} />
-                    <Route path="orders" element={<BuyerOrders />} />
-                    <Route path="messages" element={<BuyerMessages />} />
-                    <Route path="wishlist" element={<BuyerWishlist />} />
-                    <Route path="settings" element={<BuyerSettings />} />
-                    <Route path="support" element={<BuyerSupport />} />
-                    <Route path="notifications" element={<BuyerNotifications />} />
-                    <Route path="product/:id" element={<ProductDetailPage />} />
-                    <Route path="payment-test" element={<PaymentTest />} />
-                    <Route path="my-reviews" element={<BuyerMyReviews />} />
-                  </Route>
+                    {/* Buyer Dashboard Routes */}
+                    <Route path="/buyer/*" element={
+                      <ProtectedRoute requiredUserType="buyer">
+                        <BuyerCountsProvider>
+                          <BuyerDashboard />
+                        </BuyerCountsProvider>
+                      </ProtectedRoute>
+                    }>
+                      <Route index element={<BuyerHome />} />
+                      <Route path="dashboard" element={<BuyerHome />} />
+                      <Route path="home" element={<BuyerHome />} />
+                      <Route path="listings" element={<BuyerListings />} />
+                      <Route path="orders" element={<BuyerOrders />} />
+                      <Route path="messages" element={<BuyerMessages />} />
+                      <Route path="wishlist" element={<BuyerWishlist />} />
+                      <Route path="settings" element={<BuyerSettings />} />
+                      <Route path="support" element={<BuyerSupport />} />
+                      <Route path="notifications" element={<BuyerNotifications />} />
+                      <Route path="product/:id" element={<ProductDetailPage />} />
+                      <Route path="payment-test" element={<PaymentTest />} />
+                      <Route path="my-reviews" element={<BuyerMyReviews />} />
+                    </Route>
 
-                  {/* Vendor Apply Routes (Standalone) - MUST come BEFORE /vendor/* */}
-                  <Route path="/vendor/apply" element={
-                    <ProtectedRoute requiredUserType="buyer">
-                      <VendorApply />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/vendor/apply/success" element={
-                    <ProtectedRoute>
-                      <VendorApplySuccess />
-                    </ProtectedRoute>
-                  } />
+                    {/* Vendor Apply Routes (Standalone) - MUST come BEFORE /vendor/* */}
+                    <Route path="/vendor/apply" element={
+                      <ProtectedRoute requiredUserType="buyer">
+                        <VendorApply />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/vendor/apply/success" element={
+                      <ProtectedRoute>
+                        <VendorApplySuccess />
+                      </ProtectedRoute>
+                    } />
 
-                  {/* Public Vendor Listings Route - MUST come BEFORE /vendor/* */}
-                  <Route path="/vendor/public/:vendorUsername" element={<VendorPublicListings />} />
+                    {/* Public Vendor Listings Route - MUST come BEFORE /vendor/* */}
+                    <Route path="/vendor/public/:vendorUsername" element={<VendorPublicListings />} />
 
-                  {/* Vendor Dashboard Routes (Nested) - MUST come AFTER specific routes */}
-                  <Route path="/vendor/*" element={
-                    <ProtectedRoute requiredUserType="vendor">
-                      <VendorCountsProvider>
-                        <VendorDashboard />
-                      </VendorCountsProvider>
-                    </ProtectedRoute>
-                  } />
+                    {/* Vendor Dashboard Routes (Nested) - MUST come AFTER specific routes */}
+                    <Route path="/vendor/*" element={
+                      <ProtectedRoute requiredUserType="vendor">
+                        <VendorCountsProvider>
+                          <VendorDashboard />
+                        </VendorCountsProvider>
+                      </ProtectedRoute>
+                    } />
 
-                  {/* Admin Routes - Lazy loaded to hide from initial bundle */}
-                  <Route path="/admin/*" element={
-                    <ProtectedRoute requiredUserType="admin">
-                      <AdminCountsProvider>
-                        <Suspense fallback={
-                          <div className="min-h-screen bg-black flex items-center justify-center">
-                            <div className="text-white">Loading...</div>
-                          </div>
-                        }>
-                          <AdminDashboard />
-                        </Suspense>
-                      </AdminCountsProvider>
-                    </ProtectedRoute>
-                  } />
+                    {/* Admin Routes - Lazy loaded to hide from initial bundle */}
+                    <Route path="/admin/*" element={
+                      <ProtectedRoute requiredUserType="admin">
+                        <AdminCountsProvider>
+                          <Suspense fallback={
+                            <div className="min-h-screen bg-black flex items-center justify-center">
+                              <div className="text-white">Loading...</div>
+                            </div>
+                          }>
+                            <AdminDashboard />
+                          </Suspense>
+                        </AdminCountsProvider>
+                      </ProtectedRoute>
+                    } />
 
-                  {/* Catch all route */}
-                  <Route path="*" element={<MarketplaceHome />} />
-                </Routes>
-              </div>
-            </CartProvider>
-          </MessagingProvider>
-        </MaintenanceProvider>
-      </Router>
-    </ToastProvider>
+                    {/* Catch all route */}
+                    <Route path="*" element={<MarketplaceHome />} />
+                  </Routes>
+                </div>
+              </CartProvider>
+            </MessagingProvider>
+          </MaintenanceProvider>
+        </Router>
+      </ToastProvider>
+    </PriceProvider>
   );
 }
 

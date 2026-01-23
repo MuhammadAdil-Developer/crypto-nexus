@@ -19,130 +19,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { productService } from "@/services/productService";
 import { RefundModal } from "@/components/vendor/RefundModal";
 import { PageBanner } from "@/components/PageBanner";
-import { CRYPTO_PRICES } from "@/lib/priceUtils";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
-// Transform API data to match existing structure
-const transformOrderData = (apiOrder: Order) => {
-  const orderDate = new Date(apiOrder.created_at);
-  const date = orderDate.toISOString().split('T')[0];
-  const time = orderDate.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
 
-  const getStatusDisplay = (apiOrder: Order) => {
-    const paymentStatus = apiOrder.payment_status?.toLowerCase();
-    const orderStatus = apiOrder.order_status?.toLowerCase();
-
-    if (paymentStatus === 'paid') {
-      if (orderStatus === 'completed' || orderStatus === 'confirmed') {
-        return 'Completed';
-      } else if (orderStatus === 'delivered') {
-        return 'Delivered';
-      } else if (orderStatus === 'paid' || orderStatus === 'processing' || orderStatus === 'payment_received') {
-        return 'Paid';
-      }
-    }
-
-    if (paymentStatus === 'pending') {
-      if (orderStatus === 'pending_payment') {
-        return 'Pending';
-      } else if (orderStatus === 'cancelled') {
-        return 'Cancelled';
-      }
-    }
-
-    switch (orderStatus) {
-      case 'pending':
-        return 'Pending';
-      case 'processing':
-        return 'Processing';
-      case 'delivered':
-        return 'Delivered';
-      case 'completed':
-      case 'confirmed':
-        return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'paid':
-        return 'Paid';
-      default:
-        return 'Pending';
-    }
-  };
-
-  return {
-    id: apiOrder.order_id,
-    numericId: apiOrder.id,
-    buyer: apiOrder.buyer.username,
-    product: apiOrder.product.headline,
-    amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
-    usdAmount: `$${(parseFloat(apiOrder.total_amount) * (apiOrder.crypto_currency === 'XMR' ? CRYPTO_PRICES.XMR : CRYPTO_PRICES.BTC)).toFixed(2)}`,
-    status: getStatusDisplay(apiOrder),
-    priority: "normal",
-    date: date,
-    time: time,
-    paymentMethod: apiOrder.crypto_currency,
-    escrow: apiOrder.use_escrow || false,
-    rawPaymentStatus: apiOrder.payment_status,
-    rawOrderStatus: apiOrder.order_status,
-
-    order_id: apiOrder.order_id,
-    order_status: apiOrder.order_status,
-    payment_status: apiOrder.payment_status,
-    total_amount: apiOrder.total_amount,
-    crypto_currency: apiOrder.crypto_currency,
-    created_at: apiOrder.created_at,
-    buyer_details: {
-      id: apiOrder.buyer.id,
-      username: apiOrder.buyer.username,
-      email: apiOrder.buyer.email
-    },
-    product_details: {
-      id: apiOrder.product.id,
-      headline: apiOrder.product.headline,
-      website: apiOrder.product.website || '',
-      account_type: apiOrder.product.account_type || '',
-      access_type: apiOrder.product.access_type || '',
-      account_balance: apiOrder.product.account_balance || '',
-      description: apiOrder.product.description || '',
-      price: apiOrder.product.price || '',
-      additional_info: apiOrder.product.additional_info || '',
-      delivery_time: apiOrder.product.delivery_time || '',
-      credentials_display: apiOrder.product.credentials_display || '',
-      main_image: apiOrder.product.main_image || '',
-      gallery_images: apiOrder.product.gallery_images || [],
-      main_images: apiOrder.product.main_images || [],
-      status: apiOrder.product.status || '',
-      is_featured: apiOrder.product.is_featured || false,
-      views_count: apiOrder.product.views_count || 0,
-      favorites_count: apiOrder.product.favorites_count || 0,
-      rating: apiOrder.product.rating || '0',
-      review_count: apiOrder.product.review_count || 0,
-      created_at: apiOrder.product.created_at || '',
-      vendor_username: apiOrder.vendor.username,
-      vendor: {
-        id: apiOrder.vendor.id,
-        username: apiOrder.vendor.username,
-        email: apiOrder.vendor.email
-      },
-      category: apiOrder.product.category || { id: 0, name: 'General' },
-      sub_category: apiOrder.product.sub_category || null,
-      tags: apiOrder.product.tags || [],
-      special_features: apiOrder.product.special_features || [],
-      quantity_available: apiOrder.product.quantity_available || 0,
-      access_method: apiOrder.product.access_method || '',
-      account_age: apiOrder.product.account_age || '',
-      delivery_method: apiOrder.product.delivery_method || '',
-      region_restrictions: apiOrder.product.region_restrictions || '',
-      auto_delivery_script: apiOrder.product.auto_delivery_script || '',
-      notes_for_buyer: apiOrder.product.notes_for_buyer || '',
-      discount_percentage: apiOrder.product.discount_percentage || ''
-    },
-    product_credentials: apiOrder.product_credentials || null
-  };
-};
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -177,6 +56,89 @@ const getPriorityColor = (priority: string) => {
 };
 
 export default function VendorOrders() {
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
+
+  // Transform API data to match existing structure
+  const transformOrderData = (apiOrder: Order) => {
+    const orderDate = new Date(apiOrder.created_at);
+    const date = orderDate.toISOString().split('T')[0];
+    const time = orderDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const getStatusDisplay = (apiOrder: Order) => {
+      const paymentStatus = apiOrder.payment_status?.toLowerCase();
+      const orderStatus = apiOrder.order_status?.toLowerCase();
+
+      if (paymentStatus === 'paid') {
+        if (orderStatus === 'completed' || orderStatus === 'confirmed') {
+          return 'Completed';
+        } else if (orderStatus === 'delivered') {
+          return 'Delivered';
+        } else if (orderStatus === 'paid' || orderStatus === 'processing' || orderStatus === 'payment_received') {
+          return 'Paid';
+        }
+      }
+
+      if (paymentStatus === 'pending') {
+        if (orderStatus === 'pending_payment') {
+          return 'Pending';
+        } else if (orderStatus === 'cancelled') {
+          return 'Cancelled';
+        }
+      }
+
+      switch (orderStatus) {
+        case 'pending':
+          return 'Pending';
+        case 'processing':
+          return 'Processing';
+        case 'delivered':
+          return 'Delivered';
+        case 'completed':
+        case 'confirmed':
+          return 'Completed';
+        case 'cancelled':
+          return 'Cancelled';
+        case 'paid':
+          return 'Paid';
+        default:
+          return 'Pending';
+      }
+    };
+
+    return {
+      id: apiOrder.order_id,
+      numericId: apiOrder.id,
+      buyer: apiOrder.buyer.username,
+      product: apiOrder.product.headline,
+      amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
+      usdAmount: `$${(parseFloat(apiOrder.total_amount) * (apiOrder.crypto_currency === 'XMR' ? xmrPrice : btcPrice)).toFixed(2)}`,
+      status: getStatusDisplay(apiOrder),
+      priority: "normal",
+      date: date,
+      time: time,
+      paymentMethod: apiOrder.crypto_currency,
+      escrow: apiOrder.use_escrow || false,
+      rawPaymentStatus: apiOrder.payment_status,
+      rawOrderStatus: apiOrder.order_status,
+
+      order_id: apiOrder.order_id,
+      order_status: apiOrder.order_status,
+      payment_status: apiOrder.payment_status,
+      total_amount: apiOrder.total_amount,
+      crypto_currency: apiOrder.crypto_currency,
+      created_at: apiOrder.created_at,
+      buyer_details: {
+        id: apiOrder.buyer.id,
+        username: apiOrder.buyer.username,
+        email: apiOrder.buyer.email
+      }
+    };
+  };
+
   const navigate = useNavigate();
   const location = useLocation();
   const [orders, setOrders] = useState<any[]>([]);
@@ -673,7 +635,7 @@ export default function VendorOrders() {
                 <h3 className="text-2xl sm:text-3xl font-black text-white truncate">
                   ${orders.reduce((sum, order) => {
                     const amount = parseFloat(order.amount.split(' ')[0]);
-                    const rate = order.paymentMethod === 'XMR' ? CRYPTO_PRICES.XMR : CRYPTO_PRICES.BTC;
+                    const rate = order.paymentMethod === 'XMR' ? xmrPrice : btcPrice;
                     return sum + (amount * rate);
                   }, 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </h3>

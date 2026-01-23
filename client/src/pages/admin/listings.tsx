@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL, getApiUrl, getImageUrl } from '@/config/api';
 import authService from '@/services/authService';
 import placeholderImage from "@/assets/placeholder.png";
-import { CRYPTO_PRICES } from '@/lib/priceUtils';
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
 interface Product {
   id: number;
@@ -74,6 +74,7 @@ interface Product {
 }
 
 export default function AdminListings() {
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [createListingModalOpen, setCreateListingModalOpen] = useState(false);
   const [creatingListing, setCreatingListing] = useState(false);
   const createForm = useForm({
@@ -1363,7 +1364,7 @@ export default function AdminListings() {
                       </td>
                       <td className="p-4">
                         <span className="text-white font-bold">${parseFloat(product.price).toFixed(2)}</span>
-                        <span className="text-gray-400 text-xs font-mono ml-1">≈ {parseFloat((parseFloat(product.price) / CRYPTO_PRICES.BTC).toFixed(8))} BTC</span>
+                        <span className="text-gray-400 text-xs font-mono ml-1">≈ {parseFloat((parseFloat(product.price) / btcPrice).toFixed(8))} BTC</span>
                       </td>
                       <td className="p-4">
                         <span className="text-white">{product.views_count || 0}</span>
@@ -1675,7 +1676,7 @@ export default function AdminListings() {
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Price</Label>
                           <span className="text-white font-bold text-lg">${parseFloat(selectedListing.price).toFixed(2)}</span>
-                          <span className="text-gray-400 text-sm font-mono ml-2">≈ {parseFloat((parseFloat(selectedListing.price) / CRYPTO_PRICES.BTC).toFixed(8))} BTC</span>
+                          <span className="text-gray-400 text-sm font-mono ml-2">≈ {parseFloat((parseFloat(selectedListing.price) / btcPrice).toFixed(8))} BTC</span>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-400">Vendor</Label>

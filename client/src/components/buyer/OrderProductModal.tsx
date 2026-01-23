@@ -11,7 +11,7 @@ import { productService } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
 import { getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
-import { CRYPTO_PRICES } from '@/lib/priceUtils';
+import { useCryptoPrices } from '@/contexts/PriceContext';
 
 interface Order {
   order_id: string;
@@ -115,6 +115,7 @@ interface OrderProductModalProps {
 }
 
 export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isOpen, onClose, scrollToCredentials = false }) => {
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showFullAdditionalInfo, setShowFullAdditionalInfo] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
@@ -455,8 +456,8 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <div>
                     {(() => {
                       let btcAmt = parseFloat(order.total_amount);
-                      const btcRate = CRYPTO_PRICES.BTC || 100000;
-                      const xmrRate = CRYPTO_PRICES.XMR || 170;
+                      const btcRate = btcPrice || 100000;
+                      const xmrRate = xmrPrice || 170;
                       const currentRate = order.crypto_currency === 'XMR' ? xmrRate : btcRate;
 
                       let usdAmt = btcAmt * currentRate;

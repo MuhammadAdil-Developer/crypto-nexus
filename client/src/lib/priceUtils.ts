@@ -182,40 +182,34 @@ export { CRYPTO_PRICES };
  */
 export async function refreshCryptoPrices(): Promise<void> {
     try {
-        const { getApiUrl } = await import('../config/api');
+        const { api } = await import('@/services/authService');
 
         // Fetch BTC Rate
         try {
-            const btcResponse = await fetch(getApiUrl('payments/rates/?crypto=BTC&fiat=USD'));
-            if (btcResponse.ok) {
-                const data = await btcResponse.json();
-                if (data.rate) {
-                    const rate = parseFloat(data.rate);
-                    if (!isNaN(rate) && rate > 0) {
-                        CRYPTO_PRICES.BTC = rate;
-                        console.log(`Updated BTC Price: $${rate}`);
-                    }
+            const btcResponse = await api.get('/payments/rates/?crypto=BTC&fiat=USD');
+            if (btcResponse.data && btcResponse.data.rate) {
+                const rate = parseFloat(btcResponse.data.rate);
+                if (!isNaN(rate) && rate > 0) {
+                    CRYPTO_PRICES.BTC = rate;
+                    console.log(`Updated BTC Price: $${rate}`);
                 }
             }
-        } catch (e) {
-            console.error('Failed to fetch BTC rate:', e);
+        } catch (e: any) {
+            console.error('Failed to fetch BTC rate:', e.message);
         }
 
         // Fetch XMR Rate
         try {
-            const xmrResponse = await fetch(getApiUrl('payments/rates/?crypto=XMR&fiat=USD'));
-            if (xmrResponse.ok) {
-                const data = await xmrResponse.json();
-                if (data.rate) {
-                    const rate = parseFloat(data.rate);
-                    if (!isNaN(rate) && rate > 0) {
-                        CRYPTO_PRICES.XMR = rate;
-                        console.log(`Updated XMR Price: $${rate}`);
-                    }
+            const xmrResponse = await api.get('/payments/rates/?crypto=XMR&fiat=USD');
+            if (xmrResponse.data && xmrResponse.data.rate) {
+                const rate = parseFloat(xmrResponse.data.rate);
+                if (!isNaN(rate) && rate > 0) {
+                    CRYPTO_PRICES.XMR = rate;
+                    console.log(`Updated XMR Price: $${rate}`);
                 }
             }
-        } catch (e) {
-            console.error('Failed to fetch XMR rate:', e);
+        } catch (e: any) {
+            console.error('Failed to fetch XMR rate:', e.message);
         }
 
     } catch (error) {

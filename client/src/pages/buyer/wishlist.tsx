@@ -7,29 +7,33 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import wishlistService, { WishlistItem, WishlistStats } from "@/services/wishlistService";
 import { PageBanner } from "@/components/PageBanner";
-import { CRYPTO_PRICES } from "@/lib/priceUtils";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
 // Helper functions for price formatting
 const formatUSD = (price: string) => {
   return parseFloat(price).toFixed(2);
 };
 
-const formatCryptoPrice = (price: string, currency: 'BTC' | 'XMR') => {
-  const usdPrice = parseFloat(price);
-  let cryptoAmount = 0;
 
-  if (currency === 'BTC') {
-    cryptoAmount = usdPrice / CRYPTO_PRICES.BTC;
-    return parseFloat(cryptoAmount.toFixed(8)).toString();
-  } else {
-    cryptoAmount = usdPrice / CRYPTO_PRICES.XMR;
-    return parseFloat(cryptoAmount.toFixed(8)).toString();
-  }
-};
 
 // Remove static data - we'll use dynamic data from API
 
 export default function BuyerWishlist() {
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
+
+  const formatCryptoPrice = (price: string, currency: 'BTC' | 'XMR') => {
+    const usdPrice = parseFloat(price);
+    let cryptoAmount = 0;
+
+    if (currency === 'BTC') {
+      cryptoAmount = usdPrice / btcPrice;
+      return parseFloat(cryptoAmount.toFixed(8)).toString();
+    } else {
+      cryptoAmount = usdPrice / xmrPrice;
+      return parseFloat(cryptoAmount.toFixed(8)).toString();
+    }
+  };
+
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [stats, setStats] = useState<WishlistStats | null>(null);

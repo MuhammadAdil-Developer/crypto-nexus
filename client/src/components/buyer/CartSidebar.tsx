@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useCart, CartItem } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
-import { CRYPTO_PRICES } from '@/lib/priceUtils';
+import { useCryptoPrices } from '@/contexts/PriceContext';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -31,6 +31,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
     getTotalPrice,
     getTotalItems
   } = useCart();
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const { toast } = useToast();
 
   // Format USD price with 2 decimal places
@@ -41,7 +42,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, onCheckout }
   // Format BTC equivalent
   const formatBTCEquivalent = (price: number | string) => {
     const num = typeof price === 'string' ? parseFloat(price) : price;
-    return parseFloat((num / CRYPTO_PRICES.BTC).toFixed(8)).toString();
+    return parseFloat((num / btcPrice).toFixed(8)).toString();
   };
 
   const handleQuantityChange = (productId: number, newQuantity: number) => {

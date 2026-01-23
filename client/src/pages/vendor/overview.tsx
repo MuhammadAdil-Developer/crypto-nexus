@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { productService } from "@/services/productService";
 import vendorService from "@/services/vendorService";
 import { api, authService } from "@/services/authService";
-import { CRYPTO_PRICES } from "@/lib/priceUtils";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
 interface Order {
   id: string;
@@ -37,6 +37,7 @@ interface Order {
 
 
 export default function VendorOverview() {
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
@@ -141,7 +142,7 @@ export default function VendorOverview() {
         });
 
         // Calculate BTC estimate
-        const btcEstimate = stats.revenue.total / CRYPTO_PRICES.BTC;
+        const btcEstimate = stats.revenue.total / btcPrice;
 
         setAdditionalStats({
           btcRevenue: `≈ ${btcEstimate.toFixed(8)} BTC`,

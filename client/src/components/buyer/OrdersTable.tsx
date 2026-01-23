@@ -17,7 +17,7 @@ export interface Order extends ServiceOrder {
 import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCryptoAmountInString } from "@/lib/utils";
-import { CRYPTO_PRICES } from "@/lib/priceUtils";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
 import { RequestRefundModal } from "./RequestRefundModal";
@@ -105,6 +105,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
   const [isCancelling, setIsCancelling] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const displayOrders = compact ? orders.slice(0, 3) : orders;
   const intervalRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -119,8 +120,8 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
 
     // Default rates if we need to convert USD -> Crypto
     const rates: Record<string, number> = {
-      'BTC': CRYPTO_PRICES.BTC || 100000,
-      'XMR': CRYPTO_PRICES.XMR || 170
+      'BTC': btcPrice || 100000,
+      'XMR': xmrPrice || 170
     };
     const rate = rates[currency] || (rates['BTC'] || 100000);
 

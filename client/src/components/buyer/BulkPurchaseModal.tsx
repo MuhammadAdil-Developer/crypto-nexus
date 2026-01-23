@@ -7,7 +7,8 @@ import { useCart } from '@/contexts/CartContext';
 import PaymentModal from './PaymentModal';
 import { orderService } from '@/services/orderService';
 import { useToast } from '@/hooks/use-toast';
-import { CRYPTO_PRICES, formatBTC } from '@/lib/priceUtils';
+import { formatBTC } from '@/lib/priceUtils';
+import { useCryptoPrices } from '@/contexts/PriceContext';
 
 interface BulkPurchaseModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ interface BulkProduct {
 }
 
 const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, onConfirm }) => {
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const { cartItems, getTotalPrice, getTotalItems, clearCart } = useCart();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = React.useState(false);
   const [isCreatingOrders, setIsCreatingOrders] = React.useState(false);
@@ -130,7 +132,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
                               Qty: {item.quantity}
                             </Badge>
                             <span className="text-gray-400 text-xs font-mono">
-                              @ {formatBTC(parseFloat(item.price) / (CRYPTO_PRICES.BTC || 100000))} each
+                              @ {formatBTC(parseFloat(item.price) / (btcPrice || 100000))} each
                             </span>
                             <span className="text-gray-500 text-xs ml-1">
                               (≈ ${parseFloat(item.price).toFixed(2)})
@@ -139,7 +141,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
-                        <p className="text-white font-bold text-sm font-mono">{formatBTC(itemTotal / (CRYPTO_PRICES.BTC || 100000))}</p>
+                        <p className="text-white font-bold text-sm font-mono">{formatBTC(itemTotal / (btcPrice || 100000))}</p>
                         <p className="text-gray-400 text-xs">≈ ${itemTotal.toFixed(2)}</p>
                       </div>
                     </div>
@@ -162,7 +164,7 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
             <div className="border-t border-gray-600 pt-2 mt-2 flex justify-between items-center">
               <span className="text-xl font-bold text-white">Total:</span>
               <div className="flex flex-col items-end">
-                <span className="text-2xl font-bold text-theme-cyan font-mono">{formatBTC(calculatedTotal / (CRYPTO_PRICES.BTC || 100000))}</span>
+                <span className="text-2xl font-bold text-theme-cyan font-mono">{formatBTC(calculatedTotal / (btcPrice || 100000))}</span>
                 <span className="text-sm text-gray-400">≈ ${calculatedTotal.toFixed(2)}</span>
               </div>
             </div>

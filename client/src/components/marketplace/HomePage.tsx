@@ -8,10 +8,11 @@ import { useState, useEffect, useRef } from "react";
 import { productService, Product } from '@/services/productService';
 
 import placeholderImage from "@/assets/placeholder.png";
-import { CRYPTO_PRICES } from "@/lib/priceUtils";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [searchQuery, setSearchQuery] = useState("");
   const [featuredListings, setFeaturedListings] = useState<Product[]>([]);
   const [displayListings, setDisplayListings] = useState<Product[]>([]);
@@ -485,7 +486,7 @@ export function HomePage() {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                   }).format(priceNum);
-                  const approxBtc = (priceNum / CRYPTO_PRICES.BTC).toFixed(6);
+                  const approxBtc = (priceNum / btcPrice).toFixed(6);
 
                   return (
                     <Card key={listing.id} className="bg-[#0E1A26] border border-theme-cyan/10 hover:border-theme-cyan/40 transition-all duration-300 cursor-pointer group shadow-lg" data-testid={`listing-${listing.id}`}>

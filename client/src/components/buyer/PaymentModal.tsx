@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getApiUrl } from '@/config/api';
 import paymentService, { PaymentAddress, PaymentStatus } from '@/services/paymentService';
 import { orderService } from '@/services/orderService';
-import { CRYPTO_PRICES } from '@/lib/priceUtils';
+import { useCryptoPrices } from '@/contexts/PriceContext';
 
 
 function normalizeCartItem(item: any) {
@@ -50,6 +50,7 @@ interface PaymentModalProps {
 const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen, onClose, onBack, onSuccess }) => {
   console.log('DEBUG PaymentModal props:', { product, items, isOpen });
 
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const { toast } = useToast();
   const [step, setStep] = useState(1); // 1: Payment Method, 2: Payment Type, 3: Payment Details, 4: Confirmation
 
@@ -704,8 +705,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       <div className="text-right">
                         <span className="text-white block font-mono">
                           {selectedCrypto === 'XMR'
-                            ? `${(pricing.subtotal / (CRYPTO_PRICES.XMR || 170)).toFixed(4)} XMR`
-                            : `${parseFloat((pricing.subtotal / (CRYPTO_PRICES.BTC || 100000)).toFixed(8))} BTC`}
+                            ? `${(pricing.subtotal / xmrPrice).toFixed(4)} XMR`
+                            : `${parseFloat((pricing.subtotal / btcPrice).toFixed(8))} BTC`}
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.subtotal.toFixed(2)}</span>
                       </div>
@@ -721,8 +722,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       <div className="text-right">
                         <span className="text-white block font-mono">
                           {selectedCrypto === 'XMR'
-                            ? `${(pricing.total / (CRYPTO_PRICES.XMR || 170)).toFixed(4)} XMR`
-                            : `${parseFloat((pricing.total / (CRYPTO_PRICES.BTC || 100000)).toFixed(8))} BTC`}
+                            ? `${(pricing.total / xmrPrice).toFixed(4)} XMR`
+                            : `${parseFloat((pricing.total / btcPrice).toFixed(8))} BTC`}
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.total.toFixed(2)}</span>
                       </div>

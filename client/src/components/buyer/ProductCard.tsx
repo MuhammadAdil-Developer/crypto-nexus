@@ -11,7 +11,7 @@ import { useCart } from '@/contexts/CartContext';
 import wishlistService from '@/services/wishlistService';
 import placeholderImage from '@/assets/placeholder.png';
 import { getImageUrl } from '@/config/api';
-import { CRYPTO_PRICES } from '@/lib/priceUtils';
+import { useCryptoPrices } from '@/contexts/PriceContext';
 
 interface Product {
   id: number;
@@ -64,6 +64,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const { toast } = useToast();
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const { addToCart, isInCart, removeFromCart } = useCart();
 
   useEffect(() => {
@@ -81,12 +82,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
     let cryptoAmount = 0;
 
     if (currency === 'BTC') {
-      const rate = CRYPTO_PRICES.BTC || 100000;
+      const rate = btcPrice || 100000;
       cryptoAmount = usdPrice / rate;
       // Remove unnecessary trailing zeros, max 8 decimals
       return parseFloat(cryptoAmount.toFixed(8)).toString();
     } else {
-      const rate = CRYPTO_PRICES.XMR || 170;
+      const rate = xmrPrice || 170;
       cryptoAmount = usdPrice / rate;
       // Remove unnecessary trailing zeros, max 8 decimals - XMR doesn't strictly need 8 but it's fine
       return parseFloat(cryptoAmount.toFixed(8)).toString();

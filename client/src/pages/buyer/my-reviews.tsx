@@ -168,7 +168,7 @@ export default function BuyerMyReviews() {
                                   "text-[10px] font-black uppercase tracking-widest",
                                   msg.author === 'vendor' ? 'text-theme-cyan' : 'text-gray-400'
                                 )}>
-                                  {msg.author === 'vendor' ? 'Nexus Vendor' : 'Transmission (You)'}
+                                  {msg.author === 'vendor' ? 'AccountzClub Vendor' : 'Transmission (You)'}
                                 </span>
                               </div>
                               {msg.date && (
@@ -185,7 +185,7 @@ export default function BuyerMyReviews() {
                         r.vendor_reply && (
                           <div className="p-4 rounded-2xl bg-theme-cyan/5 border border-theme-cyan/20 ml-4 sm:ml-8 backdrop-blur-md">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-theme-cyan text-[10px] font-black uppercase tracking-widest">Nexus Vendor</span>
+                              <span className="text-theme-cyan text-[10px] font-black uppercase tracking-widest">AccountzClub Vendor</span>
                               {r.vendor_reply_date && (
                                 <span className="text-[10px] text-gray-500 font-medium">
                                   {new Date(r.vendor_reply_date).toLocaleString()}
@@ -215,7 +215,7 @@ export default function BuyerMyReviews() {
                           </DialogTrigger>
                           <DialogContent className="w-[95vw] sm:max-w-md bg-gray-950 border-white/10 rounded-3xl p-6 backdrop-blur-2xl shadow-3xl">
                             <DialogHeader className="mb-4">
-                              <DialogTitle className="text-xl font-black text-white uppercase tracking-tighter">Nexus Transmission</DialogTitle>
+                              <DialogTitle className="text-xl font-black text-white uppercase tracking-tighter">AccountzClub Transmission</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-6">
                               <Textarea

@@ -133,28 +133,13 @@ export default function VendorEditProduct() {
 
           // Set existing images
           if (foundProduct.main_image) {
-            console.log('🔍 Setting main image preview:', foundProduct.main_image);
-            const mainImgUrl = foundProduct.main_image.startsWith('http')
-              ? foundProduct.main_image
-              : `http://localhost:8000${foundProduct.main_image}`;
-            setMainImagePreview(mainImgUrl);
-          } else if (foundProduct.main_images && foundProduct.main_images.length > 0) {
-            console.log('🔍 Setting main image from main_images array:', foundProduct.main_images[0]);
-            const mainImgUrl = foundProduct.main_images[0].startsWith('http')
-              ? foundProduct.main_images[0]
-              : `http://localhost:8000${foundProduct.main_images[0]}`;
-            setMainImagePreview(mainImgUrl);
-          }
-          if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
-            console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-            setGalleryImagePreviews(foundProduct.gallery_images.map((img: string) =>
-              img.startsWith('http') ? img : `http://localhost:8000${img}`
-            ));
             setMainImagePreview(getImageUrl(foundProduct.main_image));
+          } else if (foundProduct.main_images && foundProduct.main_images.length > 0) {
+            setMainImagePreview(getImageUrl(foundProduct.main_images[0]));
           }
+
           if (foundProduct.gallery_images && foundProduct.gallery_images.length > 0) {
-            console.log('🔍 Setting gallery image previews:', foundProduct.gallery_images);
-            setGalleryImagePreviews(foundProduct.gallery_images.map(img => getImageUrl(img)));
+            setGalleryImagePreviews(foundProduct.gallery_images.map((img: string) => getImageUrl(img)));
           }
         } else {
           console.error('❌ Edit product error:', response);
@@ -722,7 +707,7 @@ export default function VendorEditProduct() {
               {(mainImagePreview || (product?.main_image && !mainImage) || (product?.main_images && product.main_images.length > 0 && !mainImage)) && (
                 <div className="relative">
                   <img
-                    src={mainImagePreview || product?.main_image || placeholderImage}
+                    src={mainImagePreview || getImageUrl(product?.main_image) || placeholderImage}
                     alt="Main product image"
                     className="w-full h-48 object-contain rounded-lg border border-gray-600 bg-gray-900/50"
                     onError={(e) => {

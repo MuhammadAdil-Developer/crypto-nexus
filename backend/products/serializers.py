@@ -63,49 +63,46 @@ class ProductSerializer(serializers.ModelSerializer):
         return None
     
     def get_main_image(self, obj):
-        """Return absolute URL for main image"""
+        """Return relative URL for main image"""
         if not obj.main_image:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.main_image.url)
         return obj.main_image.url
 
     def get_gallery_images(self, obj):
-        """Convert gallery image paths to full URLs"""
+        """Return relative URLs for gallery images"""
         if not obj.gallery_images:
             return []
-        request = self.context.get('request') if self.context else None
-        if request:
-            urls = []
-            for path in obj.gallery_images:
-                if path.startswith('http'):
-                    urls.append(path)
-                elif path.startswith('media/'):
-                    urls.append(request.build_absolute_uri(f'/{path}'))
-                elif path.startswith('/media/'):
-                    urls.append(request.build_absolute_uri(path))
-                else:
-                    urls.append(request.build_absolute_uri(f'/media/{path}'))
-            return urls
-        return obj.gallery_images
+        
+        urls = []
+        for path in obj.gallery_images:
+            if not path: continue
+            if path.startswith('http'):
+                urls.append(path)
+            elif path.startswith('/media/'):
+                urls.append(path)
+            elif path.startswith('media/'):
+                urls.append(f'/{path}')
+            else:
+                urls.append(f'/media/{path}')
+        return urls
     
     def get_documents(self, obj):
-        """Convert document paths to full URLs"""
+        """Return relative URLs for documents"""
         if not obj.documents:
             return []
-        request = self.context.get('request') if self.context else None
-        if request:
-            urls = []
-            for path in obj.documents:
-                if path.startswith('http'):
-                    urls.append(path)
-                elif path.startswith('media/'):
-                    urls.append(request.build_absolute_uri(f'/{path}'))
-                else:
-                    urls.append(request.build_absolute_uri(f'/media/{path}'))
-            return urls
-        return obj.documents
+        
+        urls = []
+        for path in obj.documents:
+            if not path: continue
+            if path.startswith('http'):
+                urls.append(path)
+            elif path.startswith('/media/'):
+                urls.append(path)
+            elif path.startswith('media/'):
+                urls.append(f'/{path}')
+            else:
+                urls.append(f'/media/{path}')
+        return urls
     
     class Meta:
         model = Product
@@ -141,49 +138,46 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         return obj.price
     
     def get_main_image(self, obj):
-        """Return absolute URL for main image"""
+        """Return relative URL for main image"""
         if not obj.main_image:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.main_image.url)
         return obj.main_image.url
     
     def get_gallery_images(self, obj):
-        """Convert gallery image paths to full URLs"""
+        """Return relative URLs for gallery images"""
         if not obj.gallery_images:
             return []
-        request = self.context.get('request') if self.context else None
-        if request:
-            urls = []
-            for path in obj.gallery_images:
-                if path.startswith('http'):
-                    urls.append(path)
-                elif path.startswith('media/'):
-                    urls.append(request.build_absolute_uri(f'/{path}'))
-                elif path.startswith('/media/'):
-                    urls.append(request.build_absolute_uri(path))
-                else:
-                    urls.append(request.build_absolute_uri(f'/media/{path}'))
-            return urls
-        return obj.gallery_images
+        
+        urls = []
+        for path in obj.gallery_images:
+            if not path: continue
+            if path.startswith('http'):
+                urls.append(path)
+            elif path.startswith('/media/'):
+                urls.append(path)
+            elif path.startswith('media/'):
+                urls.append(f'/{path}')
+            else:
+                urls.append(f'/media/{path}')
+        return urls
     
     def get_documents(self, obj):
-        """Convert document paths to full URLs"""
+        """Return relative URLs for documents"""
         if not obj.documents:
             return []
-        request = self.context.get('request') if self.context else None
-        if request:
-            urls = []
-            for path in obj.documents:
-                if path.startswith('http'):
-                    urls.append(path)
-                elif path.startswith('media/'):
-                    urls.append(request.build_absolute_uri(f'/{path}'))
-                else:
-                    urls.append(request.build_absolute_uri(f'/media/{path}'))
-            return urls
-        return obj.documents
+        
+        urls = []
+        for path in obj.documents:
+            if not path: continue
+            if path.startswith('http'):
+                urls.append(path)
+            elif path.startswith('/media/'):
+                urls.append(path)
+            elif path.startswith('media/'):
+                urls.append(f'/{path}')
+            else:
+                urls.append(f'/media/{path}')
+        return urls
     
     class Meta:
         model = Product

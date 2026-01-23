@@ -131,13 +131,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   const getProductImage = () => {
     // Priority: main_image > gallery_images[0] > main_images[0] > null
     if (product.main_image) {
-      return product.main_image;
+      return getImageUrl(product.main_image);
     }
     if (product.gallery_images && product.gallery_images.length > 0) {
-      return product.gallery_images[0];
+      return getImageUrl(product.gallery_images[0]);
     }
     if (product.main_images && product.main_images.length > 0) {
-      return product.main_images[0];
+      return getImageUrl(product.main_images[0]);
     }
     return placeholderImage;
   };

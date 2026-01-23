@@ -600,7 +600,7 @@ export default function VendorListings() {
                     <div className="flex items-start gap-4 mb-4 relative z-10 pl-8">
                       <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-950/50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-800 shadow-inner">
                         <img
-                          src={product.main_image || placeholderImage}
+                          src={getImageUrl(product.main_image) || placeholderImage}
                           alt={product.headline}
                           className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 bg-gray-900/50"
                           onError={(e) => {
@@ -755,7 +755,7 @@ export default function VendorListings() {
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                             <img
-                              src={product.main_image || placeholderImage}
+                              src={getImageUrl(product.main_image) || placeholderImage}
                               alt={product.headline}
                               className="w-full h-full object-contain bg-gray-900/50"
                               onError={(e) => {

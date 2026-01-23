@@ -330,7 +330,7 @@ export default function VendorProductDetail() {
                     {product.is_giveaway ? (
                       <span className="text-cyan-400 font-bold">FREE - $0.00</span>
                     ) : (
-                      `$${product.price || 0}`
+                      `$${parseFloat(product.price || '0').toFixed(2)}`
                     )}
                   </span>
                 </div>
@@ -341,7 +341,7 @@ export default function VendorProductDetail() {
                     {product.is_giveaway ? (
                       <span className="text-cyan-400">FREE - $0.00</span>
                     ) : (
-                      `$${product.final_price || product.price || 0}`
+                      `$${parseFloat(product.final_price || product.price || '0').toFixed(2)}`
                     )}
                   </span>
                 </div>

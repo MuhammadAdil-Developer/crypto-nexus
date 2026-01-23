@@ -497,10 +497,10 @@ export default function BuyerSettings() {
                 { label: 'Order Updates', desc: 'Real-time acquisition status changes', key: 'order_updates' },
                 { label: 'Vendor Messages', desc: 'Encrypted communication alerts', key: 'vendor_messages' },
                 { label: 'Dispute Alerts', desc: 'Case intelligence status updates', key: 'disputes' },
-                { label: 'Support Tickets', desc: 'Nexus support response notifications', key: 'support_tickets' },
+                { label: 'Support Tickets', desc: 'AccountzClub support response notifications', key: 'support_tickets' },
                 { label: 'Refund Alerts', desc: 'Financial resolution status', key: 'payouts' },
                 { label: 'Review Reminders', desc: 'Feedback protocol opportunities', key: 'reviews' },
-                { label: 'Marketing Streams', desc: 'Nexus updates and transmissions', key: 'marketing_emails' }
+                { label: 'Marketing Streams', desc: 'AccountzClub updates and transmissions', key: 'marketing_emails' }
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between p-3 rounded-2xl bg-black/20 border border-white/5 hover:bg-black/40 transition-all">
                   <div>

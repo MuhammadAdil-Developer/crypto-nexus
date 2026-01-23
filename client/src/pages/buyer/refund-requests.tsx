@@ -182,13 +182,13 @@ export default function BuyerRefundRequests() {
                 </div>
                 <h3 className="text-2xl font-black text-white mb-3">No Refunds Found</h3>
                 <p className="text-gray-400 mb-8 leading-relaxed">
-                  You haven't initiated any refund protocols. If you're experiencing issues with an acquisition, you can start a refund from your orders nexus.
+                  You haven't initiated any refund protocols. If you're experiencing issues with an acquisition, you can start a refund from your orders dashboard.
                 </p>
                 <Button
                   className="h-12 px-8 bg-theme-cyan hover:bg-theme-cyan-dark text-white rounded-2xl font-bold tracking-widest uppercase transition-all shadow-lg shadow-theme-cyan/20"
                   onClick={() => window.location.href = '/buyer/orders'}
                 >
-                  Access Order Nexus
+                  Access Orders
                 </Button>
               </div>
             </div>

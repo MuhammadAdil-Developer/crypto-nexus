@@ -36,12 +36,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   // 4. Block Frontend Source Code in Production
   // If we are on the live domain, we should NEVER serve src files.
   // The user should be using the built assets (dist).
-  const isProduction =
-    process.env.NODE_ENV === 'production' ||
-    req.get('host')?.includes('accountzclub.com') ||
-    req.get('host')?.includes('accsclub.cc') ||
-    req.get('host')?.includes('accountz.club') ||
-    req.get('host')?.includes('accountz2.club');
+  const isProduction = process.env.NODE_ENV === 'production';
 
   if (isProduction) {
     if (

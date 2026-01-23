@@ -58,7 +58,7 @@ export default function VendorAddProduct() {
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const { toast } = useToast();
-  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
+
   const [formData, setFormData] = useState({
     // Client Required Fields
     headline: "",

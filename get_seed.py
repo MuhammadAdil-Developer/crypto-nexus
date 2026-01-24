@@ -4,8 +4,8 @@ from requests.auth import HTTPDigestAuth
 
 # Config
 RPC_URL = "http://127.0.0.1:18082/json_rpc"
-RPC_USER = "monerouser"
-RPC_PASSWORD = "moneropass123"
+RPC_USER = "nx_vault_7Q"
+RPC_PASSWORD = "F9!xQ@3Zk#M7vR2$LwA8"
 
 def get_wallet_seed():
     print("="*60)

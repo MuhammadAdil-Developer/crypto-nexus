@@ -36,9 +36,9 @@ def run_launcher():
     cmd = [
         rpc_exe,
         "--wallet-file", "nexus_wallet",
-        "--password", "testwallet",
+        "--password", "F9!xQ@3Zk#M7vR2$LwA8",
         "--rpc-bind-port", "18082",
-        "--rpc-login", "monerouser:moneropass123",
+        "--rpc-login", "nx_vault_7Q:F9!xQ@3Zk#M7vR2$LwA8",
         "--daemon-address", "ravfx.its-a-node.org:18081",
         "--log-level", "2",
         "--confirm-external-bind",

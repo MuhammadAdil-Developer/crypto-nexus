@@ -222,13 +222,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     const usdPrice = parseFloat(price);
     if (crypto === 'BTC') {
       const rate = btcPrice || 100000;
-      const btcPrice = usdPrice / rate;
-      return parseFloat(btcPrice.toFixed(8)).toString();
+      const estimatedAmount = usdPrice / rate;
+      return parseFloat(estimatedAmount.toFixed(8)).toString();
     }
     if (crypto === 'XMR') {
       const rate = xmrPrice || 170;
-      const xmrPrice = usdPrice / rate;
-      return parseFloat(xmrPrice.toFixed(8)).toString();
+      const estimatedAmount = usdPrice / rate;
+      return parseFloat(estimatedAmount.toFixed(8)).toString();
     }
     return '0';
   };

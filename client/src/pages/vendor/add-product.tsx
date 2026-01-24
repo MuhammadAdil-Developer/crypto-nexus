@@ -53,6 +53,7 @@ interface ProductFormData {
 }
 
 export default function VendorAddProduct() {
+  const navigate = useNavigate();
   const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -370,31 +371,68 @@ export default function VendorAddProduct() {
         body: submitData
       });
 
-      const result = await response.json();
+      let result: any = { success: false };
+      let parseError = false;
+      let textResponse = "";
 
-      if (result.success) {
+      try {
+        textResponse = await response.text();
+        try {
+          result = JSON.parse(textResponse);
+        } catch (e) {
+          console.error('Error parsing response JSON:', e);
+          parseError = true;
+          // Result stays {success: false}
+        }
+      } catch (e) {
+        console.error('Error reading response text:', e);
+        parseError = true;
+      }
+
+      // If status is 201 (Created), it's a success regardless of the response body
+      if (response.status === 201 || (response.ok && result.success)) {
         toast({
           title: "Success!",
           description: "Product created successfully!",
         });
+        // Success: Redirect to listings
         navigate('/vendor/listings');
       } else {
+        // Build a readable error message
+        let errorMsg = "Failed to create product";
+        if (result.message) {
+          errorMsg = result.message;
+        } else if (result.errors) {
+          if (typeof result.errors === 'string') {
+            errorMsg = result.errors;
+          } else if (typeof result.errors === 'object') {
+            // DRF error object: Flatten it
+            errorMsg = Object.entries(result.errors)
+              .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(', ') : val}`)
+              .join(' | ');
+          }
+        } else if (parseError && textResponse) {
+          errorMsg = `Server Response: ${textResponse.substring(0, 100)}`;
+        } else {
+          errorMsg = `Server Error (Status: ${response.status})`;
+        }
+
         toast({
           title: "Error",
-          description: result.message || "Failed to create product",
+          description: String(errorMsg),
           variant: "destructive",
         });
 
-        // Set backend validation errors
-        if (result.errors) {
+        // Set backend validation errors if structured nicely
+        if (result.errors && typeof result.errors === 'object') {
           setErrors(result.errors);
         }
       }
-    } catch (error) {
-      console.error('Error creating product:', error);
+    } catch (error: any) {
+      console.error('CRITICAL ERROR IN SUBMISSION:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        title: "Submission Failed",
+        description: `Network or Browser Error: ${error.message || 'Unknown'}`,
         variant: "destructive",
       });
     } finally {

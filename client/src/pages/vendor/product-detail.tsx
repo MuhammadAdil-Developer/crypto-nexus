@@ -213,7 +213,7 @@ export default function VendorProductDetail() {
               <img
                 src={getImageUrl(product.main_image) ||
                   (product.main_images && product.main_images.length > 0
-                    ? (product.main_images[0].startsWith('http') ? product.main_images[0] : `http://localhost:8000${product.main_images[0]}`)
+                    ? getImageUrl(product.main_images[0])
                     : placeholderImage)}
                 alt={product.headline || product.listing_title || "Product"}
                 className="w-full h-64 object-cover rounded-lg"
@@ -519,7 +519,7 @@ export default function VendorProductDetail() {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {product.gallery_images.map((image: string, index: number) => {
-                    const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                    const imageUrl = getImageUrl(image);
                     return (
                       <div key={index} className="relative group">
                         <img
@@ -550,7 +550,7 @@ export default function VendorProductDetail() {
               <CardContent>
                 <div className="space-y-3">
                   {product.documents.map((doc: string, index: number) => {
-                    const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                    const docUrl = getImageUrl(doc);
                     const docName = doc.split('/').pop() || `Document ${index + 1}`;
                     return (
                       <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">

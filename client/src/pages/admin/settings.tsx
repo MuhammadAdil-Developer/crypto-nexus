@@ -124,7 +124,16 @@ export default function AdminSettings() {
       const expiryTime = localStorage.getItem('sessionExpiry');
       if (expiryTime) {
         const timeLeft = parseInt(expiryTime) - Date.now();
+
+        // If it's expired, check if it's a "reasonable" expiry
+        // If it's extremely old (e.g. > 7 days), it's likely stale data from a previous login
+        // that wasn't cleared. In this case, just clear it and don't logout.
         if (timeLeft <= 0) {
+          const isStale = Math.abs(timeLeft) > 7 * 24 * 60 * 60 * 1000;
+          if (isStale) {
+            localStorage.removeItem('sessionExpiry');
+            return;
+          }
           handleSessionExpiry();
         } else {
           if (sessionTimeoutRef.current) {

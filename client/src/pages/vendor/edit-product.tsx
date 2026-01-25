@@ -391,7 +391,7 @@ export default function VendorEditProduct() {
 
       // Use direct API call for FormData
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/products/update/${id}/`, {
+      const response = await fetch(getApiUrl(`/products/update/${id}/`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1012,7 +1012,7 @@ export default function VendorEditProduct() {
               <CardContent>
                 <div className="space-y-3">
                   {product.documents.map((doc: string, index: number) => {
-                    const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                    const docUrl = getImageUrl(doc);
                     const docName = doc.split('/').pop() || `Document ${index + 1}`;
                     return (
                       <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
@@ -1102,7 +1102,7 @@ export default function VendorEditProduct() {
               <img
                 src={mainImagePreview ||
                   (product?.main_image
-                    ? (product.main_image.startsWith('http') ? product.main_image : `http://localhost:8000${product.main_image}`)
+                    ? getImageUrl(product.main_image)
                     : (product?.main_images && product.main_images.length > 0
                       ? getImageUrl(product.main_images[0])
                       : placeholderImage))}

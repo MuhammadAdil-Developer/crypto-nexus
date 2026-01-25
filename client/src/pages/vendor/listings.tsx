@@ -139,12 +139,12 @@ export default function VendorListings() {
         if (!token) return;
 
         const [profileResponse, vendorFeeResponse] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/profile/`, {
+          fetch(`${API_BASE_URL}/profile/`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           }),
-          fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/payments/vendor/my-fee/`, {
+          fetch(`${API_BASE_URL}/payments/vendor/my-fee/`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }

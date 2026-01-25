@@ -1638,9 +1638,9 @@ export default function AdminListings() {
                       <img
                         src={
                           selectedListing.main_image
-                            ? (selectedListing.main_image.startsWith('http') ? selectedListing.main_image : `http://localhost:8000${selectedListing.main_image}`)
+                            ? getImageUrl(selectedListing.main_image)
                             : (selectedListing.main_images && selectedListing.main_images.length > 0
-                              ? (selectedListing.main_images[0].startsWith('http') ? selectedListing.main_images[0] : `http://localhost:8000${selectedListing.main_images[0]}`)
+                              ? getImageUrl(selectedListing.main_images[0])
                               : '')
                         }
                         alt={selectedListing.headline || 'Product'}
@@ -1817,7 +1817,7 @@ export default function AdminListings() {
                       <h3 className="text-lg font-semibold text-white mb-3">Gallery Images</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {selectedListing.gallery_images.map((image: string, index: number) => {
-                          const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                          const imageUrl = getImageUrl(image);
                           return (
                             <div key={index} className="relative group">
                               <img
@@ -1844,7 +1844,7 @@ export default function AdminListings() {
                       <h3 className="text-lg font-semibold text-white mb-3">Documents</h3>
                       <div className="space-y-3">
                         {selectedListing.documents.map((doc: string, index: number) => {
-                          const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                          const docUrl = getImageUrl(doc);
                           const docName = doc.split('/').pop() || `Document ${index + 1}`;
                           return (
                             <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">

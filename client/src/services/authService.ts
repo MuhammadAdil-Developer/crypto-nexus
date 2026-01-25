@@ -80,6 +80,8 @@ api.interceptors.response.use(
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('userId');
+        localStorage.removeItem('sessionExpiry');
+        localStorage.removeItem('sessionTimeout');
 
         // Trigger token expiration modal
         window.dispatchEvent(
@@ -205,6 +207,9 @@ class AuthService {
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
         localStorage.setItem('userId', response.data.data.user.id.toString());
 
+        // Clear any old session expiry data on fresh login
+        localStorage.removeItem('sessionExpiry');
+
         // Dispatch event to trigger WebSocket connection
         window.dispatchEvent(new CustomEvent('user_logged_in', {
           detail: { userId: response.data.data.user.id.toString() }
@@ -234,6 +239,8 @@ class AuthService {
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       localStorage.removeItem('userId');
+      localStorage.removeItem('sessionExpiry');
+      localStorage.removeItem('sessionTimeout');
     }
   }
 

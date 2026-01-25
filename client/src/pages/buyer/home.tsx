@@ -45,6 +45,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import { API_BASE_URL } from "@/config/api";
 import wishlistService from "@/services/wishlistService";
 import { Label } from "@/components/ui/label";
 import { orderService } from "@/services/orderService";
@@ -135,8 +136,7 @@ const topVendors = [
   }
 ];
 
-// API base for public endpoints
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+// API base for public endpoints - using central config
 
 function BuyerHomeContent() {
   const navigate = useNavigate();

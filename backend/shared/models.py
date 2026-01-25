@@ -14,6 +14,30 @@ class BaseModel(models.Model):
         abstract = True
 
 
+class SystemConfiguration(BaseModel):
+    """General system settings stored in database for persistence"""
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField()
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'system_configurations'
+        verbose_name_plural = 'System Configurations'
+
+    def __str__(self):
+        return self.key
+
+    @classmethod
+    def get_value(cls, key, default=None):
+        try:
+            return cls.objects.get(key=key).value
+        except cls.DoesNotExist:
+            return default
+
+    @classmethod
+    def set_value(cls, key, value):
+        cls.objects.update_or_create(key=key, defaults={'value': str(value)})
+
 class CryptoCurrency(BaseModel):
     """Cryptocurrency model for supported currencies"""
     name = models.CharField(max_length=100)

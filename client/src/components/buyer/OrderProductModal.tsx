@@ -408,7 +408,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                   <h4 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">Gallery Images & Documents</h4>
                   <div className="flex flex-wrap gap-2 sm:gap-3">
                     {order.product.gallery_images && order.product.gallery_images.map((image, index) => {
-                      const imageUrl = image.startsWith('http') ? image : `http://localhost:8000${image}`;
+                      const imageUrl = getImageUrl(image);
                       return (
                         <div key={`img-${index}`} className="aspect-square w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-white/5 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
                           <img
@@ -423,7 +423,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       );
                     })}
                     {(order.product as any).documents && (order.product as any).documents.map((doc: string, index: number) => {
-                      const docUrl = doc.startsWith('http') ? doc : `http://localhost:8000${doc}`;
+                      const docUrl = getImageUrl(doc);
                       const docName = doc.split('/').pop() || `Document ${index + 1}`;
                       return (
                         <div key={`doc-${index}`} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-colors min-w-[120px] sm:min-w-[140px]">

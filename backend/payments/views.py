@@ -1071,31 +1071,29 @@ class VendorPayoutsView(APIView):
         """Get vendor's payouts and pending earnings"""
         try:
             vendor = request.user
+            ps = PaymentService()
+            btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
+            xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             
-            # Get all payouts for this vendor
             payouts = Payout.objects.filter(vendor=vendor).order_by('-created_at')
             direct_payments = DirectPayment.objects.filter(vendor=vendor).order_by('-created_at')
             
-            # Convert to API format
             payout_data = []
             
-            # Process escrow payouts
             for payout in payouts:
-                # Calculate commission percentages
                 platform_fee_rate = 0
                 escrow_fee_rate = 0
                 if payout.gross_amount > 0:
                     platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
                     escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
                 
-                # Use correct mock conversion based on currency
                 currency_symbol = payout.crypto_currency.symbol.upper()
-                mock_price = 40000 if currency_symbol == 'BTC' else 2000
+                usd_rate = btc_rate if currency_symbol == 'BTC' else xmr_rate
                 
                 payout_data.append({
                     'id': str(payout.id),
                     'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
-                    'usdAmount': f"${float(payout.net_amount) * mock_price:.2f}",
+                    'usdAmount': f"${float(payout.net_amount) * usd_rate:.2f}",
                     'address': payout.vendor_address,
                     'method': payout.crypto_currency.symbol,
                     'status': payout.status.title(),
@@ -1110,15 +1108,13 @@ class VendorPayoutsView(APIView):
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                 })
             
-            # Process direct payments
             for payment in direct_payments:
                 currency_symbol = payment.crypto_currency.symbol.upper().strip()
-                mock_price = 40000 if currency_symbol == 'BTC' else 2000
-                
+                usd_rate = btc_rate if currency_symbol == 'BTC' else xmr_rate
                 payout_data.append({
                     'id': str(payment.id),
                     'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
-                    'usdAmount': f"${float(payment.amount) * mock_price:.2f}",
+                    'usdAmount': f"${float(payment.amount) * usd_rate:.2f}",
                     'address': payment.vendor_address,
                     'method': payment.crypto_currency.symbol,
                     'status': payment.status.title(),
@@ -1160,9 +1156,8 @@ class VendorPayoutsView(APIView):
                     pending_xmr += payment.amount
                     xmr_orders += 1
             
-            # Calculate total USD value
-            btc_usd = float(pending_btc) * 40000  # Mock BTC price
-            xmr_usd = float(pending_xmr) * 2000   # Mock XMR price
+            btc_usd = float(pending_btc) * btc_rate
+            xmr_usd = float(pending_xmr) * xmr_rate
             total_usd = btc_usd + xmr_usd
             
             pending_earnings = {
@@ -1203,21 +1198,22 @@ class TransactionHistoryView(APIView):
     def get(self, request):
         """Get all transaction history for admin view"""
         try:
-            # Get all transactions from different sources
+            ps = PaymentService()
+            btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
+            xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             transactions = []
             
-            # Get all payouts (escrow and direct)
             payouts = Payout.objects.all().order_by('-created_at')
             direct_payments = DirectPayment.objects.all().order_by('-created_at')
             
-            # Process escrow payouts
             for payout in payouts:
+                r = btc_rate if payout.crypto_currency.symbol == 'BTC' else xmr_rate
                 transactions.append({
                     'id': str(payout.id),
                     'type': 'escrow_payout',
                     'description': f'Escrow payout to {payout.vendor.username}',
                     'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
-                    'usd_amount': f"${float(payout.net_amount) * 40000:.2f}",
+                    'usd_amount': f"${float(payout.net_amount) * r:.2f}",
                     'from_address': 'Admin Wallet',
                     'to_address': payout.vendor_address,
                     'transaction_hash': payout.transaction_hash,
@@ -1230,14 +1226,14 @@ class TransactionHistoryView(APIView):
                     'fee': f"{payout.platform_fee} {payout.crypto_currency.symbol}"
                 })
             
-            # Process direct payments
             for payment in direct_payments:
+                r = btc_rate if payment.crypto_currency.symbol == 'BTC' else xmr_rate
                 transactions.append({
                     'id': str(payment.id),
                     'type': 'direct_payment',
                     'description': f'Direct payment from {payment.buyer.username} to {payment.vendor.username}',
                     'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
-                    'usd_amount': f"${float(payment.amount) * 40000:.2f}",
+                    'usd_amount': f"${float(payment.amount) * r:.2f}",
                     'from_address': 'Buyer Wallet',
                     'to_address': payment.vendor_address,
                     'transaction_hash': payment.transaction_hash,
@@ -1256,12 +1252,13 @@ class TransactionHistoryView(APIView):
             ).order_by('-confirmed_at')
             
             for payment_addr in payment_addresses:
+                r = btc_rate if payment_addr.crypto_currency.symbol == 'BTC' else xmr_rate
                 transactions.append({
                     'id': f"payment_{payment_addr.id}",
                     'type': 'incoming_payment',
                     'description': f'Payment received for order {payment_addr.order_id}',
                     'amount': f"{payment_addr.received_amount} {payment_addr.crypto_currency.symbol}",
-                    'usd_amount': f"${float(payment_addr.received_amount) * 40000:.2f}",
+                    'usd_amount': f"${float(payment_addr.received_amount) * r:.2f}",
                     'from_address': 'External',
                     'to_address': payment_addr.payment_address,
                     'transaction_hash': payment_addr.transaction_hash,
@@ -1299,26 +1296,26 @@ class BuyerTransactionHistoryView(APIView):
         """Get buyer's transaction history"""
         try:
             buyer = request.user
+            ps = PaymentService()
+            btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
+            xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             transactions = []
             
-            # Get buyer's orders and related payments
             from orders.models import Order
             orders = Order.objects.filter(buyer=buyer).order_by('-created_at')
             
             for order in orders:
-                # Add order payment transactions
                 if order.payment_address:
-                    # Get the actual PaymentAddress object
                     try:
                         from payments.models import PaymentAddress
                         payment_addr = PaymentAddress.objects.get(order_id=order.order_id)
-                        
+                        r = btc_rate if payment_addr.crypto_currency.symbol == 'BTC' else xmr_rate
                         transactions.append({
                             'id': f"order_payment_{order.id}",
                             'type': 'payment',
                             'description': f'Payment for order {order.order_id}',
                             'amount': f"{payment_addr.received_amount} {payment_addr.crypto_currency.symbol}",
-                            'usd_amount': f"${float(payment_addr.received_amount) * 40000:.2f}",
+                            'usd_amount': f"${float(payment_addr.received_amount) * r:.2f}",
                             'from_address': 'Your Wallet',
                             'to_address': payment_addr.payment_address,
                             'transaction_hash': payment_addr.transaction_hash,
@@ -1336,12 +1333,13 @@ class BuyerTransactionHistoryView(APIView):
                 if order.use_escrow and order.order_status in ['confirmed', 'completed']:
                     payouts = Payout.objects.filter(order=order)
                     for payout in payouts:
+                        r = btc_rate if payout.crypto_currency.symbol == 'BTC' else xmr_rate
                         transactions.append({
                             'id': f"escrow_release_{payout.id}",
                             'type': 'escrow_release',
                             'description': f'Escrow released for order {order.order_id}',
                             'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
-                            'usd_amount': f"${float(payout.net_amount) * 40000:.2f}",
+                            'usd_amount': f"${float(payout.net_amount) * r:.2f}",
                             'from_address': 'Admin Escrow',
                             'to_address': payout.vendor_address,
                             'transaction_hash': payout.transaction_hash,
@@ -1372,13 +1370,14 @@ class BuyerTransactionHistoryView(APIView):
                                     buyer_payout_address = buyer_wallet.xmr_address or 'Your Wallet'
                         except Exception:
                             pass
-                        
+                        sym = getattr(order.crypto_currency, 'symbol', str(order.crypto_currency))
+                        r = btc_rate if sym == 'BTC' else xmr_rate
                         transactions.append({
                             'id': f"refund_{refund.id}",
                             'type': 'refund',
                             'description': f'Refund received for order {order.order_id}',
                             'amount': f"+{refund.amount} {order.crypto_currency}",
-                            'usd_amount': f"${float(refund.amount) * 40000:.2f}",
+                            'usd_amount': f"${float(refund.amount) * r:.2f}",
                             'from_address': 'Platform Wallet' if refund.vendor_payment_source == 'platform' else 'Vendor Wallet',
                             'to_address': buyer_payout_address,
                             'transaction_hash': refund.vendor_refund_transaction_hash or refund.transaction_hash,
@@ -1416,17 +1415,20 @@ class VendorTransactionHistoryView(APIView):
         """Get vendor's transaction history"""
         try:
             vendor = request.user
+            ps = PaymentService()
+            btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
+            xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             transactions = []
             
-            # Get vendor's payouts
             payouts = Payout.objects.filter(vendor=vendor).order_by('-created_at')
             for payout in payouts:
+                r = btc_rate if payout.crypto_currency.symbol == 'BTC' else xmr_rate
                 transactions.append({
                     'id': f"payout_{payout.id}",
                     'type': 'payout',
                     'description': f'Payout received for order {payout.order.order_id}',
                     'amount': f"{payout.net_amount} {payout.crypto_currency.symbol}",
-                    'usd_amount': f"${float(payout.net_amount) * 40000:.2f}",
+                    'usd_amount': f"${float(payout.net_amount) * r:.2f}",
                     'from_address': 'Admin Wallet' if payout.payout_type == 'escrow' else 'Buyer Wallet',
                     'to_address': payout.vendor_address,
                     'transaction_hash': payout.transaction_hash,
@@ -1441,12 +1443,13 @@ class VendorTransactionHistoryView(APIView):
             # Get vendor's direct payments
             direct_payments = DirectPayment.objects.filter(vendor=vendor).order_by('-created_at')
             for payment in direct_payments:
+                r = btc_rate if payment.crypto_currency.symbol == 'BTC' else xmr_rate
                 transactions.append({
                     'id': f"direct_{payment.id}",
                     'type': 'direct_payment',
                     'description': f'Direct payment from buyer for order {payment.order.order_id}',
                     'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
-                    'usd_amount': f"${float(payment.amount) * 40000:.2f}",
+                    'usd_amount': f"${float(payment.amount) * r:.2f}",
                     'from_address': 'Buyer Wallet',
                     'to_address': payment.vendor_address,
                     'transaction_hash': payment.transaction_hash,

@@ -14,6 +14,44 @@ from requests.auth import HTTPDigestAuth
 
 logger = logging.getLogger(__name__)
 
+# Typical payout tx size in vBytes (1-in-2-out ~250, 2-in-2-out ~350)
+DEFAULT_BTC_TX_VBYTES = 250
+
+
+def get_btc_estimated_miner_fee_btc() -> Optional[Decimal]:
+    """Fetch current BTC miner fee estimate from mempool.space (sat/vB -> BTC for typical payout tx)."""
+    try:
+        r = requests.get("https://mempool.space/api/v1/fees/recommended", timeout=5)
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        # Use economyFee for low-cost payouts; fallback to hourFee then minimumFee
+        sat_per_vb = data.get("economyFee") or data.get("hourFee") or data.get("minimumFee") or 1
+        # fee_btc = (sat_per_vb * vbytes) / 100_000_000
+        fee_btc = Decimal(sat_per_vb) * DEFAULT_BTC_TX_VBYTES / Decimal("100000000")
+        return fee_btc
+    except Exception as e:
+        logger.warning(f"Failed to fetch BTC fee from mempool.space: {e}")
+        return None
+
+
+def get_btc_fee_rate_sat_per_vb() -> Optional[int]:
+    """Fetch recommended BTC fee rate in sat/vB from mempool.space (for BTCPay feeRate).
+    ALWAYS tries API first - only returns None if API completely fails.
+    """
+    try:
+        r = requests.get("https://mempool.space/api/v1/fees/recommended", timeout=8)
+        if r.status_code != 200:
+            logger.warning(f"mempool.space returned status {r.status_code}, cannot get fee rate")
+            return None
+        data = r.json()
+        sat_per_vb = data.get("economyFee") or data.get("hourFee") or data.get("minimumFee") or 1
+        logger.info(f"✅ BTC fee rate from mempool.space: {sat_per_vb} sat/vB")
+        return sat_per_vb
+    except Exception as e:
+        logger.error(f"❌ CRITICAL: Failed to fetch BTC fee rate from mempool.space: {e} - Will use minimal fallback")
+        return None
+
 
 class BTCPayServerService:
     """Service for BTCPay Server integration"""
@@ -215,20 +253,22 @@ class BTCPayServerService:
                 logger.info(f"Available Total Balance (including unconfirmed): {total_balance} BTC")
                 logger.info(f"Required Payout Amount: {required_amount} BTC")
                 
-                # CRITICAL FIX: Only trigger sweep if we're actually trying to send MORE than available
-                # Account for miner fees that will be deducted (estimate ~0.00005 BTC max)
-                estimated_miner_fee = 0.00005  # Conservative estimate for miner fees
+                # ALWAYS use live miner fee from mempool.space API - never hardcode
+                fee_dec = get_btc_estimated_miner_fee_btc()
+                if fee_dec is None:
+                    logger.error("⚠️ WARNING: mempool.space API failed, using minimal fallback 0.00002 BTC (~$2)")
+                    estimated_miner_fee = 0.00002  # Minimal fallback ONLY when API completely fails
+                else:
+                    estimated_miner_fee = float(fee_dec)
+                    logger.info(f"✅ Using API fee: {estimated_miner_fee} BTC")
                 total_needed = required_amount + estimated_miner_fee
                 
                 # Only sweep if required amount + miner fees exceeds available balance
-                # Use > instead of >= to avoid incorrectly capping valid payouts
                 if total_needed > total_balance:
                     logger.warning(
                         f"INSUFFICIENT BALANCE: Required {required_amount} + miner fee ~{estimated_miner_fee} = {total_needed} > Total {total_balance}"
                     )
-                    # Calculate safe amount: leave buffer for miner fees
-                    # The buffer should be enough to cover miner fees (~0.00005) plus a small safety margin
-                    safe_amount = max(0, total_balance - estimated_miner_fee - 0.00000100)  # 100 sat safety margin
+                    safe_amount = max(0, total_balance - estimated_miner_fee - 0.00000100)
                     
                     if safe_amount <= 0:
                         logger.error("Balance too low to cover payout + miner fees.")
@@ -244,24 +284,29 @@ class BTCPayServerService:
                 # Send transaction using wallet API
                 send_url = f"{self.base_url}/api/v1/stores/{self.store_id}/payment-methods/onchain/BTC/wallet/transactions"
                 
+                # ALWAYS get fee rate from API - never hardcode
+                fee_sat_vb = get_btc_fee_rate_sat_per_vb()
+                if fee_sat_vb is None:
+                    logger.error("⚠️ WARNING: mempool.space fee rate API failed, using minimal fallback 2 sat/vB")
+                    fee_sat_vb = 2  # Minimal fallback ONLY when API fails
+                else:
+                    logger.info(f"✅ Using API fee rate: {fee_sat_vb} sat/vB")
+                
                 transaction_data = {
                     'destinations': [{
                         'destination': payout_data['destination'],
                         'amount': payout_data['amount'],
                         'subtractFeesFromAmount': True
                     }],
-                    'feeRate': 1,  # Use normal fee rate (1 sat/vB = very low, ~$0.50-1 for typical tx)
+                    'feeRate': fee_sat_vb,  # From mempool.space API (economy/hour)
                     'proceedWithBroadcast': True,
                     'proceedWithPayjoin': False
                 }
-                
-                # Log fee estimation for debugging
-                logger.info(f"=== BTC PAYOUT FEE DEBUG ===")
+                est_fee_btc = get_btc_estimated_miner_fee_btc() or Decimal('0.00002')
+                logger.info(f"=== BTC PAYOUT FEE (from mempool.space API) ===")
                 logger.info(f"Payout amount: {payout_data['amount']} BTC")
-                logger.info(f"Fee rate: 1 sat/vB (normal priority)")
-                logger.info(f"subtractFeesFromAmount: True (fees deducted from amount)")
-                logger.info(f"Expected miner fee: ~0.00001-0.00005 BTC (~$0.50-2.50 USD)")
-                logger.info(f"Expected vendor receive: ~{float(payout_data['amount']) - 0.00005} BTC (after miner fees)")
+                logger.info(f"Fee rate: {fee_sat_vb} sat/vB (from API)")
+                logger.info(f"Estimated miner fee: ~{est_fee_btc} BTC")
                 logger.info(f"===========================")
                 
                 logger.info(f"Sending REAL Bitcoin transaction: {transaction_data}")
@@ -632,72 +677,82 @@ class PaymentService:
     def get_fiat_to_crypto_rate(self, crypto_symbol: str, fiat_symbol: str = 'USD') -> Decimal:
         """Get exchange rate from Crypto to Fiat (e.g. 1 BTC = ? USD)"""
         try:
-            # Normalize symbols
-            crypto_symbol = crypto_symbol.upper()
-            fiat_symbol = fiat_symbol.upper()
-            
-            # 1. Try to fetch from CoinGecko API (for accurate live rates)
+            crypto_symbol = (crypto_symbol or '').upper()
+            fiat_symbol = (fiat_symbol or 'USD').upper()
+
+            # 1. For BTC/XMR try Kraken first (no auth, stable); CoinGecko often rate-limits XMR
+            if fiat_symbol == 'USD' and crypto_symbol in ('BTC', 'XMR'):
+                try:
+                    pair_param = 'XBTUSD' if crypto_symbol == 'BTC' else 'XMRUSD'
+                    resp = requests.get(f"https://api.kraken.com/0/public/Ticker?pair={pair_param}", timeout=8)
+                    if resp.status_code == 200:
+                        j = resp.json()
+                        if not j.get("error") and "result" in j:
+                            for v in j["result"].values():
+                                if isinstance(v, dict) and "c" in v and isinstance(v["c"], (list, tuple)) and len(v["c"]) > 0:
+                                    price = Decimal(str(v["c"][0]))
+                                    if price > 0:
+                                        logger.info(f"Kraken rate for {crypto_symbol}: {price} {fiat_symbol}")
+                                        return price
+                except Exception as kraken_e:
+                    logger.warning(f"Kraken API failed ({kraken_e}), trying CoinGecko/DB")
+
+            # 2. CoinGecko
             try:
-                # Map symbol to CoinGecko ID
-                coingecko_ids = {
-                    'BTC': 'bitcoin',
-                    'XMR': 'monero',
-                    'LTC': 'litecoin',
-                    'ETH': 'ethereum',
-                    'USDT': 'tether'
-                }
-                
+                coingecko_ids = {'BTC': 'bitcoin', 'XMR': 'monero', 'LTC': 'litecoin', 'ETH': 'ethereum', 'USDT': 'tether'}
                 coin_id = coingecko_ids.get(crypto_symbol)
                 if coin_id:
                     url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies={fiat_symbol.lower()}"
-                    response = requests.get(url, timeout=5)
-                    
+                    response = requests.get(url, timeout=8)
                     if response.status_code == 200:
                         data = response.json()
                         if coin_id in data and fiat_symbol.lower() in data[coin_id]:
                             price = Decimal(str(data[coin_id][fiat_symbol.lower()]))
-                            
-                            # Prevent ZeroDivisionError or absurdly low prices
-                            if price <= 0:
-                                logger.warning(f"CoinGecko returned invalid price for {crypto_symbol}: {price}")
-                            else:
-                                # Update DB cache
+                            if price > 0:
                                 try:
                                     from shared.models import CryptoCurrency
-                                    crypto_obj = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
-                                    if crypto_obj:
-                                        crypto_obj.current_price = price
-                                        crypto_obj.save()
+                                    c = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
+                                    if c:
+                                        c.current_price = price
+                                        c.save(update_fields=['current_price'])
                                 except Exception as db_e:
                                     logger.warning(f"Failed to update crypto price in DB: {db_e}")
-                                    
-                                logger.info(f"Fetched live price for {crypto_symbol}: {price} {fiat_symbol}")
+                                logger.info(f"CoinGecko rate for {crypto_symbol}: {price} {fiat_symbol}")
                                 return price
             except Exception as api_e:
-                 logger.warning(f"CoinGecko API failed ({str(api_e)}), falling back to database")
+                logger.warning(f"CoinGecko API failed ({api_e}), trying DB/fallback")
 
-            # 2. Fallback to Database
-            from shared.models import CryptoCurrency
-            crypto = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
-            if crypto and crypto.current_price > 0:
-                logger.info(f"Using DB price for {crypto_symbol}: {crypto.current_price}")
-                return crypto.current_price
-                
-            # 3. Final Fallback (Hardcoded approximations as last resort)
+            # 3. Database
+            try:
+                from shared.models import CryptoCurrency
+                c = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
+                if c and getattr(c, 'current_price', None) and Decimal(str(c.current_price)) > 0:
+                    return Decimal(str(c.current_price))
+            except Exception as db_e:
+                logger.warning(f"DB rate failed ({db_e})")
+
+            # 4. Last-resort fallback (avoid "Failed to fetch rate" for known coins)
             fallbacks = {
-                'BTC': Decimal('98000'),  # Updated approximation
+                'BTC': Decimal('98000'),
                 'XMR': Decimal('165'),
                 'LTC': Decimal('110'),
                 'ETH': Decimal('2700'),
                 'USDT': Decimal('1')
             }
             price = fallbacks.get(crypto_symbol, Decimal('0'))
-            logger.warning(f"Using hardcoded fallback for {crypto_symbol}: {price}")
+            if price > 0:
+                logger.warning(f"Using last-resort fallback for {crypto_symbol}: {price}")
             return price
             
         except Exception as e:
             logger.error(f"Error getting fiat to crypto rate: {str(e)}")
-            return Decimal('0')
+            # Never return 0 for BTC/XMR so /rates/ never returns 503 for these
+            try:
+                sym = (crypto_symbol or '').upper() if isinstance(crypto_symbol, str) else ''
+            except Exception:
+                sym = 'BTC'
+            fallbacks = {'BTC': Decimal('98000'), 'XMR': Decimal('165')}
+            return fallbacks.get(sym, Decimal('0'))
     
     def create_payment_address(self, order_id: str, crypto_currency: str, 
                              amount: Decimal, payment_type: str = 'wallet',
@@ -1735,35 +1790,74 @@ class PaymentService:
             return {'error': str(e)}
 
     def get_fiat_to_crypto_rate(self, crypto_symbol: str, fiat_currency: str = 'USD') -> Optional[Decimal]:
-        """Get current exchange rate"""
+        """Get current exchange rate - delegates to main method with same signature"""
+        # Delegate to the main get_fiat_to_crypto_rate method (first one defined)
+        # This method signature matches but we want to use the updated one
         try:
-            # Try CoinGecko first (supports multiple coins)
-            coin_id_map = {'BTC': 'bitcoin', 'XMR': 'monero'}
-            coin_id = coin_id_map.get(crypto_symbol.upper())
-            
-            if coin_id:
-                url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies={fiat_currency.lower()}"
-                response = requests.get(url, timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    if coin_id in data and fiat_currency.lower() in data[coin_id]:
-                        rate = Decimal(str(data[coin_id][fiat_currency.lower()]))
-                        # Return price of 1 crypto in fiat
-                        return rate
-            
-            # Fallback for BTC -> CoinDesk
-            if crypto_symbol.upper() == 'BTC' and fiat_currency.upper() == 'USD':
-                response = requests.get('https://api.coindesk.com/v1/bpi/currentprice/USD.json', timeout=5)
-                if response.status_code == 200:
-                    return Decimal(str(response.json()['bpi']['USD']['rate_float']))
-            
-            # Fallback for XMR -> CryptoCompare (example) or just log error
-            
-            return None
+            # Use the same logic as the first method - call it via self
+            # But since Python uses the last definition, we need to duplicate the fixed logic here
+            crypto_symbol = (crypto_symbol or '').upper()
+            fiat_currency = (fiat_currency or 'USD').upper()
+
+            # 1. For BTC/XMR try Kraken first (no auth, stable)
+            if fiat_currency == 'USD' and crypto_symbol in ('BTC', 'XMR'):
+                try:
+                    pair_param = 'XBTUSD' if crypto_symbol == 'BTC' else 'XMRUSD'
+                    resp = requests.get(f"https://api.kraken.com/0/public/Ticker?pair={pair_param}", timeout=8)
+                    if resp.status_code == 200:
+                        j = resp.json()
+                        if not j.get("error") and "result" in j:
+                            for v in j["result"].values():
+                                if isinstance(v, dict) and "c" in v and isinstance(v["c"], (list, tuple)) and len(v["c"]) > 0:
+                                    price = Decimal(str(v["c"][0]))
+                                    if price > 0:
+                                        logger.info(f"Kraken rate for {crypto_symbol}: {price} {fiat_currency}")
+                                        return price
+                except Exception as kraken_e:
+                    logger.warning(f"Kraken API failed ({kraken_e}), trying CoinGecko/DB")
+
+            # 2. CoinGecko
+            try:
+                coingecko_ids = {'BTC': 'bitcoin', 'XMR': 'monero', 'LTC': 'litecoin', 'ETH': 'ethereum', 'USDT': 'tether'}
+                coin_id = coingecko_ids.get(crypto_symbol)
+                if coin_id:
+                    url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies={fiat_currency.lower()}"
+                    response = requests.get(url, timeout=8)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if coin_id in data and fiat_currency.lower() in data[coin_id]:
+                            price = Decimal(str(data[coin_id][fiat_currency.lower()]))
+                            if price > 0:
+                                logger.info(f"CoinGecko rate for {crypto_symbol}: {price} {fiat_currency}")
+                                return price
+            except Exception as api_e:
+                logger.warning(f"CoinGecko API failed ({api_e}), trying DB/fallback")
+
+            # 3. Database
+            try:
+                from shared.models import CryptoCurrency
+                c = CryptoCurrency.objects.filter(symbol=crypto_symbol).first()
+                if c and getattr(c, 'current_price', None) and Decimal(str(c.current_price)) > 0:
+                    return Decimal(str(c.current_price))
+            except Exception as db_e:
+                logger.warning(f"DB rate failed ({db_e})")
+
+            # 4. Last-resort fallback
+            fallbacks = {'BTC': Decimal('98000'), 'XMR': Decimal('165'), 'LTC': Decimal('110'), 'ETH': Decimal('2700'), 'USDT': Decimal('1')}
+            price = fallbacks.get(crypto_symbol, Decimal('0'))
+            if price > 0:
+                logger.warning(f"Using last-resort fallback for {crypto_symbol}: {price}")
+            return price
             
         except Exception as e:
-            logger.error(f"Error fetching exchange rate: {e}")
-            return None
+            logger.error(f"Error getting fiat to crypto rate: {str(e)}")
+            # Never return None/0 for BTC/XMR so /rates/ never returns 503
+            try:
+                sym = (crypto_symbol or '').upper() if isinstance(crypto_symbol, str) else ''
+            except Exception:
+                sym = 'BTC'
+            fallbacks = {'BTC': Decimal('98000'), 'XMR': Decimal('165')}
+            return fallbacks.get(sym, Decimal('0'))
 
     
     def release_escrow(self, order_id: str, released_by_user_id: int, admin_override: bool = False) -> bool:

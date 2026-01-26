@@ -4,7 +4,7 @@ from datetime import timedelta
 from decimal import Decimal
 import logging
 
-from .services import PayoutService
+from .services import PayoutService, get_btc_estimated_miner_fee_btc, PaymentService
 from .models import DirectPayment
 from .direct_payment_monitor import direct_payment_monitor
 
@@ -157,10 +157,13 @@ def process_non_escrow_payout(self, order_id: str):
         if not vendor_payout_address or vendor_payout_address == "MISSING_ADDRESS":
              return f"Vendor {vendor.username} has no {crypto_symbol} payout address. Payout held."
         
-        # Only process if not already completed
+        # Only process if not already completed or permanently failed
         if direct_payment.status in ['completed', 'processing']:
             logger.info(f"Direct payment for order {order_id} already processed")
             return f"Direct payment for order {order_id} already processed"
+        if direct_payment.status == 'failed':
+            logger.info(f"Direct payment for order {order_id} already marked failed (e.g. dust), skipping")
+            return f"Direct payment for order {order_id} already failed, skipping"
         
         # Mark as processing
         direct_payment.status = 'processing'
@@ -194,12 +197,19 @@ def process_non_escrow_payout(self, order_id: str):
         # Calculate net amount before miner fees
         net_amount = amount - platform_fee - escrow_fee
         
-        # CRITICAL FIX: For small amounts, miner fees can eat up most of the payout
-        # BTCPay uses subtractFeesFromAmount=True, which deducts miner fees from net_amount
-        # Estimate miner fees (typically 0.00001-0.00005 BTC for normal transactions)
-        # If net_amount is too small after estimated miner fees, reduce platform fee
-        estimated_miner_fee = Decimal('0.00005')  # Conservative estimate: ~$2-3 USD
-        min_vendor_receive = Decimal('0.00001')  # Minimum vendor should receive (~$0.40 USD)
+        # ALWAYS use live API fee for BTC - never hardcode
+        if crypto_symbol == 'BTC':
+            fee_btc = get_btc_estimated_miner_fee_btc()
+            if fee_btc is None:
+                logger.error("⚠️ WARNING: mempool.space API failed for BTC fee, using minimal fallback 0.00002 BTC")
+                estimated_miner_fee = Decimal('0.00002')  # Minimal fallback ONLY when API fails
+            else:
+                estimated_miner_fee = fee_btc
+                logger.info(f"✅ Using API BTC fee: {estimated_miner_fee} BTC")
+        else:
+            # XMR fees are tiny and stable (~0.0001 XMR), no API needed
+            estimated_miner_fee = Decimal('0.0001')
+        min_vendor_receive = Decimal('0.00001')
         
         if net_amount - estimated_miner_fee < min_vendor_receive:
             # Reduce platform fee to ensure vendor gets reasonable amount
@@ -236,9 +246,10 @@ def process_non_escrow_payout(self, order_id: str):
         logger.info(f"Estimated miner fee: {estimated_miner_fee} {crypto_symbol} (~$0.50-2.50 USD)")
         logger.info(f"EXPECTED VENDOR RECEIVE (after miner fees): {net_amount - estimated_miner_fee} {crypto_symbol}")
         
-        # USD equivalent (approximate, using BTC ~$40k, XMR ~$2000)
-        btc_price = Decimal('40000')
-        xmr_price = Decimal('2000')
+        # USD equivalent from rates API (no hardcoded prices)
+        svc = PaymentService()
+        btc_price = svc.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000')
+        xmr_price = svc.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165')
         price = btc_price if crypto_symbol == 'BTC' else xmr_price
         
         logger.info(f"USD Equivalents (approx):")
@@ -248,6 +259,21 @@ def process_non_escrow_payout(self, order_id: str):
         logger.info(f"  Expected vendor receive: ${(net_amount - estimated_miner_fee) * price:.2f} USD")
         logger.info(f"VENDOR PAYOUT ADDRESS: {vendor_payout_address}")
         logger.info(f"-------------------------------------------")
+        
+        # Dust check: if miner fee >= net_amount, vendor would receive <= 0 — never retry
+        expected_vendor_receive = net_amount - estimated_miner_fee
+        if expected_vendor_receive <= 0:
+            direct_payment.status = 'failed'
+            direct_payment.save()
+            logger.error(
+                f"DUST PAYOUT SKIPPED (no retries): order {order_id}. "
+                f"Net={net_amount} {crypto_symbol}, miner_fee~{estimated_miner_fee} → vendor would receive {expected_vendor_receive}. "
+                f"Order amount is below minimum (fee exceeds payout). Refund buyer or add wallet balance and retry manually."
+            )
+            return (
+                f"Dust payout impossible for order {order_id}: net {net_amount} - fee ~{estimated_miner_fee} ≤ 0. "
+                f"Marked failed. Refund buyer or top up BTCPay wallet and retry manually."
+            )
         
         # Send to vendor
         payout_service = PayoutService()

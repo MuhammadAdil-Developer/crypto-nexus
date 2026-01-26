@@ -121,7 +121,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DB_NAME', 'accountzclub'),
         'USER': os.environ.get('DB_USER', 'admin'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'admin123'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'OopsDropDB#1'),
         'HOST': os.environ.get('DB_HOST', '88.99.143.151'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }

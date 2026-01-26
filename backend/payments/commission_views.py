@@ -7,6 +7,7 @@ from decimal import Decimal
 import logging
 
 from .commission_models import CommissionSettings, VendorFee
+from .services import PaymentService
 
 logger = logging.getLogger(__name__)
 
@@ -110,9 +111,11 @@ class CommissionHistoryView(APIView):
             from datetime import timedelta
             import calendar
             
-            # Get query parameters
-            period = request.query_params.get('period', 'all')  # all, month, year
+            period = request.query_params.get('period', 'all')
             vendor_id = request.query_params.get('vendor_id')
+            ps = PaymentService()
+            btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
+            xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             
             # Calculate date range
             now = timezone.now()
@@ -152,14 +155,15 @@ class CommissionHistoryView(APIView):
                 for item in escrow_commissions:
                     if item['total_sales'] and item['total_commission'] and item['total_sales'] > 0:
                         commission_rate = (item['total_commission'] / item['total_sales']) * 100
-                        
+                        sym = (item.get('crypto_currency__symbol') or 'BTC')
+                        rate = btc_rate if sym == 'BTC' else xmr_rate
                         commission_history.append({
                             'vendor': item['vendor__username'] or 'Unknown Vendor',
                             'period': period.title() if period != 'all' else 'All Time',
                             'total_sales': f"{item['total_sales']:.8f} {item['crypto_currency__symbol'] or 'BTC'}",
                             'commission_rate': f"{commission_rate:.2f}%",
                             'commission_earned': f"{item['total_commission']:.8f} {item['crypto_currency__symbol'] or 'BTC'}",
-                            'usd_value': f"${item['total_commission'] * 40000:.2f}",  # Mock USD conversion
+                            'usd_value': f"${item['total_commission'] * rate:.2f}",
                             'status': 'Paid Out',
                             'order_count': item['order_count'],
                             'type': 'escrow'
@@ -178,14 +182,15 @@ class CommissionHistoryView(APIView):
                 for item in direct_commissions:
                     if item['total_sales'] and item['total_commission'] and item['total_sales'] > 0:
                         commission_rate = (item['total_commission'] / item['total_sales']) * 100
-                        
+                        sym = (item.get('crypto_currency__symbol') or 'BTC')
+                        rate = btc_rate if sym == 'BTC' else xmr_rate
                         commission_history.append({
                             'vendor': item['vendor__username'] or 'Unknown Vendor',
                             'period': period.title() if period != 'all' else 'All Time',
                             'total_sales': f"{item['total_sales']:.8f} {item['crypto_currency__symbol'] or 'BTC'}",
                             'commission_rate': f"{commission_rate:.2f}%",
                             'commission_earned': f"{item['total_commission']:.8f} {item['crypto_currency__symbol'] or 'BTC'}",
-                            'usd_value': f"${item['total_commission'] * 40000:.2f}",  # Mock USD conversion
+                            'usd_value': f"${item['total_commission'] * rate:.2f}",
                             'status': 'Paid Out',
                             'order_count': item['order_count'],
                             'type': 'direct'

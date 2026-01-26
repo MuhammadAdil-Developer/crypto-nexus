@@ -1,7 +1,19 @@
 import os
+from pathlib import Path
 from celery import Celery
 from celery.schedules import crontab
 import ssl
+
+# Load backend .env before Django so Celery always has DB_PASSWORD etc.
+# (Celery may be started from project root or PM2/Docker where .env isn't loaded)
+try:
+    import environ
+    _backend_dir = Path(__file__).resolve().parent.parent
+    _env_path = _backend_dir / '.env'
+    if _env_path.exists():
+        environ.Env().read_env(str(_env_path))
+except Exception:
+    pass
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cryptonexus.settings')

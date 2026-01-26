@@ -18,6 +18,7 @@ import { OrderProductModal } from "./OrderProductModal";
 import { useToast } from "@/hooks/use-toast";
 import { formatCryptoAmountInString } from "@/lib/utils";
 import { useCryptoPrices } from "@/contexts/PriceContext";
+import { CRYPTO_PRICES } from "@/lib/priceUtils";
 import { getApiUrl } from "@/config/api";
 import { ReviewModal } from "./ReviewModal";
 import { RequestRefundModal } from "./RequestRefundModal";
@@ -118,12 +119,12 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
       return { crypto: 0, usd: 0, currency };
     }
 
-    // Default rates if we need to convert USD -> Crypto
+    // Use API rates from PriceContext; fallback only when API has not loaded yet
     const rates: Record<string, number> = {
-      'BTC': btcPrice || 100000,
-      'XMR': xmrPrice || 170
+      'BTC': btcPrice || CRYPTO_PRICES.BTC,
+      'XMR': xmrPrice || CRYPTO_PRICES.XMR
     };
-    const rate = rates[currency] || (rates['BTC'] || 100000);
+    const rate = rates[currency] || rates['BTC'] || CRYPTO_PRICES.BTC;
 
     let cryptoAmount = amount;
     let usdAmount = amount * rate;

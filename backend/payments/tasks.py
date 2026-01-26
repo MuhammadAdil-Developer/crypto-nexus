@@ -145,7 +145,10 @@ def process_non_escrow_payout(self, order_id: str):
                 'crypto_currency': payment_address.crypto_currency,
                 'amount': payment_address.received_amount or payment_address.expected_amount,
                 'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
-                'status': 'pending'
+                'status': 'pending',
+                'platform_fee': Decimal('0'),  # Will be calculated below
+                'escrow_fee': Decimal('0'),
+                'net_amount': Decimal('0')  # Will be calculated below
             }
         )
         
@@ -153,6 +156,31 @@ def process_non_escrow_payout(self, order_id: str):
         if direct_payment.vendor_address == "MISSING_ADDRESS" and vendor_payout_address:
             direct_payment.vendor_address = vendor_payout_address
             direct_payment.save()
+        
+        # CRITICAL: If this is an existing payment, verify fees were calculated correctly
+        if not created:
+            # Check if fees were already calculated by webhook
+            if direct_payment.platform_fee > 0 and direct_payment.net_amount < direct_payment.amount:
+                # Fees already calculated - verify they're correct
+                logger.info(f"✅ Fees already calculated: platform_fee={direct_payment.platform_fee}, net_amount={direct_payment.net_amount}")
+                # Verify amount is received_amount, not expected_amount
+                if direct_payment.amount > payment_address.received_amount > 0:
+                    logger.warning(f"⚠️ direct_payment.amount ({direct_payment.amount}) > received_amount ({payment_address.received_amount})")
+                    logger.warning(f"Updating to received_amount and recalculating fees...")
+                    direct_payment.amount = payment_address.received_amount
+                    created = False  # Force recalculation with correct amount
+                else:
+                    # Fees look correct, use them
+                    logger.info(f"✅ Using existing fees from webhook")
+                    # Skip fee calculation, use existing values
+                    if direct_payment.status not in ['completed', 'processing']:
+                        # Still need to send, but fees are already calculated
+                        pass
+            elif direct_payment.platform_fee == 0 or direct_payment.net_amount >= direct_payment.amount:
+                logger.error(f"❌ CRITICAL: Existing payment {direct_payment.id} has platform_fee={direct_payment.platform_fee}, net_amount={direct_payment.net_amount}, amount={direct_payment.amount}")
+                logger.error(f"Platform fee was NOT deducted! Recalculating fees...")
+                # Force recalculation
+                created = False  # Will trigger fee recalculation below
 
         if not vendor_payout_address or vendor_payout_address == "MISSING_ADDRESS":
              return f"Vendor {vendor.username} has no {crypto_symbol} payout address. Payout held."
@@ -173,12 +201,32 @@ def process_non_escrow_payout(self, order_id: str):
         from .commission_models import CommissionSettings, VendorFee
         commission_settings = CommissionSettings.get_settings()
         
+        # CRITICAL: Verify commission settings exist and have valid rate
+        if not commission_settings:
+            logger.error("❌ CRITICAL: CommissionSettings not found! Cannot calculate platform fee.")
+            raise ValueError("CommissionSettings not configured")
+        
+        if commission_settings.platform_fee_rate <= 0:
+            logger.error(f"❌ CRITICAL: platform_fee_rate in settings is {commission_settings.platform_fee_rate}% (should be > 0)")
+            raise ValueError(f"Invalid platform_fee_rate: {commission_settings.platform_fee_rate}%")
+        
         # Check for vendor-specific commission rate
         vendor_custom_rate = VendorFee.get_vendor_fee(vendor)
         if vendor_custom_rate is not None:
+            if vendor_custom_rate <= 0:
+                logger.error(f"❌ CRITICAL: vendor_custom_rate is {vendor_custom_rate}% (should be > 0)")
+                raise ValueError(f"Invalid vendor_custom_rate: {vendor_custom_rate}%")
             platform_fee_rate = vendor_custom_rate / Decimal('100')
+            logger.info(f"Using vendor-specific rate: {vendor_custom_rate}%")
         else:
             platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+            logger.info(f"Using platform default rate: {commission_settings.platform_fee_rate}%")
+        
+        # CRITICAL: Final verification of platform_fee_rate
+        if platform_fee_rate <= 0:
+            logger.error(f"❌ CRITICAL: Calculated platform_fee_rate is {platform_fee_rate} (should be > 0)")
+            logger.error(f"Commission settings: {commission_settings.platform_fee_rate}%, Vendor custom: {vendor_custom_rate}")
+            raise ValueError(f"Platform fee rate is zero or negative: {platform_fee_rate}")
             
         escrow_fee_rate = Decimal('0') # No escrow fee for direct orders
         
@@ -200,22 +248,72 @@ def process_non_escrow_payout(self, order_id: str):
         else:
             logger.warning(f"received_amount is 0, using expected_amount ({amount}) - buyer may not have paid yet")
         
-        # Update direct_payment.amount to match what we actually received
+        # CRITICAL: ALWAYS update direct_payment.amount to received_amount BEFORE calculating fees
+        # This ensures platform fee is calculated on what we actually received, not expected_amount
         if direct_payment.amount != amount:
-            logger.info(f"Updating direct_payment.amount from {direct_payment.amount} to {amount} (actual received)")
+            logger.info(f"🔄 Updating direct_payment.amount from {direct_payment.amount} to {amount} (received_amount)")
             direct_payment.amount = amount
             direct_payment.save(update_fields=['amount'])
+        else:
+            logger.info(f"✅ direct_payment.amount already correct: {amount}")
         
+        # CRITICAL VERIFICATION: Ensure amount is received_amount, not expected_amount
+        if amount >= payment_address.expected_amount:
+            logger.error(f"❌ CRITICAL: amount ({amount}) >= expected_amount ({payment_address.expected_amount})!")
+            logger.error(f"This means we're using expected_amount instead of received_amount!")
+            logger.error(f"received_amount: {payment_address.received_amount}")
+            if payment_address.received_amount > 0:
+                amount = payment_address.received_amount
+                direct_payment.amount = amount
+                direct_payment.save(update_fields=['amount'])
+                logger.error(f"✅ CORRECTED: Using received_amount {amount} instead")
+            else:
+                raise ValueError(f"Cannot calculate fees: received_amount is 0, expected_amount is {payment_address.expected_amount}")
+        
+        # CRITICAL: Verify platform_fee_rate is not zero
+        if platform_fee_rate <= 0:
+            logger.error(f"❌ CRITICAL: platform_fee_rate is {platform_fee_rate} (should be > 0)!")
+            logger.error(f"Commission settings: {commission_settings.platform_fee_rate}%")
+            logger.error(f"Vendor custom rate: {vendor_custom_rate}")
+            raise ValueError(f"Platform fee rate is zero or negative: {platform_fee_rate}")
+        
+        # CRITICAL: Calculate platform fee with detailed logging
         platform_fee = amount * platform_fee_rate
         escrow_fee = amount * escrow_fee_rate
         
+        logger.info(f"💰 PLATFORM FEE CALCULATION:")
+        logger.info(f"   Vendor: {vendor.username}")
+        logger.info(f"   Amount (received): {amount} {crypto_symbol}")
+        logger.info(f"   Vendor custom rate: {vendor_custom_rate}%")
+        logger.info(f"   Platform default rate: {commission_settings.platform_fee_rate}%")
+        logger.info(f"   Platform fee rate used: {platform_fee_rate} ({platform_fee_rate * 100}%)")
+        logger.info(f"   Calculated platform_fee: {amount} * {platform_fee_rate} = {platform_fee} {crypto_symbol}")
+        logger.info(f"   Escrow fee: {escrow_fee} {crypto_symbol}")
+        
+        # CRITICAL TEST: Verify calculation manually
+        test_calc = amount * platform_fee_rate
+        if abs(platform_fee - test_calc) > Decimal('0.00000001'):
+            logger.error(f"❌ CALCULATION MISMATCH: platform_fee ({platform_fee}) != {amount} * {platform_fee_rate} ({test_calc})")
+            platform_fee = test_calc
+            logger.error(f"✅ CORRECTED platform_fee: {platform_fee}")
+        
+        # CRITICAL: Verify platform fee was calculated
+        if platform_fee <= 0:
+            logger.error(f"❌ CRITICAL: platform_fee is {platform_fee} (should be > 0)!")
+            logger.error(f"Amount: {amount}, Rate: {platform_fee_rate}, Calculated: {amount * platform_fee_rate}")
+            logger.error(f"Vendor: {vendor.username}, Custom rate: {vendor_custom_rate}, Default rate: {commission_settings.platform_fee_rate}%")
+            raise ValueError(f"Platform fee calculation resulted in zero: {platform_fee}")
+        
         # Check if platform_fee is dust (approx 600 sats)
-        # If it is dust, we MUST sweep the whole amount to the vendor to avoid "not enough funds" / dusty change error
-        # 0.00000600 BTC is safe margin for dust
+        # CRITICAL: Only set to 0 if it's truly dust AND we can't collect it
+        # Otherwise, we MUST collect platform fee even if small
         dust_threshold = Decimal('0.00000600')
         if platform_fee > 0 and platform_fee < dust_threshold:
-            logger.info(f"Platform fee {platform_fee} is below dust threshold {dust_threshold}. Sweeping entire amount to vendor.")
-            platform_fee = Decimal('0')
+            logger.warning(f"⚠️ Platform fee {platform_fee} is below dust threshold {dust_threshold}")
+            logger.warning(f"   This is very small - but we should still try to collect it")
+            logger.warning(f"   NOT setting to 0 - keeping platform_fee = {platform_fee}")
+            # DO NOT set to 0 - keep the fee even if small
+            # platform_fee = Decimal('0')  # REMOVED - we should collect even small fees
         
         # Calculate net amount before miner fees
         net_amount = amount - platform_fee - escrow_fee
@@ -253,6 +351,13 @@ def process_non_escrow_payout(self, order_id: str):
         logger.info(f"Expected vendor receive: {net_amount - estimated_miner_fee} (after miner fees)")
         logger.info(f"💰 FEE FLOW: Buyer sent {payment_address.expected_amount} → {amount} received (after buyer's network fee) → Platform fee on {amount} → Vendor gets {net_amount} → Network fee deducted from {net_amount} → Vendor receives {net_amount - estimated_miner_fee}")
         
+        # CRITICAL: Verify net_amount calculation before saving
+        calculated_net = amount - platform_fee - escrow_fee
+        if abs(net_amount - calculated_net) > Decimal('0.00000001'):  # Allow tiny floating point differences
+            logger.error(f"❌ CALCULATION ERROR: net_amount ({net_amount}) != calculated ({calculated_net})")
+            logger.error(f"Recalculating: {amount} - {platform_fee} - {escrow_fee} = {calculated_net}")
+            net_amount = calculated_net
+        
         # Update direct payment with fees
         direct_payment.platform_fee = platform_fee
         direct_payment.escrow_fee = escrow_fee
@@ -260,6 +365,14 @@ def process_non_escrow_payout(self, order_id: str):
         direct_payment.transaction_hash = payment_address.transaction_hash
         direct_payment.confirmed_at = payment_address.confirmed_at or timezone.now()
         direct_payment.save()
+        
+        # CRITICAL VERIFICATION: Log what we're about to send
+        logger.info(f"✅ VERIFICATION: About to send {net_amount} {crypto_symbol} to vendor")
+        logger.info(f"   Gross: {amount}, Platform Fee: {platform_fee}, Escrow Fee: {escrow_fee}")
+        logger.info(f"   Net: {net_amount} = {amount} - {platform_fee} - {escrow_fee}")
+        if net_amount >= amount:
+            logger.error(f"❌ CRITICAL: net_amount ({net_amount}) >= gross ({amount}) - PLATFORM FEE NOT DEDUCTED!")
+            raise ValueError(f"Platform fee not deducted! net_amount ({net_amount}) should be less than gross ({amount})")
         
         logger.info(f"--- FEE CALCULATION FOR ORDER {order_id} ---")
         logger.info(f"Gross Amount: {amount} {crypto_symbol}")
@@ -304,6 +417,24 @@ def process_non_escrow_payout(self, order_id: str):
         # Network fee will be deducted from net_amount by BTCPay (subtractFeesFromAmount=True)
         logger.info(f"📤 SENDING TO VENDOR: {net_amount} {crypto_symbol} (network fee ~{estimated_miner_fee} will be deducted from this)")
         logger.info(f"💰 FINAL VENDOR RECEIVE: {expected_vendor_receive} {crypto_symbol} (after network fee)")
+        
+        # CRITICAL FINAL CHECK: Before sending, reload from DB to ensure we have latest values
+        direct_payment.refresh_from_db()
+        if direct_payment.net_amount != net_amount:
+            logger.warning(f"⚠️ net_amount mismatch: calculated={net_amount}, DB={direct_payment.net_amount}")
+            logger.warning(f"Using DB value: {direct_payment.net_amount}")
+            net_amount = direct_payment.net_amount
+        
+        # CRITICAL: Final verification before sending
+        if net_amount >= direct_payment.amount:
+            logger.error(f"❌ CRITICAL ERROR BEFORE SEND: net_amount ({net_amount}) >= gross ({direct_payment.amount})!")
+            logger.error(f"Platform fee: {direct_payment.platform_fee}, Escrow fee: {direct_payment.escrow_fee}")
+            logger.error(f"ABORTING PAYOUT - Platform fee was not deducted!")
+            direct_payment.status = 'failed'
+            direct_payment.save()
+            raise ValueError(f"Cannot send payout: net_amount ({net_amount}) >= gross ({direct_payment.amount}). Platform fee not deducted!")
+        
+        logger.info(f"✅ FINAL VERIFICATION PASSED: Sending {net_amount} {crypto_symbol} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee})")
         
         # Send to vendor
         payout_service = PayoutService()

@@ -425,10 +425,14 @@ class VendorMyFeeView(APIView):
                 commission_rate = None
                 uses_default = True
             
+            # Always return a valid commission_rate (never null)
+            final_rate = commission_rate if commission_rate is not None else default_rate
+            logger.info(f"Vendor {vendor.username} fee: {final_rate}% (custom: {commission_rate}%, default: {default_rate}%, uses_default: {uses_default})")
+            
             return Response({
                 'success': True,
                 'data': {
-                    'commission_rate': commission_rate if commission_rate is not None else default_rate,
+                    'commission_rate': final_rate,  # Always a number, never null
                     'default_rate': default_rate,
                     'uses_default': uses_default,
                     'is_custom': commission_rate is not None

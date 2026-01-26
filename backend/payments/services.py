@@ -844,15 +844,20 @@ class PaymentService:
                     payment_address.save()
                     
                     # Create direct payment record with vendor address for payout
+                    # NOTE: amount here is expected_amount (what buyer should send)
+                    # When payment is received, direct_payment.amount will be updated to received_amount
                     from .models import DirectPayment
                     DirectPayment.objects.create(
                         order=order,
                         vendor=order.product.vendor,
                         buyer=order.buyer,
                         crypto_currency=crypto,
-                        amount=amount,
-                        vendor_address=vendor_address,  # Store vendor address for payout
-                        expires_at=timezone.now() + timedelta(hours=24)
+                        amount=amount,  # This is expected_amount initially, will be updated to received_amount when payment arrives
+                        vendor_address=vendor_address,
+                        expires_at=timezone.now() + timedelta(hours=24),
+                        platform_fee=Decimal('0'),  # Will be calculated when payment is received
+                        escrow_fee=Decimal('0'),
+                        net_amount=Decimal('0')  # Will be calculated when payment is received
                     )
                     
                     logger.info(f"Direct BTC invoice created for order {order_id}: {btcpay_invoice_id}")
@@ -899,15 +904,20 @@ class PaymentService:
                             raise Exception("Vendor XMR address not found")
                         
                         # Create direct payment record with vendor address for payout
+                        # NOTE: amount here is expected_amount (what buyer should send)
+                        # When payment is received, direct_payment.amount will be updated to received_amount
                         from .models import DirectPayment
                         DirectPayment.objects.create(
                             order=order,
                             vendor=order.product.vendor,
                             buyer=order.buyer,
                             crypto_currency=crypto,
-                            amount=amount,
-                            vendor_address=vendor_address,  # Store vendor address for payout
-                            expires_at=timezone.now() + timedelta(hours=24)
+                            amount=amount,  # This is expected_amount initially, will be updated to received_amount when payment arrives
+                            vendor_address=vendor_address,
+                            expires_at=timezone.now() + timedelta(hours=24),
+                            platform_fee=Decimal('0'),  # Will be calculated when payment is received
+                            escrow_fee=Decimal('0'),
+                            net_amount=Decimal('0')  # Will be calculated when payment is received
                         )
                         
                         logger.info(f"Direct XMR subaddress created for order {order_id}: {subaddress_data['address']}")
@@ -1308,17 +1318,68 @@ class PaymentService:
             else:
                 logger.warning(f"received_amount is 0, using expected_amount ({amount})")
             
-            # Update direct_payment.amount to actual received
+            # CRITICAL: ALWAYS update direct_payment.amount to received_amount BEFORE calculating fees
+            # This ensures platform fee is calculated on what we actually received, not expected_amount
             if direct_payment.amount != amount:
+                logger.info(f"🔄 Updating direct_payment.amount from {direct_payment.amount} to {amount} (received_amount)")
                 direct_payment.amount = amount
                 direct_payment.save(update_fields=['amount'])
+            else:
+                logger.info(f"✅ direct_payment.amount already correct: {amount}")
+            
+            # CRITICAL VERIFICATION: Ensure amount is received_amount, not expected_amount
+            if amount >= payment_address.expected_amount:
+                logger.error(f"❌ CRITICAL: amount ({amount}) >= expected_amount ({payment_address.expected_amount})!")
+                logger.error(f"This means we're using expected_amount instead of received_amount!")
+                logger.error(f"received_amount: {payment_address.received_amount}")
+                if payment_address.received_amount > 0:
+                    amount = payment_address.received_amount
+                    direct_payment.amount = amount
+                    direct_payment.save(update_fields=['amount'])
+                    logger.error(f"✅ CORRECTED: Using received_amount {amount} instead")
+                else:
+                    raise ValueError(f"Cannot calculate fees: received_amount is 0, expected_amount is {payment_address.expected_amount}")
             
             escrow_fee_rate = Decimal('0') # Escrow fee is 0 for direct payments
+            
+            # CRITICAL: Verify platform_fee_rate is not zero
+            if platform_fee_rate <= 0:
+                logger.error(f"❌ CRITICAL: platform_fee_rate is {platform_fee_rate} (should be > 0)!")
+                logger.error(f"Commission settings rate: {commission_settings.platform_fee_rate}%")
+                raise ValueError(f"Platform fee rate is zero or negative: {platform_fee_rate}")
+            
+            # CRITICAL: Calculate platform fee with detailed logging
             platform_fee = amount * platform_fee_rate
             escrow_fee = amount * escrow_fee_rate
+            
+            logger.info(f"💰 PLATFORM FEE CALCULATION (Webhook):")
+            logger.info(f"   Vendor: {order.product.vendor.username}")
+            logger.info(f"   Amount (received): {amount}")
+            logger.info(f"   Vendor custom rate: {vendor_custom_rate}%")
+            logger.info(f"   Platform default rate: {commission_settings.platform_fee_rate}%")
+            logger.info(f"   Platform fee rate used: {platform_fee_rate} ({platform_fee_rate * 100}%)")
+            logger.info(f"   Calculated platform_fee: {amount} * {platform_fee_rate} = {platform_fee}")
+            logger.info(f"   Escrow fee: {escrow_fee}")
+            
+            # CRITICAL: Verify platform fee was calculated
+            if platform_fee <= 0:
+                logger.error(f"❌ CRITICAL: platform_fee is {platform_fee} (should be > 0)!")
+                logger.error(f"Amount: {amount}, Rate: {platform_fee_rate}, Calculated: {amount * platform_fee_rate}")
+                logger.error(f"Vendor: {order.product.vendor.username}, Custom rate: {vendor_custom_rate}, Default: {commission_settings.platform_fee_rate}%")
+                raise ValueError(f"Platform fee calculation resulted in zero: {platform_fee}")
+            
             net_amount = amount - platform_fee - escrow_fee
             
+            # CRITICAL VERIFICATION: Ensure platform fee is actually deducted
+            if net_amount >= amount:
+                logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) >= gross amount ({amount})!")
+                logger.error(f"Platform fee calculation failed! Recalculating...")
+                net_amount = amount - platform_fee - escrow_fee
+                if net_amount >= amount:
+                    raise ValueError(f"Platform fee not deducted! net_amount ({net_amount}) >= gross ({amount})")
+            
             logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
+            logger.info(f"✅ VERIFICATION: net_amount ({net_amount}) = gross ({amount}) - platform_fee ({platform_fee}) - escrow_fee ({escrow_fee})")
             
             # Update direct payment record with fees
             direct_payment.platform_fee = platform_fee
@@ -1338,6 +1399,7 @@ class PaymentService:
             except Exception as e:
                 logger.error(f"Failed to trigger payout task: {str(e)}")
                 # Fallback to direct call if task queue fails
+                logger.info(f"⚠️ Using fallback direct send with net_amount: {net_amount}")
                 from .services import PayoutService
                 PayoutService()._send_direct_payment_to_vendor(direct_payment, net_amount)
             
@@ -1992,15 +2054,66 @@ class PayoutService:
             vendor_address = direct_payment.vendor_address
             crypto_currency = direct_payment.crypto_currency.symbol
             
+            # ============================================================
+            # CRITICAL VERIFICATION: Ensure we're sending net_amount, NOT gross amount
+            # ============================================================
+            # net_amount MUST be: gross_amount - platform_fee - escrow_fee
+            # We MUST send net_amount, NOT direct_payment.amount (which is gross)
+            # ============================================================
+            
+            # Step 1: Use net_amount from DB if parameter doesn't match
+            if net_amount != direct_payment.net_amount:
+                logger.error(f"⚠️ MISMATCH: net_amount parameter ({net_amount}) != direct_payment.net_amount ({direct_payment.net_amount})")
+                logger.error(f"Using direct_payment.net_amount from DB: {direct_payment.net_amount}")
+                net_amount = direct_payment.net_amount
+            
+            # Step 2: CRITICAL - Verify net_amount < gross amount (platform fee was deducted)
+            if net_amount >= direct_payment.amount:
+                logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) >= gross amount ({direct_payment.amount})!")
+                logger.error(f"This means platform fee was NOT deducted!")
+                logger.error(f"Platform fee in DB: {direct_payment.platform_fee}")
+                logger.error(f"Escrow fee in DB: {direct_payment.escrow_fee}")
+                logger.error(f"Recalculating: net_amount = {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee}")
+                net_amount = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
+                if net_amount >= direct_payment.amount:
+                    logger.error(f"❌ STILL WRONG: Recalculated net_amount ({net_amount}) >= gross ({direct_payment.amount})!")
+                    logger.error(f"ABORTING - Cannot send payout without platform fee deduction!")
+                    direct_payment.status = 'failed'
+                    direct_payment.save()
+                    raise ValueError(f"Cannot send: net_amount ({net_amount}) >= gross ({direct_payment.amount}). Platform fee not deducted!")
+                logger.error(f"✅ CORRECTED net_amount: {net_amount}")
+            
+            # Step 3: Final verification - net_amount should be gross - platform_fee - escrow_fee
+            expected_net = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
+            if abs(net_amount - expected_net) > Decimal('0.00000001'):
+                logger.warning(f"⚠️ net_amount ({net_amount}) doesn't match expected ({expected_net})")
+                logger.warning(f"Using expected value: {expected_net}")
+                net_amount = expected_net
+            
+            # Step 4: CRITICAL - Log what we're about to send
+            logger.info(f"✅ VERIFIED: Sending net_amount = {net_amount} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee}, escrow_fee: {direct_payment.escrow_fee})")
+            logger.info(f"   Platform fee WAS deducted: {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee} = {net_amount}")
+            
+            # CRITICAL: Reload from DB to ensure we have latest values
+            direct_payment.refresh_from_db()
+            
+            # Recalculate net_amount from latest DB values to be 100% sure
+            calculated_net = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
+            if abs(net_amount - calculated_net) > Decimal('0.00000001'):
+                logger.warning(f"⚠️ net_amount parameter ({net_amount}) != calculated from DB ({calculated_net})")
+                logger.warning(f"Using calculated value from DB: {calculated_net}")
+                net_amount = calculated_net
+            
             logger.info("=== DIRECT PAYOUT EXECUTION ===")
             logger.info(f"Order: {direct_payment.order.order_id}")
             logger.info(f"Vendor: {direct_payment.vendor.username}")
             logger.info(f"Currency: {crypto_currency}")
-            logger.info(f"Gross Amount: {direct_payment.amount}")
-            logger.info(f"Platform Fee: {direct_payment.platform_fee}")
-            logger.info(f"Escrow Fee: {direct_payment.escrow_fee}")
-            logger.info(f"NET PAYOUT TO VENDOR: {net_amount}")
+            logger.info(f"Gross Amount (received): {direct_payment.amount}")
+            logger.info(f"Platform Fee (deducted): {direct_payment.platform_fee}")
+            logger.info(f"Escrow Fee (deducted): {direct_payment.escrow_fee}")
+            logger.info(f"NET AMOUNT TO VENDOR: {net_amount} = {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee}")
             logger.info(f"Destination Address: {vendor_address}")
+            logger.info(f"✅ VERIFIED: Platform fee WAS deducted before sending")
             logger.info("===============================")
             
             if crypto_currency == 'BTC':
@@ -2028,12 +2141,24 @@ class PayoutService:
             return False
 
     def _send_btc_payout_raw(self, address, amount):
-        """Internal method to send BTC via BTCPay"""
+        """Internal method to send BTC via BTCPay - sends net_amount (after platform fee deduction)
+        
+        CRITICAL: This MUST receive net_amount (gross - platform_fee - escrow_fee), NOT gross amount!
+        Network fee will be deducted from this amount by BTCPay (subtractFeesFromAmount=True)
+        """
         try:
+            # CRITICAL: Verify we're sending net_amount, not gross amount
+            logger.info(f"📤 _send_btc_payout_raw: Sending {amount} BTC to {address}")
+            logger.info(f"   ✅ This MUST be NET amount (after platform fee deduction)")
+            logger.info(f"   ❌ This should NOT be gross amount (before platform fee)")
+            
             payout_data = {
                 'destination': address,
-                'amount': str(amount)
+                'amount': str(amount),  # CRITICAL: This MUST be net_amount (gross - platform_fee - escrow_fee)
+                'subtractFeesFromAmount': True  # Network fee deducted from this amount
             }
+            logger.info(f"📤 BTCPay payout_data: {payout_data}")
+            logger.info(f"   Network fee will be deducted from {amount} by BTCPay")
             response = self.btcpay.create_payout(payout_data)
             if response and response.get('id'):
                 return True, f"btc_payout_{response['id']}"
@@ -2229,14 +2354,18 @@ class PayoutService:
             payment_address.save()
             
             # Create direct payment record
+            # NOTE: Using expected_amount initially - will be updated to received_amount when payment arrives
             direct_payment = DirectPayment.objects.create(
                 order=order,
                 vendor=order.product.vendor,
                 buyer=order.buyer,
                 crypto_currency=payment_address.crypto_currency,
-                amount=Decimal(str(payment_address.expected_amount)),
+                amount=Decimal(str(payment_address.expected_amount)),  # Will be updated to received_amount when payment arrives
                 vendor_address=vendor_address,
-                expires_at=timezone.now() + timedelta(hours=24)  # 24 hour expiration
+                expires_at=timezone.now() + timedelta(hours=24),
+                platform_fee=Decimal('0'),  # Will be calculated when payment is received
+                escrow_fee=Decimal('0'),
+                net_amount=Decimal('0')  # Will be calculated when payment is received
             )
             
             logger.info(f"Created direct payment for order {order_id} to address {vendor_address}")

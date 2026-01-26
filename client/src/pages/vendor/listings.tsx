@@ -162,12 +162,25 @@ export default function VendorListings() {
         if (vendorFeeResponse.ok) {
           const vendorFeeData = await vendorFeeResponse.json();
           if (vendorFeeData.success && vendorFeeData.data) {
-            setSellingFee(vendorFeeData.data.commission_rate);
-            setUsesDefaultFee(vendorFeeData.data.uses_default);
-            if (!vendorFeeData.data.uses_default) {
-              setCustomFee(vendorFeeData.data.commission_rate);
+            const commissionRate = vendorFeeData.data.commission_rate;
+            console.log('📊 Vendor fee data:', vendorFeeData.data);
+            if (commissionRate !== null && commissionRate !== undefined) {
+              setSellingFee(commissionRate);
+              setUsesDefaultFee(vendorFeeData.data.uses_default || false);
+              if (!vendorFeeData.data.uses_default && commissionRate) {
+                setCustomFee(commissionRate);
+              }
+            } else {
+              console.error('❌ Commission rate is null/undefined:', vendorFeeData.data);
+              // Fallback to default if API returns null
+              setSellingFee(vendorFeeData.data.default_rate || 5);
+              setUsesDefaultFee(true);
             }
+          } else {
+            console.error('❌ Vendor fee response not successful:', vendorFeeData);
           }
+        } else {
+          console.error('❌ Failed to fetch vendor fee:', vendorFeeResponse.status, vendorFeeResponse.statusText);
         }
       } catch (error) {
         console.error('Error checking vendor status:', error);

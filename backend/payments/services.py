@@ -1292,10 +1292,28 @@ class PaymentService:
                 platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
                 logger.info(f"Using dynamic platform commission rate: {commission_settings.platform_fee_rate}%")
             
-            # Calculate fees
-            amount = direct_payment.amount
-            escrow_fee_rate = Decimal('0') # Escrow fee is 0 for direct payments
+            # ============================================================
+            # FEE CALCULATION FLOW (CONFIRMED APPROACH):
+            # ============================================================
+            # 1. Buyer sends $2.00 → network fee $0.25 deducted → $1.75 arrives (received_amount)
+            # 2. Platform fee calculated on $1.75 (NOT on $2.00)
+            # 3. Vendor net amount = $1.75 - platform_fee = $1.6625
+            # 4. Network fee (~$0.25) deducted from $1.6625 when sending
+            # 5. Vendor receives: $1.6625 - $0.25 = ~$1.41
+            # ============================================================
+            # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
+            amount = payment_address.received_amount or payment_address.expected_amount
+            if payment_address.received_amount > 0:
+                logger.info(f"Using received_amount ({amount}) for fee calculation (after buyer's network fee)")
+            else:
+                logger.warning(f"received_amount is 0, using expected_amount ({amount})")
             
+            # Update direct_payment.amount to actual received
+            if direct_payment.amount != amount:
+                direct_payment.amount = amount
+                direct_payment.save(update_fields=['amount'])
+            
+            escrow_fee_rate = Decimal('0') # Escrow fee is 0 for direct payments
             platform_fee = amount * platform_fee_rate
             escrow_fee = amount * escrow_fee_rate
             net_amount = amount - platform_fee - escrow_fee

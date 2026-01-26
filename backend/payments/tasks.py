@@ -182,7 +182,30 @@ def process_non_escrow_payout(self, order_id: str):
             
         escrow_fee_rate = Decimal('0') # No escrow fee for direct orders
         
-        amount = direct_payment.amount
+        # ============================================================
+        # FEE CALCULATION FLOW (CONFIRMED APPROACH):
+        # ============================================================
+        # 1. Buyer sends $2.00 → network fee $0.25 deducted → $1.75 arrives (received_amount)
+        # 2. Platform fee calculated on $1.75 (NOT on $2.00)
+        # 3. Example: 5% platform fee = $0.0875 from $1.75
+        # 4. Vendor net amount = $1.75 - $0.0875 = $1.6625
+        # 5. When sending $1.6625 to vendor → network fee (~$0.25) deducted from this amount
+        # 6. Vendor receives: $1.6625 - $0.25 = ~$1.41
+        # ============================================================
+        # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
+        # NOT expected_amount or direct_payment.amount (which might be stale)
+        amount = payment_address.received_amount or payment_address.expected_amount
+        if payment_address.received_amount > 0:
+            logger.info(f"Using received_amount ({amount}) for fee calculation (after buyer's network fee deduction)")
+        else:
+            logger.warning(f"received_amount is 0, using expected_amount ({amount}) - buyer may not have paid yet")
+        
+        # Update direct_payment.amount to match what we actually received
+        if direct_payment.amount != amount:
+            logger.info(f"Updating direct_payment.amount from {direct_payment.amount} to {amount} (actual received)")
+            direct_payment.amount = amount
+            direct_payment.save(update_fields=['amount'])
+        
         platform_fee = amount * platform_fee_rate
         escrow_fee = amount * escrow_fee_rate
         
@@ -228,6 +251,7 @@ def process_non_escrow_payout(self, order_id: str):
         logger.info(f"Final calculation: Gross={amount}, Platform Fee={platform_fee}, Escrow Fee={escrow_fee}, Net={net_amount}")
         logger.info(f"Estimated miner fee: {estimated_miner_fee} (will be deducted by BTCPay from net amount)")
         logger.info(f"Expected vendor receive: {net_amount - estimated_miner_fee} (after miner fees)")
+        logger.info(f"💰 FEE FLOW: Buyer sent {payment_address.expected_amount} → {amount} received (after buyer's network fee) → Platform fee on {amount} → Vendor gets {net_amount} → Network fee deducted from {net_amount} → Vendor receives {net_amount - estimated_miner_fee}")
         
         # Update direct payment with fees
         direct_payment.platform_fee = platform_fee
@@ -274,6 +298,12 @@ def process_non_escrow_payout(self, order_id: str):
                 f"Dust payout impossible for order {order_id}: net {net_amount} - fee ~{estimated_miner_fee} ≤ 0. "
                 f"Marked failed. Refund buyer or top up BTCPay wallet and retry manually."
             )
+        
+        # Final verification: Ensure we're sending the correct net_amount
+        # net_amount = received_amount - platform_fee - escrow_fee
+        # Network fee will be deducted from net_amount by BTCPay (subtractFeesFromAmount=True)
+        logger.info(f"📤 SENDING TO VENDOR: {net_amount} {crypto_symbol} (network fee ~{estimated_miner_fee} will be deducted from this)")
+        logger.info(f"💰 FINAL VENDOR RECEIVE: {expected_vendor_receive} {crypto_symbol} (after network fee)")
         
         # Send to vendor
         payout_service = PayoutService()

@@ -170,10 +170,6 @@ def process_non_escrow_payout(self, order_id: str):
         from .commission_models import CommissionSettings, VendorFee
         commission_settings = CommissionSettings.get_settings()
         
-        # Calculate fees
-        from .commission_models import CommissionSettings, VendorFee
-        commission_settings = CommissionSettings.get_settings()
-        
         # Check for vendor-specific commission rate
         vendor_custom_rate = VendorFee.get_vendor_fee(vendor)
         if vendor_custom_rate is not None:
@@ -195,8 +191,33 @@ def process_non_escrow_payout(self, order_id: str):
             logger.info(f"Platform fee {platform_fee} is below dust threshold {dust_threshold}. Sweeping entire amount to vendor.")
             platform_fee = Decimal('0')
         
-        # We no longer need manual fee reserve as BTCPay subtracts miner fees automatically
+        # Calculate net amount before miner fees
         net_amount = amount - platform_fee - escrow_fee
+        
+        # CRITICAL FIX: For small amounts, miner fees can eat up most of the payout
+        # BTCPay uses subtractFeesFromAmount=True, which deducts miner fees from net_amount
+        # Estimate miner fees (typically 0.00001-0.00005 BTC for normal transactions)
+        # If net_amount is too small after estimated miner fees, reduce platform fee
+        estimated_miner_fee = Decimal('0.00005')  # Conservative estimate: ~$2-3 USD
+        min_vendor_receive = Decimal('0.00001')  # Minimum vendor should receive (~$0.40 USD)
+        
+        if net_amount - estimated_miner_fee < min_vendor_receive:
+            # Reduce platform fee to ensure vendor gets reasonable amount
+            original_platform_fee = platform_fee
+            # Calculate max platform fee that leaves vendor with reasonable amount
+            max_platform_fee = amount - escrow_fee - estimated_miner_fee - min_vendor_receive
+            if max_platform_fee < Decimal('0'):
+                max_platform_fee = Decimal('0')
+            platform_fee = min(platform_fee, max_platform_fee)
+            net_amount = amount - platform_fee - escrow_fee
+            
+            if platform_fee < original_platform_fee:
+                logger.warning(f"REDUCED PLATFORM FEE for small transaction: Original={original_platform_fee}, Adjusted={platform_fee}")
+                logger.warning(f"Reason: Net amount {net_amount} - estimated miner fee {estimated_miner_fee} would leave vendor with less than {min_vendor_receive}")
+        
+        logger.info(f"Final calculation: Gross={amount}, Platform Fee={platform_fee}, Escrow Fee={escrow_fee}, Net={net_amount}")
+        logger.info(f"Estimated miner fee: {estimated_miner_fee} (will be deducted by BTCPay from net amount)")
+        logger.info(f"Expected vendor receive: {net_amount - estimated_miner_fee} (after miner fees)")
         
         # Update direct payment with fees
         direct_payment.platform_fee = platform_fee
@@ -209,9 +230,22 @@ def process_non_escrow_payout(self, order_id: str):
         logger.info(f"--- FEE CALCULATION FOR ORDER {order_id} ---")
         logger.info(f"Gross Amount: {amount} {crypto_symbol}")
         logger.info(f"Commission Rate: {platform_fee_rate * 100}%")
-        logger.info(f"Platform Fee: {platform_fee}")
-        logger.info(f"Escrow Fee: {escrow_fee}")
-        logger.info(f"NET AMOUNT TO VENDOR (Miner fees will be subtracted by BTCPay): {net_amount}")
+        logger.info(f"Platform Fee: {platform_fee} {crypto_symbol} ({platform_fee_rate * 100}% of gross)")
+        logger.info(f"Escrow Fee: {escrow_fee} {crypto_symbol}")
+        logger.info(f"NET AMOUNT TO VENDOR (before miner fees): {net_amount} {crypto_symbol}")
+        logger.info(f"Estimated miner fee: {estimated_miner_fee} {crypto_symbol} (~$0.50-2.50 USD)")
+        logger.info(f"EXPECTED VENDOR RECEIVE (after miner fees): {net_amount - estimated_miner_fee} {crypto_symbol}")
+        
+        # USD equivalent (approximate, using BTC ~$40k, XMR ~$2000)
+        btc_price = Decimal('40000')
+        xmr_price = Decimal('2000')
+        price = btc_price if crypto_symbol == 'BTC' else xmr_price
+        
+        logger.info(f"USD Equivalents (approx):")
+        logger.info(f"  Gross: ${amount * price:.2f} USD")
+        logger.info(f"  Platform Fee: ${platform_fee * price:.2f} USD")
+        logger.info(f"  Net (before miner fees): ${net_amount * price:.2f} USD")
+        logger.info(f"  Expected vendor receive: ${(net_amount - estimated_miner_fee) * price:.2f} USD")
         logger.info(f"VENDOR PAYOUT ADDRESS: {vendor_payout_address}")
         logger.info(f"-------------------------------------------")
         

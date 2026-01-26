@@ -199,21 +199,54 @@ export default function VendorOverview() {
 
     try {
       setIsLoadingTopProducts(true);
-      const res = await productService.getVendorProducts();
-      const products = (res as any)?.data || [];
+      
+      // Fetch both products and orders to calculate actual sales per product
+      const [productsRes, ordersRes] = await Promise.all([
+        productService.getVendorProducts(),
+        orderService.getVendorOrders().catch(() => []) // Fallback to empty array if fails
+      ]);
+      
+      const products = (productsRes as any)?.data || [];
+      const orders = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any)?.results || ordersRes || [];
+      
+      // Count completed orders per product (including giveaways)
+      const validStatuses = ['paid', 'completed', 'delivered', 'shipped', 'confirmed', 'processing', 'payment_received'];
+      const completedOrders = orders.filter((o: any) => 
+        validStatuses.includes((o.order_status || '').toLowerCase())
+      );
+      
+      // Create a map of product_id -> sales count (including giveaways)
+      const productSalesMap: { [key: string]: number } = {};
+      completedOrders.forEach((order: any) => {
+        // Try multiple ways to get product ID
+        const productId = order.product?.id || 
+                         order.product_id || 
+                         (order.product && typeof order.product === 'string' ? order.product : null);
+        if (productId) {
+          // Convert to string for consistent key matching
+          const key = String(productId);
+          productSalesMap[key] = (productSalesMap[key] || 0) + 1;
+        }
+      });
 
-      // Sort by review count or sales and take top 6
+      // Sort by actual sales count (not review_count) and take top 6
       const topProductsList = products
-        .sort((a: any, b: any) => (b.review_count || 0) - (a.review_count || 0))
-        .slice(0, 6)
-        .map((product: any) => ({
-          id: product.id,
-          name: product.headline || product.listing_title || "Product",
-          sales: product.review_count || 0,
-          revenue: `$${Number(product.price || 0).toFixed(2)}`,
-          status: product.status === 'approved' ? 'Active' : 'Inactive',
-          stock: product.quantity_available || 0
-        }));
+        .map((product: any) => {
+          // Match product ID (convert to string for consistent matching)
+          const productIdKey = String(product.id);
+          const salesCount = productSalesMap[productIdKey] || 0;
+          
+          return {
+            id: product.id,
+            name: product.headline || product.listing_title || "Product",
+            sales: salesCount, // Use actual orders count (includes giveaways)
+            revenue: `$${Number(product.price || 0).toFixed(2)}`,
+            status: product.status === 'approved' ? 'Active' : 'Inactive',
+            stock: product.quantity_available || 0
+          };
+        })
+        .sort((a: any, b: any) => b.sales - a.sales) // Sort by sales count
+        .slice(0, 6);
 
       setTopProducts(topProductsList);
       setCachedData(CACHE_KEYS.TOP_PRODUCTS, topProductsList);

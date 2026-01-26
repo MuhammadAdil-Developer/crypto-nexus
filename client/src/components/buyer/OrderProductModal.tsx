@@ -355,7 +355,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
             </button>
             <div className="min-w-0 flex-1">
               <h2 className="text-sm sm:text-lg md:text-xl font-bold text-white truncate">
-                {order.product.headline || 'Order Details'}
+                {order.product?.headline || order.product?.listing_title || 'Order Details'}
               </h2>
               <p className="text-gray-400 text-[10px] sm:text-sm font-mono truncate">
                 Order ID: {order.order_id}
@@ -387,7 +387,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                         ? getImageUrl(order.product.main_images[0])
                         : placeholderImage)
                     }
-                    alt={order.product.headline || 'Product'}
+                    alt={order.product?.headline || order.product?.listing_title || 'Product'}
                     className="w-full h-full object-contain bg-transparent"
                     onError={(e) => {
                       e.currentTarget.src = placeholderImage;
@@ -413,7 +413,7 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                         <div key={`img-${index}`} className="aspect-square w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-white/5 rounded-lg overflow-hidden border border-gray-600/20 hover:border-gray-500/40 transition-colors">
                           <img
                             src={imageUrl}
-                            alt={`${order.product.headline || 'Product'} ${index + 1}`}
+                            alt={`${order.product?.headline || order.product?.listing_title || 'Product'} ${index + 1}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.currentTarget.src = "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=400";

@@ -215,21 +215,31 @@ class BTCPayServerService:
                 logger.info(f"Available Total Balance (including unconfirmed): {total_balance} BTC")
                 logger.info(f"Required Payout Amount: {required_amount} BTC")
                 
-                # FORCE SWEEP LOGIC: If we are trying to send >= the total balance, we cap it at (Total - Buffer)
-                # This ensures we never try to send more than we have, AND we leave a tiny crumb to avoid "Sending Entire Balance" error
-                # The 'subtractFeesFromAmount=True' later will handle the actual mining fee deduction from this capped amount
-                if required_amount >= total_balance:
+                # CRITICAL FIX: Only trigger sweep if we're actually trying to send MORE than available
+                # Account for miner fees that will be deducted (estimate ~0.00005 BTC max)
+                estimated_miner_fee = 0.00005  # Conservative estimate for miner fees
+                total_needed = required_amount + estimated_miner_fee
+                
+                # Only sweep if required amount + miner fees exceeds available balance
+                # Use > instead of >= to avoid incorrectly capping valid payouts
+                if total_needed > total_balance:
                     logger.warning(
-                        f"FULL SWEEP TRIGGERED: Required {required_amount} >= Total {total_balance}. Cap at Total - Buffer."
+                        f"INSUFFICIENT BALANCE: Required {required_amount} + miner fee ~{estimated_miner_fee} = {total_needed} > Total {total_balance}"
                     )
-                    # Use 200 sat buffer. 
-                    safe_amount = max(0, total_balance - 0.00000200)
-                    payout_data['amount'] = "{:.8f}".format(safe_amount)
-                    logger.info(f"Adjusted payout amount to: {payout_data['amount']} (will have fees subtracted)")
+                    # Calculate safe amount: leave buffer for miner fees
+                    # The buffer should be enough to cover miner fees (~0.00005) plus a small safety margin
+                    safe_amount = max(0, total_balance - estimated_miner_fee - 0.00000100)  # 100 sat safety margin
                     
                     if safe_amount <= 0:
-                         logger.error("Balance too low to cover even dust buffer.")
-                         return None
+                        logger.error("Balance too low to cover payout + miner fees.")
+                        return None
+                    
+                    logger.warning(f"ADJUSTING PAYOUT: Reducing from {required_amount} to {safe_amount} BTC due to insufficient balance")
+                    payout_data['amount'] = "{:.8f}".format(safe_amount)
+                else:
+                    # Sufficient balance - send the exact amount requested
+                    # Miner fees will be deducted by BTCPay via subtractFeesFromAmount=True
+                    logger.info(f"Sufficient balance: {total_balance} BTC available, {required_amount} BTC requested (miner fees will be deducted)")
                 
                 # Send transaction using wallet API
                 send_url = f"{self.base_url}/api/v1/stores/{self.store_id}/payment-methods/onchain/BTC/wallet/transactions"
@@ -240,10 +250,19 @@ class BTCPayServerService:
                         'amount': payout_data['amount'],
                         'subtractFeesFromAmount': True
                     }],
-                    'feeRate': 1,  # Use normal fee rate (INTEGER, not string)
+                    'feeRate': 1,  # Use normal fee rate (1 sat/vB = very low, ~$0.50-1 for typical tx)
                     'proceedWithBroadcast': True,
                     'proceedWithPayjoin': False
                 }
+                
+                # Log fee estimation for debugging
+                logger.info(f"=== BTC PAYOUT FEE DEBUG ===")
+                logger.info(f"Payout amount: {payout_data['amount']} BTC")
+                logger.info(f"Fee rate: 1 sat/vB (normal priority)")
+                logger.info(f"subtractFeesFromAmount: True (fees deducted from amount)")
+                logger.info(f"Expected miner fee: ~0.00001-0.00005 BTC (~$0.50-2.50 USD)")
+                logger.info(f"Expected vendor receive: ~{float(payout_data['amount']) - 0.00005} BTC (after miner fees)")
+                logger.info(f"===========================")
                 
                 logger.info(f"Sending REAL Bitcoin transaction: {transaction_data}")
                 
@@ -252,6 +271,16 @@ class BTCPayServerService:
                 if send_response.status_code == 200:
                     tx_result = send_response.json()
                     logger.info(f"SUCCESS: REAL Bitcoin transaction sent: {tx_result}")
+                    
+                    # Log actual transaction details for verification
+                    actual_tx_hash = tx_result.get('transactionHash')
+                    actual_amount_sent = tx_result.get('amount', payout_data['amount'])
+                    logger.info(f"=== ACTUAL TRANSACTION DETAILS ===")
+                    logger.info(f"Transaction Hash: {actual_tx_hash}")
+                    logger.info(f"Amount sent to vendor: {actual_amount_sent} BTC")
+                    logger.info(f"Destination: {payout_data['destination']}")
+                    logger.info(f"Note: Miner fees were deducted from amount by BTCPay")
+                    logger.info(f"=================================")
                     
                     return {
                         'id': tx_result.get('transactionHash', f"btc_payout_{uuid.uuid4().hex[:16]}"),
@@ -1600,6 +1629,24 @@ class PaymentService:
     def check_payment_status(self, order_id: str) -> dict:
         """Check current payment status"""
         try:
+            # Check if this is a giveaway order (no payment address)
+            from orders.models import Order
+            try:
+                order = Order.objects.get(order_id=order_id)
+                if getattr(order, 'is_giveaway', False) or order.total_amount == 0:
+                    # Giveaway orders don't have payment addresses - return paid status
+                    return {
+                        'order_id': order_id,
+                        'status': 'paid',
+                        'expected_amount': '0.00',
+                        'received_amount': '0.00',
+                        'payment_address': 'GIVEAWAY_FREE_ORDER',
+                        'is_giveaway': True,
+                        'message': 'This is a giveaway order - no payment required'
+                    }
+            except Order.DoesNotExist:
+                pass
+            
             payment_address = PaymentAddress.objects.get(order_id=order_id)
             
             # Check for Monero payments if it's XMR
@@ -1664,6 +1711,24 @@ class PaymentService:
             return result
             
         except PaymentAddress.DoesNotExist:
+            # Check if this is a giveaway order before returning error
+            try:
+                from orders.models import Order
+                order = Order.objects.get(order_id=order_id)
+                if getattr(order, 'is_giveaway', False) or order.total_amount == 0:
+                    # Giveaway orders don't have payment addresses - return paid status
+                    return {
+                        'order_id': order_id,
+                        'status': 'paid',
+                        'expected_amount': '0.00',
+                        'received_amount': '0.00',
+                        'payment_address': 'GIVEAWAY_FREE_ORDER',
+                        'is_giveaway': True,
+                        'message': 'This is a giveaway order - no payment required'
+                    }
+            except Order.DoesNotExist:
+                pass
+            
             return {'error': 'Payment not found'}
         except Exception as e:
             logger.error(f"Payment status check error: {str(e)}")

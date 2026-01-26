@@ -2176,7 +2176,26 @@ def list_reviews(request, product_id):
 def create_review(request, product_id):
     """Create a review for a purchased product, then notify vendor in realtime"""
     try:
-        product = get_object_or_404(Product, id=product_id, is_active=True, is_deleted=False)
+        # First check if user has an order for this product (including giveaway orders)
+        from orders.models import Order
+        user_order = Order.objects.filter(
+            buyer=request.user,
+            product_id=product_id,  # Use product_id for FK matching even if product is deleted
+            order_status__in=['paid', 'delivered', 'confirmed', 'completed']
+        ).first()
+        
+        if not user_order:
+            return Response({'success': False, 'message': 'You can only review products you purchased'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # If user has order, allow review even if product is inactive/deleted (for giveaway products)
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({
+                'success': False, 
+                'message': 'Product not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
         rating = int(request.data.get('rating', 0))
         comment = (request.data.get('comment') or '').strip()
         images = request.data.get('images') or []
@@ -2186,34 +2205,24 @@ def create_review(request, product_id):
         if not comment:
             return Response({'success': False, 'message': 'Comment is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Optional: ensure the user bought this product
-        from orders.models import Order
-        # Use product_id explicitly to avoid any potential FK instance casting issues
-        has_order = Order.objects.filter(
-            buyer=request.user,
-            product_id=product.id,
-            order_status__in=['paid','delivered','confirmed']
-        ).exists()
-        if not has_order:
-            return Response({'success': False, 'message': 'You can only review products you purchased'}, status=status.HTTP_403_FORBIDDEN)
-
         review, created = ProductReview.objects.update_or_create(
             product=product,
             user=request.user,
             defaults={'rating': rating, 'comment': comment, 'images': images}
         )
 
-        # Update product aggregates
-        try:
-            agg = ProductReview.objects.filter(product=product).aggregate(
-                avg=Avg('rating'),
-                cnt=Count('id')
-            )
-            product.rating = (agg.get('avg') or 0) or 0
-            product.review_count = agg.get('cnt') or 0
-            product.save(update_fields=['rating', 'review_count'])
-        except Exception:
-            pass
+        # Update product aggregates (only if product is still active)
+        if product.is_active and not product.is_deleted:
+            try:
+                agg = ProductReview.objects.filter(product=product).aggregate(
+                    avg=Avg('rating'),
+                    cnt=Count('id')
+                )
+                product.rating = (agg.get('avg') or 0) or 0
+                product.review_count = agg.get('cnt') or 0
+                product.save(update_fields=['rating', 'review_count'])
+            except Exception:
+                pass
 
         # Notify vendor
         try:

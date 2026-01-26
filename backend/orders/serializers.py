@@ -83,17 +83,21 @@ class OrderSerializer(serializers.ModelSerializer):
                 vendor_products = Product.objects.filter(vendor=obj.vendor, status='approved')
                 total_products = vendor_products.count()
                 
-                # Calculate completion rate (completed orders / total orders)
+                # Calculate total sales from COMPLETED ORDERS (not product count)
+                # Include both regular and giveaway orders - giveaway orders are marked as 'paid' immediately
                 vendor_orders = Order.objects.filter(product__vendor=obj.vendor)
                 total_orders = vendor_orders.count()
-                completed_orders = vendor_orders.filter(order_status__in=['completed', 'delivered']).count()
+                # Count all completed orders including giveaways (which have 'paid' status)
+                completed_orders = vendor_orders.filter(
+                    order_status__in=['completed', 'delivered', 'confirmed', 'paid']
+                ).count()
                 completion_rate = round((completed_orders / total_orders * 100) if total_orders > 0 else 100, 1)
                 
                 # Calculate average rating from products
                 avg_rating = vendor_products.aggregate(avg=Avg('rating'))['avg'] or 0
                 
                 vendor_data.update({
-                    'total_sales': total_products,
+                    'total_sales': completed_orders,  # Real sales count from orders
                     'completion_rate': completion_rate,
                     'rating': round(float(avg_rating), 1)
                 })

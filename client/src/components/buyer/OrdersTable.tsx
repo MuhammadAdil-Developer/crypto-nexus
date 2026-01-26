@@ -720,9 +720,32 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const text = order.payment_address;
-                                    navigator.clipboard.writeText(text).then(() => {
-                                      toast({ title: "Copied!", description: "Address copied to clipboard" });
-                                    });
+                                    // Fallback for HTTP (non-HTTPS) contexts
+                                    if (!navigator.clipboard && document.execCommand) {
+                                      const textArea = document.createElement("textarea");
+                                      textArea.value = text;
+                                      textArea.style.position = "fixed";
+                                      document.body.appendChild(textArea);
+                                      textArea.focus();
+                                      textArea.select();
+                                      try {
+                                        const successful = document.execCommand('copy');
+                                        if (successful) {
+                                          toast({ title: "Copied!", description: "Address copied to clipboard" });
+                                        } else {
+                                          toast({ title: "Error", description: "Failed to copy address", variant: "destructive" });
+                                        }
+                                      } catch (err) {
+                                        toast({ title: "Error", description: "Failed to copy address", variant: "destructive" });
+                                      }
+                                      document.body.removeChild(textArea);
+                                    } else {
+                                      navigator.clipboard.writeText(text).then(() => {
+                                        toast({ title: "Copied!", description: "Address copied to clipboard" });
+                                      }).catch(() => {
+                                        toast({ title: "Error", description: "Failed to copy address", variant: "destructive" });
+                                      });
+                                    }
                                   }}
                                   className="p-1 hover:bg-gray-600 rounded-md transition-colors"
                                 >

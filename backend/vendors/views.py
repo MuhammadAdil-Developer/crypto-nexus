@@ -530,11 +530,17 @@ def get_vendor_statistics(request, vendor_username):
         # Calculate completion rate (completed orders / total orders)
         vendor_orders = Order.objects.filter(product__vendor=vendor_user)
         total_orders = vendor_orders.count()
-        completed_orders = vendor_orders.filter(order_status__in=['delivered', 'confirmed', 'completed', 'paid']).count()
+        # Include all completed orders - both regular and giveaway orders
+        # Giveaway orders are marked as 'paid' immediately, so they should be counted
+        completed_orders = vendor_orders.filter(
+            order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+        ).count()
         completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 100
         
-        # Total sales = actual completed orders count
-        total_sales = completed_orders
+        # Total sales = actual completed orders count (including giveaways)
+        # This is the real "sales" metric - how many orders were successfully fulfilled
+        # Explicitly include giveaway orders in sales count
+        total_sales = completed_orders  # This already includes giveaways with 'paid' status
         
         # Calculate unique buyers
         unique_buyers = vendor_orders.values('buyer').distinct().count()

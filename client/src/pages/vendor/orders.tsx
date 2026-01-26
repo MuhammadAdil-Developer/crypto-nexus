@@ -72,6 +72,11 @@ export default function VendorOrders() {
       const paymentStatus = apiOrder.payment_status?.toLowerCase();
       const orderStatus = apiOrder.order_status?.toLowerCase();
 
+      // For giveaway orders, always show as "Completed" if paid/confirmed
+      if (apiOrder.is_giveaway && (paymentStatus === 'paid' || orderStatus === 'confirmed')) {
+        return 'Completed';
+      }
+
       if (paymentStatus === 'paid') {
         if (orderStatus === 'completed' || orderStatus === 'confirmed') {
           return 'Completed';
@@ -90,6 +95,11 @@ export default function VendorOrders() {
         }
       }
 
+      // For giveaway orders, show as "Completed" if status is confirmed or paid
+      if (apiOrder.is_giveaway && (orderStatus === 'confirmed' || orderStatus === 'paid')) {
+        return 'Completed';
+      }
+      
       switch (orderStatus) {
         case 'pending':
           return 'Pending';
@@ -112,8 +122,8 @@ export default function VendorOrders() {
     return {
       id: apiOrder.order_id,
       numericId: apiOrder.id,
-      buyer: apiOrder.buyer.username,
-      product: apiOrder.product.headline,
+      buyer: apiOrder.buyer?.username || 'Unknown',
+      product: apiOrder.product?.headline || apiOrder.product?.listing_title || 'Product Deleted',
       amount: `${apiOrder.total_amount} ${apiOrder.crypto_currency}`,
       usdAmount: `$${(parseFloat(apiOrder.total_amount) * (apiOrder.crypto_currency === 'XMR' ? xmrPrice : btcPrice)).toFixed(2)}`,
       status: getStatusDisplay(apiOrder),
@@ -132,10 +142,18 @@ export default function VendorOrders() {
       crypto_currency: apiOrder.crypto_currency,
       created_at: apiOrder.created_at,
       buyer_details: {
-        id: apiOrder.buyer.id,
-        username: apiOrder.buyer.username,
-        email: apiOrder.buyer.email
-      }
+        id: apiOrder.buyer?.id,
+        username: apiOrder.buyer?.username || 'Unknown',
+        email: apiOrder.buyer?.email
+      },
+      product_details: apiOrder.product || {
+        id: null,
+        headline: 'Product Deleted',
+        listing_title: 'Product Deleted'
+      },
+      product_credentials: apiOrder.product_credentials,
+      delivery_time: apiOrder.product?.delivery_time || 'manual',
+      is_giveaway: apiOrder.is_giveaway || false
     };
   };
 
@@ -297,12 +315,24 @@ export default function VendorOrders() {
         type: "success"
       });
 
-      // Update local state
+      // Update local state - mark as delivered and add credentials
       setOrders(prev => prev.map(o =>
         o.numericId === orderToDeliver.numericId
-          ? { ...o, status: "Delivered", rawOrderStatus: "delivered" }
+          ? { 
+              ...o, 
+              status: "Delivered", 
+              rawOrderStatus: "delivered",
+              product_credentials: {
+                credentials: deliveryCredentials,
+                delivered_at: new Date().toISOString(),
+                delivery_method: 'manual'
+              }
+            }
           : o
       ));
+      
+      // Refresh orders to get latest data
+      fetchOrders();
 
       handleCloseDeliverModal();
     } catch (error: any) {
@@ -745,6 +775,32 @@ export default function VendorOrders() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {/* Deliver Account Button - Show for giveaway orders or manual delivery orders */}
+                          {/* Button shows if:
+                              1. Order status is Completed (giveaway) OR paid/processing/confirmed
+                              2. AND (it's a giveaway order OR delivery_time is manual)
+                              3. AND credentials are NOT yet delivered (product_credentials is empty/null)
+                          */}
+                          {(
+                            order.status === "Completed" || 
+                            ['paid', 'processing', 'confirmed', 'completed'].includes((order.rawOrderStatus || order.status || '').toLowerCase())
+                          ) && (
+                            order.is_giveaway || 
+                            order.delivery_time === 'manual' || 
+                            !order.delivery_time
+                          ) && (
+                            !order.product_credentials || 
+                            (typeof order.product_credentials === 'object' && (!order.product_credentials.credentials || order.product_credentials.credentials === ''))
+                          ) && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenDeliverModal(order)}
+                              className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Deliver Account
+                            </Button>
+                          )}
                           {order.status === "Processing" && (
                             <>
                               <Button size="sm" variant="outline" className="text-theme-cyan border-theme-cyan/30 h-8 w-8 p-0 hover:bg-theme-cyan/10 rounded-lg">
@@ -810,9 +866,11 @@ export default function VendorOrders() {
                               <DropdownMenuItem onClick={() => handleUpdateStatus(order)} className="cursor-pointer">
                                 <Package className="w-4 h-4 mr-2" /> Update Status
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline)} className="cursor-pointer">
-                                <Star className="w-4 h-4 mr-2" /> View Reviews
-                              </DropdownMenuItem>
+                              {order.product_details?.id && (
+                                <DropdownMenuItem onClick={() => openReviewsForProduct(order.product_details.id, order.product_details.headline || order.product)} className="cursor-pointer">
+                                  <Star className="w-4 h-4 mr-2" /> View Reviews
+                                </DropdownMenuItem>
+                              )}
                               {(order.status === "Paid" || order.rawOrderStatus === "paid") && (
                                 <DropdownMenuItem onClick={() => handleOpenDeliverModal(order)} className="cursor-pointer text-green-400 hover:text-green-300">
                                   <CheckCircle className="w-4 h-4 mr-2" /> Deliver Product

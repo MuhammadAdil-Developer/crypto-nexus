@@ -65,14 +65,20 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Create order
         order = serializer.save()
         
-        # GIVEAWAY LOGIC: If total amount is 0, mark as paid immediately and skip payment address generation
+        # GIVEAWAY LOGIC: If total amount is 0, mark as COMPLETED immediately but don't auto-deliver
         if order.total_amount == 0:
             from django.utils import timezone
-            order.order_status = OrderStatus.PAID.value
+            # Mark as CONFIRMED and paid so it counts in sales immediately
+            # But don't set delivered_at - vendor needs to manually deliver credentials
+            # Note: Frontend will display this as "Completed" for giveaway orders
+            order.order_status = OrderStatus.CONFIRMED.value  # CONFIRMED status for giveaway orders (shows as Completed in UI)
             order.payment_status = 'paid'
             order.payment_confirmed_at = timezone.now()
+            order.confirmed_at = timezone.now()
+            # DON'T set delivered_at here - let vendor deliver manually
+            # delivered_at will be set when vendor delivers credentials
             
-            # Auto-fill credentials if it's instant delivery
+            # Auto-fill credentials ONLY if it's instant auto delivery
             if order.product.delivery_time == 'instant_auto' and order.product.credentials:
                 order.product_credentials = {
                     'credentials': order.product.credentials,
@@ -80,9 +86,13 @@ class OrderViewSet(viewsets.ModelViewSet):
                     'delivery_method': 'instant_auto',
                     'notes': 'Giveaway success! Enjoy your account.'
                 }
+                # Only set delivered_at for instant auto delivery
+                order.delivered_at = timezone.now()
+            # For manual delivery, credentials will be empty and delivered_at will be null
+            # This allows vendor to see "Deliver Account" button
             
             order.save()
-            logger.info(f"Giveaway order {order.order_id} processed for $0")
+            logger.info(f"Giveaway order {order.order_id} marked as COMPLETED - waiting for manual delivery")
             
             # Prepare giveaway response
             return Response(
@@ -272,8 +282,15 @@ class OrderViewSet(viewsets.ModelViewSet):
     def deliver(self, request, pk=None):
         """Deliver product to buyer"""
         order = self.get_object()
-        
-        if order.order_status != OrderStatus.PAID.value:
+
+        # Allow delivery when:
+        # - Normal orders: status must be PAID
+        # - Giveaway orders: status can be PAID or CONFIRMED (we auto-confirm giveaways)
+        allowed_statuses = [OrderStatus.PAID.value]
+        if getattr(order, "is_giveaway", False):
+            allowed_statuses.append(OrderStatus.CONFIRMED.value)
+
+        if order.order_status not in allowed_statuses:
             return Response(
                 {"error": "Order must be paid before delivery"},
                 status=status.HTTP_400_BAD_REQUEST

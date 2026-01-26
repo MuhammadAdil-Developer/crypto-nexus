@@ -12,7 +12,11 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
 from messaging.routing import websocket_urlpatterns
+from django.conf import settings
 
+# For production IP addresses, we need to allow WebSocket connections
+# AllowedHostsOriginValidator should work if IPs are in ALLOWED_HOSTS
+# But we'll wrap it to ensure IP addresses are properly handled
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AllowedHostsOriginValidator(

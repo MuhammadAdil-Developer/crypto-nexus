@@ -13,6 +13,11 @@ class MaintenanceMode:
     @staticmethod
     def is_enabled():
         """Check if maintenance mode is currently enabled"""
+        # SECURITY/DEV: Never enable maintenance mode in local DEBUG mode
+        # This allows developers to work even if DB has maintenance enabled for production
+        if settings.DEBUG:
+            return False
+            
         # Try cache first for performance
         enabled = cache.get(MAINTENANCE_MODE_KEY)
         if enabled is not None:

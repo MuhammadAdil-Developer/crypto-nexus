@@ -171,9 +171,10 @@ class VendorService {
         return sum + (price * qty);
       }, 0);
 
-      // Final values - Use Payouts API data as the source of truth if available
+      // Final values - Use completedOrders.length as source of truth (includes giveaways)
+      // Don't use totalSalesCountFromPayouts as it might exclude giveaway orders
       const finalRevenue = totalRevenueFromPayouts > 0 ? totalRevenueFromPayouts : calculatedRevenue;
-      const finalSalesCount = totalSalesCountFromPayouts > 0 ? totalSalesCountFromPayouts : completedOrders.length;
+      const finalSalesCount = completedOrders.length; // Always use actual completed orders count (includes giveaways)
 
       console.log(`Stats Finalized: Revenue=${finalRevenue}, Sales=${finalSalesCount}`);
 

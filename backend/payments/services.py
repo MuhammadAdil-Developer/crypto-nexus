@@ -1270,7 +1270,12 @@ class PaymentService:
             # ========================================
             # CRITICAL CHECK: Confirmations FIRST!
             # ========================================
-            required_confirmations = payment_address.required_confirmations or 1
+            # Get required confirmations from settings (BTC: 3, XMR: 10)
+            from django.conf import settings as django_settings
+            crypto_symbol = payment_address.crypto_currency.symbol
+            default_required = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
+            required_confirmations = payment_address.required_confirmations or default_required
+            logger.info(f"Required confirmations: {required_confirmations} (from DB: {payment_address.required_confirmations}, default: {default_required})")
             current_confirmations = payment_address.confirmations or 0
             
             logger.info(f"==========================================")
@@ -1312,11 +1317,15 @@ class PaymentService:
             # 5. Vendor receives: $1.6625 - $0.25 = ~$1.41
             # ============================================================
             # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
-            amount = payment_address.received_amount or payment_address.expected_amount
-            if payment_address.received_amount > 0:
-                logger.info(f"Using received_amount ({amount}) for fee calculation (after buyer's network fee)")
+            # NEVER use expected_amount - it's the amount BEFORE buyer's network fee!
+            if payment_address.received_amount and payment_address.received_amount > 0:
+                amount = payment_address.received_amount
+                logger.info(f"✅ Using received_amount ({amount}) for fee calculation (after buyer's network fee)")
             else:
-                logger.warning(f"received_amount is 0, using expected_amount ({amount})")
+                logger.error(f"❌ CRITICAL ERROR: received_amount is {payment_address.received_amount} (must be > 0)!")
+                logger.error(f"   expected_amount: {payment_address.expected_amount}")
+                logger.error(f"   Cannot calculate fees without received_amount - payment may not be confirmed yet!")
+                raise ValueError(f"Cannot process payout: received_amount is {payment_address.received_amount} (must be > 0). Payment may not be fully confirmed.")
             
             # CRITICAL: ALWAYS update direct_payment.amount to received_amount BEFORE calculating fees
             # This ensures platform fee is calculated on what we actually received, not expected_amount
@@ -2114,10 +2123,30 @@ class PayoutService:
             logger.info(f"NET AMOUNT TO VENDOR: {net_amount} = {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee}")
             logger.info(f"Destination Address: {vendor_address}")
             logger.info(f"✅ VERIFIED: Platform fee WAS deducted before sending")
+            logger.info(f"💰 PLATFORM FEE RETAINED: {direct_payment.platform_fee} {crypto_currency} stays in platform wallet (BTCPay)")
+            logger.info(f"   Only {net_amount} {crypto_currency} is being sent to vendor")
+            
+            # CRITICAL: Final check - net_amount MUST be < received_amount
+            if net_amount >= direct_payment.amount:
+                logger.error(f"❌❌❌ CRITICAL ERROR: net_amount ({net_amount}) >= received_amount ({direct_payment.amount})!")
+                logger.error(f"   This means we're sending MORE than we received!")
+                logger.error(f"   Platform fee: {direct_payment.platform_fee}, Escrow fee: {direct_payment.escrow_fee}")
+                raise ValueError(f"Cannot send: net_amount ({net_amount}) >= received_amount ({direct_payment.amount})")
+            
+            # Calculate what vendor will actually receive (after network fee)
+            estimated_network_fee = Decimal('0.0000025') if crypto_currency == 'BTC' else Decimal('0.0001')
+            vendor_will_receive = net_amount - estimated_network_fee
+            logger.info(f"📊 FINAL SUMMARY:")
+            logger.info(f"   Received from buyer: {direct_payment.amount} {crypto_currency}")
+            logger.info(f"   Platform fee (kept): {direct_payment.platform_fee} {crypto_currency}")
+            logger.info(f"   Sending to vendor: {net_amount} {crypto_currency}")
+            logger.info(f"   Network fee (deducted by BTCPay): ~{estimated_network_fee} {crypto_currency}")
+            logger.info(f"   Vendor will receive: ~{vendor_will_receive} {crypto_currency}")
             logger.info("===============================")
             
             if crypto_currency == 'BTC':
-                success, tx_hash = self._send_btc_payout_raw(vendor_address, net_amount)
+                # CRITICAL: Pass received_amount for verification
+                success, tx_hash = self._send_btc_payout_raw(vendor_address, net_amount, received_amount=direct_payment.amount)
             elif crypto_currency == 'XMR':
                 success, tx_hash = self._send_xmr_payout_raw(vendor_address, net_amount)
             else:
@@ -2140,17 +2169,42 @@ class PayoutService:
             logger.error(f"Error in _send_direct_payment_to_vendor: {e}")
             return False
 
-    def _send_btc_payout_raw(self, address, amount):
+    def _send_btc_payout_raw(self, address, amount, received_amount=None):
         """Internal method to send BTC via BTCPay - sends net_amount (after platform fee deduction)
         
         CRITICAL: This MUST receive net_amount (gross - platform_fee - escrow_fee), NOT gross amount!
         Network fee will be deducted from this amount by BTCPay (subtractFeesFromAmount=True)
+        
+        Args:
+            address: Vendor wallet address
+            amount: net_amount to send (after platform fee deduction)
+            received_amount: Original amount received from buyer (for verification)
         """
         try:
             # CRITICAL: Verify we're sending net_amount, not gross amount
             logger.info(f"📤 _send_btc_payout_raw: Sending {amount} BTC to {address}")
             logger.info(f"   ✅ This MUST be NET amount (after platform fee deduction)")
             logger.info(f"   ❌ This should NOT be gross amount (before platform fee)")
+            
+            # CRITICAL: Verify we're not sending MORE than we received
+            if received_amount is not None:
+                if amount > received_amount:
+                    logger.error(f"❌❌❌ CRITICAL ERROR: Trying to send {amount} BTC but only received {received_amount} BTC!")
+                    logger.error(f"   We're sending {amount - received_amount} BTC MORE than we received!")
+                    logger.error(f"   ABORTING - This would cause platform to lose money!")
+                    raise ValueError(f"Cannot send {amount} BTC when only {received_amount} BTC was received!")
+                elif amount == received_amount:
+                    logger.error(f"❌ CRITICAL ERROR: Trying to send {amount} BTC (same as received) - platform fee was NOT deducted!")
+                    logger.error(f"   ABORTING - Platform fee must be deducted before sending!")
+                    raise ValueError(f"Cannot send full amount {amount} BTC - platform fee must be deducted!")
+                else:
+                    platform_fee_retained = received_amount - amount
+                    logger.info(f"✅ VERIFIED: Sending {amount} BTC (received: {received_amount} BTC, platform fee retained: {platform_fee_retained} BTC)")
+            
+            # CRITICAL: Verify amount is reasonable (should be less than what we received)
+            # If amount > received_amount, we're sending MORE than we received - THIS IS WRONG!
+            logger.warning(f"⚠️ VERIFICATION: Amount being sent: {amount} BTC")
+            logger.warning(f"   If this is > received_amount, we're LOSING MONEY!")
             
             payout_data = {
                 'destination': address,
@@ -2159,6 +2213,8 @@ class PayoutService:
             }
             logger.info(f"📤 BTCPay payout_data: {payout_data}")
             logger.info(f"   Network fee will be deducted from {amount} by BTCPay")
+            logger.warning(f"⚠️ FINAL CHECK: Sending {amount} BTC (network fee ~0.000002-0.000003 will be deducted)")
+            logger.warning(f"   Vendor will receive: ~{amount - Decimal('0.0000025')} BTC")
             response = self.btcpay.create_payout(payout_data)
             if response and response.get('id'):
                 return True, f"btc_payout_{response['id']}"
@@ -2466,7 +2522,7 @@ class PayoutService:
             logger.info(f"Net Amount: {payout.net_amount}")
             logger.info(f"Address: {payout.vendor_address}")
             
-            success, tx_hash = self._send_btc_payout_raw(payout.vendor_address, payout.net_amount)
+            success, tx_hash = self._send_btc_payout_raw(payout.vendor_address, payout.net_amount, received_amount=payout.gross_amount)
             
             if success:
                 logger.info(f"BTC Payout Success: {tx_hash}")

@@ -143,7 +143,7 @@ def process_non_escrow_payout(self, order_id: str):
                 'vendor': vendor,
                 'buyer': order.buyer,
                 'crypto_currency': payment_address.crypto_currency,
-                'amount': payment_address.received_amount or payment_address.expected_amount,
+                'amount': payment_address.received_amount if payment_address.received_amount and payment_address.received_amount > 0 else payment_address.expected_amount,  # Will be updated to received_amount when payment arrives
                 'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
                 'status': 'pending',
                 'platform_fee': Decimal('0'),  # Will be calculated below
@@ -241,12 +241,16 @@ def process_non_escrow_payout(self, order_id: str):
         # 6. Vendor receives: $1.6625 - $0.25 = ~$1.41
         # ============================================================
         # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
+        # NEVER use expected_amount - it's the amount BEFORE buyer's network fee!
         # NOT expected_amount or direct_payment.amount (which might be stale)
-        amount = payment_address.received_amount or payment_address.expected_amount
-        if payment_address.received_amount > 0:
-            logger.info(f"Using received_amount ({amount}) for fee calculation (after buyer's network fee deduction)")
+        if payment_address.received_amount and payment_address.received_amount > 0:
+            amount = payment_address.received_amount
+            logger.info(f"✅ Using received_amount ({amount}) for fee calculation (after buyer's network fee deduction)")
         else:
-            logger.warning(f"received_amount is 0, using expected_amount ({amount}) - buyer may not have paid yet")
+            logger.error(f"❌ CRITICAL ERROR: received_amount is {payment_address.received_amount} (must be > 0)!")
+            logger.error(f"   expected_amount: {payment_address.expected_amount}")
+            logger.error(f"   Cannot calculate fees without received_amount - payment may not be confirmed yet!")
+            raise ValueError(f"Cannot process payout: received_amount is {payment_address.received_amount} (must be > 0). Payment may not be fully confirmed.")
         
         # CRITICAL: ALWAYS update direct_payment.amount to received_amount BEFORE calculating fees
         # This ensures platform fee is calculated on what we actually received, not expected_amount
@@ -368,8 +372,11 @@ def process_non_escrow_payout(self, order_id: str):
         
         # CRITICAL VERIFICATION: Log what we're about to send
         logger.info(f"✅ VERIFICATION: About to send {net_amount} {crypto_symbol} to vendor")
-        logger.info(f"   Gross: {amount}, Platform Fee: {platform_fee}, Escrow Fee: {escrow_fee}")
-        logger.info(f"   Net: {net_amount} = {amount} - {platform_fee} - {escrow_fee}")
+        logger.info(f"   Gross (received): {amount} {crypto_symbol}")
+        logger.info(f"   Platform Fee (RETAINED in platform wallet): {platform_fee} {crypto_symbol}")
+        logger.info(f"   Escrow Fee: {escrow_fee} {crypto_symbol}")
+        logger.info(f"   Net (sent to vendor): {net_amount} = {amount} - {platform_fee} - {escrow_fee}")
+        logger.info(f"💰 PLATFORM FEE RETAINED: {platform_fee} {crypto_symbol} stays in platform wallet (BTCPay)")
         if net_amount >= amount:
             logger.error(f"❌ CRITICAL: net_amount ({net_amount}) >= gross ({amount}) - PLATFORM FEE NOT DEDUCTED!")
             raise ValueError(f"Platform fee not deducted! net_amount ({net_amount}) should be less than gross ({amount})")

@@ -69,7 +69,39 @@ interface PayoutData {
   escrow_fee?: string;
   platform_fee_rate?: number;
   escrow_fee_rate?: number;
+  network_fee?: string;
 }
+
+// Styled Crypto Icon Component
+const CryptoIcon = ({ symbol, size = "md" }: { symbol?: string, size?: "sm" | "md" | "lg" | "xl" }) => {
+  const isBTC = symbol?.toUpperCase() === 'BTC' || symbol?.toUpperCase() === 'BITCOIN';
+  const coinName = isBTC ? "BTC" : symbol?.toUpperCase() || "CRY";
+
+  const sizeClasses = {
+    sm: "w-8 h-8 text-[10px]",
+    md: "w-10 h-10 text-[11px]",
+    lg: "w-12 h-12 text-xs",
+    xl: "w-16 h-16 text-sm"
+  };
+
+  return (
+    <div className={`
+      ${sizeClasses[size]} 
+      rounded-full 
+      bg-[#09111f] 
+      flex 
+      items-center 
+      justify-center 
+      border-2 
+      ${isBTC ? 'border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.2)]'} 
+      font-black 
+      text-white 
+      tracking-tighter
+    `}>
+      {coinName}
+    </div>
+  );
+};
 
 interface PendingEarnings {
   btc: { amount: string; usd: string; orders: number };
@@ -426,10 +458,7 @@ export default function VendorPayouts() {
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div className="flex items-start space-x-4 min-w-0 flex-1">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${payout.method === 'BTC' ? 'bg-amber-500/10 text-amber-500' : 'bg-orange-500/10 text-orange-500'
-                        }`}>
-                        <Wallet className="w-6 h-6" />
-                      </div>
+                      <CryptoIcon symbol={payout.method} size="lg" />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <h3 className="font-bold text-white text-base truncate group-hover:text-cyan-400 transition-colors">{payout.id}</h3>
@@ -644,14 +673,12 @@ export default function VendorPayouts() {
             <div className="p-6 space-y-6">
               {/* Summary Card */}
               <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/30 flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center border border-cyan-500/30">
-                    <h3 className="text-xl font-black text-white">{selectedPayout.method}</h3>
-                  </div>
+                <div className="flex items-center gap-6">
+                  <CryptoIcon symbol={selectedPayout.method} size="xl" />
                   <div>
-                    <p className="text-sm text-gray-400 font-medium">Total Amount</p>
-                    <h2 className="text-3xl font-black text-white tracking-tight">{selectedPayout.amount}</h2>
-                    <p className="text-cyan-400 font-medium">{selectedPayout.usdAmount}</p>
+                    <p className="text-sm text-gray-400 font-medium">Total Received</p>
+                    <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-1">{selectedPayout.amount}</h2>
+                    <p className="text-cyan-400 font-bold text-lg">{selectedPayout.usdAmount}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -689,15 +716,31 @@ export default function VendorPayouts() {
                   <CardContent className="space-y-4 pt-2">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Gross Amount</span>
-                      <span className="text-white">{selectedPayout.gross_amount || '0.00000000'}</span>
+                      <span className="text-white font-mono">{selectedPayout.gross_amount || '0.00000000'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Platform Fee</span>
+                      <div className="flex flex-col">
+                        <span className="text-gray-400">Platform Fee</span>
+                        <span className="text-[10px] text-gray-500">Rate: {selectedPayout.platform_fee_rate}%</span>
+                      </div>
                       <span className="text-red-400">-{selectedPayout.platform_fee || '0.00000000'}</span>
                     </div>
+                    {selectedPayout.type === 'escrow' && (
+                      <div className="flex justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-gray-400">Escrow Fee</span>
+                          <span className="text-[10px] text-gray-500">Rate: {selectedPayout.escrow_fee_rate}%</span>
+                        </div>
+                        <span className="text-red-400">-{selectedPayout.escrow_fee || '0.00000000'}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Network Fee (est.)</span>
+                      <span className="text-red-400/70">-{selectedPayout.network_fee || '0.00000250'}</span>
+                    </div>
                     <div className="flex justify-between pt-4 border-t border-gray-700/50">
-                      <span className="text-white font-bold">Net Payout</span>
-                      <span className="text-cyan-400 font-bold">{selectedPayout.amount}</span>
+                      <span className="text-white font-bold text-lg">Net Earnings</span>
+                      <span className="text-cyan-400 font-black text-lg">{selectedPayout.amount}</span>
                     </div>
                   </CardContent>
                 </Card>

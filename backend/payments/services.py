@@ -1071,32 +1071,30 @@ class PaymentService:
             logger.info(f"Processing BTCPay webhook: invoice_id={invoice_id}, order_id={order_id}, status={status}, type={webhook_type}")
             logger.info(f"Metadata: {metadata}")
             
-            # Handle test webhooks (no order_id or invoice_id)
-            if not order_id or not invoice_id:
+            # Handle test webhooks (ONLY if both are missing)
+            if not order_id and not invoice_id:
                 logger.info("Test webhook received - ignoring")
                 return True
             
             try:
-                # Try to find by order_id first, then by invoice_id
-                if order_id:
+                # Try to find by invoice_id first (BTCPay's primary key)
+                if invoice_id:
                     try:
-                        payment_address = PaymentAddress.objects.get(
-                            order_id=order_id,
-                            btcpay_invoice_id=invoice_id
-                        )
+                        payment_address = PaymentAddress.objects.get(btcpay_invoice_id=invoice_id)
+                        logger.info(f"Found PaymentAddress by invoice_id: {invoice_id}")
                     except PaymentAddress.DoesNotExist:
-                        # Try to find by order_id only (in case invoice_id not saved yet)
-                        payment_address = PaymentAddress.objects.get(order_id=order_id)
-                        # Update the invoice_id if it's missing
-                        if not payment_address.btcpay_invoice_id:
-                            payment_address.btcpay_invoice_id = invoice_id
-                            payment_address.save()
+                        # Fallback to order_id if invoice_id fails or hasn't been saved yet
+                        if order_id:
+                            payment_address = PaymentAddress.objects.get(order_id=order_id)
+                            # Update invoice_id for future use
+                            if not payment_address.btcpay_invoice_id:
+                                payment_address.btcpay_invoice_id = invoice_id
+                                payment_address.save()
+                        else:
+                            logger.warning(f"PaymentAddress not found for invoice_id={invoice_id} and no order_id provided")
+                            return False
                 else:
-                    # If no order_id in webhook, find by invoice_id only
-                    payment_address = PaymentAddress.objects.get(
-                        btcpay_invoice_id=invoice_id
-                    )
-                    logger.info(f"Found PaymentAddress by invoice_id only: {payment_address.order_id}")
+                    payment_address = PaymentAddress.objects.get(order_id=order_id)
             except PaymentAddress.DoesNotExist:
                 logger.warning(f"PaymentAddress not found for order_id={order_id}, invoice_id={invoice_id}")
                 return False
@@ -1956,13 +1954,19 @@ class PaymentService:
             # SECURITY: Prevent release if payment is not fully settled/confirmed
             from django.conf import settings as django_settings
             required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 3)
+            current_confs = payment_address.confirmations or 0
             
-            if payment_address.status != 'paid' or (payment_address.confirmations or 0) < required_confs:
-                logger.warning(f"Attempted early escrow release for {order_id}. Status: {payment_address.status}, Confirmations: {payment_address.confirmations}/{required_confs}")
-                return False # UI will show "Failed to release escrow"
+            if payment_address.status != 'paid' or current_confs < required_confs:
+                msg = f"❌ CANNOT RELEASE: Payment not confirmed on blockchain ({current_confs}/{required_confs} confs). Please wait for BTCPay status 'Settled'."
+                logger.warning(msg)
+                # Raise exception so the API shows the message to the user
+                raise ValueError(msg)
                 
             # Allow releasing if status is 'funded' OR 'disputed'
             if escrow.status not in ['funded', 'disputed']:
+                msg = f"Cannot release escrow for order {order_id}: status is {escrow.status}"
+                logger.warning(msg)
+                raise ValueError(msg)
                 logger.warning(f"Cannot release escrow for order {order_id}: status is {escrow.status} (expected 'funded' or 'disputed')")
                 return False
             
@@ -2321,6 +2325,26 @@ class PayoutService:
                 logger.error(f"Error notifying about payout status change: {e}")
             
             logger.info(f"Processing payout {payout_id} (previous status: {previous_status})")
+            
+            # CRITICAL: Re-verify net_amount before sending to ensure fees are deducted
+            # We use the actual rates from settings to ensure accuracy even in fallbacks
+            from .commission_models import CommissionSettings, VendorFee
+            cs = CommissionSettings.get_settings()
+            v_rate = VendorFee.get_vendor_fee(payout.vendor)
+            p_rate = (v_rate if v_rate is not None else cs.platform_fee_rate) / Decimal('100')
+            e_rate = cs.escrow_fee_rate / Decimal('100') if payout.payout_type == 'escrow' else Decimal('0')
+            
+            # Recalculate fees based on actual configuration
+            payout.platform_fee = payout.gross_amount * p_rate
+            payout.escrow_fee = payout.gross_amount * e_rate
+            expected_net = payout.gross_amount - payout.platform_fee - payout.escrow_fee
+            
+            if abs(payout.net_amount - expected_net) > Decimal('0.00000001'):
+                logger.error(f"❌ FEE CALCULATION MISMATCH: Current net_amount {payout.net_amount} != Expected {expected_net}. Correcting to proper dynamic rates.")
+                payout.net_amount = expected_net
+                payout.save()
+            
+            logger.info(f"✅ Dynamic fee verification passed: Gross={payout.gross_amount}, Platform={payout.platform_fee} ({p_rate*100}%), Escrow={payout.escrow_fee} ({e_rate*100}%), Net={payout.net_amount}")
             
             # Send coins to vendor
             success = False

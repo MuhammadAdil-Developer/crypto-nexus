@@ -310,6 +310,11 @@ class EscrowActionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
+        except ValueError as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             logger.error(f"Escrow action error: {str(e)}")
             return Response(
@@ -855,11 +860,13 @@ class AdminPayoutView(APIView):
                     'order_id': payout.order.order_id,
                     'vendor_name': payout.vendor.username,
                     'buyer_name': payout.buyer.username,
-                    'crypto_currency': payout.crypto_currency.symbol,
-                    'amount': str(payout.net_amount),
+                    'crypto_currency': currency_symbol,
+                    'amount': str(payout.net_amount), # This is the net amount received by vendor
+                    'completed_at': payout.completed_at.strftime('%Y-%m-%d %H:%M:%S') if payout.completed_at else None,
                     'gross_amount': str(payout.gross_amount),
                     'platform_fee': str(payout.platform_fee),
                     'escrow_fee': str(payout.escrow_fee),
+                    'network_fee': '0.00000250 BTC' if currency_symbol == 'BTC' else '0.00010000 XMR', # Placeholder for network fee
                     'platform_fee_rate': round(platform_fee_rate, 2),
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                     'vendor_address': payout.vendor_address,
@@ -869,12 +876,17 @@ class AdminPayoutView(APIView):
                     'order_status': payout.order.order_status,
                     'requested_at': payout.requested_at,
                     'processed_at': payout.processed_at,
-                    'completed_at': payout.completed_at,
                     'auto_release_at': payout.auto_release_at,
                     'created_at': payout.created_at,
                 })
 
             for direct in direct_payments:
+                currency_symbol = direct.crypto_currency.symbol.upper().strip()
+                # Calculate platform fee rate for direct payment
+                platform_fee_rate = 0
+                if direct.amount > 0:
+                    platform_fee_rate = (direct.platform_fee / direct.amount) * 100
+
                 combined_data.append({
                     'id': direct.id,
                     'type': 'direct',
@@ -882,7 +894,12 @@ class AdminPayoutView(APIView):
                     'vendor_name': direct.vendor.username,
                     'buyer_name': direct.buyer.username,
                     'crypto_currency': direct.crypto_currency.symbol,
-                    'amount': str(direct.amount),
+                    'amount': str(direct.net_amount),
+                    'gross_amount': str(direct.amount),
+                    'platform_fee': str(direct.platform_fee),
+                    'escrow_fee': '0.00',
+                    'network_fee': '0.00000250 BTC' if currency_symbol == 'BTC' else '0.00010000 XMR',
+                    'platform_fee_rate': round(platform_fee_rate, 2),
                     'vendor_address': direct.vendor_address,
                     'transaction_hash': direct.transaction_hash,
                     'status': direct.status,
@@ -1104,6 +1121,7 @@ class VendorPayoutsView(APIView):
                     'gross_amount': str(payout.gross_amount),
                     'platform_fee': str(payout.platform_fee),
                     'escrow_fee': str(payout.escrow_fee),
+                    'network_fee': '0.00000250 BTC' if currency_symbol == 'BTC' else '0.00010000 XMR',
                     'platform_fee_rate': round(platform_fee_rate, 2),
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                 })
@@ -1111,17 +1129,29 @@ class VendorPayoutsView(APIView):
             for payment in direct_payments:
                 currency_symbol = payment.crypto_currency.symbol.upper().strip()
                 usd_rate = btc_rate if currency_symbol == 'BTC' else xmr_rate
+                
+                # Calculate platform fee rate for direct payment
+                platform_fee_rate = 0
+                if payment.amount > 0:
+                    platform_fee_rate = (payment.platform_fee / payment.amount) * 100
+                    
                 payout_data.append({
                     'id': str(payment.id),
-                    'amount': f"{payment.amount} {payment.crypto_currency.symbol}",
-                    'usdAmount': f"${float(payment.amount) * usd_rate:.2f}",
+                    'amount': f"{payment.net_amount} {payment.crypto_currency.symbol}",
+                    'usdAmount': f"${float(payment.net_amount) * usd_rate:.2f}",
                     'address': payment.vendor_address,
                     'method': payment.crypto_currency.symbol,
                     'status': payment.status.title(),
                     'date': payment.created_at.strftime('%Y-%m-%d'),
                     'txHash': payment.transaction_hash,
                     'order_id': payment.order.order_id,
-                    'type': 'direct'
+                    'type': 'direct',
+                    'gross_amount': str(payment.amount),
+                    'platform_fee': str(payment.platform_fee),
+                    'escrow_fee': '0.00',
+                    'network_fee': '0.00000250 BTC' if currency_symbol == 'BTC' else '0.00010000 XMR',
+                    'platform_fee_rate': round(platform_fee_rate, 2),
+                    'escrow_fee_rate': 0
                 })
             
             # Calculate total earnings (Completed + Pending)

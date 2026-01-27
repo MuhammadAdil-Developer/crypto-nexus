@@ -197,6 +197,24 @@ def process_non_escrow_payout(self, order_id: str):
         direct_payment.status = 'processing'
         direct_payment.save()
         
+        # ============================================================
+        # CRITICAL: BLOCKCHAIN CONFIRMATION CHECK (Safety Layer)
+        # ============================================================
+        # Even if triggered, we must ensure enough confirmations exist
+        from django.conf import settings as django_settings
+        required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 3)
+        current_confs = payment_address.confirmations or 0
+        
+        if current_confs < required_confs:
+            logger.warning(f"⚠️ Payout task for {order_id} deferred: {current_confs}/{required_confs} confirmations.")
+            # Set status back to confirmed so it can be picked up again
+            direct_payment.status = 'confirmed'
+            direct_payment.save()
+            # Retry in 5 minutes
+            raise self.retry(countdown=300)
+            
+        logger.info(f"✅ Confirmation check passed: {current_confs}/{required_confs} confirmations. Proceeding with payout.")
+        
         # Calculate fees
         from .commission_models import CommissionSettings, VendorFee
         commission_settings = CommissionSettings.get_settings()

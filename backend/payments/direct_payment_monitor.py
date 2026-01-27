@@ -455,15 +455,19 @@ class DirectPaymentMonitor:
             logger.error(f"Error matching BTC transaction: {e}")
             return None
     
-    def _confirm_payment(self, payment, source):
+    def _confirm_payment(self, payment, source, confirmations=None, transaction_hash=None):
         """Confirm payment and update order status"""
         try:
             with transaction.atomic():
                 # Update payment status
                 payment.status = 'confirmed'
-                payment.transaction_hash = f"real_tx_{payment.id}_{int(timezone.now().timestamp())}"
+                if transaction_hash:
+                    payment.transaction_hash = transaction_hash
+                elif not payment.transaction_hash:
+                    payment.transaction_hash = f"real_tx_{payment.id}_{int(timezone.now().timestamp())}"
+                
                 payment.confirmed_at = timezone.now()
-                payment.confirmations = 6  # Assume confirmed
+                payment.confirmations = confirmations or 6
                 payment.save()
                 
                 # Update order status
@@ -480,7 +484,7 @@ class DirectPaymentMonitor:
                 except Exception as e:
                     logger.error(f"Failed to trigger payout task for order {order.order_id}: {e}")
                 
-                logger.info(f"Payment {payment.id} confirmed via {source}")
+                logger.info(f"Payment {payment.id} confirmed via {source} with {payment.confirmations} confirmations")
                 return True
                 
         except Exception as e:

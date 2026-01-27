@@ -1055,30 +1055,35 @@ export default function VendorEditProduct() {
                 <div className="flex gap-2">
                   <Input
                     id="newTag"
-                    placeholder="e.g., zoom, account, verified"
+                    placeholder={formData.tags.length >= 3 ? "Limit reached (3 tags max)" : "Press Enter to add tags..."}
                     value={newTag}
+                    disabled={formData.tags.length >= 3}
                     onChange={(e) => setNewTag(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (newTag.trim()) {
+                        const tag = newTag.trim();
+                        if (tag) {
                           if (formData.tags.length >= 3) {
                             showToast({
                               type: 'error',
-                              title: 'Max 3 tags',
-                              message: 'You can only add up to 3 tags per product.'
+                              title: 'Limit Exceeded',
+                              message: 'Maximum 3 tags allowed per product.'
                             });
                             return;
                           }
-                          setFormData({
-                            ...formData,
-                            tags: [...formData.tags, newTag.trim()]
-                          });
+                          // Only add if not already present
+                          if (!formData.tags.includes(tag)) {
+                            setFormData({
+                              ...formData,
+                              tags: [...formData.tags, tag]
+                            });
+                          }
                           setNewTag('');
                         }
                       }
                     }}
-                    className="bg-gray-800 border-gray-600 text-white"
+                    className={`bg-gray-800 border-gray-600 text-white ${formData.tags.length >= 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                   <Button
                     type="button"

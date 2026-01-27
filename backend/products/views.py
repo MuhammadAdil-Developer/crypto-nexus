@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Product, ProductCategory, ProductSubCategory, ProductView, ProductReview
 from shared.models import Notification
-from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductSubCategorySerializer, ProductCategorySerializer
+from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductUpdateSerializer, ProductSubCategorySerializer, ProductCategorySerializer
 from users.models import User
 import json
 import csv
@@ -1449,7 +1449,7 @@ def update_product(request, product_id):
             except Exception as e:
                 logger.error(f"Error checking wallet addresses in update: {e}")
 
-        serializer = ProductCreateSerializer(product, data=request.data, partial=True)
+        serializer = ProductUpdateSerializer(product, data=request.data, partial=True)
 
         if serializer.is_valid():
             serializer.save()

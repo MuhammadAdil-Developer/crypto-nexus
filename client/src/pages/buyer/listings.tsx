@@ -97,6 +97,7 @@ function BuyerListingsContent() {
   const [allProducts, setAllProducts] = useState<Product[]>([]); // Store all products for search
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [autocompleteTerm, setAutocompleteTerm] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -218,11 +219,43 @@ function BuyerListingsContent() {
 
   const handleSuggestionClick = (term: string) => {
     setSearchQuery(term);
+    setAutocompleteTerm("");
     setShowSuggestions(false);
     // Explicitly update URL and trigger search
     const newParams = new URLSearchParams(searchParams);
     newParams.set('search', term);
     setSearchParams(newParams);
+  };
+
+  // Update autocomplete term based on first suggestion
+  useEffect(() => {
+    if (searchQuery && suggestions.length > 0 && showSuggestions) {
+      const filtered = suggestions.filter(s =>
+        s.term.toLowerCase().startsWith(searchQuery.toLowerCase())
+      );
+      if (filtered.length > 0 && filtered[0].term.toLowerCase() !== searchQuery.toLowerCase()) {
+        const fullTerm = filtered[0].term;
+        // Only autocomplete if it starts with the query
+        setAutocompleteTerm(fullTerm);
+      } else {
+        setAutocompleteTerm("");
+      }
+    } else {
+      setAutocompleteTerm("");
+    }
+  }, [searchQuery, suggestions, showSuggestions]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key === 'Tab' || e.key === 'ArrowRight') && autocompleteTerm && autocompleteTerm.toLowerCase().startsWith(searchQuery.toLowerCase())) {
+      if (autocompleteTerm.toLowerCase() !== searchQuery.toLowerCase()) {
+        e.preventDefault();
+        setSearchQuery(autocompleteTerm);
+        setAutocompleteTerm("");
+      }
+    } else if (e.key === 'Enter') {
+      setShowSuggestions(false);
+      setAutocompleteTerm("");
+    }
   };
 
   // Fetch all products when searching (for cross-page search)
@@ -496,16 +529,25 @@ function BuyerListingsContent() {
               <div className="absolute inset-0 bg-gradient-to-r from-theme-cyan/20 to-theme-red/20 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 rounded-xl" />
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-theme-cyan transition-colors w-5 h-5" />
-                <Input
-                  placeholder="Search accounts, tags, or websites..."
-                  value={searchQuery}
-                  onFocus={() => setShowSuggestions(true)}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  className="pl-12 h-12 bg-black/40 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all rounded-2xl shadow-2xl"
-                />
+                <div className="relative flex items-center">
+                  <Input
+                    placeholder="Search accounts, tags, or websites..."
+                    value={searchQuery}
+                    onFocus={() => setShowSuggestions(true)}
+                    onKeyDown={handleKeyDown}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    className="pl-12 h-12 bg-black/40 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all rounded-2xl shadow-2xl relative z-10"
+                  />
+                  {autocompleteTerm && showSuggestions && (
+                    <div className="absolute left-12 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none select-none z-0">
+                      <span className="opacity-0">{searchQuery}</span>
+                      <span>{autocompleteTerm.substring(searchQuery.length)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Smart Auto-Suggestion Dropdown */}

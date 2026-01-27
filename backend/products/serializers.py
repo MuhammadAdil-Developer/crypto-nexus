@@ -558,21 +558,40 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'headline', 'website', 'account_type', 'access_type',
-            'account_balance', 'description', 'price', 'additional_info',
-            'delivery_time', 'credentials', 'main_image', 'gallery_images'
+            'headline', 'website', 'account_type', 'access_type', 'access_method',
+            'account_balance', 'description', 'price', 'discount_percentage',
+            'additional_info', 'delivery_time', 'delivery_method', 'credentials',
+            'main_image', 'main_images', 'tags',
+            'account_age', 'quantity_available', 'special_features', 
+            'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
+            'escrow_enabled', 'accepted_crypto', 'is_giveaway'
         ]
     
     def validate(self, data):
         """Custom validation for product updates"""
-        # Validate price
-        if data.get('price', 0) < 0:
-            raise serializers.ValidationError("Price must be 0 or greater")
+        # Tag Validation - Maximum 3 tags
+        tags = data.get('tags', [])
+        if tags:
+            if isinstance(tags, str):
+                try:
+                    import json
+                    tags = json.loads(tags)
+                except:
+                    tags = [t.strip() for t in tags.split(',') if t.strip()]
+            
+            if isinstance(tags, list):
+                data['tags'] = [str(t).strip() for t in tags if str(t).strip()][:3]
         
-        # Validate description length
-        if len(data.get('description', '')) < 10:
-            raise serializers.ValidationError("Description must be at least 10 characters long")
-        
+        # Accepted Crypto validation
+        accepted_crypto = data.get('accepted_crypto')
+        if accepted_crypto:
+            if isinstance(accepted_crypto, str):
+                try:
+                    import json
+                    data['accepted_crypto'] = json.loads(accepted_crypto)
+                except:
+                    pass
+
         return data
 
     def update(self, instance, validated_data):

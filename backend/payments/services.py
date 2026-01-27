@@ -1174,6 +1174,13 @@ class PaymentService:
                 mapped_status = status_mapping.get(btcpay_status, 'pending')
                 payment_address.status = mapped_status
                 
+                # If BTCPay says Settled, we trust it and set confirmations to required
+                if btcpay_status == 'Settled':
+                    from django.conf import settings as django_settings
+                    required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 3)
+                    payment_address.confirmations = max(payment_address.confirmations or 0, required_confs)
+                    logger.info(f"BTCPay status is Settled - forcing confirmations to {payment_address.confirmations} to trigger payout")
+                
                 # Create notification for payment failed/expired
                 if mapped_status in ['cancelled', 'expired']:
                     try:
@@ -1215,9 +1222,13 @@ class PaymentService:
                     if payment_data:
                         payment_address.transaction_hash = payment_data.get('id')
                         payment_address.received_amount = float(payment_data.get('value', 0))
-                        # Extract confirmations from payment data
-                        payment_address.confirmations = payment_data.get('confirmations', 0)
-                        logger.info(f"Updated confirmations: {payment_address.confirmations}")
+                        # Extract confirmations from payment data - ONLY if higher than current
+                        new_confs = payment_data.get('confirmations', 0)
+                        if new_confs > (payment_address.confirmations or 0):
+                            payment_address.confirmations = new_confs
+                            logger.info(f"Updated confirmations from payment data: {payment_address.confirmations}")
+                        else:
+                            logger.info(f"Keeping existing confirmations: {payment_address.confirmations} (new was {new_confs})")
                 
                 payment_address.save()
                 

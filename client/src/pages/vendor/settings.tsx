@@ -13,6 +13,7 @@ import { api } from "@/services/authService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageBanner } from "@/components/PageBanner";
 import { validateBTCAddress, validateXMRAddress } from "@/lib/utils";
+import { getImageUrl } from "@/config/api";
 
 interface VendorProfile {
   business_name?: string;
@@ -22,6 +23,7 @@ interface VendorProfile {
   category?: string;
   website?: string;
   location?: string;
+  profile_picture?: string;
 }
 
 interface PaymentSettings {
@@ -91,8 +93,9 @@ export default function VendorSettings() {
   const { toast } = useToast();
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFAData, setTwoFAData] = useState<{ qr_code?: string; secret?: string; uri?: string } | null>(null);
-  const [editBTC, setEditBTC] = useState(false);
   const [editXMR, setEditXMR] = useState(false);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchVendorData();
@@ -112,8 +115,12 @@ export default function VendorSettings() {
           category: "",
           website: "",
           location: "",
-          business_name: ""
+          business_name: "",
+          profile_picture: userData.profile_picture || ""
         });
+        if (userData.profile_picture) {
+          setProfilePreview(getImageUrl(userData.profile_picture));
+        }
 
         // Set payout addresses from profile
         setPayment(prev => ({
@@ -210,6 +217,17 @@ export default function VendorSettings() {
         return;
       }
 
+      // Handle profile picture upload if changed
+      if (profileImage) {
+        const formData = new FormData();
+        formData.append('profile_picture', profileImage);
+        await api.put('/profile/update/', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+
       // Check if 2FA is being enabled
       const previous2FAState = await api.get('/profile/').then(r => r.data.data?.two_factor_enabled || false).catch(() => false);
 
@@ -243,6 +261,9 @@ export default function VendorSettings() {
         formData.append('xmr_address', payment.xmr_address || '');
         // Ensure backend sees this as application_message if it's following that route
         formData.append('application_message', profile.description || '');
+        if (profileImage) {
+          formData.append('profile_picture', profileImage);
+        }
 
         await api.post('/vendors/applications/create/', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -376,11 +397,38 @@ export default function VendorSettings() {
         <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Store className="w-5 h-5 text-theme-cyan" />
               Business Profile
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {/* Profile Picture Upload Section */}
+            <div className="flex flex-col items-center pb-6 border-b border-gray-700/50">
+              <div className="relative group">
+                <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-theme-cyan/30 bg-black/40 flex items-center justify-center shadow-lg">
+                  {profilePreview ? (
+                    <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-12 h-12 text-gray-600" />
+                  )}
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center">
+                    <Edit2 className="w-6 h-6 text-white" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setProfileImage(file);
+                          setProfilePreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              <p className="text-xs font-bold text-gray-500 mt-3 uppercase tracking-widest">Store Avatar</p>
+            </div>
             {/* <div>
               <Label htmlFor="businessName" className="text-gray-300">Business Name</Label>
               <Input

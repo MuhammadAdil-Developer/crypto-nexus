@@ -12,14 +12,8 @@ class User(AbstractUser, BaseModel):
     
     # Remove email field - only username + password
     username = models.CharField(max_length=150, unique=True)
-    
-    # Remove all PII fields
-    # email = models.EmailField(unique=True)  # REMOVED
-    # phone = models.CharField(max_length=25, blank=True, null=True)  # REMOVED
-    # profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)  # REMOVED
-    # date_of_birth = models.DateField(blank=True, null=True)  # REMOVED
-    # first_name = models.CharField(max_length=150, blank=True)  # REMOVED
-    # last_name = models.CharField(max_length=150, blank=True)  # REMOVED
+    # User Profile Information
+    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     
     # Keep only essential fields
     is_verified = models.BooleanField(default=False)

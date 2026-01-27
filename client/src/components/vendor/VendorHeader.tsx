@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ import { createPortal } from "react-dom";
 import { realtimeService } from "@/services/realtimeService";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import { getImageUrl } from "@/config/api";
 import notificationService from "@/services/notificationService";
 import { productService, Product } from "@/services/productService";
 
@@ -37,7 +38,8 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
   const [userData, setUserData] = useState({
     username: "",
     email: "",
-    business_name: ""
+    business_name: "",
+    profile_picture: ""
   });
   const [loading, setLoading] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -619,7 +621,8 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
         setUserData({
           username: response.data.data.username || "User",
           email: response.data.data.email || "",
-          business_name: response.data.data.business_name || ""
+          business_name: response.data.data.business_name || "",
+          profile_picture: response.data.data.profile_picture || ""
         });
       }
     } catch (error) {
@@ -851,9 +854,12 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
           {/* Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full border border-theme-cyan/20 overflow-hidden shadow-[0_0_15px_rgba(77,248,255,0.2)]">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-gradient-to-br from-[#4DF8FF] via-[#00d0d9] to-[#008c99] text-white font-bold border border-white/20 shadow-[0_0_15px_rgba(77,248,255,0.4)]">
+                  {userData.profile_picture && (
+                    <AvatarImage src={getImageUrl(userData.profile_picture)} alt={userData.username} className="object-cover" />
+                  )}
+                  <AvatarFallback className="bg-gradient-to-br from-[#4DF8FF] via-[#00d0d9] to-[#008c99] text-white font-bold">
                     {loading ? "..." : (userData.business_name ? userData.business_name.substring(0, 2).toUpperCase() : userData.username.substring(0, 2).toUpperCase())}
                   </AvatarFallback>
                 </Avatar>

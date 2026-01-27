@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Shield, User, ChevronDown, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { ADMIN_GROUPED_NAV } from "@/lib/constants";
+import { authService } from "@/services/authService";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { useAdminCounts } from "@/contexts/AdminCountsContext";
@@ -11,6 +12,7 @@ export function Sidebar() {
   const location = useLocation();
   const { localCounts } = useAdminCounts();
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const currentUser = authService.getCurrentUser();
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev =>
@@ -179,8 +181,8 @@ export function Sidebar() {
                 <User className="text-accent w-5 h-5" />
               </div>
               <div className="ml-3 min-w-0">
-                <p className="text-sm font-medium text-text truncate">Admin_User</p>
-                <p className="text-sm text-accent hover:text-accent-2 transition-colors duration-200">Super Admin</p>
+                <p className="text-sm font-medium text-text truncate">{currentUser?.username || "Admin"}</p>
+                <p className="text-sm text-accent hover:text-accent-2 transition-colors duration-200">Admin</p>
               </div>
             </div>
           </div>
@@ -301,8 +303,8 @@ export function Sidebar() {
                 <User className="text-accent w-5 h-5" />
               </div>
               <div className="ml-3 min-w-0">
-                <p className="text-sm font-medium text-text truncate">admin_user</p>
-                <p className="text-sm text-accent hover:text-accent-2 transition-colors duration-200">Super Admin</p>
+                <p className="text-sm font-medium text-text truncate">{currentUser?.username || "admin"}</p>
+                <p className="text-sm text-accent hover:text-accent-2 transition-colors duration-200">Admin</p>
               </div>
             </div>
           </div>

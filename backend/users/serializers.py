@@ -88,7 +88,7 @@ class UserSerializer(serializers.ModelSerializer):
             'btc_payout_address', 'xmr_payout_address', 'non_escrow_blocked', 'escrow_enabled',
             'total_orders', 'notify_new_orders', 'notify_messages', 'notify_disputes',
             'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts',
-            'recovery_phrase'
+            'recovery_phrase', 'profile_picture'
         ]
         read_only_fields = ['id', 'date_joined']
         extra_kwargs = {
@@ -104,7 +104,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'two_factor_enabled', 'btc_payout_address', 'xmr_payout_address',
             'notify_new_orders', 'notify_messages', 'notify_disputes',
-            'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts'
+            'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts',
+            'profile_picture'
         ]
         read_only_fields = ['id', 'username', 'date_joined', 'user_type', 'is_verified']
 

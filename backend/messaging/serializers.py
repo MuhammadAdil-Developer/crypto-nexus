@@ -85,30 +85,42 @@ class ConversationSerializer(serializers.ModelSerializer):
         return 0
 
 
-class CreateConversationSerializer(serializers.ModelSerializer):
-    product_id = serializers.IntegerField(write_only=True)
-    recipient_id = serializers.IntegerField(write_only=True)
+    product_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+    recipient_id = serializers.CharField(write_only=True)
     
     class Meta:
         model = Conversation
         fields = ['product_id', 'recipient_id']
     
     def create(self, validated_data):
-        product_id = validated_data.pop('product_id')
-        recipient_id = validated_data.pop('recipient_id')
+        product_id = validated_data.get('product_id')
+        recipient_id = validated_data.get('recipient_id')
         
-        # Use Django ORM to get the product and recipient
+        # Use Django ORM to get the recipient
         try:
-            product = Product.objects.get(id=product_id)
             recipient = User.objects.get(id=recipient_id)
-        except (Product.DoesNotExist, User.DoesNotExist):
-            raise serializers.ValidationError("Invalid product or recipient")
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid recipient")
+            
+        product = None
+        if product_id:
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                raise serializers.ValidationError("Invalid product")
         
         # Check if conversation already exists using Django ORM
         sender = self.context['request'].user
-        existing_conversation = Conversation.objects.filter(
-            product_id=product.id
-        ).filter(participants=sender).filter(participants=recipient).first()
+        
+        if product:
+            existing_conversation = Conversation.objects.filter(
+                product_id=product.id
+            ).filter(participants=sender).filter(participants=recipient).first()
+        else:
+            # For non-product conversations, find one between these two exactly
+            existing_conversation = Conversation.objects.filter(
+                product__isnull=True
+            ).filter(participants=sender).filter(participants=recipient).first()
         
         if existing_conversation:
             return existing_conversation

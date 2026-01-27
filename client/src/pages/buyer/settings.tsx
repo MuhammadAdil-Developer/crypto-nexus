@@ -11,6 +11,7 @@ import { api } from "@/services/authService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageBanner } from "@/components/PageBanner";
 import { validateBTCAddress, validateXMRAddress, cn } from "@/lib/utils";
+import { getImageUrl } from "@/config/api";
 
 interface UserProfile {
   username: string;
@@ -18,6 +19,7 @@ interface UserProfile {
   date_joined?: string;
   user_type?: string;
   is_verified?: boolean;
+  profile_picture?: string;
 }
 
 interface NotificationSettings {
@@ -76,6 +78,8 @@ export default function BuyerSettings() {
     btc: false,
     xmr: false
   });
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUserData();
@@ -93,8 +97,12 @@ export default function BuyerSettings() {
           phone: userData.phone || "",
           date_joined: userData.date_joined || "",
           user_type: userData.user_type || "buyer",
-          is_verified: userData.is_verified || false
+          is_verified: userData.is_verified || false,
+          profile_picture: userData.profile_picture || ""
         });
+        if (userData.profile_picture) {
+          setProfilePreview(getImageUrl(userData.profile_picture));
+        }
         setPayoutAddresses({
           btc_payout_address: userData.btc_payout_address || "",
           xmr_payout_address: userData.xmr_payout_address || ""
@@ -135,6 +143,17 @@ export default function BuyerSettings() {
   const handleSave = async () => {
     try {
       setSaving(true);
+
+      // Handle profile picture upload if changed
+      if (profileImage) {
+        const formData = new FormData();
+        formData.append('profile_picture', profileImage);
+        await api.put('/profile/update/', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
 
       // Check if 2FA is being enabled
       const previousProfile = await api.get('/profile/').then(r => r.data.data).catch(() => null);
@@ -275,11 +294,7 @@ export default function BuyerSettings() {
         new_password: passwordData.new_password
       });
 
-      console.log('Password change response:', response);
-
-      // Handle different response formats
       if (response.data) {
-        // Check if success is true or if the response itself indicates success
         if (response.data.success === true || response.status === 200) {
           setPasswordData({
             current_password: "",
@@ -293,7 +308,6 @@ export default function BuyerSettings() {
           });
           return;
         } else {
-          // Check for error message in response
           const errorMsg = response.data.message || response.data.error || "Failed to change password";
           throw new Error(errorMsg);
         }
@@ -302,9 +316,6 @@ export default function BuyerSettings() {
       }
     } catch (error: any) {
       console.error('Error changing password:', error);
-      console.error('Error response:', error.response);
-
-      // Extract error message from various possible locations
       let errorMessage = "Failed to change password";
 
       if (error.response?.data) {
@@ -314,8 +325,6 @@ export default function BuyerSettings() {
           errorMessage = error.response.data.error;
         } else if (error.response.data.detail) {
           errorMessage = error.response.data.detail;
-        } else if (typeof error.response.data === 'string') {
-          errorMessage = error.response.data;
         }
       } else if (error.message) {
         errorMessage = error.message;
@@ -351,6 +360,52 @@ export default function BuyerSettings() {
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Change Avatar / Profile Pic */}
+          <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl lg:col-span-2">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="relative group">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-theme-cyan/20 bg-black/40 flex items-center justify-center shadow-2xl relative">
+                  {profilePreview ? (
+                    <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-12 h-12 text-gray-600" />
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Edit2 className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setProfileImage(file);
+                      setProfilePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+              </div>
+              <div className="text-center md:text-left">
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Avatar Uplink</h3>
+                <p className="text-gray-400 text-sm font-medium italic mb-4">Upload a custom identifier image. Recommended size: 400x400px.</p>
+                <div className="flex gap-2 justify-center md:justify-start">
+                  <Button
+                    variant="outline"
+                    className="bg-black/40 border-gray-700 text-gray-400 hover:text-white rounded-xl"
+                    onClick={() => {
+                      setProfileImage(null);
+                      setProfilePreview(profile.profile_picture ? getImageUrl(profile.profile_picture) : null);
+                    }}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Wallet / Payout Addresses */}
           <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 sm:p-8 shadow-2xl lg:col-span-2">
             <div className="flex items-center gap-3 mb-6">
@@ -432,6 +487,7 @@ export default function BuyerSettings() {
               </Button>
             </div>
           </div>
+
           {/* Profile Settings */}
           <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-6">

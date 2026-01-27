@@ -41,7 +41,8 @@ class ProductSerializer(serializers.ModelSerializer):
             return {
                 'id': obj.vendor.id,
                 'username': obj.vendor.username,
-                'email': obj.vendor.email
+                'email': obj.vendor.email,
+                'profile_picture': obj.vendor.profile_picture.url if obj.vendor.profile_picture else None
             }
         return None
     
@@ -129,6 +130,17 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     documents = serializers.SerializerMethodField()
     final_price = serializers.SerializerMethodField()
     main_image = serializers.SerializerMethodField()
+    vendor = serializers.SerializerMethodField()
+
+    def get_vendor(self, obj):
+        if obj.vendor:
+            return {
+                'id': obj.vendor.id,
+                'username': obj.vendor.username,
+                'email': obj.vendor.email,
+                'profile_picture': obj.vendor.profile_picture.url if obj.vendor.profile_picture else None
+            }
+        return None
 
     def get_final_price(self, obj):
         """Calculate final price after discount"""
@@ -191,7 +203,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'delivery_method', 'special_features', 'region_restrictions',
             'tags', 'documents', 'main_images', 'auto_delivery_script',
             'notes_for_buyer', 'discount_percentage', 'escrow_enabled', 'accepted_crypto',
-            'final_price', 'credentials', 'is_giveaway'
+            'final_price', 'credentials', 'is_giveaway', 'vendor'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',

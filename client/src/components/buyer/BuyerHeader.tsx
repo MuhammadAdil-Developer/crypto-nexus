@@ -22,6 +22,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
+import { getImageUrl } from "@/config/api";
 import notificationService from "@/services/notificationService";
 
 export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: boolean; onMenuClick?: () => void }) {
@@ -29,7 +30,8 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
   const [searchQuery, setSearchQuery] = useState("");
   const [userData, setUserData] = useState({
     username: "",
-    email: ""
+    email: "",
+    profile_picture: ""
   });
   const [loading, setLoading] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -108,7 +110,8 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
       if (response.data && response.data.success) {
         setUserData({
           username: response.data.data.username || "User",
-          email: response.data.data.email || ""
+          email: response.data.data.email || "",
+          profile_picture: response.data.data.profile_picture || ""
         });
       }
     } catch (error) {
@@ -387,8 +390,12 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" className="bg-transparent shadow-none border-none flex items-center space-x-2 hover:bg-theme-red/10 group transition-all duration-200">
-                <div className="w-8 h-8 bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a] rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_15px_rgba(166,3,62,0.4)] group-hover:shadow-[0_0_20px_rgba(166,3,62,0.6)] transition-all">
-                  <User className="text-white w-4 h-4 shadow-sm" />
+                <div className="w-8 h-8 rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_15px_rgba(166,3,62,0.4)] group-hover:shadow-[0_0_20px_rgba(166,3,62,0.6)] transition-all overflow-hidden bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a]">
+                  {userData.profile_picture ? (
+                    <img src={getImageUrl(userData.profile_picture)} alt={userData.username} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="text-white w-4 h-4 shadow-sm" />
+                  )}
                 </div>
                 <span className="hidden md:block font-medium text-gray-300 group-hover:text-white transition-colors">
                   {loading ? "Loading..." : userData.username}

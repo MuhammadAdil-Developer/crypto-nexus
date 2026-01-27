@@ -11,11 +11,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, Plus, Phone, Mail, Calendar, User, UserCheck, Shield, Settings, Loader2, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Ban, Unlock, Eye, LogIn, Edit, Trash2, Plus, Phone, Mail, Calendar, User, UserCheck, Shield, Settings, Loader2, History, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { SAMPLE_USERS } from "@/lib/constants";
 import { authService } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
-import { getApiUrl } from "@/config/api";
+import { getApiUrl, getImageUrl } from "@/config/api";
+import { messagingService } from "@/services/messagingService";
 
 // API Integration Types
 interface User {
@@ -60,6 +61,9 @@ export default function AdminUsers() {
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
   const [resetPasswordData, setResetPasswordData] = useState({ new_password: "", confirm_password: "" });
   const [disable2FAConfirmOpen, setDisable2FAConfirmOpen] = useState(false);
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [messageContent, setMessageContent] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   // Vendor details state
   const [vendorDetails, setVendorDetails] = useState<any>(null);
@@ -1105,6 +1109,76 @@ export default function AdminUsers() {
         </Dialog>
       </div>
 
+
+      {/* Send Message Modal */}
+      <Dialog open={messageModalOpen} onOpenChange={setMessageModalOpen}>
+        <DialogContent className="bg-surface-1 border-border text-white shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <MessageSquare className="w-5 h-5 text-accent" />
+              Direct Message to {selectedUser?.username}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <Label className="text-gray-400 text-sm font-medium">Message Content</Label>
+              <textarea
+                className="w-full h-40 bg-surface-2 border border-border rounded-xl p-4 text-white focus:ring-2 focus:ring-accent/50 outline-none transition-all resize-none shadow-inner"
+                placeholder="Type your administrative message here..."
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                This message will be delivered to the user's inbox immediately.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-border text-gray-400 hover:text-white hover:bg-surface-2"
+                onClick={() => setMessageModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-[2] bg-accent text-bg font-bold hover:bg-accent/90"
+                disabled={sendingMessage || !messageContent.trim()}
+                onClick={async () => {
+                  if (!selectedUser) return;
+                  try {
+                    setSendingMessage(true);
+                    const conversation = await messagingService.createConversation(selectedUser.id);
+                    await messagingService.sendMessage(messageContent, conversation.id);
+
+                    toast({
+                      title: "Success",
+                      description: `Message sent to ${selectedUser.username}`,
+                    });
+                    setMessageModalOpen(false);
+                    setMessageContent("");
+                  } catch (error: any) {
+                    toast({
+                      title: "Error",
+                      description: error.message || "Failed to send message",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setSendingMessage(false);
+                  }
+                }}
+              >
+                {sendingMessage ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                )}
+                Send Message
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card className="crypto-card">
@@ -1256,8 +1330,12 @@ export default function AdminUsers() {
                       <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`user-row-${user.id}`}>
                         <td className="p-4">
                           <div className="flex items-center">
-                            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center mr-3 bg-accent/20 border border-border">
+                              {user.profile_picture ? (
+                                <img src={getImageUrl(user.profile_picture)} alt={user.username} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                              )}
                             </div>
                             <span className="font-medium text-white">{user.username}</span>
                           </div>
@@ -1302,8 +1380,22 @@ export default function AdminUsers() {
                               className="text-gray-400 hover:text-white"
                               onClick={() => handleViewUser(user)}
                               data-testid={`view-user-${user.id}`}
+                              title="View Details"
                             >
                               <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-accent hover:text-accent-2"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setMessageModalOpen(true);
+                              }}
+                              data-testid={`message-user-${user.id}`}
+                              title="Send Message"
+                            >
+                              <MessageSquare className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"

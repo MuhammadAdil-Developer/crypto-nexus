@@ -136,6 +136,33 @@ class MessagingService {
     return response.json();
   }
 
+  async createConversation(recipientId: string | number, productId?: string | number): Promise<any> {
+    const token = localStorage.getItem('accessToken');
+    const requestBody: any = {
+      recipient_id: String(recipientId),
+    };
+    if (productId) {
+      requestBody.product_id = String(productId);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/messaging/conversations/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || errorData.message || 'Failed to create conversation';
+      throw new Error(errorMessage);
+    }
+
+    return response.json();
+  }
+
   async getConversationByProduct(productId: string | number): Promise<any> {
     const token = localStorage.getItem('accessToken');
     // Ensure productId is a string (UUID)

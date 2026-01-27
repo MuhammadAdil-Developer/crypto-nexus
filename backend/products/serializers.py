@@ -304,7 +304,32 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             
             if errors:
                 raise serializers.ValidationError(errors)
-        
+
+        # Tag Validation - Maximum 3 tags
+        tags = data.get('tags', [])
+        if tags:
+            # If tags is a string (e.g. from form-data), try to parse it
+            if isinstance(tags, str):
+                try:
+                    import json
+                    tags = json.loads(tags)
+                except (json.JSONDecodeError, ValueError):
+                    # Fallback to comma separation
+                    tags = [t.strip() for t in tags.split(',') if t.strip()]
+            
+            if not isinstance(tags, list):
+                tags = [tags]
+            
+            # Clean and filter tags
+            clean_tags = [str(t).strip() for t in tags if str(t).strip()][:3]  # Enforce MAX 3 logic
+            
+            if len(tags) > 3:
+                # Optionally warn or strictly error, user asked for restriction
+                # We will truncate to 3 as requested, but we can also raise validation error
+                data['tags'] = clean_tags
+            else:
+                data['tags'] = clean_tags
+
         return data
     
     def create(self, validated_data):

@@ -74,7 +74,7 @@ function BuyerListingsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedCrypto, setSelectedCrypto] = useState<"all" | "BTC" | "XMR">("all");
-  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState<"all" | "manual" | "instant">("all");
+  const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState<"all" | "manual" | "auto">("all");
   // Default to server-provided ordering (personalized) so different buyers see different orders
   const [sortBy, setSortBy] = useState("server");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("list");
@@ -95,6 +95,9 @@ function BuyerListingsContent() {
     total_pages: 1
   });
   const [allProducts, setAllProducts] = useState<Product[]>([]); // Store all products for search
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -183,6 +186,44 @@ function BuyerListingsContent() {
     setHasMore(true);
     fetchProducts(1, true);
   }, [selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
+
+  // Fetch popular searches for auto-suggestion
+  useEffect(() => {
+    const fetchPopularSearches = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/products/popular-searches/?limit=10`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setSuggestions(result.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching popular searches:', error);
+      }
+    };
+    fetchPopularSearches();
+  }, []);
+
+  // Handle clicking outside suggestions
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSuggestionClick = (term: string) => {
+    setSearchQuery(term);
+    setShowSuggestions(false);
+    // Explicitly update URL and trigger search
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('search', term);
+    setSearchParams(newParams);
+  };
 
   // Fetch all products when searching (for cross-page search)
   useEffect(() => {
@@ -451,18 +492,59 @@ function BuyerListingsContent() {
         {/* Search, Sort, and View Toggle - Sticky Crystal Bar */}
         <div className="lg:sticky top-4 z-40 bg-gray-900/60 backdrop-blur-xl py-4 sm:py-6 rounded-[2rem] border border-gray-700/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-8 px-4 sm:px-8 transition-all duration-300 hover:border-gray-600/50">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 sm:gap-6">
-            {/* Search Bar with Premium Glow */}
-            <div className="flex-1 relative group">
+            <div className="flex-1 relative group" ref={searchRef}>
               <div className="absolute inset-0 bg-gradient-to-r from-theme-cyan/20 to-theme-red/20 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 rounded-xl" />
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-theme-cyan transition-colors w-5 h-5" />
                 <Input
-                  placeholder="Search accounts..."
+                  placeholder="Search accounts, tags, or websites..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setShowSuggestions(true)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
                   className="pl-12 h-12 bg-black/40 border-gray-700/50 text-white placeholder:text-gray-500 focus:border-theme-cyan/50 focus:ring-theme-cyan/10 transition-all rounded-2xl shadow-2xl"
                 />
               </div>
+
+              {/* Smart Auto-Suggestion Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-3 bg-gray-900/95 backdrop-blur-2xl border border-gray-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <div className="px-4 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5 mb-1">
+                      Trending Searches
+                    </div>
+                    {suggestions
+                      .filter(s => !searchQuery || s.term.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .slice(0, 8)
+                      .map((suggestion, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSuggestionClick(suggestion.term)}
+                          className="flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-xl cursor-pointer group transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            {suggestion.type === 'product' && <Zap className="w-4 h-4 text-yellow-400" />}
+                            {suggestion.type === 'tag' && <Star className="w-4 h-4 text-theme-cyan" />}
+                            {suggestion.type === 'website' && <Grid className="w-4 h-4 text-blue-400" />}
+                            <span className="text-sm text-gray-300 group-hover:text-white font-medium">
+                              {suggestion.term}
+                            </span>
+                          </div>
+                          <Badge variant="secondary" className="bg-white/5 text-gray-500 group-hover:bg-theme-cyan/20 group-hover:text-theme-cyan border-none text-[9px] font-black uppercase tracking-tighter">
+                            {suggestion.type}
+                          </Badge>
+                        </div>
+                      ))}
+                    {suggestions.filter(s => !searchQuery || s.term.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                      <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                        No matches found for "{searchQuery}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Filters Row */}
@@ -585,7 +667,7 @@ function BuyerListingsContent() {
                   ].map((method) => (
                     <DropdownMenuItem
                       key={method.id}
-                      onClick={() => setSelectedDeliveryMethod(method.id as "all" | "manual" | "instant")}
+                      onClick={() => setSelectedDeliveryMethod(method.id as "all" | "manual" | "auto")}
                       className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
                     >
                       <span>{method.label}</span>

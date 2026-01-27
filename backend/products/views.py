@@ -206,13 +206,16 @@ def get_popular_searches(request):
         
         for product in products:
             # Use headline as primary suggestion
-            if product.headline and product.headline.lower() not in seen:
-                suggestions.append({
-                    'term': product.headline,
-                    'count': product.views_count + product.favorites_count,
-                    'type': 'product'
-                })
-                seen.add(product.headline.lower())
+            if product.headline:
+                term = product.headline.strip()
+                if term.lower() not in seen:
+                    suggestions.append({
+                        'term': term,
+                        'count': product.views_count + product.favorites_count + 50, # Boost product names
+                        'type': 'product',
+                        'id': product.id
+                    })
+                    seen.add(term.lower())
             
             # Use website/domain as suggestion if available
             if product.website:
@@ -220,24 +223,32 @@ def get_popular_searches(request):
                 if domain and domain.lower() not in seen and len(domain) > 3:
                     suggestions.append({
                         'term': domain,
-                        'count': product.views_count,
+                        'count': product.views_count + 20,
                         'type': 'website'
                     })
                     seen.add(domain.lower())
             
-            # Add tags as suggestions
-            if product.tags:
-                for tag in product.tags.split(',')[:2]:  # Max 2 tags per product
-                    tag_clean = tag.strip()
+            # Handle tags (as list)
+            tags = product.tags
+            if isinstance(tags, str):
+                try:
+                    import json
+                    tags = json.loads(tags)
+                except:
+                    tags = tags.split(',')
+            
+            if isinstance(tags, list):
+                for tag in tags[:3]:  # Process up to 3 tags
+                    tag_clean = str(tag).strip()
                     if tag_clean and tag_clean.lower() not in seen and len(tag_clean) > 2:
                         suggestions.append({
                             'term': tag_clean,
-                            'count': product.views_count // 2,
+                            'count': product.views_count // 2 + 10,
                             'type': 'tag'
                         })
                         seen.add(tag_clean.lower())
             
-            if len(suggestions) >= limit:
+            if len(suggestions) >= limit * 1.5:
                 break
         
         # Sort by count (popularity) and return

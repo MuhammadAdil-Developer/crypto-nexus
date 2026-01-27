@@ -27,6 +27,7 @@ export default function VendorEditProduct() {
   const [btcAddressSet, setBtcAddressSet] = useState(false);
   const [xmrAddressSet, setXmrAddressSet] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [newTag, setNewTag] = useState("");
 
   // Price conversion logic removed as we now use USD directly
 
@@ -373,9 +374,13 @@ export default function VendorEditProduct() {
       const formDataToSend = new FormData();
       Object.keys(updateData).forEach(key => {
         if (Array.isArray(updateData[key])) {
-          updateData[key].forEach((item: any, index: number) => {
-            formDataToSend.append(`${key}[${index}]`, item);
-          });
+          if (key === 'tags') {
+            formDataToSend.append(key, JSON.stringify(updateData[key]));
+          } else {
+            updateData[key].forEach((item: any, index: number) => {
+              formDataToSend.append(`${key}[${index}]`, item);
+            });
+          }
         } else {
           formDataToSend.append(key, updateData[key]);
         }
@@ -1037,6 +1042,89 @@ export default function VendorEditProduct() {
               </CardContent>
             </Card>
           )}
+
+
+          {/* Tags Card */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Tags & Keywords</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newTag" className="text-gray-300">Tags (Max 3)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="newTag"
+                    placeholder="e.g., zoom, account, verified"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newTag.trim()) {
+                          if (formData.tags.length >= 3) {
+                            showToast({
+                              type: 'error',
+                              title: 'Max 3 tags',
+                              message: 'You can only add up to 3 tags per product.'
+                            });
+                            return;
+                          }
+                          setFormData({
+                            ...formData,
+                            tags: [...formData.tags, newTag.trim()]
+                          });
+                          setNewTag('');
+                        }
+                      }
+                    }}
+                    className="bg-gray-800 border-gray-600 text-white"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (newTag.trim()) {
+                        if (formData.tags.length >= 3) {
+                          showToast({
+                            type: 'error',
+                            title: 'Max 3 tags',
+                            message: 'You can only add up to 3 tags per product.'
+                          });
+                          return;
+                        }
+                        setFormData({
+                          ...formData,
+                          tags: [...formData.tags, newTag.trim()]
+                        });
+                        setNewTag('');
+                      }
+                    }}
+                    className="bg-theme-cyan text-black hover:bg-theme-cyan/80"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {formData.tags.map((tag, index) => (
+                    <Badge key={index} className="bg-theme-cyan/20 text-theme-cyan border border-theme-cyan/30 flex items-center gap-1">
+                      {tag}
+                      <X
+                        className="w-3 h-3 cursor-pointer hover:text-white"
+                        onClick={() => {
+                          const newTags = [...formData.tags];
+                          newTags.splice(index, 1);
+                          setFormData({ ...formData, tags: newTags });
+                        }}
+                      />
+                    </Badge>
+                  ))}
+                  {formData.tags.length === 0 && (
+                    <p className="text-xs text-gray-500 italic">No tags added yet</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
 
           {/* Action Buttons */}

@@ -382,23 +382,34 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 </div>
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                   {renderBalance(product.account_balance)}
-                  {product.is_giveaway && (
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge className="bg-cyan-500 text-black border-none text-[9px] px-1.5 py-0 font-black cursor-help">
-                            GIVEAWAY
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-black/95 backdrop-blur-md border-cyan-500/30 p-2.5 rounded-xl shadow-2xl max-w-[200px]">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Promotion</p>
-                            <p className="text-[11px] text-white leading-tight">Zero cost listing. First person to click "Buy" gets the account credentials delivered instantly!</p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
+                  <div className="flex flex-wrap justify-end gap-1.5 items-center mt-1">
+                    <span className="px-1.5 py-0.5 bg-theme-cyan/5 text-theme-cyan/60 border border-theme-cyan/10 rounded-[4px] text-[8px] font-black uppercase tracking-tighter">
+                      {product.quantity_available || 0} Stock
+                    </span>
+                    {product.is_giveaway && (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-cyan-500 text-black border-none text-[9px] px-1.5 py-0 font-black cursor-help">
+                              GIVEAWAY
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-black/95 backdrop-blur-md border-cyan-500/30 p-2.5 rounded-xl shadow-2xl max-w-[200px]">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Promotion</p>
+                              <p className="text-[11px] text-white leading-tight">Zero cost listing. First person to click "Buy" gets the account credentials delivered instantly!</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {product.escrow_enabled && (
+                      <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 text-[9px] px-1.5 py-0 font-black shadow-lg">
+                        <Lock className="w-2.5 h-2.5 mr-0.5" />
+                        ESCROW
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -541,7 +552,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           </div>
         </div>
       </CardContent>
-    </Card>
+    </Card >
   );
 
   const gridViewCard = (
@@ -626,6 +637,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                   {product.listing_title}
                 </h3>
                 {renderBalance(product.account_balance, 'md')}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {product.tags && (Array.isArray(product.tags) ? product.tags : JSON.parse(product.tags || '[]')).slice(0, 3).map((tag: string, i: number) => (
+                  <span key={i} className="px-1.5 py-0.5 bg-theme-cyan/10 text-theme-cyan/80 border border-theme-cyan/20 rounded-[4px] text-[8px] font-black uppercase tracking-tighter truncate max-w-[80px]" title={tag}>
+                    {tag}
+                  </span>
+                ))}
               </div>
             </div>
             <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">

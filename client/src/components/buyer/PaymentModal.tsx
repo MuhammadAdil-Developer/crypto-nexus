@@ -16,7 +16,6 @@ import { getApiUrl } from '@/config/api';
 import paymentService, { PaymentAddress, PaymentStatus } from '@/services/paymentService';
 import { orderService } from '@/services/orderService';
 import { useCryptoPrices } from '@/contexts/PriceContext';
-import { CRYPTO_PRICES } from '@/lib/priceUtils';
 
 
 function normalizeCartItem(item: any) {
@@ -710,8 +709,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       <div className="text-right">
                         <span className="text-white block font-mono">
                           {selectedCrypto === 'XMR'
-                            ? `${(pricing.subtotal / (xmrPrice || CRYPTO_PRICES.XMR)).toFixed(4)} XMR`
-                            : `${parseFloat((pricing.subtotal / (btcPrice || CRYPTO_PRICES.BTC)).toFixed(8))} BTC`}
+                            ? `${(pricing.subtotal / (xmrPrice || 165)).toFixed(4)} XMR`
+                            : `${parseFloat((pricing.subtotal / (btcPrice || 98000)).toFixed(8))} BTC`}
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.subtotal.toFixed(2)}</span>
                       </div>
@@ -727,8 +726,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                       <div className="text-right">
                         <span className="text-white block font-mono">
                           {selectedCrypto === 'XMR'
-                            ? `${(pricing.total / (xmrPrice || CRYPTO_PRICES.XMR)).toFixed(4)} XMR`
-                            : `${parseFloat((pricing.total / (btcPrice || CRYPTO_PRICES.BTC)).toFixed(8))} BTC`}
+                            ? `${(pricing.total / (xmrPrice || 165)).toFixed(4)} XMR`
+                            : `${parseFloat((pricing.total / (btcPrice || 98000)).toFixed(8))} BTC`}
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.total.toFixed(2)}</span>
                       </div>

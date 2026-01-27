@@ -1267,32 +1267,13 @@ class PaymentService:
             
             logger.info(f"Processing direct payment webhook for order {payment_address.order_id}")
             
-            # ========================================
-            # CRITICAL CHECK: Confirmations FIRST!
-            # ========================================
-            # Get required confirmations from settings (BTC: 3, XMR: 10)
-            from django.conf import settings as django_settings
-            crypto_symbol = payment_address.crypto_currency.symbol
-            default_required = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
-            required_confirmations = payment_address.required_confirmations or default_required
-            logger.info(f"Required confirmations: {required_confirmations} (from DB: {payment_address.required_confirmations}, default: {default_required})")
-            current_confirmations = payment_address.confirmations or 0
-            
-            logger.info(f"==========================================")
-            logger.info(f"CONFIRMATION CHECK FOR ORDER {payment_address.order_id}")
-            logger.info(f"Current Confirmations: {current_confirmations}")
-            logger.info(f"Required Confirmations: {required_confirmations}")
-            logger.info(f"==========================================")
-            
-            if current_confirmations < required_confirmations:
-                logger.info(f"❌ PAYOUT BLOCKED: Payment has only {current_confirmations} confirmations (required: {required_confirmations})")
-                logger.info(f"⏰ Waiting for {required_confirmations - current_confirmations} more confirmation(s)")
-                logger.info(f"📌 Payout will be triggered automatically when next webhook arrives with sufficient confirmations")
-                # DO NOT PROCESS - EXIT HERE!
-                return
-            
-            logger.info(f"✅ CONFIRMATIONS SUFFICIENT: Proceeding with payout processing")
-            logger.info(f"==========================================")
+            # ============================================================
+            # STEP 1: CALCULATE FEES IMMEDIATELY (before confirmations check)
+            # ============================================================
+            # CRITICAL: We must calculate and save platform_fee IMMEDIATELY when payment arrives
+            # Even if confirmations are not sufficient yet, we need to know the fees
+            # This ensures DirectPayment always has correct platform_fee set
+            # ============================================================
             
             # Get dynamic commission rates from database
             from .commission_models import CommissionSettings, VendorFee
@@ -1390,7 +1371,7 @@ class PaymentService:
             logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
             logger.info(f"✅ VERIFICATION: net_amount ({net_amount}) = gross ({amount}) - platform_fee ({platform_fee}) - escrow_fee ({escrow_fee})")
             
-            # Update direct payment record with fees
+            # Update direct payment record with fees (SAVE IMMEDIATELY)
             direct_payment.platform_fee = platform_fee
             direct_payment.escrow_fee = escrow_fee
             direct_payment.net_amount = net_amount
@@ -1399,7 +1380,38 @@ class PaymentService:
             direct_payment.transaction_hash = payment_address.transaction_hash
             direct_payment.save()
             
-            # Trigger automated payout task
+            logger.info(f"✅ FEES SAVED TO DATABASE: platform_fee={platform_fee}, net_amount={net_amount}")
+            
+            # ========================================
+            # STEP 2: CHECK CONFIRMATIONS (for payout)
+            # ========================================
+            # Now that fees are calculated and saved, check if we have enough confirmations to send payout
+            # Get required confirmations from settings (BTC: 3, XMR: 10)
+            from django.conf import settings as django_settings
+            crypto_symbol = payment_address.crypto_currency.symbol
+            default_required = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
+            required_confirmations = payment_address.required_confirmations or default_required
+            logger.info(f"Required confirmations: {required_confirmations} (from DB: {payment_address.required_confirmations}, default: {default_required})")
+            current_confirmations = payment_address.confirmations or 0
+            
+            logger.info(f"==========================================")
+            logger.info(f"CONFIRMATION CHECK FOR ORDER {payment_address.order_id}")
+            logger.info(f"Current Confirmations: {current_confirmations}")
+            logger.info(f"Required Confirmations: {required_confirmations}")
+            logger.info(f"==========================================")
+            
+            if current_confirmations < required_confirmations:
+                logger.info(f"❌ PAYOUT BLOCKED: Payment has only {current_confirmations} confirmations (required: {required_confirmations})")
+                logger.info(f"⏰ Waiting for {required_confirmations - current_confirmations} more confirmation(s)")
+                logger.info(f"📌 Payout will be triggered automatically when next webhook arrives with sufficient confirmations")
+                logger.info(f"✅ NOTE: Fees already calculated and saved: platform_fee={platform_fee}, net_amount={net_amount}")
+                # DO NOT SEND PAYOUT - EXIT HERE!
+                return
+            
+            logger.info(f"✅ CONFIRMATIONS SUFFICIENT: Proceeding with payout processing")
+            logger.info(f"==========================================")
+            
+            # STEP 3: TRIGGER PAYOUT (only if confirmations are sufficient)
             # We already checked confirmations at the top of this function
             try:
                 from .tasks import process_non_escrow_payout

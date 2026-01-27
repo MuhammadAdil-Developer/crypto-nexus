@@ -263,23 +263,17 @@ class BTCPayServerService:
                     logger.info(f"✅ Using API fee: {estimated_miner_fee} BTC")
                 total_needed = required_amount + estimated_miner_fee
                 
-                # Only sweep if required amount + miner fees exceeds available balance
+                # CRITICAL FIX: Removed 'sweep/adjust' logic that was sending platform fees to vendors.
+                # We only ever send the exact required_amount (net_amount).
+                
                 if total_needed > total_balance:
-                    logger.warning(
-                        f"INSUFFICIENT BALANCE: Required {required_amount} + miner fee ~{estimated_miner_fee} = {total_needed} > Total {total_balance}"
+                    logger.error(
+                        f"❌ INSUFFICIENT BALANCE: Required {required_amount} + estimated fee {estimated_miner_fee} = {total_needed} > Total {total_balance}"
                     )
-                    safe_amount = max(0, total_balance - estimated_miner_fee - 0.00000100)
-                    
-                    if safe_amount <= 0:
-                        logger.error("Balance too low to cover payout + miner fees.")
-                        return None
-                    
-                    logger.warning(f"ADJUSTING PAYOUT: Reducing from {required_amount} to {safe_amount} BTC due to insufficient balance")
-                    payout_data['amount'] = "{:.8f}".format(safe_amount)
-                else:
-                    # Sufficient balance - send the exact amount requested
-                    # Miner fees will be deducted by BTCPay via subtractFeesFromAmount=True
-                    logger.info(f"Sufficient balance: {total_balance} BTC available, {required_amount} BTC requested (miner fees will be deducted)")
+                    logger.error("Payout aborted to prevent sending platform fees or failing due to lack of funds.")
+                    return None
+                
+                logger.info(f"✅ Sufficient balance: {total_balance} BTC available. Sending exact Net Amount: {required_amount} BTC (miner fees will be deducted from this)")
                 
                 # Send transaction using wallet API
                 send_url = f"{self.base_url}/api/v1/stores/{self.store_id}/payment-methods/onchain/BTC/wallet/transactions"
@@ -1959,6 +1953,14 @@ class PaymentService:
             payment_address = PaymentAddress.objects.get(order_id=order_id)
             escrow = payment_address.escrow
             
+            # SECURITY: Prevent release if payment is not fully settled/confirmed
+            from django.conf import settings as django_settings
+            required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 3)
+            
+            if payment_address.status != 'paid' or (payment_address.confirmations or 0) < required_confs:
+                logger.warning(f"Attempted early escrow release for {order_id}. Status: {payment_address.status}, Confirmations: {payment_address.confirmations}/{required_confs}")
+                return False # UI will show "Failed to release escrow"
+                
             # Allow releasing if status is 'funded' OR 'disputed'
             if escrow.status not in ['funded', 'disputed']:
                 logger.warning(f"Cannot release escrow for order {order_id}: status is {escrow.status} (expected 'funded' or 'disputed')")

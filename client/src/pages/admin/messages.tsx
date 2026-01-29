@@ -113,6 +113,8 @@ export default function AdminMessages() {
   const [messagesPage, setMessagesPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [adminMessageInput, setAdminMessageInput] = useState("");
+  const [sendingAdminMessage, setSendingAdminMessage] = useState(false);
 
   // Lock chat states
   const [showLockDialog, setShowLockDialog] = useState(false);
@@ -124,6 +126,12 @@ export default function AdminMessages() {
   const [reportStatusFilter, setReportStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [conversationsPage, setConversationsPage] = useState(1);
+  const conversationsPerPage = 10;
+
+  useEffect(() => {
+    setConversationsPage(1);
+  }, [searchQuery, statusFilter]);
 
   // Dynamic stats
   const [stats, setStats] = useState({
@@ -234,9 +242,42 @@ export default function AdminMessages() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredConversations.length / conversationsPerPage);
+  const paginatedConversations = filteredConversations.slice(
+    (conversationsPage - 1) * conversationsPerPage,
+    conversationsPage * conversationsPerPage
+  );
+
   const handleViewConversation = (conversation: any) => {
     setSelectedConversation(conversation);
     setIsDetailModalOpen(true);
+  };
+
+  const handleSendAdminMessage = async () => {
+    if (!selectedConversation || !adminMessageInput.trim()) return;
+
+    try {
+      setSendingAdminMessage(true);
+      await messagingService.sendMessage(selectedConversation.id, adminMessageInput);
+
+      // Refresh messages to show the new one
+      await fetchMessages(selectedConversation.id, 1, true);
+
+      setAdminMessageInput("");
+      toast({
+        title: "Message Sent",
+        description: "Admin message sent successfully",
+      });
+    } catch (error) {
+      console.error("Error sending admin message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
+    } finally {
+      setSendingAdminMessage(false);
+    }
   };
 
   const handleOpenChatModal = async (conversation: any) => {
@@ -483,7 +524,7 @@ export default function AdminMessages() {
                     </p>
                   </div>
                 ) : (
-                  filteredConversations.map((conversation) => {
+                  paginatedConversations.map((conversation) => {
                     // Get participant usernames
                     const participants = conversation.participants || [];
                     const participantNames = participants.map((p: any) => p.username).join(' ↔ ');
@@ -556,6 +597,38 @@ export default function AdminMessages() {
                   })
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {filteredConversations.length > 0 && (
+                <div className="flex items-center justify-between p-4 border-t border-border bg-surface-2/30">
+                  <div className="text-sm text-gray-400">
+                    Showing {((conversationsPage - 1) * conversationsPerPage) + 1} to {Math.min(conversationsPage * conversationsPerPage, filteredConversations.length)} of {filteredConversations.length} conversation{filteredConversations.length !== 1 && 's'}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConversationsPage(prev => Math.max(prev - 1, 1))}
+                      disabled={conversationsPage === 1}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-gray-300 px-2 font-medium">
+                      Page {conversationsPage} of {totalPages || 1}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConversationsPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={conversationsPage === totalPages || totalPages === 0}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -921,6 +994,37 @@ export default function AdminMessages() {
                       </Button>
                     </div>
                   )}
+                </div>
+
+                {/* Message Input Area - Dark Theme */}
+                <div className="mt-4 p-4 bg-gray-900 border-t border-gray-700 rounded-lg">
+                  <div className="flex items-end space-x-2">
+                    <Textarea
+                      placeholder="Type your message as admin..."
+                      value={adminMessageInput}
+                      onChange={(e) => setAdminMessageInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendAdminMessage();
+                        }
+                      }}
+                      className="flex-1 min-h-[60px] max-h-[120px] bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-accent focus:ring-accent resize-none"
+                      disabled={sendingAdminMessage}
+                    />
+                    <Button
+                      onClick={handleSendAdminMessage}
+                      disabled={!adminMessageInput.trim() || sendingAdminMessage}
+                      className="bg-accent hover:bg-accent-2 text-white px-6"
+                    >
+                      {sendingAdminMessage ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Send'
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Press Enter to send, Shift+Enter for new line</p>
                 </div>
               </div>
             )}

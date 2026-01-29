@@ -180,9 +180,21 @@ export function Sidebar() {
               <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <User className="text-accent w-5 h-5" />
               </div>
-              <div className="ml-3 min-w-0">
+              <div className="ml-3 min-w-0 flex-1">
                 <p className="text-sm font-medium text-text truncate">{currentUser?.username || "Admin"}</p>
-                <p className="text-sm text-accent hover:text-accent-2 transition-colors duration-200">Admin</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-accent hover:text-accent-2 transition-colors duration-200">Admin</p>
+                  <button
+                    onClick={() => {
+                      authService.logout();
+                      window.location.href = '/login';
+                    }}
+                    className="text-gray-400 hover:text-red-500 transition-colors duration-200"
+                    title="Logout"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

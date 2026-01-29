@@ -257,48 +257,71 @@ def assign_ticket(request, pk):
         )
     
     assigned_to_id = request.data.get('assigned_to')
+    
     if assigned_to_id:
         try:
             from django.contrib.auth import get_user_model
-            from shared.models import Notification
             User = get_user_model()
-            assigned_user = User.objects.get(id=assigned_to_id, user_type='admin')
+            
+            # Fetch user via ID first
+            try:
+                assigned_user = User.objects.get(id=assigned_to_id)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'Selected admin user not found'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if user is admin
+            if getattr(assigned_user, 'user_type', '') != 'admin' and not assigned_user.is_superuser:
+                 return Response(
+                    {'error': 'Selected user is not an admin'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             old_assigned = ticket.assigned_to
             ticket.assigned_to = assigned_user
             ticket.save()
             
             # Notify assigned admin via central helper
-            from shared.admin_notifications import send_user_notification
-            send_user_notification(
-                user=assigned_user,
-                notification_type='ticket_assigned',
-                title='Ticket Assigned',
-                message=f'You have been assigned to ticket #{ticket.ticket_id}: {ticket.subject}',
-                data={
-                    'ticket_id': str(ticket.id),
-                    'ticket_id_display': ticket.ticket_id,
-                    'action_url': '/admin/tickets'
-                }
-            )
+            try:
+                from shared.admin_notifications import send_user_notification
+                send_user_notification(
+                    user=assigned_user,
+                    notification_type='ticket_assigned',
+                    title='Ticket Assigned',
+                    message=f'You have been assigned to ticket #{ticket.ticket_id}: {ticket.subject}',
+                    data={
+                        'ticket_id': str(ticket.id),
+                        'ticket_id_display': ticket.ticket_id,
+                        'action_url': '/admin/tickets'
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to send assignment notification to admin: {e}")
             
             # Notify ticket opener via central helper
-            send_user_notification(
-                user=ticket.user,
-                notification_type='ticket_response',
-                title='Ticket Assigned',
-                message=f'Your ticket #{ticket.ticket_id} has been assigned to an admin for review',
-                data={
-                    'ticket_id': str(ticket.id),
-                    'ticket_id_display': ticket.ticket_id,
-                    'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
-                }
-            )
+            try:
+                send_user_notification(
+                    user=ticket.user,
+                    notification_type='ticket_response',
+                    title='Ticket Assigned',
+                    message=f'Your ticket #{ticket.ticket_id} has been assigned to an admin for review',
+                    data={
+                        'ticket_id': str(ticket.id),
+                        'ticket_id_display': ticket.ticket_id,
+                        'action_url': f'/buyer/support' if ticket.user_type == 'buyer' else f'/vendor/support'
+                    }
+                )
+            except Exception as e:
+                 logger.error(f"Failed to send assignment notification to user: {e}")
             
             return Response({'message': 'Ticket assigned successfully'})
-        except User.DoesNotExist:
+        except Exception as e:
+            logger.error(f"Error in assign_ticket: {e}")
             return Response(
-                {'error': 'Invalid admin user'}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'Failed to assign ticket due to server error'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     else:
         ticket.assigned_to = None

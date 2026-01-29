@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -64,6 +65,8 @@ export default function AdminUsers() {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageContent, setMessageContent] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   // Vendor details state
@@ -980,6 +983,39 @@ export default function AdminUsers() {
     setCurrentPage(1);
   }, [roleFilter, statusFilter, searchTerm]);
 
+  const handleSendMessage = async () => {
+    if (!selectedUser || !messageContent.trim()) return;
+
+    try {
+      setSendingMessage(true);
+
+      // Try to create/get conversation
+      const conv = await messagingService.createConversation(selectedUser.id);
+
+      if (conv && conv.id) {
+        await messagingService.sendMessage(conv.id, messageContent);
+
+        toast({
+          title: "Success",
+          description: "Message sent successfully",
+        });
+        setMessageModalOpen(false);
+        setMessageContent("");
+      } else {
+        throw new Error("Could not start conversation");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
       {/* Header */}
@@ -1390,7 +1426,7 @@ export default function AdminUsers() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-success/50 text-success hover:bg-success/20"
+                className="border-success/50 text-success hover:text-green"
                 onClick={handleBulkActivate}
               >
                 <UserCheck className="w-4 h-4 mr-2" />
@@ -1399,7 +1435,7 @@ export default function AdminUsers() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-danger/50 text-danger hover:bg-danger/20"
+                className="border-danger/50 text-danger hover:text-red"
                 onClick={handleBulkDelete}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -2338,6 +2374,52 @@ export default function AdminUsers() {
               )}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Direct Message Modal */}
+      <Dialog open={messageModalOpen} onOpenChange={setMessageModalOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-card border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-white">Direct Message to {selectedUser?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-gray-300">Message Content</Label>
+              <Textarea
+                placeholder="Type your administrative message here..."
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+                className="min-h-[150px] !bg-gray-800 !border-gray-600 !text-white placeholder:text-gray-500 focus:!border-accent focus:!ring-accent"
+              />
+              <p className="text-xs text-gray-400">This message will be delivered to the user's inbox immediately.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMessageModalOpen(false)}
+              className="border-gray-600 text-gray-300 hover:bg-surface-2"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || sendingMessage}
+              className="bg-accent text-white hover:bg-accent-2"
+            >
+              {sendingMessage ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Send Message
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>

@@ -45,7 +45,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { authService, api } from "@/services/authService";
-import { API_BASE_URL } from "@/config/api";
+import { API_BASE_URL, getImageUrl } from "@/config/api";
 import wishlistService from "@/services/wishlistService";
 import { Label } from "@/components/ui/label";
 import { orderService } from "@/services/orderService";
@@ -472,6 +472,7 @@ function BuyerHomeContent() {
                   avatar: initials,
                   responseTime: responseTime,
                   vendor_username: vendorUsername,
+                  profile_picture: v.profile_picture || null, // Include custom profile picture
                 };
               })
             );
@@ -1698,8 +1699,16 @@ function BuyerHomeContent() {
                   <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                     <CardContent className="p-6 text-center">
                       <div className="relative mb-4">
-                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">{vendor.avatar}</span>
+                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center overflow-hidden">
+                          {vendor.profile_picture ? (
+                            <img
+                              src={getImageUrl(vendor.profile_picture)}
+                              alt={vendor.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-white font-bold text-lg">{vendor.avatar}</span>
+                          )}
                         </div>
                         {vendor.verified && (
                           <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">

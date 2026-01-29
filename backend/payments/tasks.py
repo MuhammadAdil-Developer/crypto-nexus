@@ -75,7 +75,7 @@ def create_escrow_payout(order_id: str):
                 'escrow_amount': payment_address.received_amount,
                 'escrow_fee': payment_address.received_amount * Decimal('0.02'), # 2% escrow fee
                 'status': 'funded', # Since we created it after payment was confirmed
-                'auto_release_at': timezone.now() + timedelta(days=7)
+                'auto_release_at': timezone.now() + timedelta(minutes=5)
             }
         )
         
@@ -90,18 +90,21 @@ def create_escrow_payout(order_id: str):
 def release_escrow_task(order_id: str, released_by_id: str = None):
     """Task to process escrow release to vendor"""
     try:
+    try:
         from orders.models import Order
-        from .services import PayoutService
+        from .services import PaymentService
         
-        payout_service = PayoutService()
-        result = payout_service.release_escrow_to_vendor(order_id, released_by_id)
+        payment_service = PaymentService()
+        # release_escrow returns boolean
+        success = payment_service.release_escrow(order_id, released_by_id)
         
-        if result.get('success'):
+        if success:
             logger.info(f"Escrow released successfully for order {order_id}")
+            return {'success': True}
         else:
-            logger.error(f"Failed to release escrow for order {order_id}: {result.get('error')}")
-            
-        return result
+            error_msg = f"Failed to release escrow for order {order_id}"
+            logger.error(error_msg)
+            return {'success': False, 'error': error_msg}
     except Exception as e:
         logger.error(f"Error in release_escrow_task for order {order_id}: {str(e)}")
         return {'success': False, 'error': str(e)}

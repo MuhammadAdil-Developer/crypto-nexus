@@ -931,14 +931,6 @@ export default function VendorAddProduct() {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         if (newTag.trim()) {
-                          if (formData.tags.length >= 3) {
-                            toast({
-                              title: "Max 3 tags",
-                              description: "You can only add up to 3 tags per product.",
-                              variant: "destructive"
-                            });
-                            return;
-                          }
                           setFormData({
                             ...formData,
                             tags: [...formData.tags, newTag.trim()]
@@ -953,14 +945,6 @@ export default function VendorAddProduct() {
                     type="button"
                     onClick={() => {
                       if (newTag.trim()) {
-                        if (formData.tags.length >= 3) {
-                          toast({
-                            title: "Max 3 tags",
-                            description: "You can only add up to 3 tags per product for better search results.",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
                         setFormData({
                           ...formData,
                           tags: [...formData.tags, newTag.trim()]

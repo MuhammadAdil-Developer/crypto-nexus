@@ -11,10 +11,12 @@ import { Search, Filter, Eye, MessageSquare, Clock, User, Ticket as TicketIcon, 
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import ticketService from "@/services/ticketService";
+import authService from "@/services/authService";
 import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
 
 export default function AdminTickets() {
   const { toast } = useToast();
+  const currentUser = authService.getCurrentUser();
   const [tickets, setTickets] = useState<any[]>([]);
   const [statistics, setStatistics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -469,6 +471,9 @@ export default function AdminTickets() {
               <SelectContent>
                 <SelectItem value="all">All Agents</SelectItem>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
+                {currentUser && (
+                  <SelectItem value={currentUser.id}>Assigned to Me</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -780,8 +785,8 @@ export default function AdminTickets() {
                     key={admin.id}
                     onClick={() => setSelectedAdminId(admin.id)}
                     className={`w-full p-3 rounded-lg border cursor-pointer transition-colors ${selectedAdminId === admin.id
-                        ? 'border-accent bg-accent/10 text-white'
-                        : 'border-border text-white hover:bg-surface-2/50'
+                      ? 'border-accent bg-accent/10 text-white'
+                      : 'border-border text-white hover:bg-surface-2/50'
                       }`}
                   >
                     <div className="flex items-center">

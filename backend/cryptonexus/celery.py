@@ -52,7 +52,7 @@ app.conf.beat_schedule = {
     # },
     'auto-release-escrow': {
         'task': 'payments.tasks.auto_release_escrow_payouts', 
-        'schedule': crontab(minute=0, hour='*/1'),  # Every hour
+        'schedule': crontab(minute='*/1'),  # Every minute for testing
     },
     'auto-cancel-orders': {
         'task': 'orders.tasks.auto_cancel_expired_orders_task',

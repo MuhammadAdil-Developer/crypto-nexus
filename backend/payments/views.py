@@ -854,6 +854,8 @@ class AdminPayoutView(APIView):
                     platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
                     escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
                 
+                currency_symbol = payout.crypto_currency.symbol.upper().strip()
+                
                 combined_data.append({
                     'id': payout.id,
                     'type': 'escrow',

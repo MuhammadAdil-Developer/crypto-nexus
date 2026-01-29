@@ -99,7 +99,7 @@ export default function VendorOrders() {
       if (apiOrder.is_giveaway && (orderStatus === 'confirmed' || orderStatus === 'paid')) {
         return 'Completed';
       }
-      
+
       switch (orderStatus) {
         case 'pending':
           return 'Pending';
@@ -162,6 +162,7 @@ export default function VendorOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [deliveryFilter, setDeliveryFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -318,19 +319,19 @@ export default function VendorOrders() {
       // Update local state - mark as delivered and add credentials
       setOrders(prev => prev.map(o =>
         o.numericId === orderToDeliver.numericId
-          ? { 
-              ...o, 
-              status: "Delivered", 
-              rawOrderStatus: "delivered",
-              product_credentials: {
-                credentials: deliveryCredentials,
-                delivered_at: new Date().toISOString(),
-                delivery_method: 'manual'
-              }
+          ? {
+            ...o,
+            status: "Delivered",
+            rawOrderStatus: "delivered",
+            product_credentials: {
+              credentials: deliveryCredentials,
+              delivered_at: new Date().toISOString(),
+              delivery_method: 'manual'
             }
+          }
           : o
       ));
-      
+
       // Refresh orders to get latest data
       fetchOrders();
 
@@ -514,6 +515,16 @@ export default function VendorOrders() {
       order.product.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
+    const matchesDelivery = (() => {
+      if (deliveryFilter === 'all') return true;
+      const isAuto = (order.delivery_time || '').toLowerCase().includes('auto') ||
+        (order.delivery_time || '').toLowerCase().includes('instant') ||
+        order.delivery_time === '24/7 Instant';
+      if (deliveryFilter === 'auto') return isAuto;
+      if (deliveryFilter === 'manual') return !isAuto;
+      return true;
+    })();
+
     const matchesDate = (() => {
       if (dateFilter === "all") return true;
 
@@ -541,7 +552,7 @@ export default function VendorOrders() {
       }
     })();
 
-    return matchesSearch && matchesStatus && matchesDate;
+    return matchesSearch && matchesStatus && matchesDate && matchesDelivery;
   });
 
   const totalItems = filteredOrders.length;
@@ -561,7 +572,7 @@ export default function VendorOrders() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, dateFilter]);
+  }, [searchTerm, statusFilter, dateFilter, deliveryFilter]);
 
   return (
     <>
@@ -702,6 +713,16 @@ export default function VendorOrders() {
                     <SelectItem value="Cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={deliveryFilter} onValueChange={setDeliveryFilter}>
+                  <SelectTrigger className="w-full sm:w-48 bg-gray-800/50 border-gray-700/50 text-white rounded-xl h-11 focus:border-blue-500/50">
+                    <SelectValue placeholder="All Methods" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 rounded-xl overflow-hidden">
+                    <SelectItem value="all">All Methods</SelectItem>
+                    <SelectItem value="manual">Manual Delivery</SelectItem>
+                    <SelectItem value="auto">Auto Delivery</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={dateFilter} onValueChange={setDateFilter}>
                   <SelectTrigger className="w-full sm:w-48 bg-gray-800/50 border-gray-700/50 text-white rounded-xl h-11 focus:border-blue-500/50">
                     <SelectValue placeholder="Date Range" />
@@ -782,25 +803,25 @@ export default function VendorOrders() {
                               3. AND credentials are NOT yet delivered (product_credentials is empty/null)
                           */}
                           {(
-                            order.status === "Completed" || 
+                            order.status === "Completed" ||
                             ['paid', 'processing', 'confirmed', 'completed'].includes((order.rawOrderStatus || order.status || '').toLowerCase())
                           ) && (
-                            order.is_giveaway || 
-                            order.delivery_time === 'manual' || 
-                            !order.delivery_time
-                          ) && (
-                            !order.product_credentials || 
-                            (typeof order.product_credentials === 'object' && (!order.product_credentials.credentials || order.product_credentials.credentials === ''))
-                          ) && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleOpenDeliverModal(order)}
-                              className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Deliver Account
-                            </Button>
-                          )}
+                              order.is_giveaway ||
+                              order.delivery_time === 'manual' ||
+                              !order.delivery_time
+                            ) && (
+                              !order.product_credentials ||
+                              (typeof order.product_credentials === 'object' && (!order.product_credentials.credentials || order.product_credentials.credentials === ''))
+                            ) && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenDeliverModal(order)}
+                                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Deliver Account
+                              </Button>
+                            )}
                           {order.status === "Processing" && (
                             <>
                               <Button size="sm" variant="outline" className="text-theme-cyan border-theme-cyan/30 h-8 w-8 p-0 hover:bg-theme-cyan/10 rounded-lg">

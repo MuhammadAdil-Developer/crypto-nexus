@@ -44,7 +44,7 @@ import {
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { api } from "@/services/authService";
+import { authService, api } from "@/services/authService";
 import { API_BASE_URL } from "@/config/api";
 import wishlistService from "@/services/wishlistService";
 import { Label } from "@/components/ui/label";
@@ -215,6 +215,11 @@ function BuyerHomeContent() {
     } catch (e) { /* ignore in SSR */ }
 
     // Check if legal documents have been confirmed
+    const currentUser = authService.getCurrentUser();
+    if (currentUser?.legal_accepted) {
+      return;
+    }
+
     const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
     const termsConfirmed = localStorage.getItem('legal_confirmed_terms');
     if (!privacyConfirmed) {
@@ -912,7 +917,11 @@ function BuyerHomeContent() {
       />
       <TermsConditionsModal
         isOpen={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
+        onClose={() => {
+          setShowTermsModal(false);
+          // Permanently save acceptance to database
+          authService.acceptLegal().catch(console.error);
+        }}
       />
       {/* Order Payment Banner */}
 

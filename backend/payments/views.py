@@ -1162,8 +1162,16 @@ class VendorPayoutsView(APIView):
             xmr_orders = 0
             
             # Get all escrow payouts (Pending + Ready + Processing + Completed)
-            # We filter out only Failed and Cancelled
-            payout_records = Payout.objects.filter(vendor=vendor).exclude(status__in=['failed', 'cancelled'])
+            # We filter for orders that are successful and NOT cancelled/refunded/disputed
+            payout_records = Payout.objects.filter(
+                vendor=vendor
+            ).exclude(
+                status__in=['failed', 'cancelled']
+            ).filter(
+                order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+            ).exclude(
+                order__order_status__in=['cancelled', 'refunded', 'disputed']
+            )
             
             for payout in payout_records:
                 symbol = payout.crypto_currency.symbol.upper().strip()
@@ -1175,7 +1183,16 @@ class VendorPayoutsView(APIView):
                     xmr_orders += 1
             
             # Get direct payments (Pending + Completed)
-            direct_records = DirectPayment.objects.filter(vendor=vendor).exclude(status__in=['failed', 'cancelled'])
+            # We filter for orders that are successful and NOT cancelled/refunded/disputed
+            direct_records = DirectPayment.objects.filter(
+                vendor=vendor
+            ).exclude(
+                status__in=['failed', 'cancelled']
+            ).filter(
+                order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+            ).exclude(
+                order__order_status__in=['cancelled', 'refunded', 'disputed']
+            )
             
             for payment in direct_records:
                 symbol = payment.crypto_currency.symbol.upper().strip()

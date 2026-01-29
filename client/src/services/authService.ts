@@ -146,6 +146,7 @@ export interface User {
   is_active: boolean;
   date_joined: string;
   recovery_phrase?: string;
+  legal_accepted?: boolean;
 }
 
 export interface AuthResponse {
@@ -441,6 +442,27 @@ class AuthService {
       const response = await api.post<ApiResponse<void>>('/auth/verify-email/', {
         token
       });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Accept legal documents (ToS and Privacy Policy)
+  async acceptLegal(): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.post<ApiResponse<void>>('/profile/accept-legal/');
+
+      // Update local storage user data if exists
+      const userData = this.getCurrentUser();
+      if (userData) {
+        userData.legal_accepted = true;
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {

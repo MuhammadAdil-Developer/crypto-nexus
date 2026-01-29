@@ -88,7 +88,7 @@ class UserSerializer(serializers.ModelSerializer):
             'btc_payout_address', 'xmr_payout_address', 'non_escrow_blocked', 'escrow_enabled',
             'total_orders', 'notify_new_orders', 'notify_messages', 'notify_disputes',
             'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts',
-            'recovery_phrase', 'profile_picture'
+            'recovery_phrase', 'profile_picture', 'legal_accepted'
         ]
         read_only_fields = ['id', 'date_joined']
         extra_kwargs = {

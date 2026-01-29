@@ -482,6 +482,27 @@ def user_profile(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def accept_legal(request):
+    """Permanently accept ToS and Privacy Policy"""
+    try:
+        user = request.user
+        user.legal_accepted = True
+        user.save(update_fields=['legal_accepted'])
+        
+        return Response({
+            'success': True,
+            'message': 'Terms of Service and Privacy Policy accepted.'
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': 'Failed to accept legal documents.',
+            'errors': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_profile(request):

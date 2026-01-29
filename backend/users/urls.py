@@ -13,6 +13,7 @@ urlpatterns = [
     path('profile/update/', views.update_profile, name='update_profile'),
     path('profile/payout/', views.payout_addresses, name='payout_addresses'),
     path('profile/change-password/', views.change_password, name='change_password'),
+    path('profile/accept-legal/', views.accept_legal, name='accept_legal'),
     
     # Admin endpoints
     path('users/', views.list_users, name='list_users'),

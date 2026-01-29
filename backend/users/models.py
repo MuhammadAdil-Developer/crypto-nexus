@@ -21,6 +21,7 @@ class User(AbstractUser, BaseModel):
     two_factor_secret = models.CharField(max_length=32, blank=True, null=True, help_text="TOTP secret for 2FA")
     recovery_phrase = models.CharField(max_length=255, blank=True, null=True, help_text="BIP39 Mnemonic phrase for account recovery")
     user_type = models.CharField(max_length=10, choices=USER_TYPES, default='buyer')
+    legal_accepted = models.BooleanField(default=False)  # Track ToS/Privacy acceptance
     
     # Vendor-specific fields
     escrow_enabled = models.BooleanField(default=False)  # Enable escrow for all vendor products

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageSquare, Send, Search, MoreVertical, Archive, Star, Package, Users, X, ArrowDown, Copy, Image as ImageIcon, File, Video, Paperclip, User, Shield, Flag, Lock, Loader2, Camera, Mic, Trash2, Info, ChevronLeft, RotateCw, CheckCircle, AlertTriangle } from "lucide-react";
 import {
   DropdownMenu,
@@ -12,9 +12,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { messagingService } from "@/services/messagingService";
 import { realtimeService } from "@/services/realtimeService";
 import { getRelativeTime } from "@/utils/timeUtils";
+import { getImageUrl } from "@/config/api";
 import { useToast } from "@/hooks/use-toast";
 import { PageBanner } from "@/components/PageBanner";
 
@@ -27,6 +29,7 @@ export default function VendorMessages() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [viewProfileImage, setViewProfileImage] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showProductReference, setShowProductReference] = useState(false);
@@ -1117,9 +1120,11 @@ export default function VendorMessages() {
   };
 
   const getBuyerFromConversation = (conversation: any) => {
+    if (conversation.other_participant) return conversation.other_participant;
     if (!conversation.participants) return null;
     // Find the participant who is not the current user (vendor)
-    return conversation.participants.find((p: any) => p.id !== localStorage.getItem('userId'));
+    const currentId = currentUserId || localStorage.getItem('userId');
+    return conversation.participants.find((p: any) => String(p.id) !== String(currentId));
   };
 
   return (
@@ -1278,7 +1283,10 @@ export default function VendorMessages() {
 
                   <div className="flex items-center space-x-3 pl-2">
                     <div className="relative flex-shrink-0">
-                      <Avatar className={`w-10 h-10 ring-2 ${isSelected ? 'ring-cyan-500/50' : 'ring-transparent group-hover:ring-gray-600'}`}>
+                      <Avatar className={`w-10 h-10 ring-2 ${isSelected ? 'ring-cyan-500/50' : 'ring-transparent group-hover:ring-gray-600'} overflow-hidden`}>
+                        {buyer?.profile_picture && (
+                          <AvatarImage src={getImageUrl(buyer.profile_picture)} className="object-cover" />
+                        )}
                         <AvatarFallback className={`${isSelected ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-400'}`}>
                           {buyer?.username?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
@@ -1292,8 +1300,12 @@ export default function VendorMessages() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-0.5">
-                        <h4 className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-gray-200 group-hover:text-white'}`}>
-                          {buyer?.username || 'Buyer'}
+                        <h4 className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-gray-200 group-hover:text-white'} flex items-center gap-2`}>
+                          {conv.is_admin_chat ? (
+                            <span className="text-theme-cyan">(Admin Chat)</span>
+                          ) : (
+                            buyer?.username || 'Buyer'
+                          )}
                         </h4>
                         <span className={`text-[10px] ${isSelected ? 'text-cyan-300' : 'text-gray-500'}`}>
                           {getRelativeTime(conv.updated_at)}
@@ -1304,7 +1316,7 @@ export default function VendorMessages() {
                       </p>
                       <p className="text-[10px] text-indigo-400 truncate flex items-center">
                         <Package className="w-3 h-3 mr-1 opacity-70" />
-                        {conv.product?.headline || conv.product?.title || 'Product'}
+                        {conv.is_admin_chat ? '(Admin Chat)' : (conv.product?.headline || conv.product?.title || 'Product')}
                       </p>
                     </div>
                   </div>
@@ -1332,8 +1344,18 @@ export default function VendorMessages() {
                     <ChevronLeft className="w-5 h-5" />
                   </Button>
 
-                  <div className="relative cursor-pointer group" onClick={handleOpenUserProfile}>
-                    <Avatar className="w-10 h-10 ring-2 ring-cyan-500/30 group-hover:ring-cyan-500/60 transition-all">
+                  <div className="relative cursor-pointer group" onClick={() => {
+                    const pic = getBuyerFromConversation(selectedConversation)?.profile_picture;
+                    if (pic) {
+                      setViewProfileImage(getImageUrl(pic));
+                    } else {
+                      handleOpenUserProfile();
+                    }
+                  }}>
+                    <Avatar className="w-10 h-10 ring-2 ring-cyan-500/30 group-hover:ring-cyan-500/60 transition-all overflow-hidden">
+                      {getBuyerFromConversation(selectedConversation)?.profile_picture && (
+                        <AvatarImage src={getImageUrl(getBuyerFromConversation(selectedConversation).profile_picture)} className="object-cover" />
+                      )}
                       <AvatarFallback className="bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold">
                         {getBuyerFromConversation(selectedConversation)?.username?.charAt(0).toUpperCase() || 'B'}
                       </AvatarFallback>
@@ -1344,7 +1366,7 @@ export default function VendorMessages() {
                   <div className="min-w-0 cursor-pointer" onClick={handleOpenUserProfile}>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-white text-base hover:text-cyan-400 transition-colors truncate">
-                        {getBuyerFromConversation(selectedConversation)?.username || 'Buyer'}
+                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (getBuyerFromConversation(selectedConversation)?.username || 'Support Agent')}
                       </h3>
                       {(() => {
                         // Check if this conversation was opened with dispute or refund context
@@ -1430,11 +1452,12 @@ export default function VendorMessages() {
 
                         return null;
                       })()}
+                      {selectedConversation.is_admin_chat && <Badge className="bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30 text-[10px] px-1.5 py-0.5 ml-2">ADMIN</Badge>}
                     </div>
                     <p className="text-xs text-gray-400 flex items-center truncate">
                       <Package className="w-3 h-3 mr-1 text-cyan-400" />
                       <span className="truncate hover:text-gray-300 transition-colors">
-                        {selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}
+                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion')}
                       </span>
                     </p>
                   </div>
@@ -2390,6 +2413,27 @@ export default function VendorMessages() {
           </div>
         )
       }
+
+      {/* Profile Image View Modal */}
+      <Dialog open={!!viewProfileImage} onOpenChange={(open) => !open && setViewProfileImage(null)}>
+        <DialogContent className="bg-transparent border-none shadow-none max-w-4xl w-full p-0 flex items-center justify-center pointer-events-none">
+          <div className="relative pointer-events-auto">
+            <img
+              src={viewProfileImage || ''}
+              alt="Profile"
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute -top-10 -right-4 sm:-right-10 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              onClick={() => setViewProfileImage(null)}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

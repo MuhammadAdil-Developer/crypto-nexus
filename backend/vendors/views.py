@@ -546,8 +546,11 @@ def get_vendor_statistics(request, vendor_username):
         unique_buyers = vendor_orders.values('buyer').distinct().count()
         
         # Calculate total earnings (sum of all completed orders)
+        # Explicitly exclude cancelled and refunded orders to be safe
         total_earnings = vendor_orders.filter(
             order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+        ).exclude(
+            order_status__in=['cancelled', 'refunded', 'disputed']
         ).aggregate(total=Sum('total_amount'))['total'] or 0
         
         # Get last sale date

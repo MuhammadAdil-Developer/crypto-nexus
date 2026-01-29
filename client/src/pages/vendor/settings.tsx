@@ -93,6 +93,7 @@ export default function VendorSettings() {
   const { toast } = useToast();
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFAData, setTwoFAData] = useState<{ qr_code?: string; secret?: string; uri?: string } | null>(null);
+  const [editBTC, setEditBTC] = useState(false);
   const [editXMR, setEditXMR] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profilePreview, setProfilePreview] = useState<string | null>(null);

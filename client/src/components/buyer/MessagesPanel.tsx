@@ -4,16 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { messagingService } from "@/services/messagingService";
 import { realtimeService } from "@/services/realtimeService";
 import { getRelativeTime } from "@/utils/timeUtils";
+import { getImageUrl } from "@/config/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +47,7 @@ export function MessagesPanel({
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [viewProfileImage, setViewProfileImage] = useState<string | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -893,9 +896,11 @@ export function MessagesPanel({
   };
 
   const getVendorFromConversation = (conversation: any) => {
+    if (conversation.other_participant) return conversation.other_participant;
     if (!conversation.participants) return null;
     // Find the participant who is not the current user
-    return conversation.participants.find((p: any) => p.id !== localStorage.getItem('userId'));
+    const currentId = currentUserId || localStorage.getItem('userId');
+    return conversation.participants.find((p: any) => String(p.id) !== String(currentId));
   };
 
   if (compact) {
@@ -1000,9 +1005,12 @@ export function MessagesPanel({
                     )}
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="relative flex-shrink-0">
-                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 border border-blue-400/20 shadow-sm">
+                        <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 border border-blue-400/20 shadow-sm overflow-hidden">
+                          {getVendorFromConversation(conv)?.profile_picture && (
+                            <AvatarImage src={getImageUrl(getVendorFromConversation(conv).profile_picture)} className="object-cover" />
+                          )}
                           <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
-                            {conv.product?.title?.charAt(0) || 'P'}
+                            {getVendorFromConversation(conv)?.username?.charAt(0) || (conv.product?.title?.charAt(0) || 'P')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 border-2 border-gray-950 rounded-full shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
@@ -1011,8 +1019,12 @@ export function MessagesPanel({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                            <h4 className="font-medium text-white truncate text-sm sm:text-base">
-                              {conv.product?.headline || conv.product?.title || 'Product Chat'}
+                            <h4 className="font-medium text-white truncate text-sm sm:text-base flex items-center gap-2">
+                              {conv.is_admin_chat ? (
+                                <span className="text-theme-cyan">(Admin Chat)</span>
+                              ) : (
+                                conv.product?.headline || conv.product?.title || getVendorFromConversation(conv)?.username || 'Chat'
+                              )}
                             </h4>
                             <span className="text-xs sm:text-sm text-gray-400 flex-shrink-0">
                               {getRelativeTime(conv.updated_at)}
@@ -1068,8 +1080,14 @@ export function MessagesPanel({
                     <ChevronLeft className="w-5 h-5" />
                   </Button>
 
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 shadow-lg border border-blue-400/20">
+                  <div className="relative flex-shrink-0 cursor-pointer transition-transform hover:scale-105" onClick={() => {
+                    const pic = getVendorFromConversation(selectedConversation)?.profile_picture;
+                    if (pic) setViewProfileImage(getImageUrl(pic));
+                  }}>
+                    <Avatar className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 shadow-lg border border-blue-400/20 overflow-hidden">
+                      {getVendorFromConversation(selectedConversation)?.profile_picture && (
+                        <AvatarImage src={getImageUrl(getVendorFromConversation(selectedConversation).profile_picture)} className="object-cover" />
+                      )}
                       <AvatarFallback className="text-white font-semibold text-xs sm:text-sm">
                         {getVendorFromConversation(selectedConversation)?.username?.charAt(0) || 'V'}
                       </AvatarFallback>
@@ -1081,7 +1099,10 @@ export function MessagesPanel({
                       className="font-semibold text-white text-sm sm:text-base truncate cursor-pointer hover:text-blue-400 transition-colors flex items-center space-x-2"
                       onClick={handleOpenUserProfile}
                     >
-                      <span className="truncate">{getVendorFromConversation(selectedConversation)?.username || 'Vendor'}</span>
+                      <span className="truncate">
+                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (getVendorFromConversation(selectedConversation)?.username || 'Support Agent')}
+                      </span>
+                      {selectedConversation.is_admin_chat && <Badge className="bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30 text-[10px]">ADMIN</Badge>}
                       {/* Refund/Dispute badge */}
                       {(() => {
                         // Check if this conversation was opened with dispute or refund context
@@ -1155,7 +1176,9 @@ export function MessagesPanel({
                     </h3>
                     <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
                       <Package className="w-3 h-3 mr-1 flex-shrink-0" />
-                      <span className="truncate">{selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion'}</span>
+                      <span className="truncate">
+                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion')}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -2172,6 +2195,26 @@ export function MessagesPanel({
           </div>
         </div>
       )}
+      {/* Profile Image View Modal */}
+      <Dialog open={!!viewProfileImage} onOpenChange={(open) => !open && setViewProfileImage(null)}>
+        <DialogContent className="bg-transparent border-none shadow-none max-w-4xl w-full p-0 flex items-center justify-center pointer-events-none">
+          <div className="relative pointer-events-auto">
+            <img
+              src={viewProfileImage || ''}
+              alt="Profile"
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute -top-10 -right-4 sm:-right-10 bg-black/50 hover:bg-black/70 text-white rounded-full"
+              onClick={() => setViewProfileImage(null)}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

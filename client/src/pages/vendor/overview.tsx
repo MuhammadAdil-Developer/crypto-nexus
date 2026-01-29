@@ -199,29 +199,29 @@ export default function VendorOverview() {
 
     try {
       setIsLoadingTopProducts(true);
-      
+
       // Fetch both products and orders to calculate actual sales per product
       const [productsRes, ordersRes] = await Promise.all([
         productService.getVendorProducts(),
         orderService.getVendorOrders().catch(() => []) // Fallback to empty array if fails
       ]);
-      
+
       const products = (productsRes as any)?.data || [];
       const orders = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any)?.results || ordersRes || [];
-      
+
       // Count completed orders per product (including giveaways)
       const validStatuses = ['paid', 'completed', 'delivered', 'shipped', 'confirmed', 'processing', 'payment_received'];
-      const completedOrders = orders.filter((o: any) => 
+      const completedOrders = orders.filter((o: any) =>
         validStatuses.includes((o.order_status || '').toLowerCase())
       );
-      
+
       // Create a map of product_id -> sales count (including giveaways)
       const productSalesMap: { [key: string]: number } = {};
       completedOrders.forEach((order: any) => {
         // Try multiple ways to get product ID
-        const productId = order.product?.id || 
-                         order.product_id || 
-                         (order.product && typeof order.product === 'string' ? order.product : null);
+        const productId = order.product?.id ||
+          order.product_id ||
+          (order.product && typeof order.product === 'string' ? order.product : null);
         if (productId) {
           // Convert to string for consistent key matching
           const key = String(productId);
@@ -235,7 +235,7 @@ export default function VendorOverview() {
           // Match product ID (convert to string for consistent matching)
           const productIdKey = String(product.id);
           const salesCount = productSalesMap[productIdKey] || 0;
-          
+
           return {
             id: product.id,
             name: product.headline || product.listing_title || "Product",
@@ -406,6 +406,12 @@ export default function VendorOverview() {
     } catch (e) { /* ignore in SSR */ }
 
     // Check if legal documents have been confirmed
+    // SKIP if user is already a vendor or has already accepted
+    const currentUser = authService.getCurrentUser();
+    if (currentUser?.user_type === 'vendor' || currentUser?.legal_accepted) {
+      return;
+    }
+
     const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
     const termsConfirmed = localStorage.getItem('legal_confirmed_terms');
     if (!privacyConfirmed) {
@@ -490,18 +496,23 @@ export default function VendorOverview() {
       <PrivacyPolicyModal
         isOpen={showPrivacyModal}
         onClose={() => {
-          // After privacy is confirmed, show terms
-          if (!localStorage.getItem('legal_confirmed_terms')) {
-            setShowTermsModal(true);
-          }
           setShowPrivacyModal(false);
+          localStorage.setItem('legal_confirmed_privacy', 'true');
+          setShowTermsModal(true);
         }}
       />
       <TermsConditionsModal
         isOpen={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
+        onClose={async () => {
+          setShowTermsModal(false);
+          localStorage.setItem('legal_confirmed_terms', 'true');
+          try {
+            await authService.acceptLegal();
+          } catch (error) {
+            console.error('Error persisting legal acceptance:', error);
+          }
+        }}
       />
-
 
 
       {/* Preview Mode Warning Banner */}

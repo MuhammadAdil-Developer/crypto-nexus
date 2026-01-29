@@ -29,12 +29,12 @@ interface User {
   phone?: string | null;
   profile_picture?: string | null;
   is_verified: boolean;
-  is_active?: boolean;
+  is_active?: boolean | null;
   date_joined: string; // Backend sends this field
   last_login?: string | null;
-  total_orders?: number;
-  total_spent?: number;
-  two_factor_enabled?: boolean;
+  total_orders?: number | null;
+  total_spent?: number | null;
+  two_factor_enabled?: boolean | null;
 }
 
 export default function AdminUsers() {
@@ -64,6 +64,7 @@ export default function AdminUsers() {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageContent, setMessageContent] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   // Vendor details state
   const [vendorDetails, setVendorDetails] = useState<any>(null);
@@ -713,6 +714,105 @@ export default function AdminUsers() {
     }
   };
 
+  const toggleSelectAll = () => {
+    const filteredUsers = getFilteredUsers();
+    if (selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filteredUsers.map(u => u.id));
+    }
+  };
+
+  const toggleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedUserIds.length === 0) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedUserIds.length} users?`)) {
+      return;
+    }
+
+    try {
+      const token = authService.getToken();
+      setLoading(true);
+
+      // Perform deletions sequentially or use a bulk endpoint if available
+      // The backend seems to have individual delete, so we'll do them in parallel
+      const deletePromises = selectedUserIds.map(userId =>
+        fetch(getApiUrl(`/users/${userId}/delete/`), {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        })
+      );
+
+      await Promise.all(deletePromises);
+
+      toast({
+        title: "Success",
+        description: `Successfully deleted ${selectedUserIds.length} users`,
+      });
+
+      setSelectedUserIds([]);
+      fetchUsers();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to perform bulk deletion",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    if (selectedUserIds.length === 0) return;
+
+    try {
+      const token = authService.getToken();
+      setLoading(true);
+
+      const activatePromises = selectedUserIds.map(userId =>
+        fetch(getApiUrl(`/users/${userId}/verify/`), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        })
+      );
+
+      await Promise.all(activatePromises);
+
+      toast({
+        title: "Success",
+        description: `Successfully activated ${selectedUserIds.length} users`,
+      });
+
+      setSelectedUserIds([]);
+      fetchUsers();
+    } catch (error) {
+      console.error('Bulk activate error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to perform bulk activation",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // API Functions
   const fetchUsers = async (page = currentPage) => {
     try {
@@ -1282,14 +1382,45 @@ export default function AdminUsers() {
 
       {/* Users Table */}
       <Card className="crypto-card">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-white">Users List</CardTitle>
+          {selectedUserIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400 mr-2">{selectedUserIds.length} selected</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-success/50 text-success hover:bg-success/20"
+                onClick={handleBulkActivate}
+              >
+                <UserCheck className="w-4 h-4 mr-2" />
+                Activate
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-danger/50 text-danger hover:bg-danger/20"
+                onClick={handleBulkDelete}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-surface-2">
                 <tr>
+                  <th className="p-4 w-10">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-600 bg-gray-700 text-accent focus:ring-accent"
+                      checked={selectedUserIds.length === getFilteredUsers().length && getFilteredUsers().length > 0}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th className="text-left p-4 text-sm font-medium text-gray-300">Username</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-300">Email</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-300">Role</th>
@@ -1304,7 +1435,7 @@ export default function AdminUsers() {
               <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12">
+                    <td colSpan={10} className="text-center py-12">
                       <div className="flex items-center justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
                         <span className="ml-3 text-gray-400">Loading users...</span>
@@ -1327,14 +1458,22 @@ export default function AdminUsers() {
                   getFilteredUsers().map((user) => {
                     const isSelf = currentUser && String(currentUser.id) === String(user.id);
                     return (
-                      <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`user-row-${user.id}`}>
+                      <tr key={user.id} className={`${selectedUserIds.includes(user.id) ? 'bg-accent/10' : 'hover:bg-surface-2/50'}`} data-testid={`user-row-${user.id}`}>
+                        <td className="p-4">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-600 bg-gray-700 text-accent focus:ring-accent"
+                            checked={selectedUserIds.includes(user.id)}
+                            onChange={() => toggleSelectUser(user.id)}
+                          />
+                        </td>
                         <td className="p-4">
                           <div className="flex items-center">
                             <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center mr-3 bg-accent/20 border border-border">
-                              {user.profile_picture ? (
+                              {!!user.profile_picture ? (
                                 <img src={getImageUrl(user.profile_picture)} alt={user.username} className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-accent text-sm font-medium">{user.username[0].toUpperCase()}</span>
+                                <span className="text-accent text-sm font-medium">{user.username ? user.username[0].toUpperCase() : '?'}</span>
                               )}
                             </div>
                             <span className="font-medium text-white">{user.username}</span>
@@ -1357,8 +1496,8 @@ export default function AdminUsers() {
                             />
                           ) : (
                             <StatusBadge
-                              status={user.is_verified ? "Verified" : "Pending Verification"}
-                              type={user.is_verified ? "success" : "warning"}
+                              status={!!user.is_verified ? "Verified" : "Pending Verification"}
+                              type={!!user.is_verified ? "success" : "warning"}
                             />
                           )}
                         </td>
@@ -1366,7 +1505,7 @@ export default function AdminUsers() {
                         <td className="p-4 text-gray-300">Never</td>
                         <td className="p-4 text-gray-300">{user.total_orders || 0}</td>
                         <td className="p-4">
-                          {user.two_factor_enabled ? (
+                          {!!user.two_factor_enabled ? (
                             <Badge className="bg-success/20 text-success border-success/30">Enabled</Badge>
                           ) : (
                             <Badge variant="outline" className="text-gray-500 border-gray-700">Disabled</Badge>
@@ -1403,9 +1542,9 @@ export default function AdminUsers() {
                               className="text-gray-400 hover:text-white"
                               onClick={() => handleEditUser(user)}
                               data-testid={`edit-user-${user.id}`}
-                              disabled={loadingActions[`update_${user.id}`]}
+                              disabled={!!loadingActions[`update_${user.id}`]}
                             >
-                              {loadingActions[`update_${user.id}`] ? (
+                              {!!loadingActions[`update_${user.id}`] ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <Edit className="w-4 h-4" />
@@ -1442,9 +1581,9 @@ export default function AdminUsers() {
                                 onClick={() => handleVerifyUser(user)}
                                 data-testid={`unban-user-${user.id}`}
                                 title="Unban User"
-                                disabled={loadingActions[`verify_${user.id}`]}
+                                disabled={!!loadingActions[`verify_${user.id}`]}
                               >
-                                {loadingActions[`verify_${user.id}`] ? (
+                                {!!loadingActions[`verify_${user.id}`] ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
                                   <Unlock className="w-4 h-4" />
@@ -1458,9 +1597,9 @@ export default function AdminUsers() {
                                 onClick={() => handleVerifyUser(user)}
                                 data-testid={`verify-user-${user.id}`}
                                 title="Verify User"
-                                disabled={loadingActions[`verify_${user.id}`]}
+                                disabled={!!loadingActions[`verify_${user.id}`]}
                               >
-                                {loadingActions[`verify_${user.id}`] ? (
+                                {!!loadingActions[`verify_${user.id}`] ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
                                   <UserCheck className="w-4 h-4" />
@@ -1635,8 +1774,8 @@ export default function AdminUsers() {
                   <h3 className="text-lg font-semibold text-white">{selectedUser.username}</h3>
                   <p className="text-gray-400">{selectedUser.email}</p>
                   <StatusBadge
-                    status={selectedUser.is_verified ? "Verified" : "Pending Verification"}
-                    type={selectedUser.is_verified ? "success" : "warning"}
+                    status={!!selectedUser.is_verified ? "Verified" : "Pending Verification"}
+                    type={!!selectedUser.is_verified ? "success" : "warning"}
                     className="mt-1"
                   />
                 </div>
@@ -1754,9 +1893,9 @@ export default function AdminUsers() {
                   className="border-border text-gray-300 hover:bg-surface-2"
                   onClick={() => handleLoginAsUser(selectedUser.id)}
                   data-testid="btn-login-as-user-details"
-                  disabled={loadingActions[`impersonate_${selectedUser.id}`]}
+                  disabled={!!loadingActions[`impersonate_${selectedUser.id}`]}
                 >
-                  {loadingActions[`impersonate_${selectedUser.id}`] ? (
+                  {!!loadingActions[`impersonate_${selectedUser.id}`] ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <LogIn className="w-4 h-4 mr-2" />

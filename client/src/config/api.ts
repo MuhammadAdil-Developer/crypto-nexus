@@ -39,6 +39,17 @@ export const getWebSocketUrl = (path: string): string => {
 export const getImageUrl = (url: string | undefined | null): string => {
   if (!url) return '';
   if (url.startsWith('http')) return url;
+
+  // Ensure we don't double slash or miss a slash
+  const hasLeadingSlash = url.startsWith('/');
+  const hasTrailingSlash = API_BASE_URL_WITHOUT_API.endsWith('/');
+
+  if (hasTrailingSlash && hasLeadingSlash) {
+    return `${API_BASE_URL_WITHOUT_API}${url.substring(1)}`;
+  }
+  if (!hasTrailingSlash && !hasLeadingSlash) {
+    return `${API_BASE_URL_WITHOUT_API}/${url}`;
+  }
   return `${API_BASE_URL_WITHOUT_API}${url}`;
 };
 

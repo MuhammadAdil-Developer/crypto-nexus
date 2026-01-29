@@ -276,13 +276,15 @@ export default function VendorListings() {
   };
 
   const toggleSelectAll = () => {
-    const currentPaginatedIds = getPaginatedProducts().map(p => p.id);
-    const allSelected = currentPaginatedIds.every(id => selectedProductIds.includes(id));
+    const allFilteredIds = getFilteredProducts().map(p => p.id);
+    const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedProductIds.includes(id));
 
     if (allSelected) {
-      setSelectedProductIds(prev => prev.filter(id => !currentPaginatedIds.includes(id)));
+      // Unselect all filtered products
+      setSelectedProductIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
     } else {
-      setSelectedProductIds(prev => [...new Set([...prev, ...currentPaginatedIds])]);
+      // Select all filtered products
+      setSelectedProductIds(prev => [...new Set([...prev, ...allFilteredIds])]);
     }
   };
 

@@ -7,9 +7,11 @@ from products.models import Product
 class UserSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     
+    profile_picture = serializers.ImageField(read_only=True)
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'user_type']
+        fields = ['id', 'username', 'email', 'profile_picture', 'user_type']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -59,10 +61,18 @@ class MessageSerializer(serializers.ModelSerializer):
             other_participants = obj.conversation.participants.exclude(id=request.user.id)
             if other_participants.exists():
                 other_user = other_participants.first()
+                if other_user.user_type == 'admin':
+                    return {
+                        'id': str(other_user.id),
+                        'username': 'Support Agent',
+                        'user_type': 'admin',
+                        'profile_picture': None
+                    }
                 return {
                     'id': str(other_user.id),
                     'username': other_user.username,
-                    'user_type': getattr(other_user, 'user_type', 'buyer')  # Default to buyer if no user_type
+                    'user_type': getattr(other_user, 'user_type', 'buyer'),
+                    'profile_picture': other_user.profile_picture.url if other_user.profile_picture else None
                 }
         return None
 
@@ -72,10 +82,12 @@ class ConversationSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     last_message = MessageSerializer(read_only=True)
     unread_count = serializers.SerializerMethodField()
+    is_admin_chat = serializers.SerializerMethodField()
+    other_participant = serializers.SerializerMethodField()
     
     class Meta:
         model = Conversation
-        fields = ['id', 'participants', 'product', 'last_message', 'is_active', 'unread_count', 'created_at', 'updated_at']
+        fields = ['id', 'participants', 'product', 'last_message', 'is_active', 'unread_count', 'is_admin_chat', 'other_participant', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_unread_count(self, obj):
@@ -84,7 +96,41 @@ class ConversationSerializer(serializers.ModelSerializer):
             return obj.messages.filter(recipient=request.user, is_read=False).count()
         return 0
 
+    def get_is_admin_chat(self, obj):
+        """Check if any participant is an admin"""
+        return obj.participants.filter(user_type='admin').exists()
 
+    def get_other_participant(self, obj):
+        """Get the other participant with admin anonymization"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            other_participants = obj.participants.exclude(id=request.user.id)
+            if other_participants.exists():
+                other_user = other_participants.first()
+                if other_user.user_type == 'admin':
+                    return {
+                        'id': str(other_user.id),
+                        'username': 'Support Agent',
+                        'user_type': 'admin',
+                        'profile_picture': None
+                    }
+                profile_picture_url = None
+                if other_user.profile_picture:
+                    if request:
+                        profile_picture_url = request.build_absolute_uri(other_user.profile_picture.url)
+                    else:
+                        profile_picture_url = other_user.profile_picture.url
+
+                return {
+                    'id': str(other_user.id),
+                    'username': other_user.username,
+                    'user_type': getattr(other_user, 'user_type', 'buyer'),
+                    'profile_picture': profile_picture_url
+                }
+        return None
+
+
+class CreateConversationSerializer(serializers.ModelSerializer):
     product_id = serializers.CharField(write_only=True, required=False, allow_null=True)
     recipient_id = serializers.CharField(write_only=True)
     

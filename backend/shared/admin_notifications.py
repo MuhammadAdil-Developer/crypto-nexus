@@ -153,10 +153,11 @@ def send_admin_notification(
         priority: Priority level (low, normal, high, urgent)
     """
     try:
-        # Get all admin users
+        # Get all admin users - double filter for extra safety
         admin_users = User.objects.filter(
-            user_type='admin'
-        ).exclude(is_active=False)
+            user_type='admin',
+            is_active=True
+        )
         
         if not admin_users.exists():
             logger.warning("No admin users found to send notification")
@@ -168,34 +169,37 @@ def send_admin_notification(
         
         # Create notification for each admin user
         for admin_user in admin_users:
+            # Final safety check: ensure we never send admin alerts to normal users
+            if admin_user.user_type != 'admin':
+                continue
+                
             try:
-                # Create database notification
+                # Create a database notification for THIS admin user
                 notification = Notification.objects.create(
                     user=admin_user,
-                    type=notification_type,
+                    type=notification_type if notification_type in [t[0] for t in Notification.NOTIFICATION_TYPES] else 'system',
                     title=title,
                     message=message,
-                    is_read=False,
                     data=data or {}
                 )
                 
-                # Send real-time notification via WebSocket
+                # Send real-time notification
+                channel_layer = get_channel_layer()
                 if channel_layer:
                     try:
-                        # Include action_url from data if available
-                        action_url = (data or {}).get('action_url', '/admin')
+                        # Use strictly prefixed group name
                         async_to_sync(channel_layer.group_send)(
                             f'realtime_{admin_user.id}',
                             {
                                 'type': 'order_notification',
                                 'data': {
                                     'id': str(notification.id),
-                                    'type': notification_type,
+                                    'type': notification.type,
                                     'title': title,
                                     'message': message,
                                     'is_read': False,
                                     'data': data or {},
-                                    'action_url': action_url,  # Include action_url for navigation
+                                    'action_url': (data or {}).get('action_url', '/admin'),
                                     'created_at': notification.created_at.isoformat(),
                                     'priority': priority
                                 }
@@ -203,8 +207,7 @@ def send_admin_notification(
                         )
                         logger.info(f"✅ Sent real-time notification to admin {admin_user.id} via WebSocket")
                     except Exception as e:
-                        logger.error(f"Error sending real-time notification to admin {admin_user.id}: {e}")
-                
+                        logger.error(f"Error sending real-time admin notification to admin {admin_user.id}: {e}")
             except Exception as e:
                 logger.error(f"Error creating notification for admin {admin_user.id}: {e}")
         

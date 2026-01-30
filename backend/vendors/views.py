@@ -33,7 +33,7 @@ def list_approved_vendors(request):
         vendors = VendorApplication.objects.filter(status='approved').order_by('-updated_at')[:limit]
         data = []
         for v in vendors:
-            # Safely build logo URL (avoid returning File objects)
+            # Safely build logo URL
             logo_url = ''
             try:
                 if getattr(v, 'logo', None) and getattr(v.logo, 'url', ''):
@@ -41,12 +41,22 @@ def list_approved_vendors(request):
             except Exception:
                 logo_url = ''
 
+            # Try to get the user's profile picture from the User model first
+            profile_picture = ''
+            try:
+                user = User.objects.get(username=v.vendor_username)
+                if user.profile_picture:
+                    profile_picture = user.profile_picture.url
+            except User.DoesNotExist:
+                pass
+
             data.append({
                 'vendor_username': v.vendor_username or '',
                 'business_name': v.business_name or v.vendor_username or '',
                 'category': v.category or '',
                 'store_description': v.store_description or '',
                 'logo_url': logo_url,
+                'profile_picture': profile_picture or logo_url,
             })
         return Response({'success': True, 'data': data})
     except Exception as e:

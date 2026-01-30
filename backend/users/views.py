@@ -391,9 +391,6 @@ def user_login(request):
                     metadata={'ip_address': client_ip}
                 )
                 
-                # Send login alert notification
-                notify_user_login(user, client_ip)
-                
             except Exception as e:
                 print(f"⚠️ Error logging login activity/notification: {e}")
                 pass  # Don't fail login if logging fails

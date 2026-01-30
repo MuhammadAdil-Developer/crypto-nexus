@@ -102,7 +102,8 @@ const topVendors = [
     verified: true,
     specialization: "Streaming Services",
     avatar: "CA",
-    responseTime: "< 1 hour"
+    responseTime: "< 1 hour",
+    profile_picture: null
   },
   {
     id: 2,
@@ -112,7 +113,8 @@ const topVendors = [
     verified: true,
     specialization: "Software & Tools",
     avatar: "DV",
-    responseTime: "< 30 min"
+    responseTime: "< 30 min",
+    profile_picture: null
   },
   {
     id: 3,
@@ -122,7 +124,8 @@ const topVendors = [
     verified: true,
     specialization: "Gaming Accounts",
     avatar: "GH",
-    responseTime: "< 2 hours"
+    responseTime: "< 2 hours",
+    profile_picture: null
   },
   {
     id: 4,
@@ -132,7 +135,8 @@ const topVendors = [
     verified: true,
     specialization: "Professional Software",
     avatar: "PS",
-    responseTime: "< 1 hour"
+    responseTime: "< 1 hour",
+    profile_picture: null
   }
 ];
 
@@ -1699,15 +1703,16 @@ function BuyerHomeContent() {
                   <Card key={vendor.id} className="group hover:scale-105 transition-all duration-200 cursor-pointer border-gray-700 bg-gray-900">
                     <CardContent className="p-6 text-center">
                       <div className="relative mb-4">
-                        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-pink-500 to-red-500 rounded-full flex items-center justify-center overflow-hidden">
+                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#AD0539] to-[#FF2D72] rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-800 group-hover:border-[#AD0539] transition-all duration-300 shadow-xl relative z-10">
                           {vendor.profile_picture ? (
                             <img
                               src={getImageUrl(vendor.profile_picture)}
                               alt={vendor.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                              loading="lazy"
                             />
                           ) : (
-                            <span className="text-white font-bold text-lg">{vendor.avatar}</span>
+                            <span className="text-white font-bold text-xl drop-shadow-md">{vendor.avatar}</span>
                           )}
                         </div>
                         {vendor.verified && (

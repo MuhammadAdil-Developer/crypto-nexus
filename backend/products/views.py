@@ -195,9 +195,10 @@ def get_popular_searches(request):
         # Get products ordered by views_count, favorites_count, and created_at
         # This gives us the most popular products which are likely to be searched
         products = Product.objects.filter(
-            status__in=['approved', 'reserved'],
+            status='approved',
             is_active=True,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).order_by('-views_count', '-favorites_count', '-created_at')[:limit * 2]
         
         # Extract unique search terms from popular products
@@ -336,7 +337,8 @@ def get_vendor_products(request):
         
         products = Product.objects.filter(
             vendor=request.user,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).select_related('category', 'sub_category').order_by('-created_at')
         
         # Pagination
@@ -1374,7 +1376,8 @@ def vendor_products(request):
         
         products = Product.objects.filter(
             vendor=request.user,
-            is_deleted=False
+            is_deleted=False,
+            quantity_available__gt=0
         ).select_related('category', 'sub_category').order_by('-created_at')
         
         # Pagination

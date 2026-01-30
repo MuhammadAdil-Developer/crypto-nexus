@@ -168,78 +168,21 @@ class OrderViewSet(viewsets.ModelViewSet):
             try:
                 channel_layer = get_channel_layer()
                 if channel_layer:
-                    # Trigger count refresh for all users (admin/vendor/buyer) when order is created
-                    # Send count refresh notifications to buyer, vendor, and all admins
+                    # Trigger count refresh for relevant users (buyer and vendor)
+                    # We rely on send_user_notification and notify_admin_order_created for actual alerts
+                    # These manual group_sends are only for the 'refresh_counts' UI trigger
                     try:
-                        # Send to buyer
+                        # Send hidden refresh trigger to buyer
                         async_to_sync(channel_layer.group_send)(
                             f'realtime_{order.buyer.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'id': f'count_refresh_order_{order.id}',
-                                    'type': 'system',
-                                    'title': 'Count Refresh',
-                                    'message': 'Order count updated',
-                                    'is_read': False,
-                                    'data': {
-                                        'action': 'refresh_counts',
-                                        'type': 'order'
-                                    },
-                                    'action_url': '',
-                                    'created_at': order.created_at.isoformat(),
-                                    'priority': 'low'
-                                }
-                            }
+                            {'type': 'order_notification', 'data': {'action': 'refresh_counts', 'type': 'order', 'hidden': True}}
                         )
                         
-                        # Send to vendor
+                        # Send hidden refresh trigger to vendor
                         async_to_sync(channel_layer.group_send)(
                             f'realtime_{order.vendor.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'id': f'count_refresh_order_{order.id}',
-                                    'type': 'system',
-                                    'title': 'Count Refresh',
-                                    'message': 'Order count updated',
-                                    'is_read': False,
-                                    'data': {
-                                        'action': 'refresh_counts',
-                                        'type': 'order'
-                                    },
-                                    'action_url': '',
-                                    'created_at': order.created_at.isoformat(),
-                                    'priority': 'low'
-                                }
-                            }
+                            {'type': 'order_notification', 'data': {'action': 'refresh_counts', 'type': 'order', 'hidden': True}}
                         )
-                        
-                        # Send to all admins
-                        from django.contrib.auth import get_user_model
-                        User = get_user_model()
-                        admin_users = User.objects.filter(user_type='admin', is_active=True)
-                        for admin_user in admin_users:
-                            async_to_sync(channel_layer.group_send)(
-                                f'realtime_{admin_user.id}',
-                                {
-                                    'type': 'order_notification',
-                                    'data': {
-                                        'id': f'count_refresh_order_{order.id}',
-                                        'type': 'system',
-                                        'title': 'Count Refresh',
-                                        'message': 'Order count updated',
-                                        'is_read': False,
-                                        'data': {
-                                            'action': 'refresh_counts',
-                                            'type': 'order'
-                                        },
-                                        'action_url': '',
-                                        'created_at': order.created_at.isoformat(),
-                                        'priority': 'low'
-                                    }
-                                }
-                            )
                     except Exception as e:
                         logger.error(f"Error sending count refresh notification: {e}")
             except Exception as e:

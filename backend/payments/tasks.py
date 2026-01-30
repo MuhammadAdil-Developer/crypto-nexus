@@ -90,7 +90,6 @@ def create_escrow_payout(order_id: str):
 def release_escrow_task(order_id: str, released_by_id: str = None):
     """Task to process escrow release to vendor"""
     try:
-    try:
         from orders.models import Order
         from .services import PaymentService
         

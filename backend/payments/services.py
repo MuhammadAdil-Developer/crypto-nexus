@@ -1461,6 +1461,12 @@ class PaymentService:
             new_order_status = btcpay_to_order_status.get(btcpay_status, OrderStatus.PENDING_PAYMENT.value)
             new_payment_status = btcpay_to_payment_status.get(btcpay_status, 'pending')
             
+            # CRITICAL: If the order is already marked as PAID, skip notifications and logic to avoid duplicate/infinite notifications
+            if order.payment_status == 'paid' and new_payment_status == 'paid':
+                logger.info(f"Order {order_id} is already marked as PAID. Skipping duplicate status update and notifications.")
+                return True
+            
+            
             # Update order status
             order.order_status = new_order_status
             order.payment_status = new_payment_status
@@ -1810,14 +1816,32 @@ class PaymentService:
                     payment_address.transaction_hash = payment_result['txid']
                     payment_address.confirmations = payment_result.get('confirmations', 0)
                     
-                    # Mark as paid if it has enough confirmations (or any detections in test mode)
-                    if payment_address.confirmations >= 0:
+                    # Mark as paid if it has enough confirmations (XMR_PAID_THRESHOLD = 2)
+                    from django.conf import settings as django_settings
+                    paid_threshold = getattr(django_settings, 'XMR_PAID_THRESHOLD', 2)
+                    
+                    if payment_address.confirmations >= paid_threshold and payment_address.status != 'paid':
                         logger.info(f"Marking order {order_id} as PAID (Confirmations: {payment_address.confirmations})")
                         payment_address.status = 'paid'
                         payment_address.confirmed_at = timezone.now()
                         
                         # Update order status
                         self._update_order_status_dynamically(order_id, 'Paid')
+                        
+                        # Special notification for vendor at 2 confirmations
+                        try:
+                            from orders.models import Order
+                            from shared.admin_notifications import send_user_notification
+                            order = Order.objects.get(order_id=order_id)
+                            send_user_notification(
+                                user=order.vendor,
+                                notification_type='order_paid',
+                                title='Order Paid - Confirming',
+                                message=f'Your order {order.order_id} has been paid. Status changed to Paid. We will notify you once payment is confirmed on the blockchain.',
+                                data={'order_id': order.order_id, 'action_url': '/vendor/orders'}
+                            )
+                        except Exception as ne:
+                            logger.error(f"Failed to send XMR paid notification: {ne}")
                     
                     payment_address.save()
                 else:
@@ -1954,10 +1978,25 @@ class PaymentService:
             # SECURITY: Prevent release if payment is not fully settled/confirmed
             from django.conf import settings as django_settings
             required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 3)
+            
+            # For Monero, trigger a fresh check to get latest confirmation count
+            if payment_address.crypto_currency.symbol == 'XMR' and (payment_address.confirmations or 0) < required_confs:
+                logger.info(f"Triggering fresh Monero check for order {order_id} before escrow release")
+                try:
+                    self.check_payment_status(order_id)
+                    # Refresh our local variable
+                    payment_address.refresh_from_db()
+                except Exception as e:
+                    logger.warning(f"Fresh Monero check failed: {e}")
+
             current_confs = payment_address.confirmations or 0
             
             if payment_address.status != 'paid' or current_confs < required_confs:
-                msg = f"❌ CANNOT RELEASE: Payment not confirmed on blockchain ({current_confs}/{required_confs} confs). Please wait for BTCPay status 'Settled'."
+                if payment_address.crypto_currency.symbol == 'BTC':
+                    msg = f"❌ CANNOT RELEASE: Payment not confirmed on blockchain ({current_confs}/{required_confs} confs). Please wait for BTCPay status to become 'Settled'."
+                else:
+                    msg = f"❌ CANNOT RELEASE: {payment_address.crypto_currency.symbol} payment needs {required_confs} confirmations ({current_confs}/{required_confs} received). Please wait for blockchain confirmation."
+                
                 logger.warning(msg)
                 # Raise exception so the API shows the message to the user
                 raise ValueError(msg)
@@ -2168,6 +2207,33 @@ class PayoutService:
                 direct_payment.status = 'completed'
                 direct_payment.transaction_hash = tx_hash
                 direct_payment.save()
+                
+                # Special payout notification for vendor
+                try:
+                    from shared.admin_notifications import send_user_notification
+                    currency_note = f'"{direct_payment.crypto_currency.symbol} Account"'
+                    if direct_payment.crypto_currency.symbol == 'XMR':
+                        currency_note = '"monero Account"'
+                    elif direct_payment.crypto_currency.symbol == 'BTC':
+                        currency_note = '"bitcoin Account"'
+                        
+                    send_user_notification(
+                        user=direct_payment.vendor,
+                        notification_type='payout_completed',
+                        title='Payment Received',
+                        message=f'Payment received for order {direct_payment.order.order_id} from {direct_payment.buyer.username} - {currency_note}.',
+                        data={
+                            'order_id': direct_payment.order.order_id,
+                            'buyer_username': direct_payment.buyer.username,
+                            'amount': str(net_amount),
+                            'crypto': direct_payment.crypto_currency.symbol,
+                            'tx_hash': tx_hash,
+                            'action_url': '/vendor/orders'
+                        }
+                    )
+                except Exception as ne:
+                    logger.error(f"Failed to send payout notification: {ne}")
+                
                 return True
             else:
                 logger.error("FAILURE: Payout failed to send.")
@@ -2383,6 +2449,32 @@ class PayoutService:
                     
                 except PaymentAddress.DoesNotExist:
                     logger.warning(f"Payment address not found for payout {payout_id}")
+                
+                # Special payout notification for vendor
+                try:
+                    from shared.admin_notifications import send_user_notification
+                    currency_note = f'"{payout.crypto_currency.symbol} Account"'
+                    if payout.crypto_currency.symbol == 'XMR':
+                        currency_note = '"monero Account"'
+                    elif payout.crypto_currency.symbol == 'BTC':
+                        currency_note = '"bitcoin Account"'
+                        
+                    send_user_notification(
+                        user=payout.vendor,
+                        notification_type='payout_completed',
+                        title='Payment Received',
+                        message=f'Payment received for order {payout.order.order_id} from {payout.buyer.username} - {currency_note}.',
+                        data={
+                            'order_id': payout.order.order_id,
+                            'buyer_username': payout.buyer.username,
+                            'amount': str(payout.net_amount),
+                            'crypto': payout.crypto_currency.symbol,
+                            'tx_hash': transaction_hash,
+                            'action_url': '/vendor/orders'
+                        }
+                    )
+                except Exception as ne:
+                    logger.error(f"Failed to send escrow payout notification: {ne}")
                 
                 logger.info(f"Escrow payout {payout_id} completed: {transaction_hash}")
                 return True

@@ -8,8 +8,8 @@ BTCPAY_API_KEY = 'f66dd13f59806719fcee1eb31be75057ea47c1fd'
 
 # Monero RPC - Mainnet
 MONERO_RPC_URL = 'http://127.0.0.1:18082/json_rpc'
-MONERO_RPC_USER = 'monerouser'
-MONERO_RPC_PASSWORD = 'moneropass123'
+MONERO_RPC_USER = 'nx_vault_7Q'
+MONERO_RPC_PASSWORD = 'F9!xQ@3Zk#M7vR2$LwA8'
 
 # Bitcoin RPC - Mainnet
 BITCOIN_RPC_URL = 'http://88.99.143.151:8332'  # Mainnet port

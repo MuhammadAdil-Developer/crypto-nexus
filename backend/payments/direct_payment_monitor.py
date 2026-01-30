@@ -10,6 +10,7 @@ import requests
 from decimal import Decimal
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Q
 from datetime import datetime, timedelta
 
 from .models import DirectPayment
@@ -39,10 +40,13 @@ class DirectPaymentMonitor:
     def monitor_pending_direct_payments(self):
         """Monitor all pending direct payments for incoming transactions"""
         try:
-            # Get all pending direct payments
+            # Get all pending direct payments OR confirmed XMR payments that need more confirmations
+            from django.conf import settings
+            xmr_req = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 5)
+            
             pending_payments = DirectPayment.objects.filter(
-                status='pending',
-                expires_at__gt=timezone.now()
+                Q(status='pending', expires_at__gt=timezone.now()) |
+                Q(status='confirmed', crypto_currency__symbol='XMR', confirmations__lt=xmr_req)
             ).select_related('order', 'crypto_currency', 'vendor')
             
             logger.info(f"Monitoring {pending_payments.count()} pending direct payments")
@@ -66,9 +70,12 @@ class DirectPaymentMonitor:
             from .models import PaymentAddress
             from .services import PaymentService
             
+            from django.conf import settings
+            xmr_req = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 5)
+
             pending_addresses = PaymentAddress.objects.filter(
-                status='pending',
-                expires_at__gt=timezone.now()
+                Q(status='pending', expires_at__gt=timezone.now()) |
+                Q(status='paid', crypto_currency__symbol='XMR', confirmations__lt=xmr_req)
             )
             
             logger.info(f"Monitoring {pending_addresses.count()} general payment addresses")
@@ -190,7 +197,7 @@ class DirectPaymentMonitor:
                 return
             
             from django.conf import settings
-            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 10)
+            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 5)
             
             # Use Monero RPC to check for incoming transactions
             try:

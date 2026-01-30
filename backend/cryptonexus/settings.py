@@ -379,8 +379,10 @@ BLOCK_CONFIRMATION_REQUIREMENTS = {
 # Required confirmations per cryptocurrency
 REQUIRED_CONFIRMATIONS = {
     'BTC': int(os.environ.get('BTC_REQUIRED_CONFIRMATIONS', '3')),
-    'XMR': int(os.environ.get('XMR_REQUIRED_CONFIRMATIONS', '1')),
+    'XMR': int(os.environ.get('XMR_REQUIRED_CONFIRMATIONS', '5')),
 }
+
+XMR_PAID_THRESHOLD = int(os.environ.get('XMR_PAID_THRESHOLD', '2'))
 
 # Channels Configuration
 ASGI_APPLICATION = 'cryptonexus.asgi.application'

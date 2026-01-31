@@ -113,26 +113,27 @@ class DirectPaymentMonitor:
             from django.conf import settings
             required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)
             
-            # Method 1: Use BTCPay Server Wallet API (if available)
-            if self.btcpay_service:
-                try:
-                    # Get wallet transactions
-                    transactions = self._get_btcpay_wallet_transactions()
-                    matched_tx = self._match_btc_transaction(transactions, payment)
-                    if matched_tx:
-                        confs = matched_tx.get('confirmations', 0)
-                        if confs >= required_confs:
-                            self._confirm_payment(payment, "btcpay_wallet", confs)
-                        else:
-                            payment.confirmations = confs
-                            payment.latest_activity = timezone.now()
-                            payment.save()
-                            
-                            # Trigger fee calculation early
-                            self._trigger_processing(payment, confs)
+            # NEW METHOD 0: Check BTCPay Invoice Status Directly (Most Reliable)
+            try:
+                from .models import PaymentAddress
+                payment_addr = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
+                if payment_addr and payment_addr.btcpay_invoice_id:
+                    logger.info(f"🔎 Checking BTCPay Invoice {payment_addr.btcpay_invoice_id} for Order {payment.order.order_id}")
+                    invoice_status = self.btcpay_service.get_invoice_status(payment_addr.btcpay_invoice_id)
+                    
+                    # Log internal status for debugging
+                    logger.info(f"   BTCPay Status: {invoice_status}")
+                    
+                    if invoice_status in ['Settled', 'Confirmed', 'Processing']:
+                        # Determine confirmations
+                        confs = 1 if invoice_status == 'Processing' else required_confs
+                        logger.info(f"✅ BTCPay Invoice {invoice_status}! Triggering payout.")
+                        self._confirm_payment(payment, "btcpay_invoice_api", confs)
                         return
-                except Exception as e:
-                    logger.warning(f"BTCPay wallet check failed: {e}")
+            except Exception as e:
+                logger.warning(f"BTCPay Invoice status check failed: {e}")
+
+            # Method 1: Use BTCPay Server Wallet API (Legacy fallback)
             
             # Method 2: Use external blockchain API (BlockCypher/Blockstream)
             try:
@@ -284,18 +285,23 @@ class DirectPaymentMonitor:
                     else:
                         transfer_time = datetime.fromtimestamp(ts, tz=timezone.utc)
                     
-                    if transfer_time < cutoff_time:
-                        continue
+                    # LOG every transfer we examine for debugging
+                    logger.info(f"   🔎 Examining XMR TX {txid[:10]}... (Index: {transfer.get('subaddr_index')}, Time: {transfer_time})")
 
                     # CHECK 1: Match by Subaddress Index (Preferred/Safe)
+                    # For subaddress index matches, IGNORE cutoff_time (if it's the right index, it belongs to this order)
                     if expected_subaddr_index is not None:
                         transfer_subaddr_index = transfer.get('subaddr_index', {})
                         # subaddr_index from RPC is typically {'major': 0, 'minor': N}
                         minor_index = transfer_subaddr_index.get('minor') if isinstance(transfer_subaddr_index, dict) else transfer_subaddr_index
                         
                         if str(minor_index) == str(expected_subaddr_index):
-                            logger.info(f"✅ Found matching XMR transfer by Index {expected_subaddr_index} (TX: {txid})")
+                            logger.info(f"✅ MATCH FOUND! Subaddress Index {expected_subaddr_index} matches TX {txid}")
                             return transfer
+
+                    # For fallback matching (amount-based), keep the cutoff check to avoid duplicates
+                    if transfer_time < cutoff_time:
+                        continue
                     
                     # CHECK 2: Match by Amount (Fallback)
                     transfer_amount = Decimal(str(transfer.get('amount', 0))) / Decimal('1000000000000')

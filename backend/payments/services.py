@@ -1843,20 +1843,8 @@ class PaymentService:
                         payment_address.confirmed_at = timezone.now()
                         self._update_order_status_dynamically(order_id, 'Paid')
                         
-                        # Special notification for vendor at 1 confirmation
-                        try:
-                            from orders.models import Order
-                            from shared.admin_notifications import send_user_notification
-                            order = Order.objects.get(order_id=order_id)
-                            send_user_notification(
-                                user=order.vendor,
-                                notification_type='order_paid',
-                                title='Payment Detected - Confirming',
-                                message=f'Payment for order {order.order_id} has been detected on the blockchain. We are waiting for blockchain confirmations to process the payout to your wallet (Current: {current_confs}).',
-                                data={'order_id': order.order_id, 'action_url': '/vendor/orders'}
-                            )
-                        except Exception as ne:
-                            logger.error(f"Failed to send XMR paid notification: {ne}")
+                        # Notification removed as per user request to avoid spam
+                        pass
 
                     # CRITICAL: Trigger fee calculation and direct payment update if threshold reached
                     # EVEN IF status was already 'paid', we trigger this to ensure sticky/stuck orders
@@ -2570,13 +2558,10 @@ class PayoutService:
             # This prevents 0E-8 XMR bug
             amount_to_use = payment_address.received_amount if (payment_address.received_amount and payment_address.received_amount > 0) else Decimal(str(payment_address.expected_amount))
             
-            # If still 0, try to get from order total
+            # If still 0, try to get from payment_address expected_amount (crypto)
             if amount_to_use <= 0:
-                logger.warning(f"Amount is 0 for order {order_id}, trying order total")
-                try:
-                    amount_to_use = Decimal(str(order.total_amount))
-                except:
-                    pass
+                logger.warning(f"⚠️ Amount is 0 for order {order_id}, trying expected crypto amount")
+                amount_to_use = Decimal(str(payment_address.expected_amount))
 
             direct_payment = DirectPayment.objects.create(
                 order=order,

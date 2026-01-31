@@ -284,9 +284,12 @@ class DirectPayment(BaseModel):
     
     PAYMENT_STATUS = [
         ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
         ('failed', 'Failed'),
         ('expired', 'Expired'),
+        # Keeping 'confirmed' for internal logic compatibility
+        ('confirmed', 'Confirmed'),
     ]
     
     order = models.OneToOneField('orders.Order', on_delete=models.CASCADE, related_name='direct_payment')

@@ -114,7 +114,7 @@ def release_escrow_task(order_id: str, released_by_id: str = None):
         return {'success': False, 'error': str(e)}
 
 
-@shared_task(bind=True, max_retries=15, default_retry_delay=600)  # Retry up to 15 times, 10 min apart
+@shared_task(bind=True, max_retries=15, default_retry_delay=300)  # Retry up to 15 times, 5 min apart
 def process_non_escrow_payout(self, order_id: str):
     """Process non-escrow order payout - calculate fees and send to vendor"""
     try:
@@ -150,7 +150,7 @@ def process_non_escrow_payout(self, order_id: str):
                 'vendor': vendor,
                 'buyer': order.buyer,
                 'crypto_currency': payment_address.crypto_currency,
-                'amount': payment_address.received_amount if payment_address.received_amount and payment_address.received_amount > 0 else payment_address.expected_amount,  # Will be updated to received_amount when payment arrives
+                'amount': payment_address.received_amount if (payment_address.received_amount and payment_address.received_amount > 0) else Decimal(str(payment_address.expected_amount)), 
                 'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
                 'status': 'pending',
                 'platform_fee': Decimal('0'),  # Will be calculated below
@@ -192,16 +192,35 @@ def process_non_escrow_payout(self, order_id: str):
         if not vendor_payout_address or vendor_payout_address == "MISSING_ADDRESS":
              return f"Vendor {vendor.username} has no {crypto_symbol} payout address. Payout held."
         
+        # ============================================================
+        # DEBOUNCE CHECK: Prevent duplicate processing if tasks are spammed
+        # ============================================================
+        last_run_threshold = timezone.now() - timedelta(seconds=30)
+        if direct_payment.status == 'processing' and direct_payment.updated_at > last_run_threshold:
+            logger.info(f"⏩ Order {order_id} is already being handled by another worker (within 30s). Skipping redundant task.")
+            return f"Redundant task for {order_id} skipped"
+            
         # Only process if not already completed or permanently failed
-        if direct_payment.status in ['completed', 'processing']:
-            logger.info(f"Direct payment for order {order_id} already processed")
-            return f"Direct payment for order {order_id} already processed"
+        if direct_payment.status == 'completed':
+            logger.info(f"Direct payment for order {order_id} already completed")
+            return f"Direct payment for order {order_id} already completed"
+            
+        # STUCK RESCUE: If status is 'processing' but it's been more than 10 minutes, allow retry
+        if direct_payment.status == 'processing':
+            stuck_threshold = timezone.now() - timedelta(minutes=10)
+            if direct_payment.updated_at > stuck_threshold:
+                logger.info(f"Direct payment for order {order_id} is currently being processed by another worker. Skipping.")
+                return f"Payout for order {order_id} is already in progress"
+            else:
+                logger.warning(f"⚠️ Order {order_id} was STUCK in processing. Rescuing and retrying...")
+
         if direct_payment.status == 'failed':
             logger.info(f"Direct payment for order {order_id} already marked failed (e.g. dust), skipping")
             return f"Direct payment for order {order_id} already failed, skipping"
         
         # Mark as processing
         direct_payment.status = 'processing'
+        direct_payment.updated_at = timezone.now()
         direct_payment.save()
         
         # ============================================================
@@ -213,9 +232,9 @@ def process_non_escrow_payout(self, order_id: str):
         current_confs = payment_address.confirmations or 0
         
         if current_confs < required_confs:
-            logger.warning(f"⚠️ PAYOUT DEFERRED for Order {order_id}: {current_confs}/{required_confs} confirmations. Status reset to 'confirmed' for retry.")
-            # Set status back to confirmed so it can be picked up again
-            direct_payment.status = 'confirmed'
+            logger.warning(f"⚠️ PAYOUT DEFERRED for Order {order_id}: {current_confs}/{required_confs} confirmations. Status kept as 'processing' for retry.")
+            # Keep status as processing so it shows animated pulse in UI
+            direct_payment.status = 'processing'
             direct_payment.save()
             # Retry in 5 minutes
             raise self.retry(countdown=300)
@@ -252,6 +271,7 @@ def process_non_escrow_payout(self, order_id: str):
             logger.error(f"❌ CRITICAL FAILURE for Order {order_id}: Calculated platform_fee_rate is NEGATIVE ({platform_fee_rate}). Logic error.")
             raise ValueError(f"Platform fee rate {platform_fee_rate} is invalid for order {order_id}")
             
+        escrow_fee_rate = Decimal('0')  # CRITICAL FIX: Define escrow_fee_rate for all branches
         logger.info(f"📊 Payout Logic for Order {order_id}: Currency={crypto_symbol}, Vendor={vendor.username}, Rate={platform_fee_rate*100}%")
         
         # ============================================================
@@ -472,15 +492,16 @@ def process_non_escrow_payout(self, order_id: str):
             logger.info(f"Successfully processed non-escrow payout for order {order_id}")
             return f"Non-escrow payout processed for order {order_id}"
         else:
-            # Payout failed - trigger retry if attempts remaining
-            direct_payment.status = 'pending'  # Reset to pending for retry
+            # Payout failed (likely locked funds) - keep status as processing
+            direct_payment.status = 'processing'
             direct_payment.save()
             
             logger.warning(f"Payout failed for order {order_id}. Retry {self.request.retries + 1}/{self.max_retries}")
             
             # If we still have retries left, schedule a retry
             if self.request.retries < self.max_retries:
-                raise self.retry(exc=Exception(f"Payout failed, retrying in 5 minutes"))
+                # Use 300s (5 mins) as requested
+                raise self.retry(exc=Exception(f"Payout failed (likely locked funds), retrying in 5 minutes"), countdown=300)
             else:
                 # All retries exhausted - mark as failed for manual intervention
                 direct_payment.status = 'failed'
@@ -499,7 +520,7 @@ def process_non_escrow_payout(self, order_id: str):
             from .models import DirectPayment
             dp = DirectPayment.objects.get(order_id=order_id)
             if dp.status == 'processing':
-                dp.status = 'confirmed'
+                dp.status = 'processing'
                 dp.save()
                 logger.info(f"Reset status to 'confirmed' for order {order_id} after error")
         except:

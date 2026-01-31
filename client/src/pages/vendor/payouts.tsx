@@ -75,30 +75,40 @@ interface PayoutData {
 // Styled Crypto Icon Component
 const CryptoIcon = ({ symbol, size = "md" }: { symbol?: string, size?: "sm" | "md" | "lg" | "xl" }) => {
   const isBTC = symbol?.toUpperCase() === 'BTC' || symbol?.toUpperCase() === 'BITCOIN';
-  const coinName = isBTC ? "BTC" : symbol?.toUpperCase() || "CRY";
+  const isXMR = symbol?.toUpperCase() === 'XMR' || symbol?.toUpperCase() === 'MONERO';
 
-  const sizeClasses = {
-    sm: "w-8 h-8 text-[10px]",
-    md: "w-10 h-10 text-[11px]",
-    lg: "w-12 h-12 text-xs",
-    xl: "w-16 h-16 text-sm"
+  const sizeMetrics = {
+    sm: { box: "w-8 h-8", icon: "w-5 h-5" },
+    md: { box: "w-10 h-10", icon: "w-6 h-6" },
+    lg: { box: "w-12 h-12", icon: "w-7 h-7" },
+    xl: { box: "w-16 h-16", icon: "w-10 h-10" }
   };
+
+  const metrics = sizeMetrics[size];
 
   return (
     <div className={`
-      ${sizeClasses[size]} 
+      ${metrics.box} 
       rounded-full 
       bg-[#09111f] 
       flex 
       items-center 
       justify-center 
       border-2 
-      ${isBTC ? 'border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.2)]'} 
-      font-black 
-      text-white 
-      tracking-tighter
+      ${isBTC ? 'border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : isXMR ? 'border-[#ff6600]/40 shadow-[0_0_15px_rgba(255,102,0,0.2)]' : 'border-gray-500/40'} 
     `}>
-      {coinName}
+      {isBTC ? (
+        <svg viewBox="0 0 512 512" className={`${metrics.icon}`}>
+          <path d="M504 256c0 136.967-111.033 248-248 248S8 392.967 8 256 119.033 8 256 8s248 111.033 248 248z" fill="#f7931a" />
+          <path d="M446.689 215.197c-3.141-20.985-12.791-36.929-28.924-47.8c-13.883-9.356-31.063-14.739-51.542-16.142l11.458-45.926-28.016-6.993-11.162 44.733c-7.361-1.84-14.922-3.567-22.463-5.264l11.238-45.05-28.016-6.988-11.458 45.925c-6.101-1.39-12.016-2.731-18.06-4.108l.006-.027-38.653-9.648-7.468 29.972s20.793 4.767 20.355 5.058c11.353 2.828 13.399 10.334 13.064 16.273l-13.08 52.486c.773.193 1.782.443 2.909.739l-2.937-.733-18.337 73.545c-1.583 3.963-5.642 9.897-14.766 7.625.32 0-20.355-5.071-20.355-5.071l-13.931 32.091 36.483 9.091c6.791 1.696 13.435 3.473 19.957 5.127l-11.558 46.362 28.021 6.99 11.458-45.921c7.653 2.083 15.093 4.07 22.38 5.969l-11.442 45.871 28.021 6.99 11.558-46.368c47.882 9.081 83.993 5.405 99.141-37.935 12.193-34.908.411-55.02-24.636-68.086 18.261-4.223 32.062-16.242 36.035-41.246zM324.417 319.497c-8.682 34.808-67.433 15.989-86.425 11.258l15.426-61.859c18.992 4.73 80.088 14.111 70.999 50.601zm8.73-87.962c-7.923 31.78-56.918 15.655-72.77 11.693l14.072-56.44c15.852 3.962 66.974 11.439 58.698 44.747z" fill="#fff" />
+        </svg>
+      ) : isXMR ? (
+        <svg viewBox="0 0 512 512" className={`${metrics.icon}`}>
+          <path d="M256 8C119.033 8 8 119.033 8 256s111.033 248 248 248 248-111.033 248-248S392.967 8 256 8zm138.2 376H350l-8.4-1.1c-32.9-4.3-51.4-23.7-65.4-56.1l-18-42.3-19.1 44.8c-14 32.8-32.4 51.5-66.6 54.1l-10 1.2h-44.4v-31.1H147l2.8-.2c20.3-1.6 30.6-11.7 39.4-32.1l54.8-128.6L191.1 121c-7.2-22.1-15.3-31.1-39.7-32.1l-4.4-.2V57.6h46.2l3.4.1c25.4.6 36.3 9.4 46 36.5l25.7 71.5 24.3-68.5c10.5-29.6 19.4-39 48.7-39.6l3.7-.1h46.2v31.1h-4.4c-24.4 1-32.5 10-39.7 32.1l-52.9 161 54.8 128.6c8.8 20.4 19.1 30.5 39.4 32.1l2.8.2v31.1z" fill="#ff6600" />
+        </svg>
+      ) : (
+        <span className="text-white font-black">{symbol?.toUpperCase() || "CRY"}</span>
+      )}
     </div>
   );
 };
@@ -139,6 +149,7 @@ export default function VendorPayouts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterMethod, setFilterMethod] = useState("all");
+  const [filterType, setFilterType] = useState("all"); // Added type filter
   const [selectedPayout, setSelectedPayout] = useState<PayoutData | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -215,9 +226,13 @@ export default function VendorPayouts() {
     fetchTransactionHistory();
   }, []);
 
-  const filteredPayouts = payouts.filter(payout =>
-    filterMethod === "all" || payout.method === filterMethod
-  );
+  const filteredPayouts = [...payouts]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // Sort by latest
+    .filter(payout => {
+      const methodMatch = filterMethod === "all" || payout.method === filterMethod;
+      const typeMatch = filterType === "all" || payout.type === filterType;
+      return methodMatch && typeMatch;
+    });
 
   const totalPaidOut = payouts
     .filter(p => p.status === "Completed" || p.status === "completed")
@@ -366,7 +381,7 @@ export default function VendorPayouts() {
             </div>
             <div className="space-y-1">
               <h3 className="text-3xl font-black text-white tracking-tight">{loading ? <Loader2 className="w-8 h-8 animate-spin" /> : pendingEarnings.total.usd}</h3>
-              <p className="text-base text-gray-400 font-medium">Available for Withdrawal</p>
+              <p className="text-base text-gray-400 font-medium">Total Earnings Settled Directly</p>
               <div className="pt-2 mt-2 border-t border-gray-700/30">
                 <p className="text-xs text-gray-500 font-mono">{loading ? "..." : `${pendingEarnings.total.orders} total completed orders`}</p>
               </div>
@@ -413,15 +428,27 @@ export default function VendorPayouts() {
               <SelectTrigger className="w-full sm:w-48 bg-gray-900/50 border-gray-700/50 text-white rounded-xl h-10">
                 <SelectValue placeholder="Filter by method" />
               </SelectTrigger>
-              <SelectContent className="bg-gray-900 border-gray-700 text-white">
+              <SelectContent className="bg-gray-900 border-gray-700 text-white font-bold">
                 <SelectItem value="all">All Methods</SelectItem>
                 <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
                 <SelectItem value="XMR">Monero (XMR)</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-full sm:w-48 bg-gray-900/50 border-gray-700/50 text-white rounded-xl h-10">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-900 border-gray-700 text-white font-bold">
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="direct">Direct Payment</SelectItem>
+                <SelectItem value="escrow">Escrow Payout</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button
               variant="outline"
-              className="w-full sm:w-auto border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl h-10"
+              className="w-full sm:w-auto border-gray-700/50 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl h-10 font-bold"
               onClick={exportHistory}
             >
               <Download className="w-4 h-4 mr-2" />
@@ -475,7 +502,9 @@ export default function VendorPayouts() {
                             <Copy className="w-3 h-3" />
                           </button>
                         </div>
-                        <p className="text-xs text-gray-500 font-medium">{payout.date}</p>
+                        <p className="text-xs text-gray-500 font-medium">
+                          {new Date(payout.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                        </p>
                       </div>
                     </div>
 
@@ -661,7 +690,7 @@ export default function VendorPayouts() {
 
       {/* Premium Payout Details Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900 border border-gray-700 text-white shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900 border border-gray-700 text-white shadow-2xl p-0 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
           <DialogHeader className="p-6 border-b border-gray-800 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-10">
             <DialogTitle className="text-xl font-bold text-white flex items-center">
               <Wallet className="w-5 h-5 mr-2 text-cyan-400" />
@@ -703,8 +732,10 @@ export default function VendorPayouts() {
                       <span className="text-white capitalize">{selectedPayout.type}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Date</span>
-                      <span className="text-white">{selectedPayout.date}</span>
+                      <span className="text-gray-400">Date & Time</span>
+                      <span className="text-white">
+                        {new Date(selectedPayout.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>

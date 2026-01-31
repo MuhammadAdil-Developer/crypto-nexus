@@ -1282,14 +1282,23 @@ class PaymentService:
             from .commission_models import CommissionSettings, VendorFee
             commission_settings = CommissionSettings.get_settings()
             
+            # GET VENDOR - Use direct order relation for accuracy
+            order_vendor = getattr(order, 'vendor', order.product.vendor)
+            
             # Check for vendor-specific commission rate
-            vendor_custom_rate = VendorFee.get_vendor_fee(order.product.vendor)
+            vendor_custom_rate = VendorFee.get_vendor_fee(order_vendor)
             if vendor_custom_rate is not None:
                 platform_fee_rate = vendor_custom_rate / Decimal('100')
-                logger.info(f"Using vendor-specific commission rate: {vendor_custom_rate}%")
+                logger.info(f"Using vendor-specific commission rate for {order_vendor.username}: {vendor_custom_rate}%")
             else:
                 platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
-                logger.info(f"Using dynamic platform commission rate: {commission_settings.platform_fee_rate}%")
+                logger.info(f"Using platform default commission rate: {commission_settings.platform_fee_rate}%")
+            
+            # SAFETY FALLBACK: If rate is 0 but platform default is > 0, use platform default
+            # unless it's explicitly set to 0 and we have a reason.
+            if platform_fee_rate == 0 and commission_settings.platform_fee_rate > 0:
+                logger.warning(f"⚠️ Detected 0% fee rate for {order_vendor.username}, falling back to platform default {commission_settings.platform_fee_rate}%")
+                platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
             
             # ============================================================
             # FEE CALCULATION FLOW (CONFIRMED APPROACH):
@@ -1320,26 +1329,19 @@ class PaymentService:
             else:
                 logger.info(f"✅ direct_payment.amount already correct: {amount}")
             
-            # CRITICAL VERIFICATION: Ensure amount is received_amount, not expected_amount
-            if amount >= payment_address.expected_amount:
-                logger.error(f"❌ CRITICAL: amount ({amount}) >= expected_amount ({payment_address.expected_amount})!")
-                logger.error(f"This means we're using expected_amount instead of received_amount!")
-                logger.error(f"received_amount: {payment_address.received_amount}")
-                if payment_address.received_amount > 0:
-                    amount = payment_address.received_amount
-                    direct_payment.amount = amount
-                    direct_payment.save(update_fields=['amount'])
-                    logger.error(f"✅ CORRECTED: Using received_amount {amount} instead")
-                else:
-                    raise ValueError(f"Cannot calculate fees: received_amount is 0, expected_amount is {payment_address.expected_amount}")
+            # CRITICAL VERIFICATION: Ensure amount is valid
+            if amount > payment_address.expected_amount:
+                logger.warning(f"⚠️ amount ({amount}) > expected_amount ({payment_address.expected_amount})!")
+                logger.warning(f"Buyer may have overpaid.")
+            elif amount <= 0:
+                raise ValueError(f"Cannot calculate fees: received_amount is {amount}")
             
             escrow_fee_rate = Decimal('0') # Escrow fee is 0 for direct payments
             
-            # CRITICAL: Verify platform_fee_rate is not zero
-            if platform_fee_rate <= 0:
-                logger.error(f"❌ CRITICAL: platform_fee_rate is {platform_fee_rate} (should be > 0)!")
-                logger.error(f"Commission settings rate: {commission_settings.platform_fee_rate}%")
-                raise ValueError(f"Platform fee rate is zero or negative: {platform_fee_rate}")
+            # Allow 0% platform fee rate
+            if platform_fee_rate < 0:
+                logger.error(f"❌ CRITICAL: platform_fee_rate is negative: {platform_fee_rate}")
+                raise ValueError(f"Platform fee rate is negative: {platform_fee_rate}")
             
             # CRITICAL: Calculate platform fee with detailed logging
             platform_fee = amount * platform_fee_rate
@@ -1354,22 +1356,24 @@ class PaymentService:
             logger.info(f"   Calculated platform_fee: {amount} * {platform_fee_rate} = {platform_fee}")
             logger.info(f"   Escrow fee: {escrow_fee}")
             
-            # CRITICAL: Verify platform fee was calculated
-            if platform_fee <= 0:
-                logger.error(f"❌ CRITICAL: platform_fee is {platform_fee} (should be > 0)!")
-                logger.error(f"Amount: {amount}, Rate: {platform_fee_rate}, Calculated: {amount * platform_fee_rate}")
-                logger.error(f"Vendor: {order.product.vendor.username}, Custom rate: {vendor_custom_rate}, Default: {commission_settings.platform_fee_rate}%")
-                raise ValueError(f"Platform fee calculation resulted in zero: {platform_fee}")
+            # Allow 0 platform fee if rate is 0
+            if platform_fee < 0:
+                logger.error(f"❌ CRITICAL: platform_fee is negative: {platform_fee}")
+                raise ValueError(f"Platform fee calculation resulted in negative: {platform_fee}")
+            
+            if platform_fee == 0 and platform_fee_rate > 0:
+                logger.warning(f"⚠️ Platform fee is 0 but rate is {platform_fee_rate*100}% (amount too small?)")
             
             net_amount = amount - platform_fee - escrow_fee
             
-            # CRITICAL VERIFICATION: Ensure platform fee is actually deducted
-            if net_amount >= amount:
-                logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) >= gross amount ({amount})!")
-                logger.error(f"Platform fee calculation failed! Recalculating...")
-                net_amount = amount - platform_fee - escrow_fee
-                if net_amount >= amount:
-                    raise ValueError(f"Platform fee not deducted! net_amount ({net_amount}) >= gross ({amount})")
+            # CRITICAL VERIFICATION: Ensure net amount is not greater than gross
+            if net_amount > amount:
+                logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) > gross amount ({amount})!")
+                raise ValueError(f"net_amount ({net_amount}) > gross ({amount})")
+            
+            # If net == amount, only log a warning if fee rate was supposed to be > 0
+            if net_amount == amount and platform_fee_rate > 0:
+                logger.warning(f"⚠️ net_amount == gross amount but platform_fee_rate is {platform_fee_rate*100}%")
             
             logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
             logger.info(f"✅ VERIFICATION: net_amount ({net_amount}) = gross ({amount}) - platform_fee ({platform_fee}) - escrow_fee ({escrow_fee})")
@@ -1816,13 +1820,11 @@ class PaymentService:
                     from django.conf import settings as django_settings
                     paid_threshold = getattr(django_settings, 'XMR_PAID_THRESHOLD', 1)
                     
-                    # Only trigger "Paid" notification if status is changing to paid
+                    # Update status to Paid if threshold reached
                     if current_confs >= paid_threshold and payment_address.status != 'paid':
                         logger.info(f"Marking order {order_id} as PAID (Confirmations: {current_confs})")
                         payment_address.status = 'paid'
                         payment_address.confirmed_at = timezone.now()
-                        
-                        # Update order status
                         self._update_order_status_dynamically(order_id, 'Paid')
                         
                         # Special notification for vendor at 1 confirmation
@@ -1839,16 +1841,25 @@ class PaymentService:
                             )
                         except Exception as ne:
                             logger.error(f"Failed to send XMR paid notification: {ne}")
-                    payment_address.save()
-                    
-                    # CRITICAL: Trigger fee calculation and direct payment update immediately
-                    # This ensures DirectPayment.net_amount is NOT zero while waiting for confirmations
-                    if not hasattr(payment_address, 'escrow'):
+
+                    # CRITICAL: Trigger fee calculation and direct payment update if threshold reached
+                    # EVEN IF status was already 'paid', we trigger this to ensure sticky/stuck orders
+                    # are processed if they missed the initial webhook or had 0 amounts.
+                    if current_confs >= paid_threshold and not hasattr(payment_address, 'escrow'):
                         try:
-                            self._process_direct_payment_webhook(payment_address)
-                            logger.info(f"🚀 Triggered direct payment processing for order {order_id} (conf: {current_confs})")
+                            # Verify if already confirmed in DirectPayment to avoid duplicate task spam
+                            from .models import DirectPayment
+                            dp = DirectPayment.objects.filter(order_id=order_id).first()
+                            if dp and dp.status not in ['confirmed', 'processing', 'completed']:
+                                logger.info(f"🚀 Triggering/Retrying direct payment processing for order {order_id} (conf: {current_confs})")
+                                self._process_direct_payment_webhook(payment_address)
+                            elif dp and dp.net_amount <= 0:
+                                logger.warning(f"⚠️ DirectPayment has 0 net_amount, re-triggering webhook for order {order_id}")
+                                self._process_direct_payment_webhook(payment_address)
                         except Exception as e:
                             logger.error(f"Failed to trigger direct payment processing for {order_id}: {e}")
+                    
+                    payment_address.save()
                 else:
                     # If not found, still update confirmations if available (e.g. from error or partial)
                     payment_address.confirmations = payment_result.get('confirmations', 0)

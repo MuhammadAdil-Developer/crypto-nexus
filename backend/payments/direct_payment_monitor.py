@@ -249,7 +249,7 @@ class DirectPaymentMonitor:
                         self._trigger_processing(payment, confs)
                     return
                 else:
-                    logger.debug(f"No matching XMR transaction found for order {payment.order.order_id}")
+                    logger.info(f"No matching XMR transaction found for order {payment.order.order_id} in {len(incoming_transfers)} transfers.")
                     
             except Exception as e:
                 logger.warning(f"Monero RPC check failed: {e}")
@@ -270,16 +270,20 @@ class DirectPaymentMonitor:
         try:
             target_amount = float(payment.amount)
             
-            # Look for transfers in the last 24 hours
-            cutoff_time = timezone.now() - timedelta(hours=24)
+            # Look for transfers in the last 7 days (increased from 24h for old orders)
+            cutoff_time = timezone.now() - timedelta(days=7)
             
             for transfer in transfers:
                 try:
-                    # Check if transfer is recent enough
+                    txid = transfer.get('txid')
                     ts = transfer.get('timestamp', 0)
-                    if not ts: continue
                     
-                    transfer_time = datetime.fromtimestamp(ts, tz=timezone.utc)
+                    # Use current time for mempool transactions (ts=0)
+                    if ts == 0:
+                        transfer_time = timezone.now()
+                    else:
+                        transfer_time = datetime.fromtimestamp(ts, tz=timezone.utc)
+                    
                     if transfer_time < cutoff_time:
                         continue
 
@@ -287,25 +291,33 @@ class DirectPaymentMonitor:
                     if expected_subaddr_index is not None:
                         transfer_subaddr_index = transfer.get('subaddr_index', {})
                         # subaddr_index from RPC is typically {'major': 0, 'minor': N}
-                        # We care about 'minor' index matching our database index
                         minor_index = transfer_subaddr_index.get('minor') if isinstance(transfer_subaddr_index, dict) else transfer_subaddr_index
                         
                         if str(minor_index) == str(expected_subaddr_index):
-                            logger.info(f"✅ Found matching XMR transfer by Index {expected_subaddr_index} (TX: {transfer.get('txid')})")
+                            logger.info(f"✅ Found matching XMR transfer by Index {expected_subaddr_index} (TX: {txid})")
                             return transfer
                     
                     # CHECK 2: Match by Amount (Fallback)
-                    transfer_amount = transfer.get('amount', 0) / 1000000000000  # Convert atomic units to XMR
+                    transfer_amount = Decimal(str(transfer.get('amount', 0))) / Decimal('1000000000000')
                     
                     if target_amount > 0:
-                        tolerance = target_amount * 0.016
-                        if abs(target_amount - transfer_amount) <= tolerance:
-                            logger.info(f"Found matching XMR transfer by Amount: {transfer.get('txid')} for {transfer_amount} XMR")
+                        target = Decimal(str(target_amount))
+                        tolerance = target * Decimal('0.016')
+                        if abs(target - transfer_amount) <= tolerance:
+                            logger.info(f"✅ Found matching XMR transfer by Amount: {txid} for {transfer_amount} XMR")
                             return transfer
                         
                 except Exception as e:
-                    logger.debug(f"Error processing XMR transfer: {e}")
+                    logger.debug(f"Error processing XMR transfer {transfer.get('txid')}: {e}")
                     continue
+            
+            # If we got here, no transfer matched
+            if transfers:
+                logger.info(f"No match found in {len(transfers)} transfers for subaddr index {expected_subaddr_index}")
+                for i, t in enumerate(transfers[:5]): # Log first 5 for debugging
+                    t_amt = t.get('amount', 0) / 1e12
+                    t_idx = t.get('subaddr_index', {}).get('minor') if isinstance(t.get('subaddr_index'), dict) else t.get('subaddr_index')
+                    logger.info(f"  Transfer {i}: TX={t.get('txid')[:10]}, Amt={t_amt}, Index={t_idx}")
             
             return None
             

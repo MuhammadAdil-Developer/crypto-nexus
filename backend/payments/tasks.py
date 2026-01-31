@@ -231,15 +231,15 @@ def process_non_escrow_payout(self, order_id: str):
             logger.error("❌ CRITICAL: CommissionSettings not found! Cannot calculate platform fee.")
             raise ValueError("CommissionSettings not configured")
         
-        if commission_settings.platform_fee_rate <= 0:
-            logger.error(f"❌ CRITICAL: platform_fee_rate in settings is {commission_settings.platform_fee_rate}% (should be > 0)")
+        if commission_settings.platform_fee_rate < 0:
+            logger.error(f"❌ CRITICAL: platform_fee_rate in settings is negative: {commission_settings.platform_fee_rate}%")
             raise ValueError(f"Invalid platform_fee_rate: {commission_settings.platform_fee_rate}%")
         
         # Check for vendor-specific commission rate
         vendor_custom_rate = VendorFee.get_vendor_fee(vendor)
         if vendor_custom_rate is not None:
-            if vendor_custom_rate <= 0:
-                logger.error(f"❌ CRITICAL: vendor_custom_rate is {vendor_custom_rate}% (should be > 0)")
+            if vendor_custom_rate < 0:
+                logger.error(f"❌ CRITICAL: vendor_custom_rate is negative: {vendor_custom_rate}%")
                 raise ValueError(f"Invalid vendor_custom_rate: {vendor_custom_rate}%")
             platform_fee_rate = vendor_custom_rate / Decimal('100')
             logger.info(f"Using vendor-specific rate: {vendor_custom_rate}%")
@@ -247,11 +247,10 @@ def process_non_escrow_payout(self, order_id: str):
             platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
             logger.info(f"Using platform default rate: {commission_settings.platform_fee_rate}%")
         
-        # CRITICAL: Final verification of platform_fee_rate
-        if platform_fee_rate <= 0:
-            logger.error(f"❌ CRITICAL: Calculated platform_fee_rate is {platform_fee_rate} (should be > 0)")
-            logger.error(f"Commission settings: {commission_settings.platform_fee_rate}%, Vendor custom: {vendor_custom_rate}")
-            raise ValueError(f"Platform fee rate is zero or negative: {platform_fee_rate}")
+        # Allow 0% platform fee rate (e.g. for special vendors or testing)
+        if platform_fee_rate < 0:
+            logger.error(f"❌ CRITICAL: Calculated platform_fee_rate is negative: {platform_fee_rate}")
+            raise ValueError(f"Platform fee rate is negative: {platform_fee_rate}")
             
         escrow_fee_rate = Decimal('0') # No escrow fee for direct orders
         
@@ -286,25 +285,17 @@ def process_non_escrow_payout(self, order_id: str):
         else:
             logger.info(f"✅ direct_payment.amount already correct: {amount}")
         
-        # CRITICAL VERIFICATION: Ensure amount is received_amount, not expected_amount
-        if amount >= payment_address.expected_amount:
-            logger.error(f"❌ CRITICAL: amount ({amount}) >= expected_amount ({payment_address.expected_amount})!")
-            logger.error(f"This means we're using expected_amount instead of received_amount!")
-            logger.error(f"received_amount: {payment_address.received_amount}")
-            if payment_address.received_amount > 0:
-                amount = payment_address.received_amount
-                direct_payment.amount = amount
-                direct_payment.save(update_fields=['amount'])
-                logger.error(f"✅ CORRECTED: Using received_amount {amount} instead")
-            else:
-                raise ValueError(f"Cannot calculate fees: received_amount is 0, expected_amount is {payment_address.expected_amount}")
+        # CRITICAL VERIFICATION: Ensure amount is valid
+        if amount > payment_address.expected_amount:
+            logger.warning(f"⚠️ amount ({amount}) > expected_amount ({payment_address.expected_amount})!")
+            logger.warning(f"Buyer may have overpaid.")
+        elif amount <= 0:
+            raise ValueError(f"Cannot calculate fees: received_amount is {amount}")
         
-        # CRITICAL: Verify platform_fee_rate is not zero
-        if platform_fee_rate <= 0:
-            logger.error(f"❌ CRITICAL: platform_fee_rate is {platform_fee_rate} (should be > 0)!")
-            logger.error(f"Commission settings: {commission_settings.platform_fee_rate}%")
-            logger.error(f"Vendor custom rate: {vendor_custom_rate}")
-            raise ValueError(f"Platform fee rate is zero or negative: {platform_fee_rate}")
+        # Allow 0% platform fee rate
+        if platform_fee_rate < 0:
+            logger.error(f"❌ CRITICAL: platform_fee_rate is negative: {platform_fee_rate}")
+            raise ValueError(f"Platform fee rate is negative: {platform_fee_rate}")
         
         # CRITICAL: Calculate platform fee with detailed logging
         platform_fee = amount * platform_fee_rate
@@ -458,13 +449,18 @@ def process_non_escrow_payout(self, order_id: str):
             net_amount = direct_payment.net_amount
         
         # CRITICAL: Final verification before sending
-        if net_amount >= direct_payment.amount:
-            logger.error(f"❌ CRITICAL ERROR BEFORE SEND: net_amount ({net_amount}) >= gross ({direct_payment.amount})!")
-            logger.error(f"Platform fee: {direct_payment.platform_fee}, Escrow fee: {direct_payment.escrow_fee}")
-            logger.error(f"ABORTING PAYOUT - Platform fee was not deducted!")
+        if net_amount > direct_payment.amount:
+            logger.error(f"❌ CRITICAL ERROR BEFORE SEND: net_amount ({net_amount}) > gross ({direct_payment.amount})!")
             direct_payment.status = 'failed'
             direct_payment.save()
-            raise ValueError(f"Cannot send payout: net_amount ({net_amount}) >= gross ({direct_payment.amount}). Platform fee not deducted!")
+            raise ValueError(f"Cannot send payout: net_amount ({net_amount}) > gross ({direct_payment.amount})!")
+        
+        # If net == gross, it's only valid if platform_fee is 0
+        if net_amount == direct_payment.amount and direct_payment.platform_fee > 0:
+            logger.error(f"❌ CRITICAL ERROR: net_amount == gross but platform_fee {direct_payment.platform_fee} was not deducted!")
+            direct_payment.status = 'failed'
+            direct_payment.save()
+            raise ValueError(f"Platform fee not deducted from net_amount!")
         
         logger.info(f"✅ FINAL VERIFICATION PASSED: Sending {net_amount} {crypto_symbol} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee})")
         
@@ -498,6 +494,17 @@ def process_non_escrow_payout(self, order_id: str):
     except Exception as e:
         logger.error(f"Error processing non-escrow payout for order {order_id}: {str(e)}")
         
+        # RESET STATUS to allow retry or manual fix
+        try:
+            from .models import DirectPayment
+            dp = DirectPayment.objects.get(order_id=order_id)
+            if dp.status == 'processing':
+                dp.status = 'confirmed'
+                dp.save()
+                logger.info(f"Reset status to 'confirmed' for order {order_id} after error")
+        except:
+            pass
+            
         # For unexpected errors, also retry
         if self.request.retries < self.max_retries:
             raise self.retry(exc=e, countdown=300)

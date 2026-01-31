@@ -452,16 +452,27 @@ class DirectPaymentMonitor:
     def _get_blockchain_transactions(self, address):
         """Get transactions from BlockCypher API"""
         try:
-            # BlockCypher API (free tier: 200 requests/hour) - MAINNET
+            # Try BlockCypher first
             url = f"https://api.blockcypher.com/v1/btc/main/addrs/{address}/txs"
+            try:
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get('txs', [])
+            except:
+                pass
+                
+            # FALLBACK: mempool.space (very reliable)
+            logger.info(f"BlockCypher failed, trying mempool.space fallback for {address}")
+            url = f"https://mempool.space/api/address/{address}/txs"
+            try:
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                logger.error(f"Mempool.space fallback also failed: {e}")
             
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('txs', [])
-            else:
-                logger.warning(f"BlockCypher API error: {response.status_code}")
-                return []
+            return []
                 
         except Exception as e:
             logger.error(f"Error getting BlockCypher transactions: {e}")
@@ -490,34 +501,62 @@ class DirectPaymentMonitor:
             target_amount = float(payment.amount)
             target_address = payment.vendor_address
             
-            # Look for transactions in the last 24 hours
-            cutoff_time = timezone.now() - timedelta(hours=24)
+            # Look for transactions in the last 7 days (increased from 24h)
+            cutoff_time = timezone.now() - timedelta(days=7)
+            
+            logger.info(f"🔎 Matching BTC tx for {target_address} (Target: {target_amount} BTC)")
             
             for tx in transactions:
                 try:
-                    # Check if transaction is recent enough
-                    tx_time = datetime.fromtimestamp(tx.get('time', 0), tz=timezone.utc)
+                    # Handle different API timestamp formats
+                    # BlockCypher uses 'time', Blockstream uses 'status' -> 'block_time'
+                    raw_time = tx.get('time') or tx.get('status', {}).get('block_time')
+                    if raw_time is None:
+                        # If no time, assume it's unconfirmed (mempool) - always match
+                        tx_time = timezone.now()
+                    else:
+                        tx_time = datetime.fromtimestamp(float(raw_time), tz=timezone.utc)
+                    
                     if tx_time < cutoff_time:
                         continue
                     
                     # Check transaction outputs for our address
+                    # BlockCypher puts addresses in 'addresses' or 'outputs'
+                    # Blockstream puts addresses in 'vout' -> 'scriptpubkey_address'
+                    
+                    # Check Blockstream format (vout)
+                    found_match = False
                     for output in tx.get('vout', []):
                         if output.get('scriptpubkey_address') == target_address:
-                            output_amount = output.get('value', 0) / 100000000  # Convert satoshis to BTC
+                            # Blockstream value is in Satoshis
+                            output_amount = Decimal(str(output.get('value', 0))) / Decimal('100000000')
                             
-                            # Check if amount matches (with small tolerance for fees)
-                            if abs(output_amount - target_amount) < 0.00000001:  # 1 satoshi tolerance
-                                logger.info(f"Found matching BTC transaction: {tx.get('txid')} for {output_amount} BTC")
+                            # Check if amount matches (with small tolerance)
+                            if abs(float(output_amount) - target_amount) < 0.00000001:
+                                logger.info(f"✅ Found matching BTC transaction (Blockstream): {tx.get('txid')} for {output_amount} BTC")
+                                found_match = True
+                                break
+                    
+                    if found_match:
+                        return tx
+                        
+                    # Check BlockCypher format (outputs)
+                    for output in tx.get('outputs', []):
+                        if target_address in output.get('addresses', []):
+                            # BlockCypher value is in Satoshis
+                            output_amount = Decimal(str(output.get('value', 0))) / Decimal('100000000')
+                            if abs(float(output_amount) - target_amount) < 0.00000001:
+                                logger.info(f"✅ Found matching BTC transaction (BlockCypher): {tx.get('hash')} for {output_amount} BTC")
                                 return tx
                                 
                 except Exception as e:
-                    logger.debug(f"Error processing transaction: {e}")
+                    logger.debug(f"Error processing individual BTC transaction: {e}")
                     continue
             
             return None
             
         except Exception as e:
-            logger.error(f"Error matching BTC transaction: {e}")
+            logger.error(f"Error in _match_btc_transaction: {e}")
             return None
     
     def _confirm_payment(self, payment, source, confirmations=None, transaction_hash=None):

@@ -1210,17 +1210,35 @@ class PaymentService:
                 if mapped_status == 'paid':
                     payment_address.confirmed_at = timezone.now()
                     
-                    # Get transaction hash from payment data
-                    if payment_data:
-                        payment_address.transaction_hash = payment_data.get('id')
-                        payment_address.received_amount = float(payment_data.get('value', 0))
-                        # Extract confirmations from payment data - ONLY if higher than current
-                        new_confs = payment_data.get('confirmations', 0)
-                        if new_confs > (payment_address.confirmations or 0):
-                            payment_address.confirmations = new_confs
-                            logger.info(f"Updated confirmations from payment data: {payment_address.confirmations}")
-                        else:
-                            logger.info(f"Keeping existing confirmations: {payment_address.confirmations} (new was {new_confs})")
+                    # Get transaction hash and amount from payment data
+                    # Handle cases where payment_data might be missing or empty (typical for Settled webhooks)
+                    payment_id = payment_data.get('id') if payment_data else None
+                    payment_amount = payment_data.get('value') if payment_data else None
+                    
+                    if payment_id:
+                        payment_address.transaction_hash = payment_id
+                    
+                    if payment_amount is not None:
+                        payment_address.received_amount = float(payment_amount)
+                        logger.info(f"Using amount from webhook payment data: {payment_address.received_amount}")
+                    elif btcpay_status == 'Settled' or btcpay_status == 'Paid':
+                        # FALLBACK: If status is Settled/Paid but amount is missing in webhook, 
+                        # use the expected amount from the payment address record
+                        if not payment_address.received_amount or payment_address.received_amount == 0:
+                            payment_address.received_amount = float(payment_address.expected_amount)
+                            logger.info(f"Webhook amount missing for {btcpay_status} status. Using expected_amount fallback: {payment_address.received_amount}")
+                    
+                    # Extract confirmations from payment data - ONLY if higher than current
+                    new_confs = payment_data.get('confirmations', 0) if payment_data else 0
+                    if btcpay_status == 'Settled':
+                        # Force confirmations for Settled status
+                        from django.conf import settings as django_settings
+                        required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 1)
+                        payment_address.confirmations = max(payment_address.confirmations or 0, required_confs)
+                        logger.info(f"Forced confirmations to {payment_address.confirmations} for Settled status")
+                    elif new_confs > (payment_address.confirmations or 0):
+                        payment_address.confirmations = new_confs
+                        logger.info(f"Updated confirmations from payment data: {payment_address.confirmations}")
                 
                 payment_address.save()
                 
@@ -1408,14 +1426,12 @@ class PaymentService:
             logger.info(f"==========================================")
             
             if current_confirmations < required_confirmations:
-                logger.info(f"❌ PAYOUT BLOCKED: Payment has only {current_confirmations} confirmations (required: {required_confirmations})")
-                logger.info(f"⏰ Waiting for {required_confirmations - current_confirmations} more confirmation(s)")
-                logger.info(f"📌 Payout will be triggered automatically when next webhook arrives with sufficient confirmations")
-                logger.info(f"✅ NOTE: Fees already calculated and saved: platform_fee={platform_fee}, net_amount={net_amount}")
+                logger.warning(f"⏰ PAYOUT DEFERRED for Order {payment_address.order_id}: {current_confirmations}/{required_confirmations} confirmations. Waiting for more.")
+                logger.info(f"   Required: {required_confirmations}, Current: {current_confirmations}")
                 # DO NOT SEND PAYOUT - EXIT HERE!
                 return
             
-            logger.info(f"✅ CONFIRMATIONS SUFFICIENT: Proceeding with payout processing")
+            logger.info(f"✅ CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
             logger.info(f"==========================================")
             
             # STEP 3: TRIGGER PAYOUT (only if confirmations are sufficient)

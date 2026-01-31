@@ -213,7 +213,7 @@ def process_non_escrow_payout(self, order_id: str):
         current_confs = payment_address.confirmations or 0
         
         if current_confs < required_confs:
-            logger.warning(f"⚠️ Payout task for {order_id} deferred: {current_confs}/{required_confs} confirmations.")
+            logger.warning(f"⚠️ PAYOUT DEFERRED for Order {order_id}: {current_confs}/{required_confs} confirmations. Status reset to 'confirmed' for retry.")
             # Set status back to confirmed so it can be picked up again
             direct_payment.status = 'confirmed'
             direct_payment.save()
@@ -228,12 +228,12 @@ def process_non_escrow_payout(self, order_id: str):
         
         # CRITICAL: Verify commission settings exist and have valid rate
         if not commission_settings:
-            logger.error("❌ CRITICAL: CommissionSettings not found! Cannot calculate platform fee.")
-            raise ValueError("CommissionSettings not configured")
+            logger.error(f"❌ CRITICAL FAILURE for Order {order_id}: CommissionSettings NOT FOUND in database!")
+            raise ValueError(f"CommissionSettings not configured for order {order_id}")
         
         if commission_settings.platform_fee_rate < 0:
-            logger.error(f"❌ CRITICAL: platform_fee_rate in settings is negative: {commission_settings.platform_fee_rate}%")
-            raise ValueError(f"Invalid platform_fee_rate: {commission_settings.platform_fee_rate}%")
+            logger.error(f"❌ CRITICAL FAILURE for Order {order_id}: Negative platform_fee_rate ({commission_settings.platform_fee_rate}%) detected in settings!")
+            raise ValueError(f"Invalid platform_fee_rate ({commission_settings.platform_fee_rate}%) is preventing payout.")
         
         # Check for vendor-specific commission rate
         vendor_custom_rate = VendorFee.get_vendor_fee(vendor)
@@ -249,10 +249,10 @@ def process_non_escrow_payout(self, order_id: str):
         
         # Allow 0% platform fee rate (e.g. for special vendors or testing)
         if platform_fee_rate < 0:
-            logger.error(f"❌ CRITICAL: Calculated platform_fee_rate is negative: {platform_fee_rate}")
-            raise ValueError(f"Platform fee rate is negative: {platform_fee_rate}")
+            logger.error(f"❌ CRITICAL FAILURE for Order {order_id}: Calculated platform_fee_rate is NEGATIVE ({platform_fee_rate}). Logic error.")
+            raise ValueError(f"Platform fee rate {platform_fee_rate} is invalid for order {order_id}")
             
-        escrow_fee_rate = Decimal('0') # No escrow fee for direct orders
+        logger.info(f"📊 Payout Logic for Order {order_id}: Currency={crypto_symbol}, Vendor={vendor.username}, Rate={platform_fee_rate*100}%")
         
         # ============================================================
         # FEE CALCULATION FLOW (CONFIRMED APPROACH):

@@ -1690,26 +1690,16 @@ class PaymentService:
             # Find associated payment address
             from .models import PaymentAddress
             try:
-                # Find pending payment address with this subaddress index
-                # We filter by pending or partial to presumably find the active order
+                # Find payment address with this subaddress index
+                # We include 'paid' status here because we need to update confirmations 
+                # for already-detected payments to trigger the payout task.
                 payment_address = PaymentAddress.objects.filter(
                     monero_subaddress_index=subaddr_index,
                     crypto_currency__symbol='XMR'
-                ).exclude(status='paid').first()
+                ).filter(status__in=['pending', 'partial', 'paid']).first()
                 
                 if not payment_address:
-                    # Check if maybe it's already paid?
-                    paid_address = PaymentAddress.objects.filter(
-                        monero_subaddress_index=subaddr_index,
-                        crypto_currency__symbol='XMR',
-                        status='paid'
-                    ).first()
-                    
-                    if paid_address:
-                        logger.info(f"Payment address {paid_address.id} already paid")
-                        return True
-                    
-                    logger.warning(f"No active payment address found for subaddress index {subaddr_index}")
+                    logger.warning(f"No active or paid payment address found for subaddress index {subaddr_index}")
                     return True # Return true to acknowledge webhook
             except Exception as e:
                 logger.error(f"Error finding payment address: {e}")
@@ -1734,10 +1724,15 @@ class PaymentService:
                 logger.info(f"Monero payment confirmed for order {payment_address.order_id}: {amount_received} XMR")
                 
                 # Update payment address
-                payment_address.status = 'paid'
+                # IMPORTANT: Only update status and confirmed_at if not already paid
+                if payment_address.status != 'paid':
+                    payment_address.status = 'paid'
+                    payment_address.confirmed_at = timezone.now()
+                
                 payment_address.received_amount = amount_received
                 payment_address.transaction_hash = payment_info.get('txid')
-                payment_address.confirmed_at = timezone.now()
+                # CRITICAL: Update confirmations so _process_direct_payment_webhook can check them!
+                payment_address.confirmations = payment_info.get('confirmations', 0)
                 payment_address.save()
                 
                 # Update order status
@@ -1810,18 +1805,20 @@ class PaymentService:
                 if payment_result.get('found'):
                     logger.info(f"Monero payment found for order {order_id}: {payment_result}")
                     
-                    # Update payment address with received amount
+                    # Update payment address with received amount and ALWAYS update confirmations
                     received_amount_xmr = payment_result['amount'] / 1e12
                     payment_address.received_amount = received_amount_xmr
                     payment_address.transaction_hash = payment_result['txid']
-                    payment_address.confirmations = payment_result.get('confirmations', 0)
+                    current_confs = payment_result.get('confirmations', 0)
+                    payment_address.confirmations = current_confs  # Always update confirmations
                     
                     # Mark as paid if it has enough confirmations (XMR_PAID_THRESHOLD = 2)
                     from django.conf import settings as django_settings
                     paid_threshold = getattr(django_settings, 'XMR_PAID_THRESHOLD', 2)
                     
-                    if payment_address.confirmations >= paid_threshold and payment_address.status != 'paid':
-                        logger.info(f"Marking order {order_id} as PAID (Confirmations: {payment_address.confirmations})")
+                    # Only trigger "Paid" notification if status is changing to paid
+                    if current_confs >= paid_threshold and payment_address.status != 'paid':
+                        logger.info(f"Marking order {order_id} as PAID (Confirmations: {current_confs})")
                         payment_address.status = 'paid'
                         payment_address.confirmed_at = timezone.now()
                         
@@ -1842,6 +1839,9 @@ class PaymentService:
                             )
                         except Exception as ne:
                             logger.error(f"Failed to send XMR paid notification: {ne}")
+                    else:
+                        # Log confirmation updates even if already paid
+                        logger.info(f"Order {order_id} confirmation update: {current_confs} (status: {payment_address.status})")
                     
                     payment_address.save()
                 else:
@@ -1969,7 +1969,7 @@ class PaymentService:
             return fallbacks.get(sym, Decimal('0'))
 
     
-    def release_escrow(self, order_id: str, released_by_user_id: int, admin_override: bool = False) -> bool:
+    def release_escrow(self, order_id: str, released_by_user_id = None, admin_override: bool = False) -> bool:
         """Release escrow payment to vendor"""
         try:
             payment_address = PaymentAddress.objects.get(order_id=order_id)
@@ -2012,7 +2012,7 @@ class PaymentService:
             # Release escrow
             escrow.status = 'released'
             escrow.released_at = timezone.now()
-            escrow.released_by_id = released_by_user_id
+            escrow.released_by_id = released_by_user_id  # Can be None for system auto-release
             escrow.save()
             
             logger.info(f"Escrow released for order {order_id}")
@@ -2527,18 +2527,31 @@ class PayoutService:
                 logger.error(f"Vendor application not found for {order.product.vendor.username}")
                 return False
             
-            # Update payment address to use vendor's address
-            payment_address.payment_address = vendor_address
-            payment_address.save()
+            # Update payment address to use vendor's address ONLY if NOT XMR
+            # For XMR, we must keep the subaddress to track confirmation progress
+            if payment_address.crypto_currency.symbol != 'XMR':
+                payment_address.payment_address = vendor_address
+                payment_address.save()
             
             # Create direct payment record
-            # NOTE: Using expected_amount initially - will be updated to received_amount when payment arrives
+            # CRITICAL: Use received_amount if available, otherwise expected_amount
+            # This prevents 0E-8 XMR bug
+            amount_to_use = payment_address.received_amount if (payment_address.received_amount and payment_address.received_amount > 0) else Decimal(str(payment_address.expected_amount))
+            
+            # If still 0, try to get from order total
+            if amount_to_use <= 0:
+                logger.warning(f"Amount is 0 for order {order_id}, trying order total")
+                try:
+                    amount_to_use = Decimal(str(order.total_amount))
+                except:
+                    pass
+
             direct_payment = DirectPayment.objects.create(
                 order=order,
                 vendor=order.product.vendor,
                 buyer=order.buyer,
                 crypto_currency=payment_address.crypto_currency,
-                amount=Decimal(str(payment_address.expected_amount)),  # Will be updated to received_amount when payment arrives
+                amount=amount_to_use,
                 vendor_address=vendor_address,
                 expires_at=timezone.now() + timedelta(hours=24),
                 platform_fee=Decimal('0'),  # Will be calculated when payment is received

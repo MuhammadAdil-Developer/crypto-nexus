@@ -186,11 +186,27 @@ class DirectPaymentMonitor:
     def _check_xmr_payment(self, payment: DirectPayment):
         """Check XMR payment using real Monero RPC"""
         try:
-            # For XMR, we monitor the subaddress we generated (stored in order.payment_address)
-            # NOT the vendor's private payout address (which we don't have view keys for)
-            monitor_address = payment.order.payment_address or payment.vendor_address
+            # For non-escrow XMR orders, payment actually comes to our subaddress first
+            # Then we forward it to vendor. Check PaymentAddress table for the actual receiving address.
+            from .models import PaymentAddress
             
-            logger.info(f"Checking REAL XMR payment for {monitor_address}, amount: {payment.amount}")
+            try:
+                payment_addr_record = PaymentAddress.objects.get(order_id=payment.order.order_id)
+                monitor_address = payment_addr_record.payment_address
+                expected_amount = payment_addr_record.expected_amount
+                subaddress_index = payment_addr_record.monero_subaddress_index
+                
+                logger.info(f"Checking REAL XMR payment for order {payment.order.order_id}")
+                logger.info(f"  → Subaddress: {monitor_address}")
+                logger.info(f"  → Subaddress Index: {subaddress_index}")
+                logger.info(f"  → Expected Amount: {expected_amount} XMR")
+                
+            except PaymentAddress.DoesNotExist:
+                # Fallback to vendor address (shouldn't happen for proper non-escrow orders)
+                monitor_address = payment.vendor_address
+                expected_amount = float(payment.amount)
+                subaddress_index = None
+                logger.warning(f"PaymentAddress not found for order {payment.order.order_id}, using vendor address")
             
             if not self.monero_service:
                 logger.warning("Monero service not available")
@@ -204,20 +220,33 @@ class DirectPaymentMonitor:
                 # Get incoming transfers for the address
                 incoming_transfers = self.monero_service.get_incoming_transfers(monitor_address)
                 
-                matched_tx = self._match_xmr_transaction(incoming_transfers, payment)
+                matched_tx = self._match_xmr_transaction(incoming_transfers, payment, expected_subaddr_index=subaddress_index)
                 if matched_tx:
                     confs = matched_tx.get('confirmations', 0)
+                    tx_hash = matched_tx.get('txid', '')
+                    
+                    logger.info(f"✅ XMR Payment FOUND for order {payment.order.order_id}!")
+                    logger.info(f"  → TX: {tx_hash}")
+                    logger.info(f"  → Confirmations: {confs}/{required_confs}")
+                    
+                    # Update payment confirmations
+                    payment.confirmations = confs
+                    payment.transaction_hash = tx_hash
+                    payment.latest_activity = timezone.now()
+                    
                     if confs >= required_confs:
-                        self._confirm_payment(payment, "monero_rpc", confs)
+                        logger.info(f"Triggering payout for order {payment.order.order_id} ({confs} confirmations)")
+                        self._confirm_payment(payment, "monero_rpc", confs, tx_hash)
                     else:
-                        logger.info(f"XMR Payment detected but confirmations too low: {confs}/{required_confs}")
-                        payment.confirmations = confs
-                        payment.latest_activity = timezone.now()
+                        logger.info(f"Waiting for more confirmations: {confs}/{required_confs}")
                         payment.save()
                     return
+                else:
+                    logger.debug(f"No matching XMR transaction found for order {payment.order.order_id}")
                     
             except Exception as e:
                 logger.warning(f"Monero RPC check failed: {e}")
+
             
             logger.debug(f"No matching XMR transaction found for payment {payment.id}")
             
@@ -229,7 +258,7 @@ class DirectPaymentMonitor:
         # In production, cache this or get from API
         return 850000 # Placeholder
     
-    def _match_xmr_transaction(self, transfers, payment):
+    def _match_xmr_transaction(self, transfers, payment, expected_subaddr_index=None):
         """Match Monero transfers to payment"""
         try:
             target_amount = float(payment.amount)
@@ -240,22 +269,32 @@ class DirectPaymentMonitor:
             for transfer in transfers:
                 try:
                     # Check if transfer is recent enough
-                    # Make sure to handle timestamp correctly
                     ts = transfer.get('timestamp', 0)
                     if not ts: continue
                     
                     transfer_time = datetime.fromtimestamp(ts, tz=timezone.utc)
                     if transfer_time < cutoff_time:
                         continue
+
+                    # CHECK 1: Match by Subaddress Index (Preferred/Safe)
+                    if expected_subaddr_index is not None:
+                        transfer_subaddr_index = transfer.get('subaddr_index', {})
+                        # subaddr_index from RPC is typically {'major': 0, 'minor': N}
+                        # We care about 'minor' index matching our database index
+                        minor_index = transfer_subaddr_index.get('minor') if isinstance(transfer_subaddr_index, dict) else transfer_subaddr_index
+                        
+                        if str(minor_index) == str(expected_subaddr_index):
+                            logger.info(f"✅ Found matching XMR transfer by Index {expected_subaddr_index} (TX: {transfer.get('txid')})")
+                            return transfer
                     
-                    # Check if amount matches (with 1.6% tolerance for fees/fluctuations)
-                    # Amount is in atomic units (piconero)
+                    # CHECK 2: Match by Amount (Fallback)
                     transfer_amount = transfer.get('amount', 0) / 1000000000000  # Convert atomic units to XMR
                     
-                    tolerance = target_amount * 0.016
-                    if (target_amount - transfer_amount) <= tolerance:
-                        logger.info(f"Found matching XMR transfer: {transfer.get('txid')} for {transfer_amount} XMR (Target: {target_amount})")
-                        return transfer
+                    if target_amount > 0:
+                        tolerance = target_amount * 0.016
+                        if abs(target_amount - transfer_amount) <= tolerance:
+                            logger.info(f"Found matching XMR transfer by Amount: {transfer.get('txid')} for {transfer_amount} XMR")
+                            return transfer
                         
                 except Exception as e:
                     logger.debug(f"Error processing XMR transfer: {e}")
@@ -466,6 +505,19 @@ class DirectPaymentMonitor:
         """Confirm payment and update order status"""
         try:
             with transaction.atomic():
+                # CRITICAL: Update payment amount from PaymentAddress.received_amount
+                # DirectPayment is created with expected_amount, but we need actual received_amount
+                from .models import PaymentAddress
+                try:
+                    payment_addr = PaymentAddress.objects.get(order_id=payment.order.order_id)
+                    if payment_addr.received_amount and payment_addr.received_amount > 0:
+                        logger.info(f"Updating DirectPayment amount: {payment.amount} → {payment_addr.received_amount}")
+                        payment.amount = payment_addr.received_amount
+                    else:
+                        logger.warning(f"PaymentAddress.received_amount is {payment_addr.received_amount}, keeping DirectPayment.amount as is")
+                except PaymentAddress.DoesNotExist:
+                    logger.warning(f"PaymentAddress not found for order {payment.order.order_id}, using existing DirectPayment.amount")
+                
                 # Update payment status
                 payment.status = 'confirmed'
                 if transaction_hash:
@@ -477,21 +529,48 @@ class DirectPaymentMonitor:
                 payment.confirmations = confirmations or 6
                 payment.save()
                 
+                logger.info(f"✅ Payment confirmed: {payment.amount} {payment.crypto_currency.symbol} (TX: {payment.transaction_hash})")
+                
                 # Update order status
                 order = payment.order
                 order.order_status = 'paid'
                 order.payment_status = 'paid'
                 order.save()
                 
-                # Trigger automated payout task
+                # CRITICAL: Calculate fees and trigger payout using the standard service
+                # This ensures consistent fee calculation across all detection methods
                 try:
-                    from .tasks import process_non_escrow_payout
-                    process_non_escrow_payout.delay(order.order_id)
-                    logger.info(f"Triggered automated payout task for order {order.order_id}")
+                    from .services import PaymentService
+                    svc = PaymentService()
+                    # We need the PaymentAddress object for the webhook processor
+                    from .models import PaymentAddress
+                    payment_addr = PaymentAddress.objects.get(order_id=order.order_id)
+                    
+                    # Update PaymentAddress received_amount and confirmations if not already done
+                    if not payment_addr.received_amount or payment_addr.received_amount == 0:
+                        payment_addr.received_amount = payment.amount
+                    if transaction_hash:
+                        payment_addr.transaction_hash = transaction_hash
+                    payment_addr.confirmations = confirmations or 6
+                    if payment_addr.status != 'paid':
+                        payment_addr.status = 'paid'
+                        payment_addr.confirmed_at = timezone.now()
+                    payment_addr.save()
+                    
+                    # Call the central webhook processor which handles fee calculation and payout task triggering
+                    svc._process_direct_payment_webhook(payment_addr)
+                    logger.info(f"🚀 Triggered central webhook processor for order {order.order_id}")
                 except Exception as e:
-                    logger.error(f"Failed to trigger payout task for order {order.order_id}: {e}")
+                    logger.error(f"Failed to trigger central webhook processor for order {order.order_id}: {e}")
+                    # Fallback: Trigger payout task directly if processor fails
+                    try:
+                        from .tasks import process_non_escrow_payout
+                        process_non_escrow_payout.delay(order.order_id)
+                        logger.info(f"🚀 Triggered automated payout task fallback for order {order.order_id}")
+                    except Exception as task_e:
+                        logger.error(f"Failed to trigger fallback payout task: {task_e}")
                 
-                logger.info(f"Payment {payment.id} confirmed via {source} with {payment.confirmations} confirmations")
+                logger.info(f"Payment {payment.id} processed via monitor ({source})")
                 return True
                 
         except Exception as e:

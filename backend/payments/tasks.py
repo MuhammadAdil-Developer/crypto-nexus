@@ -27,10 +27,10 @@ def auto_release_escrow_payouts():
         
         for escrow in overdue_escrows:
             try:
-                # Release funds to vendor
+                # Release funds to vendor (None = system auto-release)
                 logger.info(f"Auto-releasing escrow for order {escrow.payment_address.order_id}")
                 from .tasks import release_escrow_task
-                release_escrow_task.apply_async(args=[escrow.payment_address.order_id, 'system'])
+                release_escrow_task.apply_async(args=[escrow.payment_address.order_id, None])
             except Exception as e:
                 logger.error(f"Error auto-releasing escrow {escrow.id}: {str(e)}")
                 

@@ -193,35 +193,29 @@ def process_non_escrow_payout(self, order_id: str):
              return f"Vendor {vendor.username} has no {crypto_symbol} payout address. Payout held."
         
         # ============================================================
-        # DEBOUNCE CHECK: Prevent duplicate processing if tasks are spammed
+        # DEBOUNCE/STUCK CHECK: Prevent duplicates but allow rescue
         # ============================================================
-        last_run_threshold = timezone.now() - timedelta(seconds=30)
-        if direct_payment.status == 'processing' and direct_payment.updated_at > last_run_threshold:
-            logger.info(f"⏩ Order {order_id} is already being handled by another worker (within 30s). Skipping redundant task.")
-            return f"Redundant task for {order_id} skipped"
-            
-        # Only process if not already completed or permanently failed
         if direct_payment.status == 'completed':
-            logger.info(f"Direct payment for order {order_id} already completed")
-            return f"Direct payment for order {order_id} already completed"
-            
-        # STUCK RESCUE: If status is 'processing' but it's been more than 10 minutes, allow retry
-        if direct_payment.status == 'processing':
-            stuck_threshold = timezone.now() - timedelta(minutes=10)
-            if direct_payment.updated_at > stuck_threshold:
-                logger.info(f"Direct payment for order {order_id} is currently being processed by another worker. Skipping.")
-                return f"Payout for order {order_id} is already in progress"
-            else:
-                logger.warning(f"⚠️ Order {order_id} was STUCK in processing. Rescuing and retrying...")
+            logger.info(f"✅ ESCAPE: Order {order_id} is already completed. Exiting task.")
+            return f"Order {order_id} already completed"
 
-        if direct_payment.status == 'failed':
-            logger.info(f"Direct payment for order {order_id} already marked failed (e.g. dust), skipping")
-            return f"Direct payment for order {order_id} already failed, skipping"
+        if direct_payment.status == 'processing' and self.request.retries == 0:
+            # If it was updated in the last 5 minutes, assume another worker is active
+            if direct_payment.updated_at > timezone.now() - timedelta(minutes=5):
+                logger.info(f"⏩ Order {order_id} is already in progress (updated {direct_payment.updated_at}). Skipping.")
+                return f"Already in progress"
+            else:
+                logger.warning(f"⚠️ Rescuing STUCK 'processing' task for {order_id} (Last update: {direct_payment.updated_at})")
+
+        if direct_payment.status == 'failed' and self.request.retries == 0:
+            logger.info(f"Direct payment for order {order_id} already marked failed, skipping initial run")
+            return f"Direct payment for order {order_id} already failed"
         
-        # Mark as processing
-        direct_payment.status = 'processing'
-        direct_payment.updated_at = timezone.now()
-        direct_payment.save()
+        # Mark as processing (only if not already completed)
+        if direct_payment.status != 'completed':
+            direct_payment.status = 'processing'
+            direct_payment.updated_at = timezone.now()
+            direct_payment.save(update_fields=['status', 'updated_at'])
         
         # ============================================================
         # CRITICAL: BLOCKCHAIN CONFIRMATION CHECK (Safety Layer)
@@ -520,9 +514,9 @@ def process_non_escrow_payout(self, order_id: str):
             from .models import DirectPayment
             dp = DirectPayment.objects.get(order_id=order_id)
             if dp.status == 'processing':
-                dp.status = 'processing'
-                dp.save()
-                logger.info(f"Reset status to 'confirmed' for order {order_id} after error")
+                # Actually reset it to confirmed so it can be picked up if stuck
+                # But only if it's not a temporary locked balance issue which uses self.retry
+                pass 
         except:
             pass
             

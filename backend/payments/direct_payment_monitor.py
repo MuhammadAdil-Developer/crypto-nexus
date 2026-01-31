@@ -46,10 +46,17 @@ class DirectPaymentMonitor:
             current_height = self._get_current_btc_height()
 
             for payment in payments:
-                # Rescue stuck 'processing' status after 20 mins
-                if payment.status == 'processing' and payment.updated_at < timezone.now() - timedelta(minutes=20):
-                    logger.warning(f"⚠️ RESCUING STUCK: {payment.order.order_id}")
-                    # Confirmation logic will naturally reset status to 'payout_ready' if we call it
+                # CRITICAL: Always refresh from DB to avoid overwriting a status updated by a worker
+                try:
+                    payment.refresh_from_db()
+                except Exception:
+                    continue
+                
+                # If it's already completed or failed, skip it
+                if payment.status in ['completed', 'failed']:
+                    continue
+
+                # Status rescue and triggering is now handled inside _confirm_payment
                 
                 if payment.crypto_currency.symbol == 'BTC':
                     self._monitor_btc_payment(payment, current_height)
@@ -132,22 +139,48 @@ class DirectPaymentMonitor:
 
     def _confirm_payment(self, payment, source, confirmations=None, tx_hash=None, amount=None):
         try:
-            # CRITICAL: Only trigger if we are moving OUT of pending/expired
-            # If it's already processing/completed, we've already done our job.
-            needs_trigger = payment.status in ['pending', 'expired']
+            # CRITICAL: Trigger if we are moving OUT of pending/expired 
+            # OR if it's been in 'confirmed'/'processing' for too long without completion
+            stuck_threshold = timezone.now() - timedelta(minutes=5)
+            is_stuck = payment.status in ['confirmed', 'processing'] and payment.updated_at < stuck_threshold
+            needs_trigger = payment.status in ['pending', 'expired'] or is_stuck
+            
+            if is_stuck or (payment.status != 'completed' and payment.status != 'processing'):
+                 logger.info(f"Monitoring {payment.order.order_id}: status={payment.status}, needs_trigger={needs_trigger}")
+            
+            if is_stuck:
+                logger.warning(f"RESCUING STUCK PAYOUT: {payment.order.order_id} (status: {payment.status}, last_update: {payment.updated_at})")
             
             with transaction.atomic():
-                # Update confirmations and amount
-                if confirmations is not None: payment.confirmations = confirmations
-                if tx_hash: payment.transaction_hash = tx_hash
-                if amount: payment.amount = amount
+                # CRITICAL: Re-check status inside the atomic block to prevent overwriting 'completed'
+                db_payment = DirectPayment.objects.select_for_update().get(id=payment.id)
+                if db_payment.status == 'completed':
+                    return
+
+                # Re-evaluate trigger needs with FRESH data
+                stuck_threshold = timezone.now() - timedelta(minutes=5)
+                is_stuck = db_payment.status in ['confirmed', 'processing'] and db_payment.updated_at < stuck_threshold
+                actually_needs_trigger = db_payment.status in ['pending', 'expired'] or is_stuck
                 
-                if needs_trigger:
-                    payment.status = 'processing'
-                    payment.confirmed_at = timezone.now()
+                # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
+                update_data = {}
+                if confirmations is not None: update_data['confirmations'] = confirmations
+                if tx_hash: update_data['transaction_hash'] = tx_hash
+                if amount: update_data['amount'] = amount
                 
-                payment.save()
+                if actually_needs_trigger:
+                    db_payment.status = 'confirmed'
+                    db_payment.confirmed_at = timezone.now()
+                    db_payment.updated_at = timezone.now()
+                    db_payment.save()
+                    needs_trigger = True # Signal for Celery trigger below
+                elif update_data:
+                    DirectPayment.objects.filter(id=payment.id).update(**update_data)
+                    needs_trigger = False
+                else:
+                    needs_trigger = False
                 
+                # Payment Address update (safe to save() as it's not used for payout debounce)
                 pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
                 if pa:
                     if confirmations is not None: pa.confirmations = confirmations
@@ -165,7 +198,7 @@ class DirectPaymentMonitor:
                 
                 if needs_trigger:
                     from .tasks import process_non_escrow_payout
-                    logger.info(f"💰 INITIAL TRIGGER: {order.order_id} ({source})")
+                    logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
                     process_non_escrow_payout.delay(order.order_id)
         except Exception as e:
             logger.error(f"Confirmation error: {e}")

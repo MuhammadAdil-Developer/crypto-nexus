@@ -1493,6 +1493,11 @@ class PaymentService:
             
             # Set payment confirmed timestamp if status is paid/settled
             if btcpay_status in ['Paid', 'Settled']:
+                # CRITICAL: If notification already sent (checked by payment_confirmed_at), skip to avoid duplicates
+                if order.payment_confirmed_at:
+                    logger.info(f"Notification already sent for order {order_id}. Skipping duplicate broadcast.")
+                    return True
+                
                 order.payment_confirmed_at = timezone.now()
                 
                 # Set product credentials for paid orders (like in confirm_payment_success)
@@ -2563,6 +2568,25 @@ class PayoutService:
                 logger.warning(f"⚠️ Amount is 0 for order {order_id}, trying expected crypto amount")
                 amount_to_use = Decimal(str(payment_address.expected_amount))
 
+            # ============================================================
+            # INITIAL FEE CALCULATION: Prevent 0E-8 on dashboard
+            # ============================================================
+            from .commission_models import CommissionSettings, VendorFee
+            commission_settings = CommissionSettings.get_settings()
+            platform_fee = Decimal('0')
+            net_amount = amount_to_use
+            
+            if commission_settings:
+                # Check for vendor-specific commission rate
+                vendor_custom_rate = VendorFee.get_vendor_fee(order.product.vendor)
+                if vendor_custom_rate is not None:
+                    platform_fee_rate = vendor_custom_rate / Decimal('100')
+                else:
+                    platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                
+                platform_fee = amount_to_use * platform_fee_rate
+                net_amount = amount_to_use - platform_fee
+            
             direct_payment = DirectPayment.objects.create(
                 order=order,
                 vendor=order.product.vendor,
@@ -2571,9 +2595,9 @@ class PayoutService:
                 amount=amount_to_use,
                 vendor_address=vendor_address,
                 expires_at=timezone.now() + timedelta(hours=24),
-                platform_fee=Decimal('0'),  # Will be calculated when payment is received
+                platform_fee=platform_fee,
                 escrow_fee=Decimal('0'),
-                net_amount=Decimal('0')  # Will be calculated when payment is received
+                net_amount=net_amount
             )
             
             logger.info(f"Created direct payment for order {order_id} to address {vendor_address}")

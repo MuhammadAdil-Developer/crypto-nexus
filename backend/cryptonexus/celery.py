@@ -45,11 +45,10 @@ app.autodiscover_tasks()
 
 # Beat schedule for periodic tasks
 app.conf.beat_schedule = {
-    # COMMENTED OUT: Direct payment monitoring (using webhook approach instead)
-    # 'monitor-direct-payments': {
-    #     'task': 'payments.tasks.check_direct_payment_status',
-    #     'schedule': crontab(minute='*/1'),  # Every 1 minute (for testing)
-    # },
+    'monitor-direct-payments': {
+        'task': 'payments.tasks.check_direct_payment_status',
+        'schedule': crontab(minute='*/1'),  # Every 1 minute
+    },
     'auto-release-escrow': {
         'task': 'payments.tasks.auto_release_escrow_payouts', 
         'schedule': crontab(minute='*/1'),  # Every minute for testing

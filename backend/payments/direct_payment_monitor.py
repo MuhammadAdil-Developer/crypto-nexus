@@ -42,7 +42,7 @@ class DirectPaymentMonitor:
         try:
             # Get all pending direct payments OR confirmed XMR payments that need more confirmations
             from django.conf import settings
-            xmr_req = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 5)
+            xmr_req = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 1)
             
             pending_payments = DirectPayment.objects.filter(
                 Q(status='pending', expires_at__gt=timezone.now()) |
@@ -71,7 +71,7 @@ class DirectPaymentMonitor:
             from .services import PaymentService
             
             from django.conf import settings
-            xmr_req = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 5)
+            xmr_req = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 1)
 
             pending_addresses = PaymentAddress.objects.filter(
                 Q(status='pending', expires_at__gt=timezone.now()) |
@@ -111,7 +111,7 @@ class DirectPaymentMonitor:
             logger.info(f"Checking REAL BTC payment for {payment.vendor_address}, amount: {payment.amount}")
             
             from django.conf import settings
-            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 3)
+            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)
             
             # Method 1: Use BTCPay Server Wallet API (if available)
             if self.btcpay_service:
@@ -124,11 +124,12 @@ class DirectPaymentMonitor:
                         if confs >= required_confs:
                             self._confirm_payment(payment, "btcpay_wallet", confs)
                         else:
-                            logger.info(f"BTC Payment detected but confirmations too low: {confs}/{required_confs}")
-                            # Optionally update payment with current confirmations
                             payment.confirmations = confs
                             payment.latest_activity = timezone.now()
                             payment.save()
+                            
+                            # Trigger fee calculation early
+                            self._trigger_processing(payment, confs)
                         return
                 except Exception as e:
                     logger.warning(f"BTCPay wallet check failed: {e}")
@@ -146,6 +147,8 @@ class DirectPaymentMonitor:
                         payment.confirmations = confs
                         payment.latest_activity = timezone.now()
                         payment.save()
+                        # Trigger fee calculation early
+                        self._trigger_processing(payment, confs)
                     return
             except Exception as e:
                 logger.warning(f"Blockchain API check failed: {e}")
@@ -174,6 +177,8 @@ class DirectPaymentMonitor:
                         payment.confirmations = confs
                         payment.latest_activity = timezone.now()
                         payment.save()
+                        # Trigger fee calculation early
+                        self._trigger_processing(payment, confs)
                     return
             except Exception as e:
                 logger.warning(f"Blockstream API check failed: {e}")
@@ -213,7 +218,7 @@ class DirectPaymentMonitor:
                 return
             
             from django.conf import settings
-            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 5)
+            required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('XMR', 1)
             
             # Use Monero RPC to check for incoming transactions
             try:
@@ -240,6 +245,8 @@ class DirectPaymentMonitor:
                     else:
                         logger.info(f"Waiting for more confirmations: {confs}/{required_confs}")
                         payment.save()
+                        # Trigger fee calculation early
+                        self._trigger_processing(payment, confs)
                     return
                 else:
                     logger.debug(f"No matching XMR transaction found for order {payment.order.order_id}")
@@ -526,7 +533,7 @@ class DirectPaymentMonitor:
                     payment.transaction_hash = f"real_tx_{payment.id}_{int(timezone.now().timestamp())}"
                 
                 payment.confirmed_at = timezone.now()
-                payment.confirmations = confirmations or 6
+                payment.confirmations = confirmations or 1
                 payment.save()
                 
                 logger.info(f"✅ Payment confirmed: {payment.amount} {payment.crypto_currency.symbol} (TX: {payment.transaction_hash})")
@@ -551,7 +558,7 @@ class DirectPaymentMonitor:
                         payment_addr.received_amount = payment.amount
                     if transaction_hash:
                         payment_addr.transaction_hash = transaction_hash
-                    payment_addr.confirmations = confirmations or 6
+                    payment_addr.confirmations = confirmations or 1
                     if payment_addr.status != 'paid':
                         payment_addr.status = 'paid'
                         payment_addr.confirmed_at = timezone.now()
@@ -576,6 +583,25 @@ class DirectPaymentMonitor:
         except Exception as e:
             logger.error(f"Error confirming payment: {e}")
             return False
+
+    def _trigger_processing(self, payment, confirmations):
+        """Helper to trigger fee calculation without full confirmation"""
+        try:
+            from .services import PaymentService
+            svc = PaymentService()
+            from .models import PaymentAddress
+            payment_addr = PaymentAddress.objects.get(order_id=payment.order.order_id)
+            
+            # Update PaymentAddress with latest info
+            if not payment_addr.received_amount or payment_addr.received_amount == 0:
+                 payment_addr.received_amount = payment.amount
+            payment_addr.confirmations = confirmations
+            payment_addr.save()
+            
+            # Call processor (it will STOP before payout task if confs too low, but will SAVE FEES)
+            svc._process_direct_payment_webhook(payment_addr)
+        except Exception as e:
+            logger.error(f"Failed to trigger early processing: {e}")
 
 
 # Global instance

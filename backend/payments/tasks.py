@@ -27,10 +27,15 @@ def auto_release_escrow_payouts():
         
         for escrow in overdue_escrows:
             try:
-                # Release funds to vendor (None = system auto-release)
+                # CRITICAL: Postpone next auto-release attempt immediately to avoid task spamming
+                # This prevents the minute-by-minute crontab from queuing 60 tasks while waiting 
+                # for the first one to finish or for confirmations to arrive.
+                escrow.auto_release_at = timezone.now() + timedelta(minutes=60)
+                escrow.save()
+                
                 logger.info(f"Auto-releasing escrow for order {escrow.payment_address.order_id}")
                 from .tasks import release_escrow_task
-                release_escrow_task.apply_async(args=[escrow.payment_address.order_id, None])
+                release_escrow_task.delay(escrow.payment_address.order_id, None)
             except Exception as e:
                 logger.error(f"Error auto-releasing escrow {escrow.id}: {str(e)}")
                 
@@ -75,7 +80,7 @@ def create_escrow_payout(order_id: str):
                 'escrow_amount': payment_address.received_amount,
                 'escrow_fee': payment_address.received_amount * Decimal('0.02'), # 2% escrow fee
                 'status': 'funded', # Since we created it after payment was confirmed
-                'auto_release_at': timezone.now() + timedelta(minutes=5)
+                'auto_release_at': timezone.now() + timedelta(hours=72) # Default 3 days for auto-release
             }
         )
         
@@ -109,7 +114,7 @@ def release_escrow_task(order_id: str, released_by_id: str = None):
         return {'success': False, 'error': str(e)}
 
 
-@shared_task(bind=True, max_retries=12, default_retry_delay=300)  # Retry up to 12 times, 5 min apart
+@shared_task(bind=True, max_retries=15, default_retry_delay=600)  # Retry up to 15 times, 10 min apart
 def process_non_escrow_payout(self, order_id: str):
     """Process non-escrow order payout - calculate fees and send to vendor"""
     try:
@@ -204,7 +209,7 @@ def process_non_escrow_payout(self, order_id: str):
         # ============================================================
         # Even if triggered, we must ensure enough confirmations exist
         from django.conf import settings as django_settings
-        required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 3)
+        required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
         current_confs = payment_address.confirmations or 0
         
         if current_confs < required_confs:

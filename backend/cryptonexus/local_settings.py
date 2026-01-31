@@ -24,5 +24,5 @@ MONERO_NETWORK = 'mainnet'
 USE_MOCK_PAYMENTS = False
 
 # Confirmation requirements for mainnet security
-BTC_CONFIRMATIONS = 3
-XMR_CONFIRMATIONS = 10
+BTC_CONFIRMATIONS = 1
+XMR_CONFIRMATIONS = 1

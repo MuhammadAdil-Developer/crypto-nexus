@@ -1812,9 +1812,9 @@ class PaymentService:
                     current_confs = payment_result.get('confirmations', 0)
                     payment_address.confirmations = current_confs  # Always update confirmations
                     
-                    # Mark as paid if it has enough confirmations (XMR_PAID_THRESHOLD = 2)
+                    # Mark as paid if it has enough confirmations (XMR_PAID_THRESHOLD = 1)
                     from django.conf import settings as django_settings
-                    paid_threshold = getattr(django_settings, 'XMR_PAID_THRESHOLD', 2)
+                    paid_threshold = getattr(django_settings, 'XMR_PAID_THRESHOLD', 1)
                     
                     # Only trigger "Paid" notification if status is changing to paid
                     if current_confs >= paid_threshold and payment_address.status != 'paid':
@@ -1825,7 +1825,7 @@ class PaymentService:
                         # Update order status
                         self._update_order_status_dynamically(order_id, 'Paid')
                         
-                        # Special notification for vendor at 2 confirmations
+                        # Special notification for vendor at 1 confirmation
                         try:
                             from orders.models import Order
                             from shared.admin_notifications import send_user_notification
@@ -1833,17 +1833,22 @@ class PaymentService:
                             send_user_notification(
                                 user=order.vendor,
                                 notification_type='order_paid',
-                                title='Order Paid - Confirming',
-                                message=f'Your order {order.order_id} has been paid. Status changed to Paid. We will notify you once payment is confirmed on the blockchain.',
+                                title='Payment Detected - Confirming',
+                                message=f'Payment for order {order.order_id} has been detected on the blockchain. We are waiting for blockchain confirmations to process the payout to your wallet (Current: {current_confs}).',
                                 data={'order_id': order.order_id, 'action_url': '/vendor/orders'}
                             )
                         except Exception as ne:
                             logger.error(f"Failed to send XMR paid notification: {ne}")
-                    else:
-                        # Log confirmation updates even if already paid
-                        logger.info(f"Order {order_id} confirmation update: {current_confs} (status: {payment_address.status})")
-                    
                     payment_address.save()
+                    
+                    # CRITICAL: Trigger fee calculation and direct payment update immediately
+                    # This ensures DirectPayment.net_amount is NOT zero while waiting for confirmations
+                    if not hasattr(payment_address, 'escrow'):
+                        try:
+                            self._process_direct_payment_webhook(payment_address)
+                            logger.info(f"🚀 Triggered direct payment processing for order {order_id} (conf: {current_confs})")
+                        except Exception as e:
+                            logger.error(f"Failed to trigger direct payment processing for {order_id}: {e}")
                 else:
                     # If not found, still update confirmations if available (e.g. from error or partial)
                     payment_address.confirmations = payment_result.get('confirmations', 0)
@@ -1977,7 +1982,7 @@ class PaymentService:
             
             # SECURITY: Prevent release if payment is not fully settled/confirmed
             from django.conf import settings as django_settings
-            required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 3)
+            required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(payment_address.crypto_currency.symbol, 1)
             
             # For Monero, trigger a fresh check to get latest confirmation count
             if payment_address.crypto_currency.symbol == 'XMR' and (payment_address.confirmations or 0) < required_confs:
@@ -2220,8 +2225,8 @@ class PayoutService:
                     send_user_notification(
                         user=direct_payment.vendor,
                         notification_type='payout_completed',
-                        title='Payment Received',
-                        message=f'Payment received for order {direct_payment.order.order_id} from {direct_payment.buyer.username} - {currency_note}.',
+                        title='Payment Sent to Wallet',
+                        message=f'Payment for order {direct_payment.order.order_id} has been fully confirmed and sent to your {direct_payment.crypto_currency.symbol} payout address.',
                         data={
                             'order_id': direct_payment.order.order_id,
                             'buyer_username': direct_payment.buyer.username,

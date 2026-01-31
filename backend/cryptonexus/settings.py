@@ -372,17 +372,17 @@ DEFAULT_ESCROW_FEE_PERCENTAGE = float(os.environ.get('DEFAULT_ESCROW_FEE_PERCENT
 
 # Blockchain Monitoring
 BLOCK_CONFIRMATION_REQUIREMENTS = {
-    'BTC': int(os.environ.get('BTC_CONFIRMATIONS', '3')),  # 3 confirmations for mainnet security
-    'XMR': int(os.environ.get('XMR_CONFIRMATIONS', '10')), # 10 confirmations for mainnet security
+    'BTC': int(os.environ.get('BTC_CONFIRMATIONS', getattr(locals(), 'BTC_CONFIRMATIONS', 1))),
+    'XMR': int(os.environ.get('XMR_CONFIRMATIONS', getattr(locals(), 'XMR_CONFIRMATIONS', 1))),
 }
 
 # Required confirmations per cryptocurrency
 REQUIRED_CONFIRMATIONS = {
-    'BTC': int(os.environ.get('BTC_REQUIRED_CONFIRMATIONS', '3')),
-    'XMR': int(os.environ.get('XMR_REQUIRED_CONFIRMATIONS', '5')),
+    'BTC': int(os.environ.get('BTC_REQUIRED_CONFIRMATIONS', getattr(locals(), 'BTC_CONFIRMATIONS', 1))),
+    'XMR': int(os.environ.get('XMR_REQUIRED_CONFIRMATIONS', getattr(locals(), 'XMR_CONFIRMATIONS', 1))),
 }
 
-XMR_PAID_THRESHOLD = int(os.environ.get('XMR_PAID_THRESHOLD', '2'))
+XMR_PAID_THRESHOLD = int(os.environ.get('XMR_PAID_THRESHOLD', 1))
 
 # Channels Configuration
 ASGI_APPLICATION = 'cryptonexus.asgi.application'

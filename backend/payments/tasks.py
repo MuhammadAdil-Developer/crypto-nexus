@@ -486,7 +486,14 @@ def process_non_escrow_payout(self, order_id: str):
             logger.info(f"Successfully processed non-escrow payout for order {order_id}")
             return f"Non-escrow payout processed for order {order_id}"
         else:
-            # Payout failed (likely locked funds) - keep status as processing
+            # Re-check status from DB. Maybe it WAS successful but the service layer
+            # faced a minor issue (e.g. notification failed) after the database update.
+            direct_payment.refresh_from_db()
+            if direct_payment.status == 'completed':
+                logger.info(f"✅ Recovery: Payout for {order_id} is already marked completed in DB. Case closed.")
+                return f"Already completed in DB"
+
+            # Payout truly failed (likely locked funds) - keep status as processing
             direct_payment.status = 'processing'
             direct_payment.save()
             

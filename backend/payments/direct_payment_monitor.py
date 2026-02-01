@@ -165,14 +165,17 @@ class DirectPaymentMonitor:
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
                 update_data = {}
                 if confirmations is not None: update_data['confirmations'] = confirmations
-                if tx_hash: update_data['transaction_hash'] = tx_hash
+                # CRITICAL: Only update transaction_hash if it's currently empty.
+                # Never overwrite it, as it might contain the payout hash after sending.
+                if tx_hash and not db_payment.transaction_hash: 
+                    update_data['transaction_hash'] = tx_hash
                 if amount: update_data['amount'] = amount
                 
                 if actually_needs_trigger:
                     db_payment.status = 'confirmed'
-                    db_payment.confirmed_at = timezone.now()
+                    db_payment.confirmed_at = db_payment.confirmed_at or timezone.now()
                     db_payment.updated_at = timezone.now()
-                    db_payment.save()
+                    db_payment.save(update_fields=['status', 'confirmed_at', 'updated_at'])
                     needs_trigger = True # Signal for Celery trigger below
                 elif update_data:
                     DirectPayment.objects.filter(id=payment.id).update(**update_data)

@@ -2229,9 +2229,12 @@ class PayoutService:
             
             if success:
                 logger.info(f"SUCCESS: Payout sent. TX: {tx_hash}")
-                direct_payment.status = 'completed'
-                direct_payment.transaction_hash = tx_hash
-                direct_payment.save()
+                # Use update() to be absolutely sure we don't overwrite with stale data
+                DirectPayment.objects.filter(id=direct_payment.id).update(
+                    status='completed',
+                    transaction_hash=tx_hash,
+                    updated_at=timezone.now()
+                )
                 
                 # Special payout notification for vendor
                 try:

@@ -863,9 +863,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         try:
             order = self.get_object()
             
-            # Update order status to paid
-            order.order_status = OrderStatus.PAID.value
+            # Update order status - using premium status labels
             order.payment_status = 'paid'
+            if order.product.delivery_time == 'instant_auto':
+                order.order_status = OrderStatus.CONFIRMED.value # Shows as "Completed"
+            else:
+                order.order_status = OrderStatus.PAID.value
             order.payment_confirmed_at = timezone.now()
             order.save()
             

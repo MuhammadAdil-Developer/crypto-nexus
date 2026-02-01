@@ -513,27 +513,29 @@ export default function BuyerOrders() {
 
                 return (
                   <div key={order.order_id} className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">
-                    <div className={`w-2 h-2 rounded-full ${order.order_status === 'completed' ? 'bg-green-500' :
-                      order.order_status === 'processing' ? 'bg-theme-cyan' :
-                        order.order_status === 'pending' ? 'bg-yellow-500' :
+                    <div className={`w-2 h-2 rounded-full ${['completed', 'delivered', 'confirmed'].includes(order.order_status) ? 'bg-green-500' :
+                      order.order_status === 'processing' || order.order_status === 'paid' ? 'bg-theme-cyan' :
+                        order.order_status === 'pending' || order.order_status === 'pending_payment' ? 'bg-yellow-500' :
                           'bg-gray-500'
                       }`}></div>
                     <div className="flex-1">
                       <p className="font-medium text-white">
-                        {order.order_status === 'completed' ? 'Order delivered' :
-                          order.order_status === 'processing' ? 'Order confirmed' :
-                            order.order_status === 'pending' ? 'Payment verified' :
+                        {['completed', 'delivered', 'confirmed'].includes(order.order_status) ? 'Order completed' :
+                          order.order_status === 'processing' || order.order_status === 'paid' ? 'Payment received' :
+                            order.order_status === 'pending' || order.order_status === 'pending_payment' ? 'Payment pending' :
                               'Order updated'}
                       </p>
                       <p className="text-sm text-gray-400">{order.product.headline} • {timeAgo}</p>
                     </div>
                     <Badge className={
-                      order.order_status === 'completed' ? 'bg-green-100 text-green-800' :
-                        order.order_status === 'processing' ? 'bg-theme-cyan-dim text-theme-cyan border border-theme-cyan/30' :
-                          order.order_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                      ['completed', 'delivered', 'confirmed'].includes(order.order_status) ? 'bg-green-900/20 text-green-400 border-green-500/30' :
+                        order.order_status === 'processing' || order.order_status === 'paid' ? 'bg-theme-cyan-dim text-theme-cyan border border-theme-cyan/30' :
+                          order.order_status === 'pending' || order.order_status === 'pending_payment' ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' :
+                            'bg-gray-800 text-gray-400'
                     }>
-                      {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
+                      {['completed', 'delivered', 'confirmed'].includes(order.order_status) ? 'Completed' :
+                        order.order_status === 'paid' ? 'Paid' :
+                          order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1).replace('_', ' ')}
                     </Badge>
                   </div>
                 );

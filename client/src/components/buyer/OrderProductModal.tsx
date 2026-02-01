@@ -274,8 +274,11 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
 
     switch (status.toLowerCase()) {
       case 'completed':
+      case 'delivered':
+      case 'confirmed':
         return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'processing':
+      case 'paid':
         return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       case 'pending':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
@@ -498,7 +501,12 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
               <div className="bg-surface-2/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-600/20">
                 <h3 className="text-[10px] sm:text-sm text-gray-400 mb-1.5 sm:mb-2 uppercase tracking-widest font-bold">Order Status</h3>
                 <Badge className={`${getOrderStatusColor(order.order_status)} text-[10px] sm:text-xs px-2 py-0.5 sm:px-3 sm:py-1`}>
-                  {order.order_status ? order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1) : 'Unknown'}
+                  {(() => {
+                    const s = order.order_status?.toLowerCase();
+                    if (s === 'completed' || s === 'delivered' || s === 'confirmed') return 'Completed';
+                    if (s === 'paid') return 'Paid';
+                    return order.order_status ? order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1).replace('_', ' ') : 'Unknown';
+                  })()}
                 </Badge>
               </div>
               <div className="bg-surface-2/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-600/20">

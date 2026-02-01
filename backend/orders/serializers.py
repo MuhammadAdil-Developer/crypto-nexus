@@ -54,8 +54,27 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
     
     def get_order_status_display(self, obj):
-        """Get human-readable order status"""
-        return dict(OrderStatus.__members__).get(obj.order_status, obj.order_status)
+        """Get human-readable order status with premium labels"""
+        status = obj.order_status
+        
+        # Define high-end status mapping
+        status_map = {
+            'pending_payment': 'Pending Payment',
+            'payment_received': 'Payment Received',
+            'processing': 'Processing',
+            'paid': 'Paid',
+            'delivered': 'Completed',
+            'confirmed': 'Completed',
+            'disputed': 'Disputed',
+            'cancelled': 'Cancelled',
+            'refunded': 'Refunded',
+        }
+        
+        # CRITICAL REQ: Auto-delivery orders show as 'Completed' as soon as payment is confirmed (paid)
+        if status == 'paid' and obj.product and obj.product.delivery_time == 'instant_auto':
+            return "Completed"
+            
+        return status_map.get(status, status.replace('_', ' ').capitalize())
     
     def get_payment_status_display(self, obj):
         """Get human-readable payment status"""

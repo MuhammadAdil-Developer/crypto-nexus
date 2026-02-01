@@ -25,14 +25,18 @@ import { useNavigate } from "react-router-dom";
 import { refundService } from "@/services/refundService";
 
 const getStatusIcon = (status: string) => {
-  switch (status.toLowerCase()) {
+  const s = status.toLowerCase();
+  switch (s) {
     case "completed":
+    case "delivered":
+    case "confirmed":
       return <CheckCircle className="w-4 h-4" />;
     case "shipped":
       return <Truck className="w-4 h-4" />;
     case "processing":
     case "pending":
     case "pending_payment":
+    case "paid":
       return <Clock className="w-4 h-4" />;
     case "cancelled":
       return <XCircle className="w-4 h-4" />;
@@ -42,12 +46,16 @@ const getStatusIcon = (status: string) => {
 };
 
 const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
+  const s = status.toLowerCase();
+  switch (s) {
     case "completed":
+    case "delivered":
+    case "confirmed":
       return "text-green-400 bg-green-900/20";
     case "shipped":
       return "text-yellow-400 bg-yellow-900/20";
     case "processing":
+    case "paid":
       return "text-theme-cyan bg-theme-cyan-dim";
     case "pending":
       return "text-yellow-400 bg-yellow-900/20";
@@ -61,13 +69,18 @@ const getStatusColor = (status: string) => {
 };
 
 const getStatusDisplay = (status: string) => {
-  switch (status.toLowerCase()) {
+  const s = status.toLowerCase();
+  switch (s) {
     case "completed":
-      return "Delivered";
+    case "delivered":
+    case "confirmed":
+      return "Completed";
     case "shipped":
       return "In Transit";
     case "processing":
       return "Processing";
+    case "paid":
+      return "Paid";
     case "pending":
       return "Pending";
     case "pending_payment":
@@ -75,7 +88,7 @@ const getStatusDisplay = (status: string) => {
     case "cancelled":
       return "Cancelled";
     default:
-      return status.charAt(0).toUpperCase() + status.slice(1);
+      return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
   }
 };
 

@@ -224,9 +224,12 @@ class DirectPaymentMonitor:
                 # Update Order Status
                 order = payment.order
                 order.payment_status = 'paid'
-                # Map 'pending_payment' to 'paid'
+                # Map 'pending_payment' to 'paid' (or 'confirmed' for auto-delivery)
                 if order.order_status in ['pending', 'pending_payment']:
-                    order.order_status = 'paid'
+                    if order.product.delivery_time == 'instant_auto':
+                        order.order_status = 'confirmed' # Shows as "Completed"
+                    else:
+                        order.order_status = 'paid'
                 order.save()
                 
                 if needs_trigger:

@@ -1427,7 +1427,10 @@ class PaymentService:
                     logger.info(f"Updating Order {order_to_update.order_id} to PAID status via direct webhook logic")
                     order_to_update.payment_status = 'paid'
                     if order_to_update.order_status in ['pending', 'pending_payment']:
-                        order_to_update.order_status = 'paid'
+                        if order_to_update.product.delivery_time == 'instant_auto':
+                            order_to_update.order_status = 'confirmed' # Shows as "Completed"
+                        else:
+                            order_to_update.order_status = 'paid'
                     order_to_update.save()
             except Exception as oe:
                 logger.error(f"Failed to update order status in direct webhook: {oe}")

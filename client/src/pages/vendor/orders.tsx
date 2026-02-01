@@ -26,7 +26,7 @@ import { useCryptoPrices } from "@/contexts/PriceContext";
 const getStatusColor = (status: string) => {
   switch (status) {
     case "Completed":
-      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
+      return "bg-green-500/10 text-green-400 border-green-500/20";
     case "Processing":
       return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Pending":
@@ -34,9 +34,9 @@ const getStatusColor = (status: string) => {
     case "Cancelled":
       return "bg-red-500/10 text-red-400 border-red-500/20";
     case "Paid":
-      return "bg-green-500/10 text-green-400 border-green-500/20";
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Delivered":
-      return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+      return "bg-green-500/10 text-green-400 border-green-500/20";
     default:
       return "bg-gray-700 text-gray-300 border-gray-600";
   }
@@ -78,10 +78,8 @@ export default function VendorOrders() {
       }
 
       if (paymentStatus === 'paid') {
-        if (orderStatus === 'completed' || orderStatus === 'confirmed') {
+        if (orderStatus === 'completed' || orderStatus === 'confirmed' || orderStatus === 'delivered') {
           return 'Completed';
-        } else if (orderStatus === 'delivered') {
-          return 'Delivered';
         } else if (orderStatus === 'paid' || orderStatus === 'processing' || orderStatus === 'payment_received') {
           return 'Paid';
         }
@@ -95,18 +93,12 @@ export default function VendorOrders() {
         }
       }
 
-      // For giveaway orders, show as "Completed" if status is confirmed or paid
-      if (apiOrder.is_giveaway && (orderStatus === 'confirmed' || orderStatus === 'paid')) {
-        return 'Completed';
-      }
-
       switch (orderStatus) {
         case 'pending':
           return 'Pending';
         case 'processing':
           return 'Processing';
         case 'delivered':
-          return 'Delivered';
         case 'completed':
         case 'confirmed':
           return 'Completed';

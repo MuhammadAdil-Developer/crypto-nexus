@@ -464,7 +464,12 @@ export default function VendorOverview() {
     const orderStatus = order.order_status?.toLowerCase();
 
     if (paymentStatus === 'paid') {
-      return 'Completed';
+      if (orderStatus === 'completed' || orderStatus === 'confirmed' || orderStatus === 'delivered') {
+        return 'Completed';
+      }
+      if (orderStatus === 'paid' || orderStatus === 'processing' || orderStatus === 'payment_received') {
+        return 'Paid';
+      }
     }
 
     switch (orderStatus) {
@@ -473,9 +478,13 @@ export default function VendorOverview() {
         return 'Pending';
       case 'processing':
         return 'Processing';
+      case 'paid':
+        return 'Paid';
       case 'shipped':
         return 'Shipped';
       case 'completed':
+      case 'delivered':
+      case 'confirmed':
         return 'Completed';
       case 'cancelled':
         return 'Cancelled';
@@ -696,12 +705,12 @@ export default function VendorOverview() {
                             <div className="text-xs text-gray-400 mb-1">{formatDate(order.created_at)}</div>
                             <div className="flex items-center gap-1 flex-wrap">
                               <Badge className={`text-[10px] sm:text-xs border-none ${getStatusDisplay(order) === "Completed"
-                                ? "bg-theme-cyan-dim text-theme-cyan"
-                                : getStatusDisplay(order) === "Processing"
-                                  ? "bg-theme-cyan/20 text-theme-cyan"
+                                ? "bg-green-500/10 text-green-400 border-green-500/20"
+                                : getStatusDisplay(order) === "Paid" || getStatusDisplay(order) === "Processing"
+                                  ? "bg-theme-cyan-dim text-theme-cyan border-theme-cyan/20"
                                   : getStatusDisplay(order) === "Pending"
-                                    ? "bg-theme-red/10 text-theme-red"
-                                    : "bg-theme-red text-white"
+                                    ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                                    : "bg-red-500/10 text-red-400 border-red-500/20"
                                 }`}>
                                 {getStatusDisplay(order)}
                               </Badge>

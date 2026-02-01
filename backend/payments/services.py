@@ -1862,8 +1862,7 @@ class PaymentService:
                         payment_address.confirmed_at = timezone.now()
                         self._update_order_status_dynamically(order_id, 'Paid')
                         
-                        # Notification removed as per user request to avoid spam
-                        pass
+
 
                     # CRITICAL: Trigger fee calculation and direct payment update if threshold reached
                     # EVEN IF status was already 'paid', we trigger this to ensure sticky/stuck orders

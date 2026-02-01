@@ -274,11 +274,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         paymentService.stopPaymentPolling(pollingInterval);
       }
       const interval = paymentService.startPaymentPolling(orderIdGenerated, (status: PaymentStatus) => {
+        console.log(`[Polling] Order ${orderIdGenerated} Status Update:`, status);
         setRealPaymentStatus(status);
         if (status.status === "paid") {
+          console.log(`[Polling] Payment Confirmed triggered for ${orderIdGenerated}`);
           toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
           setStep(4);
         } else if (status.status === "expired") {
+          console.log(`[Polling] Payment Expired triggered for ${orderIdGenerated}`);
           toast({ title: "Payment Expired", description: "Payment window has expired. Please try again.", variant: "destructive" });
         }
       });
@@ -355,13 +358,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
               // Restart polling since we restored a pending order
               if (pollingInterval) clearInterval(pollingInterval);
+              console.log(`[LocalStorage] Restoring polling for order ${storedOrderId}`);
               const interval = paymentService.startPaymentPolling(storedOrderId, (status: PaymentStatus) => {
+                console.log(`[Polling-Restored] Order ${storedOrderId} Status:`, status);
                 setRealPaymentStatus(status);
                 if (status.status === "paid" || status.status === "confirmed") {
+                  console.log(`[Polling-Restored] Payment Confirmed triggered for ${storedOrderId}`);
                   toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
                   localStorage.removeItem(storageKey); // Clear on success
                   setStep(4);
                 } else if (status.status === "expired") {
+                  console.log(`[Polling-Restored] Payment Expired triggered for ${storedOrderId}`);
                   toast({ title: "Payment Expired", description: "Payment window has expired.", variant: "destructive" });
                   localStorage.removeItem(storageKey);
                   setStep(1);

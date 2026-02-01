@@ -42,7 +42,8 @@ class DirectPaymentMonitor:
             
             if not payments.exists(): return
             
-            logger.info(f"🚀 SCANNER: Monitoring {payments.count()} orders...")
+            # Only log if we found something relevant to avoid log spam
+            # logger.info(f"🚀 SCANNER: Monitoring {payments.count()} orders...")
             current_height = self._get_current_btc_height()
 
             for payment in payments:
@@ -92,17 +93,42 @@ class DirectPaymentMonitor:
 
             # 1. BTCPay Check
             if pa.btcpay_invoice_id:
-                status = self.btcpay_service.get_invoice_status(pa.btcpay_invoice_id)
-                if status in ['Settled', 'Confirmed', 'Processing']:
-                    confs = required_confs if status != 'Processing' else 1
-                    self._confirm_payment(payment, f"btcpay_{status}", confs)
-                    return
+                invoice_data = self.btcpay_service.get_invoice_status(pa.btcpay_invoice_id)
+                if invoice_data and isinstance(invoice_data, dict):
+                    status_str = invoice_data.get('status')
+                    logger.info(f"BTCPay Invoice {pa.btcpay_invoice_id} status: {status_str}")
+                    
+                    if status_str in ['Settled', 'Confirmed', 'Processing']:
+                        # Determine confirmations
+                        # If Settled/Confirmed, we can assume enough confs
+                        # If Processing, it might be 0-conf or partial
+                        confs = required_confs if status_str in ['Settled', 'Confirmed'] else 0
+                        
+                        # Only confirm if it's actually settled (or has enough confs)
+                        # This aligns with user request for "Only on Settlement"
+                        if status_str in ['Settled', 'Confirmed']:
+                            self._confirm_payment(payment, f"btcpay_{status_str}", confs)
+                            return
+                        else:
+                            # Just update confirmations but don't mark as 'paid' yet
+                            self._update_confirmations_only(payment, confs)
+                            return
 
             # 2. Blockchain Fallback (Strict Address/Amount Filter)
-            transactions = self._get_blockchain_transactions(payment.vendor_address)
-            matched = self._match_btc_transaction(transactions, payment.vendor_address, payment.amount, current_height)
+            # CRITICAL FIX: Use pa.payment_address (PLATFORM DEPOSIT) not payment.vendor_address (VENDOR PAYOUT)
+            deposit_address = pa.payment_address
+            if not deposit_address or deposit_address == "GIVEAWAY_FREE_ORDER":
+                return
+
+            transactions = self._get_blockchain_transactions(deposit_address)
+            matched = self._match_btc_transaction(transactions, deposit_address, payment.amount, current_height)
+            
             if matched:
-                self._confirm_payment(payment, "blockchain_api", matched['confirmations'], matched['txid'], amount=matched['amount'])
+                # Only mark as confirmed if confirmations >= required
+                if matched['confirmations'] >= required_confs:
+                    self._confirm_payment(payment, "blockchain_api", matched['confirmations'], matched['txid'], amount=matched['amount'])
+                else:
+                    self._update_confirmations_only(payment, matched['confirmations'], matched['txid'], amount=matched['amount'])
                 
         except Exception as e:
             logger.error(f"BTC Monitor error: {e}")
@@ -146,7 +172,8 @@ class DirectPaymentMonitor:
             needs_trigger = payment.status in ['pending', 'expired'] or is_stuck
             
             if is_stuck or (payment.status != 'completed' and payment.status != 'processing'):
-                 logger.info(f"Monitoring {payment.order.order_id}: status={payment.status}, needs_trigger={needs_trigger}")
+                 # logger.info(f"Monitoring {payment.order.order_id}: status={payment.status}, needs_trigger={needs_trigger}")
+                 pass
             
             if is_stuck:
                 logger.warning(f"RESCUING STUCK PAYOUT: {payment.order.order_id} (status: {payment.status}, last_update: {payment.updated_at})")
@@ -188,15 +215,18 @@ class DirectPaymentMonitor:
                 if pa:
                     if confirmations is not None: pa.confirmations = confirmations
                     if tx_hash: pa.transaction_hash = tx_hash
+                    # CRITICAL: Only set to 'paid' (which triggers toast) for completed confirmations
                     pa.status = 'paid'
                     pa.confirmed_at = timezone.now()
                     if amount: pa.received_amount = float(amount)
                     pa.save()
 
+                # Update Order Status
                 order = payment.order
                 order.payment_status = 'paid'
-                if order.order_status == 'pending':
-                    order.order_status = 'completed'
+                # Map 'pending_payment' to 'paid'
+                if order.order_status in ['pending', 'pending_payment']:
+                    order.order_status = 'paid'
                 order.save()
                 
                 if needs_trigger:
@@ -205,6 +235,26 @@ class DirectPaymentMonitor:
                     process_non_escrow_payout.delay(order.order_id)
         except Exception as e:
             logger.error(f"Confirmation error: {e}")
+
+    def _update_confirmations_only(self, payment, confirmations, tx_hash=None, amount=None):
+        """Update confirmations on DB records without triggering 'paid' status/toast"""
+        try:
+            # Update PaymentAddress
+            pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
+            if pa:
+                if confirmations is not None: pa.confirmations = confirmations
+                if tx_hash: pa.transaction_hash = tx_hash
+                if amount: pa.received_amount = float(amount)
+                # Keep status as pending/partial to avoid premature toast
+                pa.save()
+            
+            # Update DirectPayment
+            DirectPayment.objects.filter(id=payment.id).update(
+                confirmations=confirmations or 0,
+                transaction_hash=tx_hash or payment.transaction_hash
+            )
+        except Exception as e:
+            logger.error(f"Error updating confirmations: {e}")
 
     def _get_current_btc_height(self):
         try:

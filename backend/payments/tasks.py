@@ -1,5 +1,6 @@
 from celery import shared_task
 from django.utils import timezone
+from django.db import transaction
 from datetime import timedelta
 from decimal import Decimal
 import logging
@@ -166,18 +167,16 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 direct_payment.save()
             
             # CRITICAL: DEBOUNCE / CONCURRENCY CHECK
-            # CRITICAL SAFETY: If it's already completed, STOP.
-            if direct_payment.status == 'completed':
-                return f"Order {order_id} already completed"
+            # CRITICAL SAFETY: If it's already completed or has a hash, STOP.
+            # CRITICAL SAFETY: Only skip if it's really completed with a VALID payout hash.
+            # If the hash matches the BUYER's hash, it's a mistake (poisoned record) - we must proceed!
+            buyer_hash = payment_address.transaction_hash
+            payout_hash = direct_payment.transaction_hash
             
-            # CRITICAL SAFETY: If it has a transaction_hash, it must be completed.
-            # This fixes the "stuck in processing" issue you mentioned.
-            if direct_payment.transaction_hash and len(direct_payment.transaction_hash) > 10:
-                if direct_payment.status != 'completed':
-                    direct_payment.status = 'completed'
-                    direct_payment.save(update_fields=['status'])
-                    logger.info(f"✅ Auto-fixed stuck payout: {order_id} marked as completed because tx_hash exists.")
-                return f"Order {order_id} already has a transaction hash, marking as completed."
+            # CRITICAL SAFETY: If it's already completed or has a hash, STOP.
+            # We are extremely conservative to prevent any chance of double-payout.
+            if direct_payment.status == 'completed' or (direct_payment.transaction_hash and len(direct_payment.transaction_hash) > 10):
+                return f"Order {order_id} already processed - will not re-process for safety"
             
             # If already processing by another worker recently, skip
             if direct_payment.status == 'processing' and self.request.retries == 0:
@@ -390,7 +389,8 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         direct_payment.platform_fee = platform_fee
         direct_payment.escrow_fee = escrow_fee
         direct_payment.net_amount = net_amount
-        direct_payment.transaction_hash = payment_address.transaction_hash
+        # CRITICAL: direct_payment.transaction_hash should ONLY store the payout hash.
+        # Do NOT copy payment_address.transaction_hash (which is the buyer's hash) here.
         direct_payment.confirmed_at = payment_address.confirmed_at or timezone.now()
         direct_payment.save()
         

@@ -194,10 +194,8 @@ class DirectPaymentMonitor:
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
                 update_data = {}
                 if confirmations is not None: update_data['confirmations'] = confirmations
-                # CRITICAL: Only update transaction_hash if it's currently empty.
-                # Never overwrite it, as it might contain the payout hash after sending.
-                if tx_hash and not db_payment.transaction_hash: 
-                    update_data['transaction_hash'] = tx_hash
+                # CRITICAL: Never save incoming (buyer) hash to payout record.
+                # Only the outgoing (vendor) hash should go here later.
                 if amount: update_data['amount'] = amount
                 
                 if actually_needs_trigger:

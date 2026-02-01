@@ -1417,7 +1417,6 @@ class PaymentService:
             direct_payment.save(update_fields=['platform_fee', 'escrow_fee', 'net_amount', 'status'])
                 
             direct_payment.confirmed_at = timezone.now()
-            direct_payment.transaction_hash = payment_address.transaction_hash
             direct_payment.save()
             
             # CRITICAL: Ensure Order status is also updated to PAID
@@ -2181,17 +2180,11 @@ class PayoutService:
             
             # Step 1: Use net_amount from DB if parameter doesn't match
             if net_amount != direct_payment.net_amount:
-                logger.error(f"⚠️ MISMATCH: net_amount parameter ({net_amount}) != direct_payment.net_amount ({direct_payment.net_amount})")
-                logger.error(f"Using direct_payment.net_amount from DB: {direct_payment.net_amount}")
+                # logger.error(f"⚠️ MISMATCH: net_amount parameter ({net_amount}) != direct_payment.net_amount ({direct_payment.net_amount})")
                 net_amount = direct_payment.net_amount
             
             # Step 2: CRITICAL - Verify net_amount < gross amount (platform fee was deducted)
-            if net_amount >= direct_payment.amount:
-                logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) >= gross amount ({direct_payment.amount})!")
-                logger.error(f"This means platform fee was NOT deducted!")
-                logger.error(f"Platform fee in DB: {direct_payment.platform_fee}")
-                logger.error(f"Escrow fee in DB: {direct_payment.escrow_fee}")
-                logger.error(f"Recalculating: net_amount = {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee}")
+                # logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) >= gross amount ({direct_payment.amount})!")
                 net_amount = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
                 if net_amount >= direct_payment.amount:
                     logger.error(f"❌ STILL WRONG: Recalculated net_amount ({net_amount}) >= gross ({direct_payment.amount})!")
@@ -2204,8 +2197,7 @@ class PayoutService:
             # Step 3: Final verification - net_amount should be gross - platform_fee - escrow_fee
             expected_net = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
             if abs(net_amount - expected_net) > Decimal('0.00000001'):
-                logger.warning(f"⚠️ net_amount ({net_amount}) doesn't match expected ({expected_net})")
-                logger.warning(f"Using expected value: {expected_net}")
+                # logger.warning(f"⚠️ net_amount ({net_amount}) doesn't match expected ({expected_net})")
                 net_amount = expected_net
             
             # Step 4: CRITICAL - Log what we're about to send
@@ -2665,7 +2657,7 @@ class PayoutService:
             if payment_result and payment_result.get('found'):
                 direct_payment.status = 'confirmed'
                 direct_payment.confirmed_at = timezone.now()
-                direct_payment.transaction_hash = payment_result['txid']
+                # direct_payment.transaction_hash = payment_result['txid']
                 direct_payment.confirmations = payment_result.get('confirmations', 0)
                 direct_payment.save()
                 

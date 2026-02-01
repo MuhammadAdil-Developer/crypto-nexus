@@ -232,7 +232,7 @@ class DirectPaymentMonitor:
                 if needs_trigger:
                     from .tasks import process_non_escrow_payout
                     logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
-                    process_non_escrow_payout.delay(order.order_id)
+                    process_non_escrow_payout.delay(order.order_id, is_settled=True)
         except Exception as e:
             logger.error(f"Confirmation error: {e}")
 

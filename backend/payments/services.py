@@ -1082,6 +1082,10 @@ class PaymentService:
                     try:
                         payment_address = PaymentAddress.objects.get(btcpay_invoice_id=invoice_id)
                         logger.info(f"Found PaymentAddress by invoice_id: {invoice_id}")
+                        # CRITICAL RECOVERY: If orderId missing in payload (common in InvoiceSettled), get from DB
+                        if not order_id:
+                            order_id = payment_address.order_id
+                            logger.info(f"✅ Recovered order_id {order_id} from Database (via invoice_id lookup)")
                     except PaymentAddress.DoesNotExist:
                         # Fallback to order_id if invoice_id fails or hasn't been saved yet
                         if order_id:
@@ -1365,14 +1369,14 @@ class PaymentService:
             platform_fee = amount * platform_fee_rate
             escrow_fee = amount * escrow_fee_rate
             
-            logger.info(f"💰 PLATFORM FEE CALCULATION (Webhook):")
-            logger.info(f"   Vendor: {order.product.vendor.username}")
-            logger.info(f"   Amount (received): {amount}")
-            logger.info(f"   Vendor custom rate: {vendor_custom_rate}%")
-            logger.info(f"   Platform default rate: {commission_settings.platform_fee_rate}%")
-            logger.info(f"   Platform fee rate used: {platform_fee_rate} ({platform_fee_rate * 100}%)")
-            logger.info(f"   Calculated platform_fee: {amount} * {platform_fee_rate} = {platform_fee}")
-            logger.info(f"   Escrow fee: {escrow_fee}")
+            # logger.info(f"💰 PLATFORM FEE CALCULATION (Webhook):")
+            # logger.info(f"   Vendor: {order.product.vendor.username}")
+            # logger.info(f"   Amount (received): {amount}")
+            # logger.info(f"   Vendor custom rate: {vendor_custom_rate}%")
+            # logger.info(f"   Platform default rate: {commission_settings.platform_fee_rate}%")
+            # logger.info(f"   Platform fee rate used: {platform_fee_rate} ({platform_fee_rate * 100}%)")
+            # logger.info(f"   Calculated platform_fee: {amount} * {platform_fee_rate} = {platform_fee}")
+            # logger.info(f"   Escrow fee: {escrow_fee}")
             
             # Allow 0 platform fee if rate is 0
             if platform_fee < 0:
@@ -1413,6 +1417,19 @@ class PaymentService:
             direct_payment.transaction_hash = payment_address.transaction_hash
             direct_payment.save()
             
+            # CRITICAL: Ensure Order status is also updated to PAID
+            try:
+                from orders.models import Order, OrderStatus
+                order_to_update = Order.objects.get(order_id=payment_address.order_id)
+                if order_to_update.payment_status != 'paid':
+                    logger.info(f"Updating Order {order_to_update.order_id} to PAID status via direct webhook logic")
+                    order_to_update.payment_status = 'paid'
+                    if order_to_update.order_status in ['pending', 'pending_payment']:
+                        order_to_update.order_status = 'paid'
+                    order_to_update.save()
+            except Exception as oe:
+                logger.error(f"Failed to update order status in direct webhook: {oe}")
+            
             logger.info(f"✅ FEES SAVED TO DATABASE: platform_fee={platform_fee}, net_amount={net_amount}")
             
             # ========================================
@@ -1451,7 +1468,7 @@ class PaymentService:
             # We already checked confirmations at the top of this function
             try:
                 from .tasks import process_non_escrow_payout
-                process_non_escrow_payout.delay(payment_address.order_id)
+                process_non_escrow_payout.delay(payment_address.order_id, is_settled=is_settled)
                 logger.info(f"Triggered process_non_escrow_payout task for order {payment_address.order_id}")
             except Exception as e:
                 logger.error(f"Failed to trigger payout task: {str(e)}")

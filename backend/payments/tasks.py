@@ -222,18 +222,21 @@ def process_non_escrow_payout(self, order_id: str):
         # ============================================================
         # Even if triggered, we must ensure enough confirmations exist
         from django.conf import settings as django_settings
-        required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
+        # Sync default to 3 to match services.py logic for BTC
+        required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1 if crypto_symbol == 'XMR' else 3)
         current_confs = payment_address.confirmations or 0
         
+        logger.info(f"🔍 CONFIRMATION CHECK: {current_confs}/{required_confs} (Order {order_id})")
+        
         if current_confs < required_confs:
-            logger.warning(f"⚠️ PAYOUT DEFERRED for Order {order_id}: {current_confs}/{required_confs} confirmations. Status kept as 'processing' for retry.")
+            logger.warning(f"⏳ PAYOUT PENDING: Order {order_id} has {current_confs}/{required_confs} confirmations. Waiting for blockchain...")
             # Keep status as processing so it shows animated pulse in UI
             direct_payment.status = 'processing'
             direct_payment.save()
             # Retry in 5 minutes
             raise self.retry(countdown=300)
             
-        logger.info(f"✅ Confirmation check passed: {current_confs}/{required_confs} confirmations. Proceeding with payout.")
+        logger.info(f"✅ PAYOUT APPROVED: {current_confs}/{required_confs} confirmations reached. Processing vendor payout now.")
         
         # Calculate fees
         from .commission_models import CommissionSettings, VendorFee

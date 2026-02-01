@@ -1071,8 +1071,8 @@ class PaymentService:
             logger.info(f"Processing BTCPay webhook: invoice_id={invoice_id}, order_id={order_id}, status={status}, type={webhook_type}")
             logger.info(f"Metadata: {metadata}")
             
-            # Handle test webhooks (ONLY if both are missing)
-            if not order_id and not invoice_id:
+            # Handle test webhooks (ONLY if both are missing OR if invoice_id shows it's a test)
+            if (not order_id and not invoice_id) or (invoice_id and invoice_id.startswith('__test__')):
                 logger.info("Test webhook received - ignoring")
                 return True
             
@@ -1257,7 +1257,9 @@ class PaymentService:
                 
                 # Process direct payment if applicable (NEW APPROACH)
                 if mapped_status == 'paid':
-                    self._process_direct_payment_webhook(payment_address)
+                    # Determine if settled (fully confirmed)
+                    is_settled = (btcpay_status == 'Settled')
+                    self._process_direct_payment_webhook(payment_address, is_settled=is_settled)
                 
                 # Mark webhook as processed
                 webhook.processed = True
@@ -1272,7 +1274,7 @@ class PaymentService:
             logger.error(f"BTCPay webhook processing error: {str(e)}")
             return False
     
-    def _process_direct_payment_webhook(self, payment_address):
+    def _process_direct_payment_webhook(self, payment_address, is_settled=False):
         """Process direct payment webhook - calculate fees and send to vendor"""
         try:
             from .models import DirectPayment
@@ -1400,7 +1402,15 @@ class PaymentService:
             direct_payment.platform_fee = platform_fee
             direct_payment.escrow_fee = escrow_fee
             direct_payment.net_amount = net_amount
-            direct_payment.status = 'confirmed'
+            
+            # CRITICAL: If settled, assume any previous 'processing' task is sleeping/stuck
+            # Reset to 'confirmed' to allow new task to run immediately without "Already in progress" lock
+            if is_settled and direct_payment.status == 'processing':
+                logger.info(f"⚡ SETTLED signal: Resetting '{direct_payment.status}' status to 'confirmed' to force immediate payout.")
+                direct_payment.status = 'confirmed'
+            elif direct_payment.status != 'processing' and direct_payment.status != 'completed':
+                direct_payment.status = 'confirmed'
+                
             direct_payment.confirmed_at = timezone.now()
             direct_payment.transaction_hash = payment_address.transaction_hash
             direct_payment.save()
@@ -1425,13 +1435,16 @@ class PaymentService:
             logger.info(f"Required Confirmations: {required_confirmations}")
             logger.info(f"==========================================")
             
-            if current_confirmations < required_confirmations:
+            if not is_settled and current_confirmations < required_confirmations:
                 logger.warning(f"⏰ PAYOUT DEFERRED for Order {payment_address.order_id}: {current_confirmations}/{required_confirmations} confirmations. Waiting for more.")
                 logger.info(f"   Required: {required_confirmations}, Current: {current_confirmations}")
                 # DO NOT SEND PAYOUT - EXIT HERE!
                 return
             
-            logger.info(f"✅ CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
+            if is_settled:
+                logger.info(f"✅ PAYOUT AUTHORIZED: Payment marked as SETTLED by webhook (Order {payment_address.order_id})")
+            else:
+                logger.info(f"✅ CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
             logger.info(f"==========================================")
             
             # STEP 3: TRIGGER PAYOUT (only if confirmations are sufficient)

@@ -202,6 +202,9 @@ export default function BuyerSettings() {
         title: "Success",
         description: "Settings updated successfully"
       });
+
+      // Dispatch custom event for real-time update
+      window.dispatchEvent(new Event('profileUpdate'));
     } catch (error: any) {
       console.error('Error saving settings:', error);
       toast({

@@ -107,65 +107,79 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
     console.warn('BuyerCountsProvider not available, using empty counts');
   }
   const [username, setUsername] = useState<string>("Buyer");
+  const [profilePic, setProfilePic] = useState<string | null>(null);
   const [isVendorApproved, setIsVendorApproved] = useState(false);
   const [isApplicationPending, setIsApplicationPending] = useState(false);
 
   // Get current user's username and vendor status
   useEffect(() => {
-    const fetchUserStatus = async () => {
-      const user = authService.getCurrentUser();
-      if (user) {
-        setUsername(user.username);
+    fetchUserStatus();
 
-        // Initial check from local storage
-        if (user.user_type === 'vendor') {
-          setIsVendorApproved(true);
-          return; // Already known as vendor
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      fetchUserStatus();
+    };
+
+    window.addEventListener('profileUpdate', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdate', handleProfileUpdate);
+    };
+  }, []);
+
+  const fetchUserStatus = async () => {
+    const user = authService.getCurrentUser();
+    if (user) {
+      setUsername(user.username);
+
+      // Initial check from local storage
+      if (user.user_type === 'vendor') {
+        setIsVendorApproved(true);
+      }
+
+      // Deep check from backend to see if status changed and get profile pic
+      try {
+        const profileRes = await authService.getProfile();
+        if (profileRes.success && profileRes.data) {
+          const latestUser = profileRes.data;
+          setProfilePic(latestUser.profile_picture || null);
+
+          // Update local storage to keep it in sync
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          localStorage.setItem('user', JSON.stringify({ ...currentUser, ...latestUser }));
+
+          if (latestUser.user_type === 'vendor') {
+            setIsVendorApproved(true);
+          }
         }
 
-        // Deep check from backend to see if status changed
-        try {
-          const profileRes = await authService.getProfile();
-          if (profileRes.success && profileRes.data) {
-            const latestUser = profileRes.data;
-            if (latestUser.user_type === 'vendor') {
-              // Update local storage if user type changed
-              const updatedUser = { ...user, user_type: 'vendor' };
-              localStorage.setItem('user', JSON.stringify(updatedUser));
-              setIsVendorApproved(true);
-              return;
-            }
-          }
-
-          // Check application status
+        // Check application status
+        if (!isVendorApproved) {
           const vendorStatus = await authService.checkVendorStatus();
           if (vendorStatus.applicationStatus?.toLowerCase() === 'pending') {
             setIsApplicationPending(true);
           }
-        } catch (error) {
-          console.error('Error syncing user status in BuyerSidebar:', error);
         }
-      } else {
-        // Fallback: try to get from localStorage directly
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          try {
-            const userData = JSON.parse(userStr);
-            if (userData.username) {
-              setUsername(userData.username);
-            }
-            if (userData.user_type === 'vendor') {
-              setIsVendorApproved(true);
-            }
-          } catch (error) {
-            console.error('Error parsing user data:', error);
+      } catch (error) {
+        console.error('Error syncing user status in BuyerSidebar:', error);
+      }
+    } else {
+      // Fallback: try to get from localStorage directly
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData.username) {
+            setUsername(userData.username);
           }
+          if (userData.user_type === 'vendor') {
+            setIsVendorApproved(true);
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
         }
       }
-    };
-
-    fetchUserStatus();
-  }, []);
+    }
+  };
 
   const getCount = (countKey: keyof { messages: number; orders: number; support: number; billing: number; refunds: number } | null): number | null => {
     if (!countKey) return null;
@@ -306,11 +320,14 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
         </Link>
       </div>
 
-      {/* User Profile */}
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a] rounded-full flex items-center justify-center border border-white/10 shadow-[0_0_12px_rgba(166,3,62,0.3)]">
-            <User className="text-white w-4 h-4 shadow-sm" />
+          <div className="w-8 h-8 bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a] rounded-full flex items-center justify-center border border-white/10 shadow-[0_0_12px_rgba(166,3,62,0.3)] overflow-hidden">
+            {profilePic ? (
+              <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <User className="text-white w-4 h-4 shadow-sm" />
+            )}
           </div>
           {expanded && (
             <div className="ml-3 min-w-0">

@@ -295,6 +295,16 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
   useEffect(() => {
     fetchUserData();
     fetchVendorProducts();
+
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      fetchUserData();
+    };
+
+    window.addEventListener('profileUpdate', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdate', handleProfileUpdate);
+    };
   }, []);
 
   // Fetch vendor products for search suggestions
@@ -618,12 +628,17 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
     try {
       const response = await api.get('/profile/');
       if (response.data && response.data.success) {
+        const profileData = response.data.data;
         setUserData({
-          username: response.data.data.username || "User",
-          email: response.data.data.email || "",
-          business_name: response.data.data.business_name || "",
-          profile_picture: response.data.data.profile_picture || ""
+          username: profileData.username || "User",
+          email: profileData.email || "",
+          business_name: profileData.business_name || "",
+          profile_picture: profileData.profile_picture || ""
         });
+
+        // Update local storage to keep it in sync
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...currentUser, ...profileData }));
       }
     } catch (error) {
       console.error('Error fetching user data:', error);

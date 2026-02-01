@@ -102,17 +102,32 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
 
   useEffect(() => {
     fetchUserData();
+
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      fetchUserData();
+    };
+
+    window.addEventListener('profileUpdate', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdate', handleProfileUpdate);
+    };
   }, []);
 
   const fetchUserData = async () => {
     try {
       const response = await api.get('/profile/');
       if (response.data && response.data.success) {
+        const profileData = response.data.data;
         setUserData({
-          username: response.data.data.username || "User",
-          email: response.data.data.email || "",
-          profile_picture: response.data.data.profile_picture || ""
+          username: profileData.username || "User",
+          email: profileData.email || "",
+          profile_picture: profileData.profile_picture || ""
         });
+
+        // Update local storage to keep it in sync
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...currentUser, ...profileData }));
       }
     } catch (error) {
       console.error('Error fetching user data:', error);

@@ -664,7 +664,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      {/* Hidden as requested: Vendor Rating */}
+                      {/* <div className="flex items-center justify-between">
                         <span className="text-gray-400">Vendor Rating:</span>
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-400 fill-current" />
@@ -678,7 +679,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                             )}
                           </span>
                         </div>
-                      </div>
+                      </div> */}
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Completion Rate:</span>
                         <span className="text-green-400 font-medium">
@@ -719,7 +720,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      {/* Hidden as requested: Product Rating */}
+                      {/* <div className="flex items-center justify-between">
                         <span className="text-gray-400 flex items-center">
                           <Star className="w-4 h-4 mr-1" />
                           Rating:
@@ -729,7 +731,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                           <span className="text-white">{product.rating || '0.00'}</span>
                           <span className="text-gray-400">({product.review_count || 0})</span>
                         </div>
-                      </div>
+                      </div> */}
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400 flex items-center">
                           <Calendar className="w-4 h-4 mr-1" />
@@ -834,8 +836,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   </div>
                 )}
 
-                {/* Reviews Section */}
-                <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                {/* Hidden as requested: Reviews Section */}
+                {/* <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-white flex items-center">
                       <Star className="w-5 h-5 mr-2 text-yellow-400" />
@@ -861,7 +863,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     </div>
                   ) : productReviews && productReviews.reviews.length > 0 ? (
                     <div>
-                      {/* Review Stats */}
                       <div className="mb-4 p-3 bg-gray-800/30 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
@@ -879,7 +880,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                         </div>
                       </div>
 
-                      {/* Reviews List */}
                       {showReviews && (
                         <div className="space-y-4 max-h-96 overflow-y-auto">
                           {productReviews.reviews.map((review: any) => (
@@ -924,7 +924,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       <p className="text-gray-500 text-sm">Be the first to review this product</p>
                     </div>
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
             <div className="flex items-center space-x-2">

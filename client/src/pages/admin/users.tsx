@@ -993,7 +993,7 @@ export default function AdminUsers() {
       const conv = await messagingService.createConversation(selectedUser.id);
 
       if (conv && conv.id) {
-        await messagingService.sendMessage(conv.id, messageContent);
+        await messagingService.sendMessage(messageContent, conv.id);
 
         toast({
           title: "Success",

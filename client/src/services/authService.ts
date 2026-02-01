@@ -145,6 +145,7 @@ export interface User {
   two_factor_enabled: boolean;
   is_active: boolean;
   date_joined: string;
+  profile_picture?: string;
   recovery_phrase?: string;
   legal_accepted?: boolean;
 }

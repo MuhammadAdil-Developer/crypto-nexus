@@ -258,7 +258,7 @@ export default function AdminMessages() {
 
     try {
       setSendingAdminMessage(true);
-      await messagingService.sendMessage(selectedConversation.id, adminMessageInput);
+      await messagingService.sendMessage(adminMessageInput, selectedConversation.id);
 
       // Refresh messages to show the new one
       await fetchMessages(selectedConversation.id, 1, true);

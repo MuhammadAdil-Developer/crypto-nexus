@@ -90,25 +90,42 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["Information", "Products", "Sales"]);
   const [userData, setUserData] = useState({
     username: "",
-    business_name: ""
+    business_name: "",
+    profile_picture: ""
   });
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const response = await api.get('/profile/');
-        if (response.data && response.data.success) {
-          setUserData({
-            username: response.data.data.username || "",
-            business_name: response.data.data.business_name || ""
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
+  const fetchUserData = async () => {
+    try {
+      const response = await api.get('/profile/');
+      if (response.data && response.data.success) {
+        const profileData = response.data.data;
+        setUserData({
+          username: profileData.username || "",
+          business_name: profileData.business_name || "",
+          profile_picture: profileData.profile_picture || ""
+        });
+
+        // Update local storage to keep it in sync
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...currentUser, ...profileData }));
       }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      fetchUserData();
     };
 
-    fetchUserData();
+    window.addEventListener('profileUpdate', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdate', handleProfileUpdate);
+    };
   }, []);
 
   const [username, setUsername] = useState<string>("Vendor");
@@ -322,11 +339,14 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
         ))}
       </nav>
 
-      {/* User Profile */}
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#4DF8FF] via-[#00d0d9] to-[#008c99] rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_12px_rgba(77,248,255,0.3)]">
-            <Store className="text-white w-4 h-4 shadow-sm" />
+          <div className="w-8 h-8 bg-gradient-to-br from-[#4DF8FF] via-[#00d0d9] to-[#008c99] rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_12px_rgba(77,248,255,0.3)] overflow-hidden">
+            {userData.profile_picture ? (
+              <img src={userData.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <Store className="text-white w-4 h-4 shadow-sm" />
+            )}
           </div>
           {expanded && (
             <div className="ml-3 min-w-0">

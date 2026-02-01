@@ -168,9 +168,9 @@ class DirectPaymentMonitor:
     def _confirm_payment(self, payment, source, confirmations=None, tx_hash=None, amount=None):
         try:
             # CRITICAL: Trigger if we are moving OUT of pending/expired 
-            # OR if it's been in 'confirmed'/'processing' for too long without completion
-            stuck_threshold = timezone.now() - timedelta(minutes=5)
-            is_stuck = payment.status in ['confirmed', 'processing'] and payment.updated_at < stuck_threshold
+            # NEVER auto-reset 'processing' status to avoid double-payout risk if task is slow
+            stuck_threshold = timezone.now() - timedelta(minutes=15) # Increased threshold
+            is_stuck = payment.status == 'confirmed' and payment.updated_at < stuck_threshold
             needs_trigger = payment.status in ['pending', 'expired'] or is_stuck
             
             if is_stuck or (payment.status != 'completed' and payment.status != 'processing'):

@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
-from .models import PaymentAddress, EscrowPayment, PaymentWebhook, BlockchainTransaction
+from .models import PaymentAddress, EscrowPayment, PaymentWebhook, BlockchainTransaction, DirectPayment
 from shared.models import CryptoCurrency
 from typing import Optional
 import logging
@@ -2251,7 +2251,7 @@ class PayoutService:
             
             if success:
                 logger.info(f"SUCCESS: Payout sent. TX: {tx_hash}")
-                # Use update() to be absolutely sure we don't overwrite with stale data
+                # Use global DirectPayment model directly
                 DirectPayment.objects.filter(id=direct_payment.id).update(
                     status='completed',
                     transaction_hash=tx_hash,

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useBuyerCounts } from "@/contexts/BuyerCountsContext";
 import { authService } from "@/services/authService";
+import { getImageUrl } from '@/config/api';
 
 interface BuyerSidebarProps {
   expanded: boolean;
@@ -324,7 +325,7 @@ export function BuyerSidebar({ expanded, onExpandedChange, hasBanner = false }: 
         <div className="flex items-center">
           <div className="w-8 h-8 bg-gradient-to-br from-[#A6033E] via-[#8a0234] to-[#70022a] rounded-full flex items-center justify-center border border-white/10 shadow-[0_0_12px_rgba(166,3,62,0.3)] overflow-hidden">
             {profilePic ? (
-              <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+              <img src={getImageUrl(profilePic)} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <User className="text-white w-4 h-4 shadow-sm" />
             )}

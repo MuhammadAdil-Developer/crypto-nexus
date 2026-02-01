@@ -16,6 +16,7 @@ import { productService } from "@/services/productService";
 import vendorService from "@/services/vendorService";
 import { api, authService } from "@/services/authService";
 import { useCryptoPrices } from "@/contexts/PriceContext";
+import { getImageUrl } from "@/config/api";
 
 interface Order {
   id: string;
@@ -242,7 +243,8 @@ export default function VendorOverview() {
             sales: salesCount, // Use actual orders count (includes giveaways)
             revenue: `$${Number(product.price || 0).toFixed(2)}`,
             status: product.status === 'approved' ? 'Active' : 'Inactive',
-            stock: product.quantity_available || 0
+            stock: product.quantity_available || 0,
+            image: product.main_image || ''
           };
         })
         .sort((a: any, b: any) => b.sales - a.sales) // Sort by sales count
@@ -376,7 +378,7 @@ export default function VendorOverview() {
         }
       } catch (e) {
         console.error('Error checking application status:', e);
-        // Don't set error status immediately to avoid flickering during polling
+        setApplicationStatus('none');
       }
     };
 
@@ -792,11 +794,24 @@ export default function VendorOverview() {
                 ) : (
                   topProducts.map((product) => (
                     <div key={product.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-white mb-1 text-sm sm:text-base break-words">{product.name}</h4>
-                        <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-300">
-                          <span>{product.sales} sales</span>
-                          <span>Stock: {product.stock}</span>
+                      <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-md">
+                          {product.image ? (
+                            <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-white mb-1 text-sm sm:text-base break-words line-clamp-1">{product.name}</h4>
+                          <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-300">
+                            <span className="flex items-center gap-1">
+                              <span className="text-theme-cyan font-bold">{product.sales}</span> sales
+                            </span>
+                            <span className="flex items-center gap-1">
+                              Stock: <span className={Number(product.stock) < 10 ? 'text-theme-red font-bold' : 'text-emerald-400'}>{product.stock}</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="text-left sm:text-right flex-shrink-0">

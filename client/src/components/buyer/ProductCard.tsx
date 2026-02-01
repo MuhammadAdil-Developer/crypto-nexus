@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Heart, ShoppingCart, Eye, User, Shield, Clock, Plus, Check, Lock } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Eye, User, Shield, Clock, Plus, Check, Lock, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ProductDetailModal from './ProductDetailModal';
 import PaymentModal from './PaymentModal';
@@ -444,10 +444,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             </p>
             <p className="text-xs text-gray-500">≈ ${formatUSD(product.price)}</p>
           </div>
-          <div className="flex items-center gap-1 text-sm text-gray-200">
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span>{(parseFloat(product.rating as any) || 0).toFixed(1)}</span>
-            <span className="text-xs text-gray-500">({product.review_count || 0})</span>
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm transition-all hover:scale-105 ${product.delivery_method === 'manual'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-amber-500/5'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-emerald-500/5'
+              }`}>
+              {product.delivery_method === 'manual' ? (
+                <Clock className="w-3.5 h-3.5" />
+              ) : (
+                <Zap className="w-3.5 h-3.5" />
+              )}
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                {product.delivery_method === 'manual' ? 'Manual Delivery' : 'Instant Auto'}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -666,12 +676,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               </p>
             </div>
             <div className="text-right">
-              <div className="flex items-center space-x-1 text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-1 rounded-full border border-white/10">
-                <Star className="w-2.5 h-2.5 fill-current text-yellow-500" />
-                <span>{(parseFloat(product.rating as any) || 0).toFixed(1)}</span>
+              <div className={`flex items-center space-x-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border transition-all duration-300 ${product.delivery_method === 'manual'
+                  ? 'bg-amber-500/5 border-amber-500/20 text-amber-500/90 hover:bg-amber-500/10'
+                  : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500/90 hover:bg-emerald-500/10'
+                }`}>
+                {product.delivery_method === 'manual' ? (
+                  <Clock className="w-3 h-3" />
+                ) : (
+                  <Zap className="w-3 h-3" />
+                )}
+                <span>{product.delivery_method === 'manual' ? 'Manual' : 'Auto'}</span>
               </div>
-              <p className="text-gray-600 text-[9px] font-bold mt-1 uppercase">
-                {product.quantity_available || 0} left
+              <p className="text-gray-600 text-[9px] font-bold mt-1.5 uppercase tracking-tighter">
+                {product.quantity_available || 0} in stock
               </p>
             </div>
           </div>

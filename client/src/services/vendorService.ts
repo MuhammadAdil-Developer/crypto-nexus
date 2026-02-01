@@ -124,34 +124,40 @@ class VendorService {
 
   async getDashboardStats() {
     try {
-      // Fetch all necessary data in parallel
-      const [productsResponse, profileResponse, ordersResponse, payoutsResponse] = await Promise.all([
+      // Parallel fetches with individual error handling to prevent one failure from blocking everything
+      const results = await Promise.allSettled([
         productService.getVendorProducts(),
         this.getProfile(),
-        api.get('/orders/?page_size=10000'),
+        api.get('/orders/?page_size=50'), // Smaller page size for dashboard stats
         api.get('/payments/vendor/payouts/')
       ]);
 
-      const products = productsResponse.data || [];
-      const profile = profileResponse.data || {};
-      const orders = ordersResponse.data?.results || ordersResponse.data || [];
-      const payoutsExtra = payoutsResponse.data || {};
+      const productsRes = results[0].status === 'fulfilled' ? (results[0].value as any) : { data: [] };
+      const profileRes = results[1].status === 'fulfilled' ? (results[1].value as any) : { data: {} };
+      const ordersResData = results[2].status === 'fulfilled' ? (results[2].value as any).data : { results: [] };
+      const payoutsResData = results[3].status === 'fulfilled' ? (results[3].value as any).data : {};
 
-      console.log("Dashboard Stats - Payouts Data:", payoutsExtra);
+      const products = productsRes.data || [];
+      const profile = profileRes.data || {};
+      const orders = ordersResData?.results || ordersResData || [];
+      const payoutsExtra = payoutsResData || {};
+
+      console.log("Dashboard Stats - Data Fetched", {
+        productsCount: products.length,
+        ordersCount: Array.isArray(orders) ? orders.length : 0
+      });
 
       // Use earnings from payouts page as the source of truth for "Overall Earning"
       const pendingTotalUsd = payoutsExtra.pending_earnings?.total?.usd || "$0.00";
       const totalRevenueFromPayouts = parseFloat(pendingTotalUsd.replace('$', '').replace(',', '')) || 0;
-      const totalSalesCountFromPayouts = payoutsExtra.pending_earnings?.total?.orders || 0;
 
       // Calculate Product Stats
       const totalProducts = products.length;
-      const activeListings = products.filter(p => p.status === 'approved' && (p.is_active !== false)).length;
-      const outOfStock = products.filter(p => Number(p.quantity_available) === 0 && p.status === 'approved').length;
-      const underReview = products.filter(p => p.status === 'pending_approval' || p.status === 'under_review').length;
+      const activeListings = products.filter((p: any) => p.status === 'approved' && (p.is_active !== false)).length;
+      const outOfStock = products.filter((p: any) => Number(p.quantity_available) === 0 && p.status === 'approved').length;
+      const underReview = products.filter((p: any) => p.status === 'pending_approval' || p.status === 'under_review').length;
 
       // Calculate Revenue & Sales (USD based)
-      // We use product.price from the nested product object because order.total_amount is in Crypto
       const validOrderStatuses = [
         'paid', 'completed', 'delivered', 'shipped', 'confirmed',
         'processing', 'payment_received'
@@ -162,7 +168,7 @@ class VendorService {
         validOrderStatuses.includes(o.order_status?.toLowerCase())
       );
 
-      const totalSalesCount = completedOrders.length;
+      const finalSalesCount = completedOrders.length;
 
       // Calculate revenue based on the USD price of the product (Fallback)
       const calculatedRevenue = completedOrders.reduce((sum: number, o: any) => {
@@ -171,17 +177,12 @@ class VendorService {
         return sum + (price * qty);
       }, 0);
 
-      // Final values - Use completedOrders.length as source of truth (includes giveaways)
-      // Don't use totalSalesCountFromPayouts as it might exclude giveaway orders
       const finalRevenue = totalRevenueFromPayouts > 0 ? totalRevenueFromPayouts : calculatedRevenue;
-      const finalSalesCount = completedOrders.length; // Always use actual completed orders count (includes giveaways)
 
       console.log(`Stats Finalized: Revenue=${finalRevenue}, Sales=${finalSalesCount}`);
 
       // Calculate Available Balance (from profile data)
       const availableBalance = profile.account_balance || 0;
-
-      // Calculate Active Cases (Disputes/Tickets)
       const activeCases = 0;
 
       return {
@@ -189,18 +190,18 @@ class VendorService {
         data: {
           revenue: {
             total: finalRevenue,
-            trend: 0, // Calculate trend if possible
+            trend: 0,
             period: 'all_time'
           },
           sales: {
-            total: finalSalesCount, // This is the count
+            total: finalSalesCount,
             trend: 0,
             period: 'this_week'
           },
           listings: {
             active: activeListings,
             total: totalProducts,
-            attention_required: outOfStock // Products needing attention (e.g. out of stock)
+            attention_required: outOfStock
           },
           balance: {
             available: availableBalance,

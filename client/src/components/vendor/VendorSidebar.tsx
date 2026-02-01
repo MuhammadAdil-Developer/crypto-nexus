@@ -23,6 +23,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useVendorCounts } from "@/contexts/VendorCountsContext";
 import { api } from "@/services/authService";
 import { authService } from "@/services/authService";
+import { getImageUrl } from '@/config/api';
 
 interface VendorSidebarProps {
   expanded: boolean;
@@ -343,7 +344,7 @@ export function VendorSidebar({ expanded, onExpandedChange }: VendorSidebarProps
         <div className="flex items-center">
           <div className="w-8 h-8 bg-gradient-to-br from-[#4DF8FF] via-[#00d0d9] to-[#008c99] rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_12px_rgba(77,248,255,0.3)] overflow-hidden">
             {userData.profile_picture ? (
-              <img src={userData.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+              <img src={getImageUrl(userData.profile_picture)} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <Store className="text-white w-4 h-4 shadow-sm" />
             )}

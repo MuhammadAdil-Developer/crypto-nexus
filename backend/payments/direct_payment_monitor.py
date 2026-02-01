@@ -33,10 +33,11 @@ class DirectPaymentMonitor:
     def monitor_pending_direct_payments(self):
         """Monitor ALL payments (15d window) with ultra-strict logic"""
         try:
-            window = timezone.now() - timedelta(days=15)
-            # Fetch ALL matching status to rescue stuck ones
+            # ONLY monitor payments within the last 2 hours to avoid re-processing old orders
+            window = timezone.now() - timedelta(hours=2)
+            # Fetch ONLY pending/expired to avoid double-triggering confirmed/processing tasks
             payments = DirectPayment.objects.filter(
-                Q(status__in=['pending', 'expired', 'confirmed', 'processing']), 
+                Q(status__in=['pending', 'expired']), 
                 created_at__gt=window
             ).select_related('order', 'crypto_currency', 'vendor')
             
@@ -70,9 +71,10 @@ class DirectPaymentMonitor:
     def monitor_pending_payment_addresses(self):
         """Monitor Escrow payout addresses"""
         try:
-            window = timezone.now() - timedelta(days=15)
+            # ONLY monitor payment addresses within the last 2 hours
+            window = timezone.now() - timedelta(hours=2)
             pending_addresses = PaymentAddress.objects.filter(
-                status__in=['pending', 'expired'],
+                status__in=['pending', 'expired', 'processing'],
                 created_at__gt=window
             )
             for pa in pending_addresses:
@@ -231,7 +233,7 @@ class DirectPaymentMonitor:
                 
                 if needs_trigger:
                     from .tasks import process_non_escrow_payout
-                    logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
+                    # logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
                     process_non_escrow_payout.delay(order.order_id, is_settled=True)
         except Exception as e:
             logger.error(f"Confirmation error: {e}")

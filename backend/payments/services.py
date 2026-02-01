@@ -385,7 +385,7 @@ class MoneroRPCService:
             if self.rpc_user and self.rpc_password:
                 auth = HTTPDigestAuth(self.rpc_user, self.rpc_password)
             
-            logger.info(f"Monero RPC call: {method} with params: {params}")
+            # logger.info(f"Monero RPC call: {method} with params: {params}")
             
             response = requests.post(
                 self.rpc_url,
@@ -399,7 +399,7 @@ class MoneroRPCService:
                 if 'error' in result:
                     logger.error(f"Monero RPC error: {result['error']}")
                     return None
-                logger.info(f"Monero RPC success: {method}")
+                # logger.info(f"Monero RPC success: {method}")
                 return result
             else:
                 logger.error(f"Monero RPC HTTP error: {response.status_code} - {response.text}")
@@ -620,16 +620,18 @@ class MoneroRPCService:
             # Calculate total amount needed
             total_amount_needed = sum(dest.get('amount', 0) for dest in destinations)
             
-            logger.info(f"Monero Balance Check: Unlocked={unlocked_balance}, Total={balance}, Required={total_amount_needed}")
+            # logger.info(f"Monero Balance Check: Unlocked={unlocked_balance}, Total={balance}, Required={total_amount_needed}")
             
             if unlocked_balance < total_amount_needed:
                 locked_amount = balance - unlocked_balance
-                logger.error(
-                    f"INSUFFICIENT UNLOCKED BALANCE: Required {total_amount_needed} atomic units, "
-                    f"but only {unlocked_balance} are unlocked. "
-                    f"{locked_amount} atomic units are still locked (waiting for confirmations). "
-                    f"Monero requires 10 confirmations (~20 minutes) before funds can be spent."
-                )
+                # logger.error(
+                #     f"INSUFFICIENT UNLOCKED BALANCE: Required {total_amount_needed} atomic units, "
+                #     f"but only {unlocked_balance} are unlocked. "
+                #     f"{locked_amount} atomic units are still locked (waiting for confirmations). "
+                #     f"Monero requires 10 confirmations (~20 minutes) before funds can be spent."
+                # )
+                # Downgrade to a single warning line to reduce spam
+                logger.warning(f"⚠️ Monero Payout Pending: {unlocked_balance}/{total_amount_needed} units unlocked (Wait ~20m)")
                 return None
             
             # Priority: 1=normal, 2=elevated, 3=priority, 4=flash
@@ -1400,18 +1402,19 @@ class PaymentService:
             logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
             logger.info(f"✅ VERIFICATION: net_amount ({net_amount}) = gross ({amount}) - platform_fee ({platform_fee}) - escrow_fee ({escrow_fee})")
             
-            # Update direct payment record with fees (SAVE IMMEDIATELY)
-            direct_payment.platform_fee = platform_fee
-            direct_payment.escrow_fee = escrow_fee
-            direct_payment.net_amount = net_amount
-            
-            # CRITICAL: If settled, assume any previous 'processing' task is sleeping/stuck
-            # Reset to 'confirmed' to allow new task to run immediately without "Already in progress" lock
-            if is_settled and direct_payment.status == 'processing':
+            # CRITICAL: If it already has a transaction hash, it MUST stay completed.
+            if direct_payment.transaction_hash and len(direct_payment.transaction_hash) > 10:
+                direct_payment.status = 'completed'
+                logger.info(f"✅ Payout {direct_payment.id} already has hash - keeping status 'completed'")
+            # Otherwise, if settled, assume any previous 'processing' task is sleeping/stuck
+            # Reset to 'confirmed' ONLY if it really needs a fresh payout attempt
+            elif is_settled and direct_payment.status == 'processing':
                 logger.info(f"⚡ SETTLED signal: Resetting '{direct_payment.status}' status to 'confirmed' to force immediate payout.")
                 direct_payment.status = 'confirmed'
-            elif direct_payment.status != 'processing' and direct_payment.status != 'completed':
+            elif direct_payment.status not in ['processing', 'completed', 'failed']:
                 direct_payment.status = 'confirmed'
+            
+            direct_payment.save(update_fields=['platform_fee', 'escrow_fee', 'net_amount', 'status'])
                 
             direct_payment.confirmed_at = timezone.now()
             direct_payment.transaction_hash = payment_address.transaction_hash
@@ -1451,17 +1454,17 @@ class PaymentService:
             logger.info(f"==========================================")
             
             if not is_settled and current_confirmations < required_confirmations:
-                logger.warning(f"⏰ PAYOUT DEFERRED for Order {payment_address.order_id}: {current_confirmations}/{required_confirmations} confirmations. Waiting for more.")
+                logger.warning(f" PAYOUT DEFERRED for Order {payment_address.order_id}: {current_confirmations}/{required_confirmations} confirmations. Waiting for more.")
                 logger.info(f"   Required: {required_confirmations}, Current: {current_confirmations}")
                 # DO NOT SEND PAYOUT - EXIT HERE!
                 return
             
             if is_settled:
-                logger.info(f"✅ PAYOUT AUTHORIZED: Payment marked as SETTLED by webhook (Order {payment_address.order_id})")
+                logger.info(f"PAYOUT AUTHORIZED: Payment marked as SETTLED by webhook (Order {payment_address.order_id})")
                 if payment_address.crypto_currency.symbol == 'BTC':
-                    logger.info(f"   🛡️ BTC SECURITY CHECK PASSED: Payment is fully SETTLED on blockchain. Safe to forward to vendor.")
+                    logger.info(f"   BTC SECURITY CHECK PASSED: Payment is fully SETTLED on blockchain. Safe to forward to vendor.")
             else:
-                logger.info(f"✅ CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
+                logger.info(f"CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
             logger.info(f"==========================================")
             
             # STEP 3: TRIGGER PAYOUT (only if confirmations are sufficient)
@@ -2206,49 +2209,44 @@ class PayoutService:
                 net_amount = expected_net
             
             # Step 4: CRITICAL - Log what we're about to send
-            logger.info(f"✅ VERIFIED: Sending net_amount = {net_amount} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee}, escrow_fee: {direct_payment.escrow_fee})")
-            logger.info(f"   Platform fee WAS deducted: {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee} = {net_amount}")
+            # logger.info(f"✅ VERIFIED: Sending net_amount = {net_amount} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee}, escrow_fee: {direct_payment.escrow_fee})")
+            # logger.info(f"   Platform fee WAS deducted: {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee} = {net_amount}")
             
             # CRITICAL: Reload from DB to ensure we have latest values
             direct_payment.refresh_from_db()
             
             # Recalculate net_amount from latest DB values to be 100% sure
             calculated_net = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
-            if abs(net_amount - calculated_net) > Decimal('0.00000001'):
-                logger.warning(f"⚠️ net_amount parameter ({net_amount}) != calculated from DB ({calculated_net})")
-                logger.warning(f"Using calculated value from DB: {calculated_net}")
-                net_amount = calculated_net
+            # if abs(net_amount - calculated_net) > Decimal('0.00000001'):
+            #     logger.warning(f"⚠️ net_amount parameter ({net_amount}) != calculated from DB ({calculated_net})")
+            #     logger.warning(f"Using calculated value from DB: {calculated_net}")
+            net_amount = calculated_net
             
-            logger.info("=== DIRECT PAYOUT EXECUTION ===")
-            logger.info(f"Order: {direct_payment.order.order_id}")
-            logger.info(f"Vendor: {direct_payment.vendor.username}")
-            logger.info(f"Currency: {crypto_currency}")
-            logger.info(f"Gross Amount (received): {direct_payment.amount}")
-            logger.info(f"Platform Fee (deducted): {direct_payment.platform_fee}")
-            logger.info(f"Escrow Fee (deducted): {direct_payment.escrow_fee}")
-            logger.info(f"NET AMOUNT TO VENDOR: {net_amount} = {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee}")
-            logger.info(f"Destination Address: {vendor_address}")
-            logger.info(f"✅ VERIFIED: Platform fee WAS deducted before sending")
-            logger.info(f"💰 PLATFORM FEE RETAINED: {direct_payment.platform_fee} {crypto_currency} stays in platform wallet (BTCPay)")
-            logger.info(f"   Only {net_amount} {crypto_currency} is being sent to vendor")
+            # logger.info("=== DIRECT PAYOUT EXECUTION ===")
+            # logger.info(f"Order: {direct_payment.order.order_id}")
+            # logger.info(f"Vendor: {direct_payment.vendor.username}")
+            # logger.info(f"Currency: {crypto_currency}")
+            # logger.info(f"Gross Amount (received): {direct_payment.amount}")
+            # logger.info(f"Platform Fee (deducted): {direct_payment.platform_fee}")
+            # logger.info(f"Escrow Fee (deducted): {direct_payment.escrow_fee}")
+            # logger.info(f"NET AMOUNT TO VENDOR: {net_amount} = {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee}")
+            # logger.info(f"Destination Address: {vendor_address}")
+            # logger.info(f"✅ VERIFIED: Platform fee WAS deducted before sending")
+            # logger.info(f"💰 PLATFORM FEE RETAINED: {direct_payment.platform_fee} {crypto_currency} stays in platform wallet (BTCPay)")
+            # logger.info(f"   Only {net_amount} {crypto_currency} is being sent to vendor")
             
             # CRITICAL: Final check - net_amount MUST be < received_amount
             if net_amount >= direct_payment.amount:
                 logger.error(f"❌❌❌ CRITICAL ERROR: net_amount ({net_amount}) >= received_amount ({direct_payment.amount})!")
-                logger.error(f"   This means we're sending MORE than we received!")
-                logger.error(f"   Platform fee: {direct_payment.platform_fee}, Escrow fee: {direct_payment.escrow_fee}")
                 raise ValueError(f"Cannot send: net_amount ({net_amount}) >= received_amount ({direct_payment.amount})")
             
-            # Calculate what vendor will actually receive (after network fee)
-            estimated_network_fee = Decimal('0.0000025') if crypto_currency == 'BTC' else Decimal('0.0001')
-            vendor_will_receive = net_amount - estimated_network_fee
-            logger.info(f"📊 FINAL SUMMARY:")
-            logger.info(f"   Received from buyer: {direct_payment.amount} {crypto_currency}")
-            logger.info(f"   Platform fee (kept): {direct_payment.platform_fee} {crypto_currency}")
-            logger.info(f"   Sending to vendor: {net_amount} {crypto_currency}")
-            logger.info(f"   Network fee (deducted by BTCPay): ~{estimated_network_fee} {crypto_currency}")
-            logger.info(f"   Vendor will receive: ~{vendor_will_receive} {crypto_currency}")
-            logger.info("===============================")
+            # logger.info(f"📊 FINAL SUMMARY:")
+            # logger.info(f"   Received from buyer: {direct_payment.amount} {crypto_currency}")
+            # logger.info(f"   Platform fee (kept): {direct_payment.platform_fee} {crypto_currency}")
+            # logger.info(f"   Sending to vendor: {net_amount} {crypto_currency}")
+            # logger.info(f"   Network fee (deducted by BTCPay): ~{estimated_network_fee} {crypto_currency}")
+            # logger.info(f"   Vendor will receive: ~{vendor_will_receive} {crypto_currency}")
+            # logger.info("===============================")
             
             if crypto_currency == 'BTC':
                 # CRITICAL: Pass received_amount for verification

@@ -143,26 +143,51 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         if not vendor_payout_address:
             logger.error(f"Vendor {vendor.username} has no {crypto_symbol} payout address configured.")
             
-        # Get or create direct payment
-        direct_payment, created = DirectPayment.objects.get_or_create(
-            order=order,
-            defaults={
-                'vendor': vendor,
-                'buyer': order.buyer,
-                'crypto_currency': payment_address.crypto_currency,
-                'amount': payment_address.received_amount if (payment_address.received_amount and payment_address.received_amount > 0) else Decimal(str(payment_address.expected_amount)), 
-                'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
-                'status': 'pending',
-                'platform_fee': Decimal('0'),  # Will be calculated below
-                'escrow_fee': Decimal('0'),
-                'net_amount': Decimal('0')  # Will be calculated below
-            }
-        )
-        
-        # If address was missing originally but now exists, update it
-        if direct_payment.vendor_address == "MISSING_ADDRESS" and vendor_payout_address:
-            direct_payment.vendor_address = vendor_payout_address
-            direct_payment.save()
+        # Get or create direct payment in atomic transaction with lock
+        with transaction.atomic():
+            direct_payment, created = DirectPayment.objects.select_for_update().get_or_create(
+                order=order,
+                defaults={
+                    'vendor': vendor,
+                    'buyer': order.buyer,
+                    'crypto_currency': payment_address.crypto_currency,
+                    'amount': payment_address.received_amount if (payment_address.received_amount and payment_address.received_amount > 0) else Decimal(str(payment_address.expected_amount)), 
+                    'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
+                    'status': 'pending',
+                    'platform_fee': Decimal('0'),
+                    'escrow_fee': Decimal('0'),
+                    'net_amount': Decimal('0')
+                }
+            )
+            
+            # If address was missing originally but now exists, update it
+            if direct_payment.vendor_address == "MISSING_ADDRESS" and vendor_payout_address:
+                direct_payment.vendor_address = vendor_payout_address
+                direct_payment.save()
+            
+            # CRITICAL: DEBOUNCE / CONCURRENCY CHECK
+            # CRITICAL SAFETY: If it's already completed, STOP.
+            if direct_payment.status == 'completed':
+                return f"Order {order_id} already completed"
+            
+            # CRITICAL SAFETY: If it has a transaction_hash, it must be completed.
+            # This fixes the "stuck in processing" issue you mentioned.
+            if direct_payment.transaction_hash and len(direct_payment.transaction_hash) > 10:
+                if direct_payment.status != 'completed':
+                    direct_payment.status = 'completed'
+                    direct_payment.save(update_fields=['status'])
+                    logger.info(f"✅ Auto-fixed stuck payout: {order_id} marked as completed because tx_hash exists.")
+                return f"Order {order_id} already has a transaction hash, marking as completed."
+            
+            # If already processing by another worker recently, skip
+            if direct_payment.status == 'processing' and self.request.retries == 0:
+                 if direct_payment.updated_at > timezone.now() - timedelta(minutes=5):
+                     return f"Already in progress"
+
+            # Mark as processing IMMEDIATELY inside the lock
+            direct_payment.status = 'processing'
+            direct_payment.updated_at = timezone.now()
+            direct_payment.save(update_fields=['status', 'updated_at'])
         
         # CRITICAL: If this is an existing payment, verify fees were calculated correctly
         if not created:
@@ -186,33 +211,12 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
              return f"Vendor {vendor.username} has no {crypto_symbol} payout address. Payout held."
         
         # ============================================================
-        # DEBOUNCE/STUCK CHECK: Prevent duplicates but allow rescue
-        # ============================================================
-        if direct_payment.status == 'completed':
-            return f"Order {order_id} already completed"
-
-        if direct_payment.status == 'processing' and self.request.retries == 0:
-            # If it was updated in the last 5 minutes, assume another worker is active
-            if direct_payment.updated_at > timezone.now() - timedelta(minutes=5):
-                return f"Already in progress"
-            else:
-                logger.warning(f"⚠️ Rescuing STUCK 'processing' task for {order_id}")
-
-        if direct_payment.status == 'failed' and self.request.retries == 0:
-            return f"Direct payment for order {order_id} already failed"
-        
-        # Mark as processing (only if not already completed)
-        if direct_payment.status != 'completed':
-            direct_payment.status = 'processing'
-            direct_payment.updated_at = timezone.now()
-            direct_payment.save(update_fields=['status', 'updated_at'])
-        
-        # ============================================================
         # CRITICAL: BLOCKCHAIN CONFIRMATION CHECK (Safety Layer)
         # ============================================================
-        # BTCPay "Settled" Status is the ultimate source of truth for BTC
-        if is_settled and crypto_symbol == 'BTC':
-            logger.info(f"✅ BTC PAYOUT SETTLED: Bypassing confirmation check for Order {order_id}")
+        can_proceed = False
+        # BTCPay "Settled" Status or Monitor Detection is the source of truth
+        if is_settled:
+            # logger.info(f"✅ PAYOUT AUTHORIZED: Bypassing confirmation check for Order {order_id}")
             can_proceed = True
         else:
             from django.conf import settings as django_settings
@@ -225,8 +229,8 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 logger.warning(f"⏳ PAYOUT PENDING: {order_id} ({current_confs}/{required_confs} confs).")
                 raise self.retry(countdown=300)
             
-        if can_proceed:
-            logger.info(f"💰 Processing Vendor Payout: {order_id}")
+        # if can_proceed:
+        #     logger.info(f"💰 Processing Vendor Payout: {order_id}")
         
         # Calculate fees
         from .commission_models import CommissionSettings, VendorFee
@@ -257,7 +261,7 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             raise ValueError(f"Platform fee rate {platform_fee_rate} is invalid for order {order_id}")
             
         escrow_fee_rate = Decimal('0')  # CRITICAL FIX: Define escrow_fee_rate for all branches
-        logger.info(f"📊 Payout Logic for Order {order_id}: Currency={crypto_symbol}, Vendor={vendor.username}, Rate={platform_fee_rate*100}%")
+        # logger.info(f"📊 Payout Logic for Order {order_id}: Currency={crypto_symbol}, Vendor={vendor.username}, Rate={platform_fee_rate*100}%")
         
         # ============================================================
         # FEE CALCULATION FLOW (CONFIRMED APPROACH):
@@ -274,7 +278,7 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         # NOT expected_amount or direct_payment.amount (which might be stale)
         if payment_address.received_amount and payment_address.received_amount > 0:
             amount = payment_address.received_amount
-            logger.info(f"✅ Using received_amount ({amount}) for fee calculation (after buyer's network fee deduction)")
+            # logger.info(f"✅ Using received_amount ({amount}) for fee calculation (after buyer's network fee deduction)")
         else:
             logger.error(f"❌ CRITICAL ERROR: received_amount is {payment_address.received_amount} (must be > 0)!")
             logger.error(f"   expected_amount: {payment_address.expected_amount}")
@@ -391,7 +395,7 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         direct_payment.save()
         
         # CRITICAL VERIFICATION: Log what we're about to send
-        logger.info(f"✅ VERIFICATION: About to send {net_amount} {crypto_symbol} to vendor")
+        # logger.info(f"✅ VERIFICATION: About to send {net_amount} {crypto_symbol} to vendor")
         # logger.info(f"   Gross (received): {amount} {crypto_symbol}")
         # logger.info(f"   Platform Fee (RETAINED in platform wallet): {platform_fee} {crypto_symbol}")
         # logger.info(f"   Escrow Fee: {escrow_fee} {crypto_symbol}")
@@ -422,7 +426,7 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         # logger.info(f"  Platform Fee: ${platform_fee * price:.2f} USD")
         # logger.info(f"  Net (before miner fees): ${net_amount * price:.2f} USD")
         # logger.info(f"  Expected vendor receive: ${(net_amount - estimated_miner_fee) * price:.2f} USD")
-        logger.info(f"VENDOR PAYOUT ADDRESS: {vendor_payout_address}")
+        # logger.info(f"VENDOR PAYOUT ADDRESS: {vendor_payout_address}")
         # logger.info(f"-------------------------------------------")
         
         # Dust check: if miner fee >= net_amount, vendor would receive <= 0 — never retry

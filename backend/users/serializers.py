@@ -69,6 +69,15 @@ class UserLoginSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     """User serializer for basic user information - no PII"""
     total_orders = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()
+
+    def get_profile_picture(self, obj):
+        if not obj.profile_picture:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.profile_picture.url)
+        return obj.profile_picture.url
 
     def get_total_orders(self, obj):
         # Check if already annotated for performance

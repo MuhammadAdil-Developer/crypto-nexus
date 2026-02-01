@@ -301,12 +301,13 @@ export default function VendorEditProduct() {
       return;
     }
 
-    // Auto-delivery validation
-    if (formData.delivery_method === 'auto' && (!formData.credentials || !formData.credentials.trim())) {
+    // Auto-delivery validation (Inline)
+    if (formData.delivery_time === 'instant_auto' && (!formData.credentials || !formData.credentials.trim())) {
+      setErrors(prev => ({ ...prev, credentials: 'This field is required in instant auto delivery' }));
       showToast({
         type: 'error',
         title: "Validation Error",
-        message: "Credentials are required for Auto-Delivery products. Please provide account details."
+        message: "This field is required in instant auto delivery."
       });
       return;
     }
@@ -899,20 +900,35 @@ export default function VendorEditProduct() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="credentials" className="text-gray-300">Credentials {formData.delivery_method === 'auto' && <span className="text-theme-red">*</span>}</Label>
+                <Label htmlFor="credentials" className={`text-gray-300 ${errors.credentials ? 'text-theme-red' : ''}`}>
+                  Credentials {formData.delivery_time === 'instant_auto' && <span className="text-theme-red">*</span>}
+                </Label>
                 <Textarea
                   id="credentials"
                   name="credentials"
                   value={formData.credentials}
-                  onChange={handleInputChange}
-                  className="bg-gray-800 border-gray-600 text-white min-h-[80px]"
-                  placeholder={formData.delivery_method === 'auto' ? "Enter account credentials (Required for Auto-Delivery)" : "Enter account credentials (Optional for Manual Delivery)"}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    if (errors.credentials) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev };
+                        delete newErrors.credentials;
+                        return newErrors;
+                      });
+                    }
+                  }}
+                  className={`bg-gray-800 border-gray-600 text-white min-h-[80px] ${errors.credentials ? 'border-theme-red ring-1 ring-theme-red bg-red-500/10' : ''}`}
+                  placeholder={formData.delivery_time === 'instant_auto' ? "Enter account credentials (Required for Auto-Delivery)" : "Enter account credentials (Optional for Manual Delivery)"}
                 />
-                <p className="text-[10px] text-gray-500">
-                  {formData.delivery_method === 'auto'
-                    ? "For auto-delivery, these will be sent to the buyer immediately."
-                    : "For manual delivery, you can leave this empty and provide details later."}
-                </p>
+                {errors.credentials ? (
+                  <p className="text-theme-red text-xs mt-1 font-medium italic">{errors.credentials}</p>
+                ) : (
+                  <p className="text-[10px] text-gray-500">
+                    {formData.delivery_time === 'instant_auto'
+                      ? "For auto-delivery, these will be sent to the buyer immediately."
+                      : "For manual delivery, you can leave this empty and provide details later."}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -939,7 +955,16 @@ export default function VendorEditProduct() {
                       type="button"
                       variant={formData.delivery_method === 'manual' ? 'default' : 'outline'}
                       className={`h-10 ${formData.delivery_method === 'manual' ? 'bg-theme-cyan text-black' : 'border-gray-600 text-gray-400'}`}
-                      onClick={() => setFormData(prev => ({ ...prev, delivery_method: 'manual', delivery_time: 'manual_24h' }))}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, delivery_method: 'manual', delivery_time: 'manual_24h' }));
+                        if (errors.credentials) {
+                          setErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.credentials;
+                            return newErrors;
+                          });
+                        }
+                      }}
                     >
                       Manual
                     </Button>

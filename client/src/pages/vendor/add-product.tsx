@@ -170,6 +170,12 @@ export default function VendorAddProduct() {
     if (!formData.delivery_time) {
       newErrors.delivery_time = 'Delivery time is required';
     }
+
+    // MANDATORY REQ: If Instant Auto-delivery is selected, credentials ARE REQUIRED
+    if (formData.delivery_time === 'instant_auto' && !formData.credentials.trim()) {
+      newErrors.credentials = 'This field is required in instant auto delivery';
+    }
+
     if (formData.account_balance && !/^\d+(\.\d+)?$/.test(formData.account_balance)) {
       newErrors.account_balance = 'Balance must be a valid number (e.g., 50 or 50.00)';
     }
@@ -654,7 +660,16 @@ export default function VendorAddProduct() {
                   <Label htmlFor="delivery_time" className="text-white">Delivery Time *</Label>
                   <Select
                     value={formData.delivery_time}
-                    onValueChange={(value) => setFormData({ ...formData, delivery_time: value })}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, delivery_time: value });
+                      if (value === 'manual_24h' && errors.credentials) {
+                        setErrors(prev => {
+                          const newBackErrors = { ...prev };
+                          delete newBackErrors.credentials;
+                          return newBackErrors;
+                        });
+                      }
+                    }}
                   >
                     <SelectTrigger className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.delivery_time ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select delivery time" />
@@ -728,18 +743,33 @@ export default function VendorAddProduct() {
               </div>
 
               <div>
-                <Label htmlFor="credentials" className="text-white">Credentials</Label>
+                <Label htmlFor="credentials" className={`text-white ${errors.credentials ? 'text-red-500' : ''}`}>
+                  Credentials {formData.delivery_time === 'instant_auto' ? '*' : ''}
+                </Label>
                 <Textarea
                   id="credentials"
                   placeholder="e.g., testemail@test.com:testuser66:testpassword"
                   value={formData.credentials}
-                  onChange={(e) => setFormData({ ...formData, credentials: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, credentials: e.target.value });
+                    if (errors.credentials) {
+                      setErrors(prev => {
+                        const newBackErrors = { ...prev };
+                        delete newBackErrors.credentials;
+                        return newBackErrors;
+                      });
+                    }
+                  }}
                   rows={3}
-                  className="bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50"
+                  className={`bg-gray-900/50 border-gray-700/50 text-white rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 ${errors.credentials ? 'border-red-500 bg-red-500/10' : ''}`}
                 />
-                <p className="text-gray-400 text-sm mt-1">
-                  Credentials will be hidden until payment is confirmed
-                </p>
+                {errors.credentials ? (
+                  <p className="text-red-500 text-xs mt-1 font-medium italic">{errors.credentials}</p>
+                ) : (
+                  <p className="text-gray-400 text-sm mt-1">
+                    Credentials will be hidden until payment is confirmed
+                  </p>
+                )}
               </div>
 
               {/* Escrow Settings */}

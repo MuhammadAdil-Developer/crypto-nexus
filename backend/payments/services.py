@@ -1131,24 +1131,20 @@ class PaymentService:
                 if webhook_type == 'InvoiceReceivedPayment':
                     # Payment received but might still be processing
                     if payment_status == 'Processing':
-                        btcpay_status = 'Paid'  # Payment received, mark as paid
+                        # CRITICAL CHANGE: Keep as 'Processing' (Pending) - DO NOT mark as 'Paid' yet
+                        # User wants toast/confirmation ONLY on Settlement
+                        btcpay_status = 'Processing'  
                     elif payment_status == 'Settled':
                         btcpay_status = 'Settled'  # Payment fully confirmed
                     else:
-                        btcpay_status = 'Paid'
+                        btcpay_status = 'Processing'
                 elif webhook_type == 'InvoicePaymentSettled':
                     btcpay_status = 'Settled'  # Payment fully settled
                 elif webhook_type == 'InvoiceSettled':
                     btcpay_status = 'Settled'  # Invoice completed
                 elif webhook_type == 'InvoiceProcessing':
-                    # This is just a processing notification, don't change status if already paid
-                    current_status = payment_address.status
-                    if current_status == 'paid' or current_status == 'pending':
-                        # Don't change status, just log
-                        logger.info(f"InvoiceProcessing webhook received - keeping current status: {current_status}")
-                        return True  # Skip processing this webhook
-                    else:
-                        btcpay_status = 'Paid'
+                    # This is just a processing notification
+                    btcpay_status = 'Processing'
                 else:
                     btcpay_status = 'New'
                 
@@ -1157,6 +1153,7 @@ class PaymentService:
                 # Map BTCPay status to our payment status
                 status_mapping = {
                     'New': 'pending',
+                    'Processing': 'pending', # processing = pending (no toast yet)
                     'Paid': 'paid', 
                     'Settled': 'paid',
                     'Invalid': 'cancelled',
@@ -1207,26 +1204,26 @@ class PaymentService:
                     except Exception as e:
                         logger.error(f"Failed to create payment failed notification: {str(e)}")
                 
+                # ALWAYS process payment data (amount, hash) if available, even if 'pending'
+                # This ensures we capture the amount from InvoiceReceivedPayment before InvoiceSettled (which might lack data)
+                payment_id = payment_data.get('id') if payment_data else None
+                payment_amount = payment_data.get('value') if payment_data else None
+                
+                if payment_id:
+                    payment_address.transaction_hash = payment_id
+                    logger.info(f"Captured transaction hash: {payment_id}")
+                
+                if payment_amount is not None:
+                    payment_address.received_amount = float(payment_amount)
+                    logger.info(f"Captured received amount: {payment_address.received_amount}")
+                elif (btcpay_status == 'Settled' or mapped_status == 'paid') and (not payment_address.received_amount or payment_address.received_amount == 0):
+                    # FALLBACK: If status is Settled/Paid but amount is missing in webhook, 
+                    # use the expected amount from the payment address record
+                    payment_address.received_amount = float(payment_address.expected_amount)
+                    logger.info(f"Webhook amount missing for {btcpay_status} status. Using expected_amount fallback: {payment_address.received_amount}")
+                
                 if mapped_status == 'paid':
                     payment_address.confirmed_at = timezone.now()
-                    
-                    # Get transaction hash and amount from payment data
-                    # Handle cases where payment_data might be missing or empty (typical for Settled webhooks)
-                    payment_id = payment_data.get('id') if payment_data else None
-                    payment_amount = payment_data.get('value') if payment_data else None
-                    
-                    if payment_id:
-                        payment_address.transaction_hash = payment_id
-                    
-                    if payment_amount is not None:
-                        payment_address.received_amount = float(payment_amount)
-                        logger.info(f"Using amount from webhook payment data: {payment_address.received_amount}")
-                    elif btcpay_status == 'Settled' or btcpay_status == 'Paid':
-                        # FALLBACK: If status is Settled/Paid but amount is missing in webhook, 
-                        # use the expected amount from the payment address record
-                        if not payment_address.received_amount or payment_address.received_amount == 0:
-                            payment_address.received_amount = float(payment_address.expected_amount)
-                            logger.info(f"Webhook amount missing for {btcpay_status} status. Using expected_amount fallback: {payment_address.received_amount}")
                     
                     # Extract confirmations from payment data - ONLY if higher than current
                     new_confs = payment_data.get('confirmations', 0) if payment_data else 0
@@ -1243,6 +1240,7 @@ class PaymentService:
                 payment_address.save()
                 
                 # Update order status dynamically based on BTCPay status
+                # ONLY if status allows (Processing -> Pending Payment, Settled -> Paid)
                 logger.info(f"Updating order status based on BTCPay status: {btcpay_status}")
                 self._update_order_status_dynamically(payment_address.order_id, btcpay_status)
                 
@@ -1255,7 +1253,7 @@ class PaymentService:
                     # Update escrow payout status to 'ready'
                     self._update_escrow_payout_status(payment_address.order_id)
                 
-                # Process direct payment if applicable (NEW APPROACH)
+                # Process direct payment if applicable (only if paid/settled)
                 if mapped_status == 'paid':
                     # Determine if settled (fully confirmed)
                     is_settled = (btcpay_status == 'Settled')
@@ -1443,6 +1441,8 @@ class PaymentService:
             
             if is_settled:
                 logger.info(f"✅ PAYOUT AUTHORIZED: Payment marked as SETTLED by webhook (Order {payment_address.order_id})")
+                if payment_address.crypto_currency.symbol == 'BTC':
+                    logger.info(f"   🛡️ BTC SECURITY CHECK PASSED: Payment is fully SETTLED on blockchain. Safe to forward to vendor.")
             else:
                 logger.info(f"✅ CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
             logger.info(f"==========================================")
@@ -1814,6 +1814,7 @@ class PaymentService:
                 order = Order.objects.get(order_id=order_id)
                 if getattr(order, 'is_giveaway', False) or order.total_amount == 0:
                     # Giveaway orders don't have payment addresses - return paid status
+                    logger.info(f"Giveaway order {order_id} - returning PAID status")
                     return {
                         'order_id': order_id,
                         'status': 'paid',
@@ -1898,6 +1899,8 @@ class PaymentService:
                 'required_confirmations': payment_address.required_confirmations,
                 'crypto_currency': payment_address.crypto_currency.symbol
             }
+            
+            logger.info(f"check_payment_status for {order_id} returning: {result['status']} (Expected: {payment_address.expected_amount}, Received: {payment_address.received_amount})")
             
             # Add Monero specific info
             if payment_address.crypto_currency.symbol == 'XMR' and payment_address.monero_subaddress_index:

@@ -131,6 +131,7 @@ class CreatePaymentAddressView(APIView):
             )
             
             # Prepare response
+            logger.info(f"Payment address created: {payment_address.payment_address}, Status: {payment_address.status}, Order: {payment_address.order_id}")
             response_data = {
                 'order_id': payment_address.order_id,
                 'payment_address': payment_address.payment_address,

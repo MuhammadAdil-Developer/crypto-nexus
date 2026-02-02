@@ -799,9 +799,11 @@ export default function VendorOrders() {
                             ['paid', 'processing', 'confirmed', 'completed'].includes((order.rawOrderStatus || order.status || '').toLowerCase())
                           ) && (
                               order.is_giveaway ||
-                              order.delivery_time === 'manual' ||
-                              !order.delivery_time
-                            ) && (
+                              ['manual', 'manual_24h'].includes(order.delivery_time) ||
+                              (!order.delivery_time && !order.is_giveaway)
+                            ) &&
+                            !((order.delivery_time || '').toLowerCase().includes('auto') || (order.delivery_time || '').toLowerCase().includes('instant')) &&
+                            (
                               !order.product_credentials ||
                               (typeof order.product_credentials === 'object' && (!order.product_credentials.credentials || order.product_credentials.credentials === ''))
                             ) && (
@@ -884,11 +886,12 @@ export default function VendorOrders() {
                                   <Star className="w-4 h-4 mr-2" /> View Reviews
                                 </DropdownMenuItem>
                               )}
-                              {(order.status === "Paid" || order.rawOrderStatus === "paid") && (
-                                <DropdownMenuItem onClick={() => handleOpenDeliverModal(order)} className="cursor-pointer text-green-400 hover:text-green-300">
-                                  <CheckCircle className="w-4 h-4 mr-2" /> Deliver Product
-                                </DropdownMenuItem>
-                              )}
+                              {((order.status === "Paid" || order.rawOrderStatus === "paid") &&
+                                !((order.delivery_time || '').toLowerCase().includes('auto') || (order.delivery_time || '').toLowerCase().includes('instant'))) && (
+                                  <DropdownMenuItem onClick={() => handleOpenDeliverModal(order)} className="cursor-pointer text-green-400 hover:text-green-300">
+                                    <CheckCircle className="w-4 h-4 mr-2" /> Deliver Product
+                                  </DropdownMenuItem>
+                                )}
                               <DropdownMenuItem
                                 onClick={() => handleRequestRefund(order)}
                                 className={order.status === "Completed" || order.status === "Processing" ? "text-orange-400 cursor-pointer" : "text-gray-500 cursor-not-allowed"}

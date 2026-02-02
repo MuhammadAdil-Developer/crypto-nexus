@@ -228,6 +228,12 @@ class DirectPaymentMonitor:
                 if order.order_status in ['pending', 'pending_payment']:
                     if order.product.delivery_time == 'instant_auto':
                         order.order_status = 'confirmed' # Shows as "Completed"
+                        order.delivered_at = timezone.now()
+                        order.product_credentials = {
+                            'credentials': order.product.credentials,
+                            'delivered_at': timezone.now().isoformat(),
+                            'delivery_method': 'auto'
+                        }
                     else:
                         order.order_status = 'paid'
                 order.save()

@@ -203,8 +203,19 @@ class PaymentStatusView(APIView):
             # Get the order
             order = Order.objects.get(order_id=order_id)
             
-            # Update order status to PAID (not PROCESSING)
-            order.order_status = OrderStatus.PAID.value
+            # Update order status
+            if order.product.delivery_time == 'instant_auto':
+                order.order_status = OrderStatus.CONFIRMED.value
+                order.delivered_at = timezone.now()
+                # Auto-deliver credentials
+                order.product_credentials = {
+                    'credentials': order.product.credentials,
+                    'delivered_at': timezone.now().isoformat(),
+                    'delivery_method': 'auto'
+                }
+            else:
+                order.order_status = OrderStatus.PAID.value
+            
             order.payment_status = 'paid'
             order.payment_confirmed_at = timezone.now()
             order.save()

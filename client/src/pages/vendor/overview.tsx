@@ -408,18 +408,20 @@ export default function VendorOverview() {
     } catch (e) { /* ignore in SSR */ }
 
     // Check if legal documents have been confirmed
-    // SKIP if user is already a vendor or has already accepted
+    // Check if legal documents have been confirmed
+    // Only show modals if user is NOT a vendor and hasn't accepted legal yet
+    // (Vendors are assumed to have accepted during application or via other means if user_type is 'vendor')
     const currentUser = authService.getCurrentUser();
-    if (currentUser?.user_type === 'vendor' || currentUser?.legal_accepted) {
-      return;
-    }
+    const shouldCheckLegal = !(currentUser?.user_type === 'vendor' || currentUser?.legal_accepted);
 
-    const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
-    const termsConfirmed = localStorage.getItem('legal_confirmed_terms');
-    if (!privacyConfirmed) {
-      setShowPrivacyModal(true);
-    } else if (!termsConfirmed) {
-      setShowTermsModal(true);
+    if (shouldCheckLegal) {
+      const privacyConfirmed = localStorage.getItem('legal_confirmed_privacy');
+      const termsConfirmed = localStorage.getItem('legal_confirmed_terms');
+      if (!privacyConfirmed) {
+        setShowPrivacyModal(true);
+      } else if (!termsConfirmed) {
+        setShowTermsModal(true);
+      }
     }
 
     fetchRecentOrders();

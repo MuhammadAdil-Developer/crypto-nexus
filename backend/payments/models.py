@@ -224,6 +224,7 @@ class Payout(BaseModel):
     PAYOUT_TYPES = [
         ('escrow', 'Escrow Release'),
         ('direct', 'Direct Payment'),
+        ('refund', 'Partial Payment Refund'),
     ]
     
     PAYOUT_STATUS = [
@@ -297,7 +298,8 @@ class DirectPayment(BaseModel):
     buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_direct_payments')
     
     crypto_currency = models.ForeignKey('shared.CryptoCurrency', on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=20, decimal_places=8)
+    amount = models.DecimalField(max_digits=20, decimal_places=8) # Expected
+    amount_received = models.DecimalField(max_digits=20, decimal_places=8, default=0) # Actual
     
     # Fee tracking
     platform_fee = models.DecimalField(max_digits=20, decimal_places=8, default=0)

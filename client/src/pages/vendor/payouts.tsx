@@ -63,7 +63,7 @@ interface PayoutData {
   date: string;
   txHash?: string;
   order_id?: string;
-  type?: 'escrow' | 'direct';
+  type?: 'escrow' | 'direct' | 'refund';
   gross_amount?: string;
   platform_fee?: string;
   escrow_fee?: string;
@@ -443,6 +443,7 @@ export default function VendorPayouts() {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="direct">Direct Payment</SelectItem>
                 <SelectItem value="escrow">Escrow Payout</SelectItem>
+                <SelectItem value="refund">Refund Issued</SelectItem>
               </SelectContent>
             </Select>
 
@@ -493,7 +494,7 @@ export default function VendorPayouts() {
                             {payout.status}
                           </Badge>
                           <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-700 bg-gray-900/50">
-                            {payout.type === 'escrow' ? 'Escrow' : 'Direct'}
+                            {payout.type === 'escrow' ? 'Escrow' : payout.type === 'refund' ? 'Refund' : 'Direct'}
                           </Badge>
                         </div>
                         <div className="flex items-center text-sm text-gray-400 font-mono mb-1">
@@ -694,7 +695,7 @@ export default function VendorPayouts() {
           <DialogHeader className="p-6 border-b border-gray-800 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-10">
             <DialogTitle className="text-xl font-bold text-white flex items-center">
               <Wallet className="w-5 h-5 mr-2 text-cyan-400" />
-              {selectedPayout?.type === 'escrow' ? 'Escrow Payout Details' : 'Direct Payment Details'}
+              {selectedPayout?.type === 'escrow' ? 'Escrow Payout Details' : selectedPayout?.type === 'refund' ? 'Refund Details' : 'Direct Payment Details'}
             </DialogTitle>
           </DialogHeader>
 

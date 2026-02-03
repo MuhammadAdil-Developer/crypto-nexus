@@ -45,6 +45,7 @@ class Order(BaseModel):
     
     # Payment details
     payment_address = models.CharField(max_length=255, blank=True)
+    refund_address = models.CharField(max_length=255, blank=True, help_text="Buyer's address for refunds in case of incorrect payment")
     payment_status = models.CharField(
         max_length=20,
         choices=[(status.value, status.name) for status in PaymentStatus],

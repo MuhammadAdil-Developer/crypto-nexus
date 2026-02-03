@@ -115,6 +115,24 @@ def release_escrow_task(order_id: str, released_by_id: str = None):
         return {'success': False, 'error': str(e)}
 
 
+@shared_task
+def process_payout_task(payout_id: str):
+    """Task to process a generic payout (escrow, direct, or refund)"""
+    try:
+        from .services import PayoutService
+        payout_service = PayoutService()
+        success = payout_service.process_escrow_payout(payout_id)
+        if success:
+            logger.info(f"Payout {payout_id} processed successfully")
+            return {'success': True}
+        else:
+            logger.error(f"Failed to process payout {payout_id}")
+            return {'success': False, 'error': "Payout processing failed"}
+    except Exception as e:
+        logger.error(f"Error in process_payout_task for payout {payout_id}: {str(e)}")
+        return {'success': False, 'error': str(e)}
+
+
 @shared_task(bind=True, max_retries=15, default_retry_delay=300)  # Retry up to 15 times, 5 min apart
 def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
     """Process non-escrow order payout - calculate fees and send to vendor"""

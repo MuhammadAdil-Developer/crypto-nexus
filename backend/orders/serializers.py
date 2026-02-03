@@ -43,10 +43,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'order_id', 'buyer', 'vendor', 'product', 'quantity',
             'unit_price', 'total_amount', 'crypto_currency', 'payment_address',
             'payment_status', 'payment_status_display', 'order_status', 
-            'order_status_display', 'use_escrow', 'escrow_fee', 'dispute_opened',
-            'dispute_reason', 'payment_expires_at', 'delivered_at', 'confirmed_at',
-            'dispute_opened_at', 'product_credentials', 'is_payment_expired',
-            'can_dispute', 'dispute', 'is_giveaway', 'created_at', 'updated_at'
+            'order_status_display', 'use_escrow', 'escrow_fee', 'refund_address',
+            'dispute_opened', 'dispute_reason', 'payment_expires_at', 'delivered_at',
+            'confirmed_at', 'dispute_opened_at', 'product_credentials',
+            'is_payment_expired', 'can_dispute', 'dispute', 'is_giveaway',
+            'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_id', 'created_at', 'updated_at', 'is_payment_expired',
@@ -68,6 +69,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'disputed': 'Disputed',
             'cancelled': 'Cancelled',
             'refunded': 'Refunded',
+            'partial': 'Partial Payment',
         }
         
         # CRITICAL REQ: Auto-delivery orders show as 'Completed' as soon as payment is confirmed (paid)
@@ -145,7 +147,7 @@ class CreateOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'product', 'quantity', 'crypto_currency'
+            'product', 'quantity', 'crypto_currency', 'refund_address'
         ]
     
     def validate(self, data):

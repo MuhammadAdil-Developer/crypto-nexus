@@ -634,16 +634,24 @@ def notify_payout_status_changed(payout, old_status, new_status):
         'failed': 'has failed',
         'cancelled': 'has been cancelled'
     }
+    
+    is_refund = getattr(payout, 'payout_type', None) == 'refund'
+    noun = "Refund" if is_refund else "Payout"
+    
     message = status_messages.get(new_status, f'status changed to {new_status}')
     
     formatted_amount = format_crypto_amount(payout.net_amount)
     
     # Notify vendor
+    vendor_msg = f'{noun} for order {payout.order.order_id} {message}. Amount: {formatted_amount} {payout.crypto_currency.symbol}'
+    if is_refund:
+        vendor_msg = f'Auto-refund for order {payout.order.order_id} {message}. (Refunded to Buyer)'
+
     send_user_notification(
         user=payout.vendor,
         notification_type='payment',
-        title='Payout Status Updated',
-        message=f'Payout for order {payout.order.order_id} {message}. Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        title=f'{noun} Status Updated',
+        message=vendor_msg,
         data={
             'payout_id': str(payout.id),
             'order_id': payout.order.order_id,
@@ -656,11 +664,16 @@ def notify_payout_status_changed(payout, old_status, new_status):
     )
     
     # Notify buyer
+    buyer_msg = f'{noun} for order {payout.order.order_id} {message}. Amount: {formatted_amount} {payout.crypto_currency.symbol}'
+    if not is_refund:
+        # For vendor payouts, buyer usually doesn't need detailed alerts, but if we keep it:
+        buyer_msg = f'Payment release for order {payout.order.order_id} {message}.' # Less specific for vendor payout
+
     send_user_notification(
         user=payout.buyer,
         notification_type='payment',
-        title='Payout Status Updated',
-        message=f'Payout for order {payout.order.order_id} {message}. Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        title=f'{noun} Status Updated',
+        message=buyer_msg,
         data={
             'payout_id': str(payout.id),
             'order_id': payout.order.order_id,
@@ -675,8 +688,8 @@ def notify_payout_status_changed(payout, old_status, new_status):
     # Notify admin
     send_admin_notification(
         notification_type='system',
-        title='Payout Status Updated',
-        message=f'Payout for order {payout.order.order_id} {message} - Vendor: {payout.vendor.username}, Amount: {formatted_amount} {payout.crypto_currency.symbol}',
+        title=f'{noun} Status Updated',
+        message=f'{noun} for order {payout.order.order_id} {message} - Vendor: {payout.vendor.username}, Amount: {formatted_amount} {payout.crypto_currency.symbol}',
         data={
             'payout_id': str(payout.id),
             'order_id': payout.order.order_id,

@@ -2487,21 +2487,26 @@ class PayoutService:
                 except Exception as e:
                     logger.error(f"Error notifying about payout status change: {e}")
                 
-                # Update escrow status
-                try:
-                    payment_address = PaymentAddress.objects.get(order_id=payout.order.order_id)
-                    escrow = payment_address.escrow
-                    escrow.status = 'released'
-                    escrow.released_at = timezone.now()
-                    escrow.release_transaction_hash = transaction_hash
-                    escrow.save()
-                    
-                    # Update order status
-                    payout.order.order_status = 'completed'
-                    payout.order.save()
-                    
-                except PaymentAddress.DoesNotExist:
-                    logger.warning(f"Payment address not found for payout {payout_id}")
+                # Update related records based on payout type
+                if payout.payout_type == 'escrow':
+                    try:
+                        payment_address = PaymentAddress.objects.get(order_id=payout.order.order_id)
+                        escrow = payment_address.escrow
+                        escrow.status = 'released'
+                        escrow.released_at = timezone.now()
+                        escrow.release_transaction_hash = transaction_hash
+                        escrow.save()
+                        
+                        # Update order status
+                        payout.order.order_status = 'completed'
+                    except Exception as e:
+                        logger.error(f"Error updating escrow record: {e}")
+                elif payout.payout_type == 'refund':
+                    # For partial refund, we keep order status as is or mark as partially refunded
+                    payout.order.payment_status = 'refunded'
+                
+                payout.order.save()
+                
                 
                 # Special payout notification for vendor
                 try:
@@ -2512,20 +2517,49 @@ class PayoutService:
                     elif payout.crypto_currency.symbol == 'BTC':
                         currency_note = '"bitcoin Account"'
                         
-                    send_user_notification(
-                        user=payout.vendor,
-                        notification_type='payout_completed',
-                        title='Payment Received',
-                        message=f'Payment received for order {payout.order.order_id} from {payout.buyer.username} - {currency_note}.',
-                        data={
-                            'order_id': payout.order.order_id,
-                            'buyer_username': payout.buyer.username,
-                            'amount': str(payout.net_amount),
-                            'crypto': payout.crypto_currency.symbol,
-                            'tx_hash': transaction_hash,
-                            'action_url': '/vendor/orders'
-                        }
-                    )
+                    if payout.payout_type == 'refund':
+                        # Notify Buyer about Refund
+                        send_user_notification(
+                            user=payout.buyer,
+                            notification_type='refund_completed',
+                            title='Partial Payment Refunded',
+                            message=f'Your partial payment for order {payout.order.order_id} has been refunded to your wallet. Amount: {payout.net_amount} {payout.crypto_currency.symbol}.',
+                            data={
+                                'order_id': payout.order.order_id,
+                                'amount': str(payout.net_amount),
+                                'crypto': payout.crypto_currency.symbol,
+                                'tx_hash': transaction_hash,
+                                'action_url': '/orders'
+                            }
+                        )
+                        # Notify Vendor about lost sale (informational)
+                        send_user_notification(
+                            user=payout.vendor,
+                            notification_type='order_update',
+                            title='Order Auto-Refunded',
+                            message=f'Order {payout.order.order_id} received partial payment and was automatically refunded to the buyer.',
+                            data={
+                                'order_id': payout.order.order_id,
+                                'status': 'refunded',
+                                'action_url': '/vendor/orders'
+                            }
+                        )
+                    else:
+                        # Notify Vendor about Payment Received (Escrow Release / Direct)
+                        send_user_notification(
+                            user=payout.vendor,
+                            notification_type='payout_completed',
+                            title='Payment Received',
+                            message=f'Payment received for order {payout.order.order_id} from {payout.buyer.username} - {currency_note}.',
+                            data={
+                                'order_id': payout.order.order_id,
+                                'buyer_username': payout.buyer.username,
+                                'amount': str(payout.net_amount),
+                                'crypto': payout.crypto_currency.symbol,
+                                'tx_hash': transaction_hash,
+                                'action_url': '/vendor/orders'
+                            }
+                        )
                 except Exception as ne:
                     logger.error(f"Failed to send escrow payout notification: {ne}")
                 

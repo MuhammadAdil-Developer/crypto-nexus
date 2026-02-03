@@ -77,6 +77,17 @@ export default function VendorOrders() {
         return 'Completed';
       }
 
+      // CRITICAL FIX: For Instant/Auto delivery, if it's PAID, it is COMPLETED.
+      // We force this display even if the backend status is just 'paid'
+      const isAutoDelivery = (apiOrder.product?.delivery_time || '').toLowerCase().includes('auto') ||
+        (apiOrder.product?.delivery_time || '').toLowerCase().includes('instant') ||
+        (apiOrder.delivery_time || '').toLowerCase().includes('auto') ||
+        (apiOrder.delivery_time || '').toLowerCase().includes('instant');
+
+      if (isAutoDelivery && (paymentStatus === 'paid' || orderStatus === 'paid')) {
+        return 'Completed';
+      }
+
       if (paymentStatus === 'paid') {
         if (orderStatus === 'completed' || orderStatus === 'confirmed' || orderStatus === 'delivered') {
           return 'Completed';

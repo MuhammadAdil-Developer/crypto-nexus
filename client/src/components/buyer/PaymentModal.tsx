@@ -78,6 +78,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [addressVisible, setAddressVisible] = useState(false);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [refundAddress, setRefundAddress] = useState('');
 
   // Real API integration states
   const [realPaymentAddress, setRealPaymentAddress] = useState<PaymentAddress | null>(null);
@@ -157,7 +158,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
             product: itn.productId,
             quantity: itn.quantity,
             crypto_currency: selectedCrypto,
-            use_escrow: itn.use_escrow
+            use_escrow: itn.use_escrow,
+            refund_address: refundAddress
           };
 
           // create order via orderService
@@ -220,7 +222,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           product: product.id,
           quantity: quantity,
           crypto_currency: selectedCrypto,
-          use_escrow: useEscrow
+          use_escrow: useEscrow,
+          refund_address: refundAddress
         };
 
         const orderResponse = await fetch(getApiUrl("/orders/"), {
@@ -471,6 +474,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       toast({
         title: "Cryptocurrency Required",
         description: "Please select a cryptocurrency",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!refundAddress || refundAddress.trim().length < 10) {
+      toast({
+        title: "Refund Address Required",
+        description: "Please provide a valid refund address for your protection.",
         variant: "destructive"
       });
       return;
@@ -738,6 +750,41 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                         </span>
                         <span className="text-gray-400 text-xs">≈ ${pricing.total.toFixed(2)}</span>
                       </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Refund Address Input */}
+              <Card className="bg-gray-800 border-gray-700 shadow-lg border-l-4 border-l-theme-red">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-theme-red" />
+                    <CardTitle className="text-white text-lg">Refund Protection</CardTitle>
+                  </div>
+                  <p className="text-gray-400 text-xs mt-1">
+                    Provide a {selectedCrypto || 'crypto'} address for automatic refunds if your payment is incorrect.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="relative group">
+                      <Label htmlFor="refund-address" className="text-gray-300 text-xs font-bold uppercase tracking-widest mb-2 block">
+                        Your {selectedCrypto || ''} Refund Address <span className="text-theme-red">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-theme-cyan transition-colors" />
+                        <Input
+                          id="refund-address"
+                          placeholder={`Enter your ${selectedCrypto || 'BTC/XMR'} address...`}
+                          value={refundAddress}
+                          onChange={(e) => setRefundAddress(e.target.value)}
+                          className="bg-black/40 border-gray-700 pl-10 h-12 text-white placeholder:text-gray-600 focus:ring-1 focus:ring-theme-cyan/30 transition-all font-mono text-sm"
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2 italic">
+                        ⚠️ Double check this address. We are not responsible for funds sent to a wrong refund address.
+                      </p>
                     </div>
                   </div>
                 </CardContent>

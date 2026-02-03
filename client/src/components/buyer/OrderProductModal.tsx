@@ -284,6 +284,10 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
       case 'cancelled':
         return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'partial':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'refunded':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       default:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
@@ -299,6 +303,10 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
       case 'failed':
         return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'partial':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'refunded':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       default:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
@@ -516,6 +524,37 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                 </Badge>
               </div>
             </div>
+
+            {/* Partial Payment Warning */}
+            {order.payment_status === 'partial' && (
+              <div className="bg-orange-500/10 border-l-4 border-orange-500 p-4 sm:p-5 rounded-lg sm:rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-orange-400 font-bold text-sm sm:text-base mb-1">Partial Payment Detected</h4>
+                    <p className="text-gray-300 text-[11px] sm:text-sm leading-relaxed">
+                      Your payment was less than the required amount. Credentials will NOT be delivered.
+                      An automatic refund has been queued and will be sent to your refund address shortly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Refunded Info */}
+            {order.payment_status === 'refunded' && (
+              <div className="bg-blue-500/10 border-l-4 border-blue-500 p-4 sm:p-5 rounded-lg sm:rounded-xl">
+                <div className="flex items-start gap-3">
+                  <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-blue-400 font-bold text-sm sm:text-base mb-1">Payment Refunded</h4>
+                    <p className="text-gray-300 text-[11px] sm:text-sm leading-relaxed">
+                      Due to an incorrect payment amount, the funds have been returned to your refund address.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Escrow Information - Responsive */}
             {order.use_escrow && (

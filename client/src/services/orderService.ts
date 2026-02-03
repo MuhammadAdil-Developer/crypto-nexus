@@ -158,6 +158,7 @@ export interface CreateOrderRequest {
   quantity: number;
   crypto_currency: string;
   use_escrow: boolean;
+  refund_address?: string;
 }
 
 export interface UpdateOrderStatusRequest {

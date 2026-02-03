@@ -870,7 +870,7 @@ class AdminPayoutView(APIView):
                 
                 combined_data.append({
                     'id': payout.id,
-                    'type': 'escrow',
+                    'type': payout.payout_type,
                     'order_id': payout.order.order_id,
                     'vendor_name': payout.vendor.username,
                     'buyer_name': payout.buyer.username,
@@ -1131,7 +1131,7 @@ class VendorPayoutsView(APIView):
                     'date': payout.created_at.strftime('%Y-%m-%d %H:%M'),
                     'txHash': payout.transaction_hash,
                     'order_id': payout.order.order_id,
-                    'type': 'escrow',
+                    'type': payout.payout_type,
                     'gross_amount': format(payout.gross_amount, 'f').rstrip('0').rstrip('.'),
                     'platform_fee': format(payout.platform_fee, 'f').rstrip('0').rstrip('.'),
                     'escrow_fee': format(payout.escrow_fee, 'f').rstrip('0').rstrip('.'),

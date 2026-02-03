@@ -26,6 +26,7 @@ interface Order {
   };
   product: {
     headline: string;
+    delivery_time?: string;
   };
   total_amount: string;
   crypto_currency: string;
@@ -34,6 +35,8 @@ interface Order {
   created_at: string;
   use_escrow?: boolean;
   confirmed_at?: string;
+  delivery_time?: string;
+  product_credentials?: any;
 }
 
 
@@ -466,6 +469,16 @@ export default function VendorOverview() {
   const getStatusDisplay = (order: Order) => {
     const paymentStatus = order.payment_status?.toLowerCase();
     const orderStatus = order.order_status?.toLowerCase();
+
+    // Check for auto-delivery. Note: Overview order object structure might differ slightly, checking both root and product.
+    const isAutoDelivery = (order.product?.delivery_time || '').toLowerCase().includes('auto') ||
+      (order.product?.delivery_time || '').toLowerCase().includes('instant') ||
+      ((order as any).delivery_time || '').toLowerCase().includes('auto') ||
+      ((order as any).delivery_time || '').toLowerCase().includes('instant');
+
+    if (isAutoDelivery && (paymentStatus === 'paid' || orderStatus === 'paid')) {
+      return 'Completed';
+    }
 
     if (paymentStatus === 'paid') {
       if (orderStatus === 'completed' || orderStatus === 'confirmed' || orderStatus === 'delivered') {

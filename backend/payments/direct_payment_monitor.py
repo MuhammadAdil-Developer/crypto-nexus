@@ -189,56 +189,116 @@ class DirectPaymentMonitor:
                 # Re-evaluate trigger needs with FRESH data
                 stuck_threshold = timezone.now() - timedelta(minutes=5)
                 is_stuck = db_payment.status in ['confirmed', 'processing'] and db_payment.updated_at < stuck_threshold
-                actually_needs_trigger = db_payment.status in ['pending', 'expired'] or is_stuck
+                # CRITICAL SECURITY CHECK: Partial Payment Validation
+                # If amount is provided (from blockchain/RPC), compare it with expected amount
+                order = payment.order
+                is_partial = False
+                if amount is not None:
+                    expected = float(db_payment.amount)
+                    received = float(amount)
+                    
+                    # Tolerance for minor dust/exchange fees (e.g. 0.00000001 BTC)
+                    tolerance = 0.0000005 
+                    
+                    if received < (expected - tolerance):
+                        is_partial = True
+                        logger.warning(f"[WARNING] PARTIAL PAYMENT DETECTED: Order {order.order_id}. Expected {expected}, Received {received}. Status will be set to PARTIAL.")
                 
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
                 update_data = {}
                 if confirmations is not None: update_data['confirmations'] = confirmations
-                # CRITICAL: Never save incoming (buyer) hash to payout record.
-                # Only the outgoing (vendor) hash should go here later.
-                if amount: update_data['amount'] = amount
+                if amount: update_data['amount_received'] = amount # We'll need to add this field or use received_amount in PA
                 
-                if actually_needs_trigger:
+                if needs_trigger and not is_partial:
                     db_payment.status = 'confirmed'
                     db_payment.confirmed_at = db_payment.confirmed_at or timezone.now()
                     db_payment.updated_at = timezone.now()
                     db_payment.save(update_fields=['status', 'confirmed_at', 'updated_at'])
                     needs_trigger = True # Signal for Celery trigger below
+                elif is_partial:
+                    db_payment.status = 'pending' # Keep pending so monitor keeps checking if they send more
+                    db_payment.updated_at = timezone.now()
+                    db_payment.save(update_fields=['status', 'updated_at'])
+                    needs_trigger = False
+                    # Note: We don't mark as 'completed' or 'confirmed'
                 elif update_data:
                     DirectPayment.objects.filter(id=payment.id).update(**update_data)
                     needs_trigger = False
                 else:
                     needs_trigger = False
                 
-                # Payment Address update (safe to save() as it's not used for payout debounce)
+                # Payment Address update
                 pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
                 if pa:
                     if confirmations is not None: pa.confirmations = confirmations
                     if tx_hash: pa.transaction_hash = tx_hash
-                    # CRITICAL: Only set to 'paid' (which triggers toast) for completed confirmations
-                    pa.status = 'paid'
-                    pa.confirmed_at = timezone.now()
+                    
+                    if is_partial:
+                        pa.status = 'partial'
+                    else:
+                        pa.status = 'paid'
+                        pa.confirmed_at = timezone.now()
+                    
                     if amount: pa.received_amount = float(amount)
                     pa.save()
 
-                # Update Order Status
+                # Update Order Status ONLY if not partial
                 order = payment.order
-                order.payment_status = 'paid'
-                # Map 'pending_payment' to 'paid' (or 'confirmed' for auto-delivery)
-                if order.order_status in ['pending', 'pending_payment']:
-                    if order.product.delivery_time == 'instant_auto':
-                        order.order_status = 'confirmed' # Shows as "Completed"
-                        order.delivered_at = timezone.now()
-                        order.product_credentials = {
-                            'credentials': order.product.credentials,
-                            'delivered_at': timezone.now().isoformat(),
-                            'delivery_method': 'auto'
-                        }
-                    else:
-                        order.order_status = 'paid'
+                if is_partial:
+                    order.payment_status = 'partial'
+                    order.order_status = 'pending_payment'
+                    
+                    # Create automatic refund if refund_address exists
+                    if order.refund_address:
+                        from payments.models import Payout
+                        # Check if a refund payout already exists for this order to avoid duplicates
+                        if not Payout.objects.filter(order=order, payout_type='refund').exists():
+                            # For refund, net_amount is what buyer gets. We can subtract a small fee if requested by client.
+                            # Client mentioned 2-5% fee. Let's use 3% as a default or keep it 0 as a gesture of good will for now.
+                            # The user said "return the partial amount minus the fee".
+                            fee_pct = Decimal('0.03')
+                            refund_gross = Decimal(str(received))
+                            refund_fee = refund_gross * fee_pct
+                            refund_net = refund_gross - refund_fee
+                            
+                            payout = Payout.objects.create(
+                                order=order,
+                                vendor=order.vendor,
+                                buyer=order.buyer,
+                                payout_type='refund',
+                                crypto_currency=payment.crypto_currency,
+                                gross_amount=refund_gross,
+                                net_amount=refund_net,
+                                platform_fee=refund_fee,
+                                vendor_address=order.refund_address, # Sending to buyer's refund address
+                                status='pending',
+                                admin_notes=f"Auto-refund for partial payment. Expected: {expected}, Received: {received}. Fee: {refund_fee} (3%)"
+                            )
+                            logger.info(f"[AUTO-REFUND] AUTO-REFUND QUEUED: Order {order.order_id} for {refund_net} {order.crypto_currency} to {order.refund_address}")
+                            
+                            # Trigger processing immediately
+                            try:
+                                from .tasks import process_payout_task
+                                process_payout_task.delay(str(payout.id))
+                            except Exception as e:
+                                logger.warning(f"Failed to trigger auto-refund task (Redis might be down, but payout created): {e}")
+                else:
+                    order.payment_status = 'paid'
+                    # Map 'pending_payment' to 'paid' (or 'confirmed' for auto-delivery)
+                    if order.order_status in ['pending', 'pending_payment']:
+                        if order.product.delivery_time == 'instant_auto':
+                            order.order_status = 'confirmed' # Shows as "Completed"
+                            order.delivered_at = timezone.now()
+                            order.product_credentials = {
+                                'credentials': order.product.credentials,
+                                'delivered_at': timezone.now().isoformat(),
+                                'delivery_method': 'auto'
+                            }
+                        else:
+                            order.order_status = 'paid'
                 order.save()
                 
-                if needs_trigger:
+                if needs_trigger and not is_partial:
                     from .tasks import process_non_escrow_payout
                     # logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
                     process_non_escrow_payout.delay(order.order_id, is_settled=True)

@@ -40,6 +40,10 @@ const getStatusIcon = (status: string) => {
       return <Clock className="w-4 h-4" />;
     case "cancelled":
       return <XCircle className="w-4 h-4" />;
+    case "partial":
+      return <AlertTriangle className="w-4 h-4 text-orange-400" />;
+    case "refunded":
+      return <RefreshCw className="w-4 h-4 text-blue-400" />;
     default:
       return <Package className="w-4 h-4" />;
   }
@@ -63,6 +67,10 @@ const getStatusColor = (status: string) => {
       return "text-yellow-300 bg-yellow-200/20";
     case "cancelled":
       return "text-red-400 bg-red-900/20";
+    case "partial":
+      return "text-orange-400 bg-orange-900/20 border-orange-500/30";
+    case "refunded":
+      return "text-blue-400 bg-blue-900/20 border-blue-500/30";
     default:
       return "text-gray-400 bg-gray-900/20";
   }
@@ -87,6 +95,10 @@ const getStatusDisplay = (status: string) => {
       return "Pending Payment";
     case "cancelled":
       return "Cancelled";
+    case "partial":
+      return "Partial Payment";
+    case "refunded":
+      return "Refunded";
     default:
       return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
   }

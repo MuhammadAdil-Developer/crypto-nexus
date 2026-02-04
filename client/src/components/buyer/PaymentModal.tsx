@@ -47,6 +47,8 @@ interface PaymentModalProps {
   onSuccess?: () => void;
 }
 
+import authService from '@/services/authService';
+
 const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen, onClose, onBack, onSuccess }) => {
   console.log('DEBUG PaymentModal props:', { product, items, isOpen });
 
@@ -79,6 +81,39 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [refundAddress, setRefundAddress] = useState('');
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  // Fetch User Profile on mount to get default refund addresses
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (isOpen) {
+        try {
+          const profile = await authService.getProfile();
+          if (profile.success) {
+            setUserProfile(profile.data);
+            console.log('✅ Loaded user profile for refunds:', profile.data);
+          }
+        } catch (error) {
+          console.error('Failed to load user profile', error);
+        }
+      }
+    };
+    fetchProfile();
+  }, [isOpen]);
+
+  // Auto-fill refund address when crypto changes
+  useEffect(() => {
+    if (selectedCrypto && userProfile) {
+      if (selectedCrypto === 'BTC' && userProfile.btc_payout_address) {
+        setRefundAddress(userProfile.btc_payout_address);
+      } else if (selectedCrypto === 'XMR' && userProfile.xmr_payout_address) {
+        setRefundAddress(userProfile.xmr_payout_address);
+      } else {
+        setRefundAddress(''); // Clear if no default
+      }
+    }
+  }, [selectedCrypto, userProfile]);
 
   // Real API integration states
   const [realPaymentAddress, setRealPaymentAddress] = useState<PaymentAddress | null>(null);
@@ -469,7 +504,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     return addresses[crypto as keyof typeof addresses] || '';
   };
 
-  const handlePaymentMethodSubmit = () => {
+  const handlePaymentMethodSubmit = async () => {
     if (!selectedCrypto) {
       toast({
         title: "Cryptocurrency Required",
@@ -486,6 +521,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         variant: "destructive"
       });
       return;
+    }
+
+    // Update Default Address if requested
+    if (saveAsDefault) {
+      try {
+        const updateData: any = {};
+        if (selectedCrypto === 'BTC') updateData.btc_payout_address = refundAddress;
+        if (selectedCrypto === 'XMR') updateData.xmr_payout_address = refundAddress;
+
+        await authService.updateProfile(updateData);
+        toast({ title: "Profile Updated", description: "Default refund address saved." });
+      } catch (err) {
+        console.error("Failed to save default address", err);
+        // Don't block flow, just log
+      }
     }
 
     // Reset confirmations when moving to step 2
@@ -786,6 +836,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                         ⚠️ Double check this address. We are not responsible for funds sent to a wrong refund address.
                       </p>
                     </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="save-default"
+                        checked={saveAsDefault}
+                        onCheckedChange={(checked) => setSaveAsDefault(checked as boolean)}
+                        className="data-[state=checked]:bg-theme-cyan data-[state=checked]:border-theme-cyan"
+                      />
+                      <label
+                        htmlFor="save-default"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-300"
+                      >
+                        Save as my default {selectedCrypto} refund address
+                      </label>
+                    </div>
+
                   </div>
                 </CardContent>
               </Card>

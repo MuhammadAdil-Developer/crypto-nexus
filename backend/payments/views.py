@@ -1140,7 +1140,7 @@ class VendorPayoutsView(APIView):
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                 })
             
-            for payment in direct_payments:
+            for payment in direct_records:
                 currency_symbol = payment.crypto_currency.symbol.upper().strip()
                 usd_rate = btc_rate if currency_symbol == 'BTC' else xmr_rate
                 
@@ -1148,11 +1148,15 @@ class VendorPayoutsView(APIView):
                 platform_fee_rate = 0
                 if payment.amount > 0:
                     platform_fee_rate = (payment.platform_fee / payment.amount) * 100
-                    
+                
+                # CRITICAL FIX: Use gross amount for display if net_amount is not yet calculated (Pending)
+                # This fixes the "0 BTC" issue for pending direct payments
+                display_amount = payment.net_amount if payment.net_amount > 0 else payment.amount
+                
                 payout_data.append({
                     'id': str(payment.id),
-                    'amount': f"{format(payment.net_amount, 'f').rstrip('0').rstrip('.')} {payment.crypto_currency.symbol}",
-                    'usdAmount': f"${float(payment.net_amount) * usd_rate:.2f}",
+                    'amount': f"{format(display_amount, 'f').rstrip('0').rstrip('.')} {payment.crypto_currency.symbol}",
+                    'usdAmount': f"${float(display_amount) * usd_rate:.2f}",
                     'address': payment.vendor_address,
                     'method': payment.crypto_currency.symbol,
                     'status': 'Confirmed' if payment.status == 'confirmed' else payment.status.title(),
@@ -1184,57 +1188,98 @@ class VendorPayoutsView(APIView):
             ).filter(
                 order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
             ).exclude(
-                order__order_status__in=['cancelled', 'refunded', 'disputed']
+                status__in=excluded_payout_status
+            ).filter(
+                order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+            ).exclude(
+                order__order_status__in=excluded_order_status
             )
             
             for payout in payout_records:
                 symbol = payout.crypto_currency.symbol.upper().strip()
+                # net_amount is what the vendor actually gets
+                net = payout.net_amount
+                is_completed = payout.status.lower() == 'completed'
+                
                 if symbol in ['BTC', 'BITCOIN']:
-                    pending_btc += payout.net_amount
-                    btc_orders += 1
+                    if is_completed:
+                        total_earned_btc += net
+                        total_btc_orders += 1
+                    else:
+                        balance_btc += net
+                        btc_pending_orders += 1
                 elif symbol in ['XMR', 'MONERO', 'MON']:
-                    pending_xmr += payout.net_amount
-                    xmr_orders += 1
+                    if is_completed:
+                        total_earned_xmr += net
+                        total_xmr_orders += 1
+                    else:
+                        balance_xmr += net
+                        xmr_pending_orders += 1
             
-            # Get direct payments (Pending + Completed)
-            # We filter for orders that are successful and NOT cancelled/refunded/disputed
+            # 2. Process Direct Payments
             direct_records = DirectPayment.objects.filter(
                 vendor=vendor
             ).exclude(
-                status__in=['failed', 'cancelled']
-            ).filter(
-                order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
+                status__in=excluded_payout_status
             ).exclude(
-                order__order_status__in=['cancelled', 'refunded', 'disputed']
+                order__order_status__in=excluded_order_status
             )
             
             for payment in direct_records:
                 symbol = payment.crypto_currency.symbol.upper().strip()
+                # Use net_amount if available, fallback to amount minus platform_fee for pending ones
+                if payment.net_amount > 0:
+                    net = payment.net_amount
+                else:
+                    net = payment.amount - payment.platform_fee
+                
+                is_completed = payment.status.lower() == 'confirmed' # Direct payments use 'confirmed'
+                
                 if symbol in ['BTC', 'BITCOIN']:
-                    pending_btc += payment.amount
-                    btc_orders += 1
+                    if is_completed:
+                        total_earned_btc += net
+                        total_btc_orders += 1
+                    else:
+                        balance_btc += net
+                        btc_pending_orders += 1
                 elif symbol in ['XMR', 'MONERO', 'MON']:
-                    pending_xmr += payment.amount
-                    xmr_orders += 1
+                    if is_completed:
+                        total_earned_xmr += net
+                        total_xmr_orders += 1
+                    else:
+                        balance_xmr += net
+                        xmr_pending_orders += 1
             
-            btc_usd = float(pending_btc) * btc_rate
-            xmr_usd = float(pending_xmr) * xmr_rate
-            total_usd = btc_usd + xmr_usd
+            btc_usd_earned = float(total_earned_btc) * btc_rate
+            xmr_usd_earned = float(total_earned_xmr) * xmr_rate
+            total_usd_earned = btc_usd_earned + xmr_usd_earned
+            
+            btc_usd_balance = float(balance_btc) * btc_rate
+            xmr_usd_balance = float(balance_xmr) * xmr_rate
+            total_usd_balance = btc_usd_balance + xmr_usd_balance
             
             pending_earnings = {
                 'btc': {
-                    'amount': str(pending_btc),
-                    'usd': f"${btc_usd:.2f}",
-                    'orders': btc_orders
+                    'earned_amount': str(total_earned_btc),
+                    'earned_usd': f"${btc_usd_earned:.2f}",
+                    'earned_orders': total_btc_orders,
+                    'balance_amount': str(balance_btc),
+                    'balance_usd': f"${btc_usd_balance:.2f}",
+                    'pending_orders': btc_pending_orders,
                 },
                 'xmr': {
-                    'amount': str(pending_xmr),
-                    'usd': f"${xmr_usd:.2f}",
-                    'orders': xmr_orders
+                    'earned_amount': str(total_earned_xmr),
+                    'earned_usd': f"${xmr_usd_earned:.2f}",
+                    'earned_orders': total_xmr_orders,
+                    'balance_amount': str(balance_xmr),
+                    'balance_usd': f"${xmr_usd_balance:.2f}",
+                    'pending_orders': xmr_pending_orders,
                 },
                 'total': {
-                    'usd': f"${total_usd:.2f}",
-                    'orders': btc_orders + xmr_orders
+                    'earned_usd': f"${total_usd_earned:.2f}",
+                    'earned_orders': total_btc_orders + total_xmr_orders,
+                    'balance_usd': f"${total_usd_balance:.2f}",
+                    'pending_orders': btc_pending_orders + xmr_pending_orders,
                 }
             }
             

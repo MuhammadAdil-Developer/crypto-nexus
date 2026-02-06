@@ -74,7 +74,7 @@ class DirectPaymentMonitor:
             # ONLY monitor payment addresses within the last 2 hours
             window = timezone.now() - timedelta(hours=2)
             pending_addresses = PaymentAddress.objects.filter(
-                status__in=['pending', 'expired', 'processing'],
+                status__in=['pending', 'expired', 'processing', 'partial'],
                 created_at__gt=window
             )
             for pa in pending_addresses:
@@ -122,7 +122,10 @@ class DirectPaymentMonitor:
             if not deposit_address or deposit_address == "GIVEAWAY_FREE_ORDER":
                 return
 
+            logger.info(f"Checking blockchain fallback for {deposit_address} (Order: {payment.order.order_id})")
             transactions = self._get_blockchain_transactions(deposit_address)
+            logger.info(f"Blockchain API returned {len(transactions)} transactions for {deposit_address}")
+            
             matched = self._match_btc_transaction(transactions, deposit_address, payment.amount, current_height)
             
             if matched:
@@ -322,7 +325,15 @@ class DirectPaymentMonitor:
             if pa:
                 if confirmations is not None: pa.confirmations = confirmations
                 if tx_hash: pa.transaction_hash = tx_hash
-                if amount: pa.received_amount = float(amount)
+                if amount: 
+                    pa.received_amount = float(amount)
+                    # Set status to partial if discrepancy detected (even before confirmation)
+                    expected = float(pa.expected_amount)
+                    received = float(amount)
+                    tolerance = expected * 0.01
+                    if received < (expected - tolerance):
+                        pa.status = 'partial'
+                
                 # Keep status as pending/partial to avoid premature toast
                 pa.save()
             
@@ -351,27 +362,32 @@ class DirectPaymentMonitor:
 
     def _match_btc_transaction(self, transactions, target_address, target_amount, current_height):
         target_sat = int(float(target_amount) * 1e8)
+        target_addr_norm = target_address.lower() if target_address else ""
+        
         for tx in transactions:
+            txid = tx.get('txid')
             for out in tx.get('vout', []):
-                if out.get('scriptpubkey_address') == target_address:
+                out_addr = out.get('scriptpubkey_address', '')
+                if out_addr and out_addr.lower() == target_addr_norm:
                     val_sat = out.get('value', 0)
-                    # RELAXED AMOUNT MATCH: Detect any payment to the unique address
-                    # If target_sat > 0 and amount doesn't match, we still return it 
-                    # so _confirm_payment can trigger is_partial/auto-refund logic.
-                    if target_sat > 0 and abs(val_sat - target_sat) > 500: # Increased tolerance to 500 sats
-                         # If it's a massive difference, it will be caught as partial in _confirm_payment
-                         logger.info(f"Detected potential partial/over payment on {target_address}: {val_sat} vs expected {target_sat}")
+                    logger.info(f"Checking output to {target_address} in tx {txid}: {val_sat} sat (Target: {target_sat})")
+                    
+                    # Log discrepancy if it exists
+                    if target_sat > 0 and abs(val_sat - target_sat) > 500:
+                         logger.warning(f"Partial/Over payment detected in tx {txid}: {val_sat} vs {target_sat}")
                     
                     confs = 0
                     status = tx.get('status', {})
                     if status.get('confirmed'):
-                        block_h = status.get('block_height', 0)
-                        confs = max(1, current_height - block_h + 1) if current_height > 0 else 1
+                         block_h = status.get('block_height', 0)
+                         confs = max(1, current_height - block_h + 1) if current_height > 0 else 1
+                    
                     return {
-                        'txid': tx.get('txid'), 
+                        'txid': txid, 
                         'confirmations': confs,
                         'amount': Decimal(str(val_sat)) / Decimal('100000000')
                     }
+        return None
         return None
 
     def simulate_payment_detection(self, payment_id, tx_hash=None):

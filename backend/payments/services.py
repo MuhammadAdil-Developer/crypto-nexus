@@ -175,6 +175,28 @@ class BTCPayServerService:
             logger.error(f"Error getting payment address from invoice: {e}")
             return None
     
+    def get_total_paid_amount(self, invoice_id: str) -> Decimal:
+        """Get the total amount actually paid on an invoice across all payment methods"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/v1/stores/{self.store_id}/invoices/{invoice_id}/payment-methods",
+                headers=self.headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                methods = response.json()
+                total = Decimal('0')
+                for m in methods:
+                    # totalPaid includes unconfirmed but seen payments
+                    paid = m.get('totalPaid', '0')
+                    total += Decimal(str(paid))
+                return total
+            return Decimal('0')
+        except Exception as e:
+            logger.error(f"Error getting total paid amount for invoice {invoice_id}: {e}")
+            return Decimal('0')
+    
     def get_invoice_status(self, invoice_id: str) -> dict:
         """Get invoice status from BTCPay"""
         try:
@@ -1075,10 +1097,17 @@ class PaymentService:
             logger.info(f"Processing BTCPay webhook: invoice_id={invoice_id}, order_id={order_id}, status={status}, type={webhook_type}")
             logger.info(f"Metadata: {metadata}")
             
-            # Handle test webhooks (ONLY if both are missing OR if invoice_id shows it's a test)
-            if (not order_id and not invoice_id) or (invoice_id and invoice_id.startswith('__test__')):
-                logger.info("Test webhook received - ignoring")
+            # Handle test webhooks (ONLY if both are missing OR if it's a pure test)
+            if not order_id and not invoice_id:
+                logger.info("Test webhook received (no IDs) - ignoring")
                 return True
+            
+            # If it's a test invoice, check if we actually have it in DB before ignoring
+            if invoice_id and invoice_id.startswith('__test__'):
+                if not PaymentAddress.objects.filter(btcpay_invoice_id=invoice_id).exists():
+                    logger.info(f"Test webhook received for unknown invoice {invoice_id} - ignoring")
+                    return True
+                logger.info(f"Processing TEST webhook for KNOWN invoice: {invoice_id}")
             
             try:
                 # Try to find by invoice_id first (BTCPay's primary key)
@@ -1130,6 +1159,27 @@ class PaymentService:
             )
             
             # Update payment status based on webhook type
+            if webhook_type == 'InvoiceExpiredPaidPartial':
+                logger.warning(f"BTCPay Invoice {invoice_id} expired with partial payment. Triggering refund flow.")
+                # Fetch actual amount paid across all methods
+                total_paid = self.btcpay.get_total_paid_amount(invoice_id)
+                
+                if total_paid > 0:
+                    payment_address.status = 'partial'
+                    payment_address.received_amount = total_paid
+                    payment_address.save()
+                    
+                    logger.info(f"Triggering auto-refund for {payment_address.order_id} via webhook (Amount: {total_paid})")
+                    self._handle_partial_payment_detected(payment_address, total_paid)
+                    
+                    # Mark webhook as processed and exit early for this specific type
+                    webhook.processed = True
+                    webhook.save()
+                    return True
+                else:
+                    logger.warning(f"InvoiceExpiredPaidPartial received but total_paid is 0 for invoice {invoice_id}")
+                    return True # Still mark as processed to avoid retry loop
+
             if webhook_type in ['InvoiceReceivedPayment', 'InvoicePaymentSettled', 'InvoiceSettled', 'InvoiceProcessing']:
                 # Determine status based on webhook type and payment data
                 payment_data = payload.get('payment', {})
@@ -1166,9 +1216,15 @@ class PaymentService:
                             logger.warning(f"BTCPay Underpayment Detected: Received {received_amount}, Expected {expected}")
                 
                 if is_partial:
-                    logger.info(f"BTCPay Underpayment detected for {payment_address.order_id}, waiting for monitor/confirmations.")
-                    # We do NOT trigger refund here because InvoiceReceivedPayment is often unconfirmed.
-                    # The direct_payment_monitor will handle it safely after confirmations.
+                    logger.warning(f"BTCPay Underpayment detected for {payment_address.order_id}: Received {received_amount}. Marking as partial.")
+                    payment_address.status = 'partial'
+                    payment_address.received_amount = received_amount
+                    payment_address.save()
+                    
+                    # Update order status to show user it was seen
+                    from orders.models import Order
+                    Order.objects.filter(order_id=payment_address.order_id).update(payment_status='partial')
+                    
                     return True # Mark as processed
                 elif webhook_type == 'InvoiceProcessing':
                     # This is just a processing notification
@@ -1946,6 +2002,7 @@ class PaymentService:
             payment_address = PaymentAddress.objects.get(order_id=order_id)
             
             # Check for Monero payments if it's XMR
+            # Check for Monero payments if it's XMR
             if payment_address.crypto_currency.symbol == 'XMR' and payment_address.monero_subaddress_index:
                 logger.info(f"Checking Monero payment for order {order_id}, subaddress index: {payment_address.monero_subaddress_index}")
                 
@@ -1990,8 +2047,8 @@ class PaymentService:
                             payment_address.status = 'partial'
                         
                         
-
-
+ 
+ 
                     # CRITICAL: Trigger fee calculation and direct payment update if threshold reached
                     # EVEN IF status was already 'paid', we trigger this to ensure sticky/stuck orders
                     # are processed if they missed the initial webhook or had 0 amounts.
@@ -2015,6 +2072,67 @@ class PaymentService:
                     payment_address.confirmations = payment_result.get('confirmations', 0)
                     payment_address.save()
             
+            # Check for BTC payments if it's BTC and not already fully paid/refunded
+            if payment_address.crypto_currency.symbol == 'BTC' and payment_address.status not in ['paid', 'refunded']:
+                logger.info(f"Checking BTC blockchain fallback for order {order_id} (Address: {payment_address.payment_address})")
+                try:
+                    # Use mempool.space API
+                    addr = payment_address.payment_address
+                    r = requests.get(f"https://mempool.space/api/address/{addr}/txs", timeout=10)
+                    if r.status_code == 200:
+                        txs = r.json()
+                        expected_sat = int(float(payment_address.expected_amount) * 1e8)
+                        
+                        found_tx = None
+                        for tx in txs:
+                            for out in tx.get('vout', []):
+                                if out.get('scriptpubkey_address', '').lower() == addr.lower():
+                                    val_sat = out.get('value', 0)
+                                    status = tx.get('status', {})
+                                    confs = 0
+                                    if status.get('confirmed'):
+                                        # Get current height for confirmations
+                                        height_r = requests.get("https://mempool.space/api/blocks/tip/height", timeout=5)
+                                        if height_r.status_code == 200:
+                                            confs = max(1, int(height_r.text) - status.get('block_height') + 1)
+                                        else:
+                                            confs = 1
+                                    
+                                    found_tx = {
+                                        'amount': Decimal(str(val_sat)) / Decimal('100000000'),
+                                        'confs': confs,
+                                        'txid': tx.get('txid')
+                                    }
+                                    break
+                            if found_tx: break
+                        
+                        if found_tx:
+                            logger.info(f"BTC Transaction found via fallback for {order_id}: {found_tx}")
+                            payment_address.received_amount = found_tx['amount']
+                            payment_address.transaction_hash = found_tx['txid']
+                            payment_address.confirmations = found_tx['confs']
+                            
+                            # Check for partial
+                            tolerance = payment_address.expected_amount * Decimal('0.01')
+                            is_partial = found_tx['amount'] < (payment_address.expected_amount - tolerance)
+                            
+                            if is_partial:
+                                payment_address.status = 'partial'
+                                # If confirmed, we can trigger handle_partial
+                                if found_tx['confs'] >= 1:
+                                    self._handle_partial_payment_detected(payment_address, found_tx['amount'])
+                            else:
+                                # Not partial, check if enough confs
+                                req_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)
+                                if found_tx['confs'] >= req_confs:
+                                    payment_address.status = 'paid'
+                                    payment_address.confirmed_at = timezone.now()
+                                    self._update_order_status_dynamically(order_id, 'Paid')
+                            
+                            payment_address.save()
+                except Exception as btc_e:
+                    logger.error(f"BTC fallback check error for {order_id}: {btc_e}")
+
             result = {
                 'order_id': order_id,
                 'status': payment_address.status,

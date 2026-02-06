@@ -142,6 +142,13 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         
         order = Order.objects.get(order_id=order_id)
         
+        # CRITICAL SAFETY: If order is already refunded, STOP.
+        if order.order_status == 'refunded' or order.payment_status == 'refunded':
+            logger.warning(f"Aborting payout for order {order_id}: Already marked as REFUNDED.")
+            # Ensure DirectPayment status is also synced if it exists
+            DirectPayment.objects.filter(order=order).update(status='refunded')
+            return f"Order {order_id} already refunded - payout aborted"
+        
         # Get payment address
         try:
             payment_address = PaymentAddress.objects.get(order_id=order_id)

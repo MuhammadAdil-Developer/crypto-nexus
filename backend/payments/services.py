@@ -1932,6 +1932,7 @@ class PaymentService:
             # Update order and payment status
             order.payment_status = 'refunded'
             order.order_status = 'refunded'
+            order.dispute_reason = "partial"
             order.save()
             
             payment_address.status = 'refunded'
@@ -1939,10 +1940,40 @@ class PaymentService:
             payment_address.confirmed_at = timezone.now()
             payment_address.save()
             
-            # Sync DirectPayment status if it exists
-            from .models import DirectPayment
-            DirectPayment.objects.filter(order=order).update(status='refunded', amount_received=amount_received)
+            # Sync/Create DirectPayment status to ensure vendor sees it as refunded
+            from .models import DirectPayment, RefundRequest
+            dp, created = DirectPayment.objects.update_or_create(
+                order=order,
+                defaults={
+                    'vendor': order.vendor,
+                    'buyer': order.buyer,
+                    'crypto_currency': payment_address.crypto_currency,
+                    'amount': payment_address.expected_amount,
+                    'amount_received': amount_received,
+                    'status': 'refunded',
+                    'vendor_address': "REFUNDED",
+                    'net_amount': 0
+                }
+            )
             
+            # Create a RefundRequest object so it shows in the buyer dashboard /refund-requests
+            if not RefundRequest.objects.filter(order=order).exists():
+                RefundRequest.objects.create(
+                    order=order,
+                    buyer=order.buyer,
+                    vendor=order.vendor,
+                    amount=amount_received,
+                    refund_type='partial',
+                    reason="partial",
+                    notes=f"Auto-refund of underpaid expired btcpay invoice. Received: {amount_received}",
+                    status='completed',
+                    vendor_decision='approved',
+                    vendor_decision_at=timezone.now(),
+                    vendor_decision_notes="Auto-approved by system due to partial payment.",
+                    completed_at=timezone.now()
+                )
+                logger.info(f"Created RefundRequest object for order {order.order_id}")
+
             # Create automatic refund if refund_address exists
             if order.refund_address:
                 from .models import Payout

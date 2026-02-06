@@ -259,6 +259,27 @@ class DirectPaymentMonitor:
                 if is_partial:
                     order.payment_status = 'refunded'
                     order.order_status = 'refunded'
+                    order.dispute_reason = "partial"
+                    order.save()
+                    
+                    # Create a RefundRequest object so it shows in the buyer dashboard /refund-requests
+                    from payments.models import RefundRequest
+                    if not RefundRequest.objects.filter(order=order).exists():
+                        RefundRequest.objects.create(
+                            order=order,
+                            buyer=order.buyer,
+                            vendor=order.vendor,
+                            amount=Decimal(str(received)),
+                            refund_type='partial',
+                            reason="partial",
+                            notes=f"Auto-refund of underpaid blockchain detection. Received: {received}",
+                            status='completed',
+                            vendor_decision='approved',
+                            vendor_decision_at=timezone.now(),
+                            vendor_decision_notes="Auto-approved by system due to partial payment.",
+                            completed_at=timezone.now()
+                        )
+                        logger.info(f"Created RefundRequest object for order {order.order_id}")
                     
                     # Create automatic refund if refund_address exists
                     if order.refund_address:

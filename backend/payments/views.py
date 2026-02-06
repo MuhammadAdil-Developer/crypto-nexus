@@ -1121,7 +1121,7 @@ class VendorPayoutsView(APIView):
             
             # Define excluded statuses
             excluded_order_status = ['cancelled', 'refunded', 'disputed']
-            excluded_payout_status = ['failed', 'cancelled']
+            excluded_payout_status = ['failed', 'cancelled', 'refunded']
             
             # Fetch Payouts (Escrow)
             # Fetch Payouts (Escrow)

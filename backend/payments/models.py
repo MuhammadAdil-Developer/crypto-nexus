@@ -114,6 +114,7 @@ class PaymentStatus(Enum):
     OVERPAID = 'overpaid'
     EXPIRED = 'expired'
     CANCELLED = 'cancelled'
+    REFUNDED = 'refunded'
 
 
 class PaymentAddress(BaseModel):

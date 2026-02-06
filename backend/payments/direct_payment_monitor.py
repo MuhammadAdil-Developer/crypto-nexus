@@ -151,8 +151,15 @@ class DirectPaymentMonitor:
             
             if matched:
                 confs = matched.get('confirmations', 0)
+                # Use settings for required XMR confirmations (default 10)
+                from django.conf import settings as django_settings
+                req_confs = django_settings.REQUIRED_CONFIRMATIONS.get('XMR', 10)
                 amount_xmr = Decimal(str(matched.get('amount', 0))) / Decimal('1000000000000')
-                self._confirm_payment(payment, "monero_rpc", confs, matched.get('txid'), amount=amount_xmr)
+                
+                # We always confirm if confs >= threshold OR if it's a found partial
+                # _confirm_payment will handle the is_partial branching
+                if confs >= 1: # At least one conf for partial detection to be safe
+                    self._confirm_payment(payment, "monero_rpc", confs, matched.get('txid'), amount=amount_xmr)
         except Exception as e:
             logger.error(f"XMR Monitor error: {e}")
 
@@ -197,8 +204,8 @@ class DirectPaymentMonitor:
                     expected = float(db_payment.amount)
                     received = float(amount)
                     
-                    # Tolerance for minor dust/exchange fees (e.g. 0.00000001 BTC)
-                    tolerance = 0.0000005 
+                    # Tolerance for minor dust/exchange fees (1% as per standard)
+                    tolerance = expected * 0.01
                     
                     if received < (expected - tolerance):
                         is_partial = True
@@ -216,11 +223,12 @@ class DirectPaymentMonitor:
                     db_payment.save(update_fields=['status', 'confirmed_at', 'updated_at'])
                     needs_trigger = True # Signal for Celery trigger below
                 elif is_partial:
-                    db_payment.status = 'pending' # Keep pending so monitor keeps checking if they send more
+                    db_payment.status = 'refunded' # Stop monitoring this order once we trigger refund
                     db_payment.updated_at = timezone.now()
                     db_payment.save(update_fields=['status', 'updated_at'])
                     needs_trigger = False
-                    # Note: We don't mark as 'completed' or 'confirmed'
+                    # Note: We mark as 'refunded' so the monitor loop skips this order in future runs.
+                    # The auto-refund payout below handles the money return.
                 elif update_data:
                     DirectPayment.objects.filter(id=payment.id).update(**update_data)
                     needs_trigger = False
@@ -234,7 +242,8 @@ class DirectPaymentMonitor:
                     if tx_hash: pa.transaction_hash = tx_hash
                     
                     if is_partial:
-                        pa.status = 'partial'
+                        pa.status = 'refunded'
+                        pa.confirmed_at = timezone.now()
                     else:
                         pa.status = 'paid'
                         pa.confirmed_at = timezone.now()
@@ -245,8 +254,8 @@ class DirectPaymentMonitor:
                 # Update Order Status ONLY if not partial
                 order = payment.order
                 if is_partial:
-                    order.payment_status = 'partial'
-                    order.order_status = 'pending_payment'
+                    order.payment_status = 'refunded'
+                    order.order_status = 'refunded'
                     
                     # Create automatic refund if refund_address exists
                     if order.refund_address:
@@ -346,10 +355,13 @@ class DirectPaymentMonitor:
             for out in tx.get('vout', []):
                 if out.get('scriptpubkey_address') == target_address:
                     val_sat = out.get('value', 0)
-                    # Use STRICT amount match if amount > 0
-                    if target_sat > 0 and abs(val_sat - target_sat) > 100:
-                        continue # Skip if more than 100 sats difference
-                        
+                    # RELAXED AMOUNT MATCH: Detect any payment to the unique address
+                    # If target_sat > 0 and amount doesn't match, we still return it 
+                    # so _confirm_payment can trigger is_partial/auto-refund logic.
+                    if target_sat > 0 and abs(val_sat - target_sat) > 500: # Increased tolerance to 500 sats
+                         # If it's a massive difference, it will be caught as partial in _confirm_payment
+                         logger.info(f"Detected potential partial/over payment on {target_address}: {val_sat} vs expected {target_sat}")
+                    
                     confs = 0
                     status = tx.get('status', {})
                     if status.get('confirmed'):

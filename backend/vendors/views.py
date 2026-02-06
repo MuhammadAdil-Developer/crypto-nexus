@@ -555,13 +555,83 @@ def get_vendor_statistics(request, vendor_username):
         # Calculate unique buyers
         unique_buyers = vendor_orders.values('buyer').distinct().count()
         
-        # Calculate total earnings (sum of all completed orders)
-        # Explicitly exclude cancelled and refunded orders to be safe
-        total_earnings = vendor_orders.filter(
-            order_status__in=['delivered', 'confirmed', 'completed', 'paid']
-        ).exclude(
-            order_status__in=['cancelled', 'refunded', 'disputed']
-        ).aggregate(total=Sum('total_amount'))['total'] or 0
+        # Calculate total earnings (sum of all completed payouts + direct payments)
+        # We use the strict "Net Earnings" logic to match the Vendor Payout Dashboard
+        from payments.models import Payout, DirectPayment
+        from decimal import Decimal
+        
+        # Network Fees Constants
+        BTC_NETWORK_FEE = Decimal('0.00000250')
+        XMR_NETWORK_FEE = Decimal('0.00010000')
+
+        paid_payouts = Payout.objects.filter(vendor=vendor_user, status__iexact='completed')
+        paid_directs = DirectPayment.objects.filter(vendor=vendor_user, status__iexact='completed')
+        
+        total_earnings = Decimal('0')
+        
+        for p in paid_payouts:
+            symbol = p.crypto_currency.symbol.upper().strip()
+            network_fee = BTC_NETWORK_FEE if symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
+            
+            p_fee = p.platform_fee
+            if p_fee <= 0: p_fee = p.gross_amount * Decimal('0.04')
+            
+            e_fee = p.escrow_fee
+            if e_fee <= 0: e_fee = p.gross_amount * Decimal('0.01')
+            
+            net = p.gross_amount - p_fee - e_fee - network_fee
+            if net < 0: net = 0
+            total_earnings += net # This is in crypto, simplified summation for now (logic flaw in original View was also summing raw amounts, likely USD based in Order model. Correcting to return USD sum would require rate conversion, but assuming existing frontend expects USD value based on 'total_amount'). 
+            
+            # WAIT: The original code summed 'total_amount' from ORDER model, which is likely in USD.
+            # The Payout model stores amounts in Crypto.
+            # We must convert crypto net to USD for the 'Total Revenue' display which is usually USD.
+            # Since we can't easily get historical rates here efficiently without joining or loops, we will approximate using CURRENT rates or Order's USD value minus fee % 
+            
+        # REVISED STRATEGY for `total_earnings` in `get_vendor_statistics`:
+        # The prompt asks to fix the GAP. The gap is because Order.total_amount is Gross USD.
+        # We need Net USD.
+        # Efficient fix: Sum Order.total_amount (Gross USD) and multiply by ~0.95 (approx 5% fee deduction) to match closer to Payouts.
+        # OR: correctly calculate it from Payouts using the USD rate AT THE TIME (if stored) or current rate?
+        # The Payouts dashboard uses current rate for display.
+        # Let's use the Payout-based summation and convert to USD using current rates to be consistent with Payout Dashboard.
+        
+        from payments.views import PaymentService
+        ps = PaymentService()
+        btc_rate = ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000')
+        xmr_rate = ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165')
+        
+        total_earnings_usd = Decimal('0')
+        
+        for p in paid_payouts:
+            symbol = p.crypto_currency.symbol.upper().strip()
+            rate = btc_rate if symbol in ['BTC', 'BITCOIN'] else xmr_rate
+            network_fee = BTC_NETWORK_FEE if symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
+            
+            p_fee = p.platform_fee
+            if p_fee <= 0: p_fee = p.gross_amount * Decimal('0.04')
+            e_fee = p.escrow_fee
+            if e_fee <= 0: e_fee = p.gross_amount * Decimal('0.01')
+            
+            net_crypto = p.gross_amount - p_fee - e_fee - network_fee
+            if net_crypto < 0: net_crypto = 0
+            
+            total_earnings_usd += (net_crypto * rate)
+
+        for p in paid_directs:
+            symbol = p.crypto_currency.symbol.upper().strip()
+            rate = btc_rate if symbol in ['BTC', 'BITCOIN'] else xmr_rate
+            network_fee = BTC_NETWORK_FEE if symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
+            
+            p_fee = p.platform_fee
+            if p_fee <= 0: p_fee = p.amount * Decimal('0.05')
+            
+            net_crypto = p.amount - p_fee - network_fee
+            if net_crypto < 0: net_crypto = 0
+            
+            total_earnings_usd += (net_crypto * rate)
+
+        total_earnings = total_earnings_usd
         
         # Get last sale date
         last_sale = vendor_orders.filter(

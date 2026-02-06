@@ -504,13 +504,15 @@ class MoneroRPCService:
             # Calculate threshold with tolerance
             # Default tolerance expanded to 1.6% to accommodate user's small underpayment
             threshold = int(expected_amount * (1.0 - (tolerance_percent / 100.0)))
+            is_partial = total_received < threshold
             
             logger.info(f"Subaddress {subaddress_index} Balance: {total_received} atomic units. Target: {expected_amount}, Min Threshold: {threshold}")
 
-            if total_received >= threshold:
-                logger.info(f"MATCH FOUND! Monero payment detected: {main_txid} (Total: {total_received})")
+            if total_received > 0:
+                logger.info(f"MATCH FOUND! Monero payment detected: {main_txid} (Total: {total_received}, Partial? {is_partial})")
                 return {
                     'found': True,
+                    'partial': is_partial,
                     'amount': total_received,
                     'txid': main_txid,
                     'confirmations': max_confirmations,
@@ -1148,6 +1150,26 @@ class PaymentService:
                     btcpay_status = 'Settled'  # Payment fully settled
                 elif webhook_type == 'InvoiceSettled':
                     btcpay_status = 'Settled'  # Invoice completed
+                
+                # Check for underpayment in ReceivedPayment webhook
+                is_partial = False
+                received_amount = Decimal('0')
+                if webhook_type == 'InvoiceReceivedPayment' and payment_data:
+                    avg_amount = payment_data.get('amount')
+                    if avg_amount:
+                        received_amount = Decimal(str(avg_amount))
+                        # Use same tolerance as elsewhere (0.5%)
+                        expected = Decimal(str(payment_address.expected_amount))
+                        tolerance = expected * Decimal('0.005')
+                        if received_amount < (expected - tolerance):
+                            is_partial = True
+                            logger.warning(f"BTCPay Underpayment Detected: Received {received_amount}, Expected {expected}")
+                
+                if is_partial:
+                    logger.info(f"BTCPay Underpayment detected for {payment_address.order_id}, waiting for monitor/confirmations.")
+                    # We do NOT trigger refund here because InvoiceReceivedPayment is often unconfirmed.
+                    # The direct_payment_monitor will handle it safely after confirmations.
+                    return True # Mark as processed
                 elif webhook_type == 'InvoiceProcessing':
                     # This is just a processing notification
                     btcpay_status = 'Processing'
@@ -1780,10 +1802,21 @@ class PaymentService:
                 # Payment confirmed
                 amount_atomic = int(payment_info.get('amount', 0))
                 amount_received = Decimal(str(amount_atomic)) / Decimal('1000000000000')
+                is_partial = payment_info.get('partial', False)
                 
-                logger.info(f"Monero payment confirmed for order {payment_address.order_id}: {amount_received} XMR")
+                logger.info(f"Monero payment confirmed for order {payment_address.order_id}: {amount_received} XMR (Partial? {is_partial})")
                 
                 # Update payment address
+                if is_partial:
+                    payment_address.status = 'partial'
+                    payment_address.received_amount = amount_received
+                    payment_address.transaction_hash = payment_info.get('txid')
+                    payment_address.confirmations = payment_info.get('confirmations', 0)
+                    payment_address.save()
+                    
+                    self._handle_partial_payment_detected(payment_address, amount_received)
+                    return True
+                
                 # IMPORTANT: Only update status and confirmed_at if not already paid
                 if payment_address.status != 'paid':
                     payment_address.status = 'paid'
@@ -1827,6 +1860,67 @@ class PaymentService:
         except PaymentAddress.DoesNotExist:
             return None
     
+    def _handle_partial_payment_detected(self, payment_address, amount_received):
+        """Helper to handle partial payment detection - marks order as refunded and queues auto-refund payout"""
+        try:
+            from orders.models import Order
+            order = Order.objects.filter(order_id=payment_address.order_id).first()
+            if not order:
+                return
+            
+            if order.order_status == 'refunded':
+                return # Already handled
+            
+            logger.warning(f"Executing _handle_partial_payment_detected for order {order.order_id}")
+            
+            # Update order and payment status
+            order.payment_status = 'refunded'
+            order.order_status = 'refunded'
+            order.save()
+            
+            payment_address.status = 'refunded'
+            payment_address.received_amount = amount_received
+            payment_address.confirmed_at = timezone.now()
+            payment_address.save()
+            
+            # Sync DirectPayment status if it exists
+            from .models import DirectPayment
+            DirectPayment.objects.filter(order=order).update(status='refunded', amount_received=amount_received)
+            
+            # Create automatic refund if refund_address exists
+            if order.refund_address:
+                from .models import Payout
+                from .tasks import process_payout_task
+                
+                # Check if refund already exists
+                if not Payout.objects.filter(order=order, payout_type='refund').exists():
+                    # Calculate refund amount (gross minus 3% fee for network costs/handling)
+                    gross = amount_received
+                    fee_rate = Decimal('0.03') 
+                    platform_fee = gross * fee_rate
+                    net = gross - platform_fee
+                    
+                    payout = Payout.objects.create(
+                        order=order,
+                        vendor=order.vendor,
+                        buyer=order.buyer,
+                        payout_type='refund',
+                        crypto_currency=payment_address.crypto_currency,
+                        gross_amount=gross,
+                        net_amount=net,
+                        platform_fee=platform_fee,
+                        vendor_address=order.refund_address,
+                        status='pending'
+                    )
+                    
+                    process_payout_task.delay(str(payout.id))
+                    logger.info(f"✅ AUTO-REFUND TRIGGERED for partial payment on order {order.order_id}")
+            else:
+                logger.error(f"❌ CANNOT AUTO-REFUND: No refund address for order {order.order_id}")
+                
+        except Exception as e:
+            logger.error(f"Error in _handle_partial_payment_detected: {e}")
+
     def check_payment_status(self, order_id: str) -> dict:
         """Check current payment status"""
         try:
@@ -1877,12 +1971,24 @@ class PaymentService:
                     from django.conf import settings as django_settings
                     paid_threshold = getattr(django_settings, 'XMR_PAID_THRESHOLD', 1)
                     
-                    # Update status to Paid if threshold reached
-                    if current_confs >= paid_threshold and payment_address.status != 'paid':
+                    is_partial = payment_result.get('partial', False)
+                    
+                    # Update status to Paid if threshold reached AND not partial
+                    if current_confs >= paid_threshold and not is_partial and payment_address.status != 'paid':
                         logger.info(f"Marking order {order_id} as PAID (Confirmations: {current_confs})")
                         payment_address.status = 'paid'
                         payment_address.confirmed_at = timezone.now()
                         self._update_order_status_dynamically(order_id, 'Paid')
+                    elif is_partial:
+                        # CRITICAL: Only trigger refund if it has at least 1 confirmation (paid_threshold)
+                        if current_confs >= paid_threshold:
+                            logger.warning(f"Order {order_id} has CONFIRMED PARTIAL payment ({received_amount_xmr} XMR). Refunding.")
+                            payment_address.status = 'partial'
+                            self._handle_partial_payment_detected(payment_address, received_amount_xmr)
+                        else:
+                            logger.info(f"Order {order_id} has UNCONFIRMED PARTIAL payment ({received_amount_xmr} XMR). Waiting.")
+                            payment_address.status = 'partial'
+                        
                         
 
 

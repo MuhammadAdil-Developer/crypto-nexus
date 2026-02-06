@@ -150,6 +150,7 @@ class PaymentAddress(BaseModel):
         ('overpaid', 'Overpaid'),
         ('expired', 'Expired'),
         ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
     ], default='pending')
     
     expires_at = models.DateTimeField()
@@ -289,6 +290,8 @@ class DirectPayment(BaseModel):
         ('completed', 'Completed'),
         ('failed', 'Failed'),
         ('expired', 'Expired'),
+        ('refunded', 'Refunded'),
+        ('partial', 'Partial Payment'),
         # Keeping 'confirmed' for internal logic compatibility
         ('confirmed', 'Confirmed'),
     ]

@@ -564,7 +564,8 @@ class AdminEarningsAnalyticsView(APIView):
                 escrow=Sum('escrow_fee'),
                 count=Count('id')
             )
-            direct_stats = DirectPayment.objects.filter(status='confirmed').values('crypto_currency__symbol').annotate(
+            # Direct Payments use 'completed' for final success, but we include 'confirmed' for safety
+            direct_stats = DirectPayment.objects.filter(status__in=['confirmed', 'completed']).values('crypto_currency__symbol').annotate(
                 fees=Sum('platform_fee'),
                 count=Count('id')
             )
@@ -573,16 +574,28 @@ class AdminEarningsAnalyticsView(APIView):
             total_orders = 0
             for s in escrow_stats:
                 sym = s['crypto_currency__symbol']
+                # Clean symbol just in case
+                sym = sym.upper().strip() if sym else 'BTC' 
+                if sym in ['BTC', 'BITCOIN']: sym = 'BTC'
+                if sym in ['XMR', 'MONERO']: sym = 'XMR'
+                
                 if sym in profits: profits[sym] += float(s['platform'] or 0) + float(s['escrow'] or 0)
                 total_orders += s['count']
+            
             for s in direct_stats:
                 sym = s['crypto_currency__symbol']
+                # Clean symbol
+                sym = sym.upper().strip() if sym else 'BTC'
+                if sym in ['BTC', 'BITCOIN']: sym = 'BTC'
+                if sym in ['XMR', 'MONERO']: sym = 'XMR'
+
                 if sym in profits: profits[sym] += float(s['fees'] or 0)
                 total_orders += s['count']
 
             # Use live or stable production rates
-            btc_price = 65000.0
-            xmr_price = 160.0
+            # Updated to match project standard
+            btc_price = 98000.0
+            xmr_price = 165.0
             total_profit_usd = (profits['BTC'] * btc_price) + (profits['XMR'] * xmr_price)
 
             # 2. 12-Month Revenue History (Strictly Real Data)
@@ -1106,11 +1119,39 @@ class VendorPayoutsView(APIView):
             btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
             xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             
-            payouts = Payout.objects.filter(vendor=vendor).order_by('-created_at')
-            direct_payments = DirectPayment.objects.filter(vendor=vendor).order_by('-created_at')
+            # Define excluded statuses
+            excluded_order_status = ['cancelled', 'refunded', 'disputed']
+            excluded_payout_status = ['failed', 'cancelled']
+            
+            # Fetch Payouts (Escrow)
+            # Fetch Payouts (Escrow)
+            payout_records = Payout.objects.filter(
+                vendor=vendor
+            ).exclude(
+                status__in=excluded_payout_status
+            ).exclude(
+                order__order_status__in=excluded_order_status
+            ).order_by('-created_at')
+            
+            # Fetch Direct Payments
+            direct_records = DirectPayment.objects.filter(
+                vendor=vendor
+            ).exclude(
+                status__in=excluded_payout_status
+            ).exclude(
+                order__order_status__in=excluded_order_status
+            ).order_by('-created_at')
+            
+            # For backward compatibility with existing loop variables below (if any)
+            payouts = payout_records
+            direct_payments = direct_records
             
             payout_data = []
             
+            # Network Fees Constants
+            BTC_NETWORK_FEE = Decimal('0.00000250')
+            XMR_NETWORK_FEE = Decimal('0.00010000')
+
             for payout in payouts:
                 platform_fee_rate = 0
                 escrow_fee_rate = 0
@@ -1118,13 +1159,30 @@ class VendorPayoutsView(APIView):
                     platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
                     escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
                 
-                currency_symbol = payout.crypto_currency.symbol.upper()
-                usd_rate = btc_rate if currency_symbol == 'BTC' else xmr_rate
+                currency_symbol = payout.crypto_currency.symbol.upper().strip()
+                usd_rate = btc_rate if currency_symbol in ['BTC', 'BITCOIN'] else xmr_rate
+                network_fee = BTC_NETWORK_FEE if currency_symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
+                
+                # FORCE NET CALCULATION (User Request: Show strict Pocket/Net Earnings)
+                # Ignore stored net_amount if we can calculate it dynamically to ensure fees are deducted
+                
+                # If platform fee is 0 (pending), estimate it (e.g. 4%) so user sees realistic net
+                p_fee = payout.platform_fee
+                if p_fee <= 0:
+                    p_fee = payout.gross_amount * Decimal('0.04')
+
+                e_fee = payout.escrow_fee
+                if e_fee <= 0:
+                    e_fee = payout.gross_amount * Decimal('0.01') # Estimate 1% escrow fee
+
+                calculated_net = payout.gross_amount - p_fee - e_fee - network_fee
+                if calculated_net < 0: calculated_net = 0
+                display_amount = calculated_net
                 
                 payout_data.append({
                     'id': str(payout.id),
-                    'amount': f"{format(payout.net_amount, 'f').rstrip('0').rstrip('.')} {payout.crypto_currency.symbol}",
-                    'usdAmount': f"${float(payout.net_amount) * usd_rate:.2f}",
+                    'amount': f"{format(display_amount, 'f').rstrip('0').rstrip('.')} {payout.crypto_currency.symbol}",
+                    'usdAmount': f"${float(display_amount) * usd_rate:.2f}",
                     'address': payout.vendor_address,
                     'method': payout.crypto_currency.symbol,
                     'status': 'Confirmed' if payout.status == 'confirmed' else payout.status.title(),
@@ -1135,23 +1193,30 @@ class VendorPayoutsView(APIView):
                     'gross_amount': format(payout.gross_amount, 'f').rstrip('0').rstrip('.'),
                     'platform_fee': format(payout.platform_fee, 'f').rstrip('0').rstrip('.'),
                     'escrow_fee': format(payout.escrow_fee, 'f').rstrip('0').rstrip('.'),
-                    'network_fee': '0.00000250 BTC' if currency_symbol == 'BTC' else '0.00010000 XMR',
+                    'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                 })
             
             for payment in direct_records:
                 currency_symbol = payment.crypto_currency.symbol.upper().strip()
-                usd_rate = btc_rate if currency_symbol == 'BTC' else xmr_rate
+                usd_rate = btc_rate if currency_symbol in ['BTC', 'BITCOIN'] else xmr_rate
+                network_fee = BTC_NETWORK_FEE if currency_symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
                 
                 # Calculate platform fee rate for direct payment
                 platform_fee_rate = 0
                 if payment.amount > 0:
                     platform_fee_rate = (payment.platform_fee / payment.amount) * 100
                 
-                # CRITICAL FIX: Use gross amount for display if net_amount is not yet calculated (Pending)
-                # This fixes the "0 BTC" issue for pending direct payments
-                display_amount = payment.net_amount if payment.net_amount > 0 else payment.amount
+                # FORCE NET CALCULATION
+                # If platform fee is 0 (pending), estimate it (e.g. 5% total approx)
+                p_fee = payment.platform_fee
+                if p_fee <= 0:
+                    p_fee = payment.amount * Decimal('0.05') # Estimate 5% for direct (4% plat + 1% hidden/var)
+
+                calculated_net = payment.amount - p_fee - network_fee
+                if calculated_net < 0: calculated_net = 0
+                display_amount = calculated_net
                 
                 payout_data.append({
                     'id': str(payment.id),
@@ -1167,87 +1232,81 @@ class VendorPayoutsView(APIView):
                     'gross_amount': format(payment.amount, 'f').rstrip('0').rstrip('.'),
                     'platform_fee': format(payment.platform_fee, 'f').rstrip('0').rstrip('.'),
                     'escrow_fee': '0.00',
-                    'network_fee': '0.00000250 BTC' if currency_symbol == 'BTC' else '0.00010000 XMR',
+                    'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
                     'escrow_fee_rate': 0
                 })
             
             # Calculate total earnings (Completed + Pending)
-            pending_btc = Decimal('0')
-            pending_xmr = Decimal('0')
+            balance_btc = Decimal('0')
+            balance_xmr = Decimal('0')
+            total_earned_btc = Decimal('0')
+            total_earned_xmr = Decimal('0')
                 
-            btc_orders = 0
-            xmr_orders = 0
-            
-            # Get all escrow payouts (Pending + Ready + Processing + Completed)
-            # We filter for orders that are successful and NOT cancelled/refunded/disputed
-            payout_records = Payout.objects.filter(
-                vendor=vendor
-            ).exclude(
-                status__in=['failed', 'cancelled']
-            ).filter(
-                order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
-            ).exclude(
-                status__in=excluded_payout_status
-            ).filter(
-                order__order_status__in=['delivered', 'confirmed', 'completed', 'paid']
-            ).exclude(
-                order__order_status__in=excluded_order_status
-            )
+            btc_pending_orders = 0
+            xmr_pending_orders = 0
+            total_btc_orders = 0
+            total_xmr_orders = 0
             
             for payout in payout_records:
                 symbol = payout.crypto_currency.symbol.upper().strip()
-                # net_amount is what the vendor actually gets
-                net = payout.net_amount
                 is_completed = payout.status.lower() == 'completed'
+                network_fee = BTC_NETWORK_FEE if symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
+                
+                # FORCE NET CALCULATION
+                p_fee = payout.platform_fee
+                if p_fee <= 0:
+                    p_fee = payout.gross_amount * Decimal('0.04')
+
+                e_fee = payout.escrow_fee
+                if e_fee <= 0:
+                    e_fee = payout.gross_amount * Decimal('0.01') 
+
+                calculated_net = payout.gross_amount - p_fee - e_fee - network_fee
+                if calculated_net < 0: calculated_net = 0
                 
                 if symbol in ['BTC', 'BITCOIN']:
                     if is_completed:
-                        total_earned_btc += net
+                        total_earned_btc += calculated_net
                         total_btc_orders += 1
                     else:
-                        balance_btc += net
+                        balance_btc += calculated_net
                         btc_pending_orders += 1
                 elif symbol in ['XMR', 'MONERO', 'MON']:
                     if is_completed:
-                        total_earned_xmr += net
+                        total_earned_xmr += calculated_net
                         total_xmr_orders += 1
                     else:
-                        balance_xmr += net
+                        balance_xmr += calculated_net
                         xmr_pending_orders += 1
             
             # 2. Process Direct Payments
-            direct_records = DirectPayment.objects.filter(
-                vendor=vendor
-            ).exclude(
-                status__in=excluded_payout_status
-            ).exclude(
-                order__order_status__in=excluded_order_status
-            )
-            
             for payment in direct_records:
                 symbol = payment.crypto_currency.symbol.upper().strip()
-                # Use net_amount if available, fallback to amount minus platform_fee for pending ones
-                if payment.net_amount > 0:
-                    net = payment.net_amount
-                else:
-                    net = payment.amount - payment.platform_fee
+                is_completed = payment.status.lower() == 'completed' # Direct payments use 'completed' for final stats
+                network_fee = BTC_NETWORK_FEE if symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
                 
-                is_completed = payment.status.lower() == 'confirmed' # Direct payments use 'confirmed'
+                # FORCE NET CALCULATION
+                p_fee = payment.platform_fee
+                if p_fee <= 0:
+                    p_fee = payment.amount * Decimal('0.05')
+
+                calculated_net = payment.amount - p_fee - network_fee
+                if calculated_net < 0: calculated_net = 0
                 
                 if symbol in ['BTC', 'BITCOIN']:
                     if is_completed:
-                        total_earned_btc += net
+                        total_earned_btc += calculated_net
                         total_btc_orders += 1
                     else:
-                        balance_btc += net
+                        balance_btc += calculated_net
                         btc_pending_orders += 1
                 elif symbol in ['XMR', 'MONERO', 'MON']:
                     if is_completed:
-                        total_earned_xmr += net
+                        total_earned_xmr += calculated_net
                         total_xmr_orders += 1
                     else:
-                        balance_xmr += net
+                        balance_xmr += calculated_net
                         xmr_pending_orders += 1
             
             btc_usd_earned = float(total_earned_btc) * btc_rate

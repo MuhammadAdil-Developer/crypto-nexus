@@ -157,8 +157,9 @@ export default function VendorAnalytics() {
         const prevRevenueUSD = previousOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase()))
           .reduce((sum, o) => sum + (parseFloat(o.product?.price || o.listing?.price || 0) * parseInt(o.quantity || 1)), 0);
 
-        const prevSales = previousOrders.length;
-        const currentSales = filteredOrders.length;
+        const prevSales = previousOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase())).length;
+        // Fix: Total Sales should only count completed/paid orders, not all orders in the filtered date range
+        const currentSales = filteredOrders.filter(o => validRevenueStatuses.includes((o.order_status || "").toLowerCase())).length;
 
         // Handle trend calculation with zero baseline
         const calculateTrend = (current: number, previous: number) => {
@@ -182,11 +183,22 @@ export default function VendorAnalytics() {
           viewsTrend = totalViews > 0 ? (period === "all_time" ? 100 : 12.5) : 0;
         }
 
+        // FIX: Use Dashboard (Payouts Service) Revenue for All Time to ensure strict Net Earnings match
+        // The local calculation above is Gross, but Payouts Dashboard uses Net.
+        let displayRevenueUSD = currentRevenueUSD;
+        if (period === 'all_time') {
+          // Try to find total_earnings from getVendorStatistics (flat) or revenue.total from getDashboardStats (nested)
+          const earningVal = statistics.total_earnings || statistics.revenue?.total;
+          if (earningVal) {
+            displayRevenueUSD = parseFloat(String(earningVal));
+          }
+        }
+
         // Set metrics
         const calculatedMetrics = {
           totalRevenueBTC: currentRevenueBTC,
           totalRevenueXMR: currentRevenueXMR,
-          totalRevenueUSD: currentRevenueUSD,
+          totalRevenueUSD: displayRevenueUSD,
           totalSales: currentSales,
           uniqueBuyers: uniqueBuyerIds.size,
           storeViews: totalViews,

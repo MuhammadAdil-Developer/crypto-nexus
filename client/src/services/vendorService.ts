@@ -148,7 +148,7 @@ class VendorService {
       });
 
       // Use earnings from payouts page as the source of truth for "Overall Earning"
-      const pendingTotalUsd = payoutsExtra.pending_earnings?.total?.usd || "$0.00";
+      const pendingTotalUsd = payoutsExtra.pending_earnings?.total?.earned_usd || "$0.00";
       const totalRevenueFromPayouts = parseFloat(pendingTotalUsd.replace('$', '').replace(',', '')) || 0;
 
       // Calculate Product Stats
@@ -177,7 +177,7 @@ class VendorService {
         return sum + (price * qty);
       }, 0);
 
-      const finalRevenue = totalRevenueFromPayouts > 0 ? totalRevenueFromPayouts : calculatedRevenue;
+      const finalRevenue = totalRevenueFromPayouts;
 
       console.log(`Stats Finalized: Revenue=${finalRevenue}, Sales=${finalSalesCount}`);
 

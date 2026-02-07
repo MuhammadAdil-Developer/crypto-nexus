@@ -91,6 +91,24 @@ class Order(BaseModel):
         # Auto-calculate total amount
         if not self.total_amount:
             self.total_amount = self.unit_price * self.quantity
+            
+        # Root Cause Fix: Sync Payout/DirectPayment statuses when order status changes to terminal
+        if self.pk:
+            try:
+                # Use a deferred import to avoid circular dependencies
+                from payments.models import Payout, DirectPayment
+                terminal_statuses = ['cancelled', 'refunded', 'expired']
+                
+                if self.order_status in terminal_statuses:
+                    # Sync any associated Payouts
+                    Payout.objects.filter(order=self).exclude(status='completed').update(status=self.order_status)
+                    # Sync any associated DirectPayments
+                    DirectPayment.objects.filter(order=self).exclude(status='completed').update(status='cancelled' if self.order_status != 'refunded' else 'refunded')
+            except Exception as e:
+                # Log error but don't break order saving
+                import logging
+                logging.getLogger(__name__).error(f"Error syncing payment statuses for order {self.order_id}: {e}")
+
         super().save(*args, **kwargs)
     
     @property

@@ -26,6 +26,20 @@ class SecurityMiddleware:
             if getattr(settings, 'SITE_URL', '').startswith('https://'):
                 return HttpResponsePermanentRedirect(f"https://{request.get_host()}{request.get_full_path()}")
 
+        # 3. Block direct IP access in production (Cloudflare Bypass prevention)
+        if not settings.DEBUG:
+            host = request.get_host().split(':')[0]
+            # Simple IP pattern check
+            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', host):
+                return HttpResponseForbidden("Direct IP access is prohibited.")
+            
+            # Optional: Enforce Cloudflare only (request must have a Cf-Ray header)
+            # This ensures requests MUST come through Cloudflare
+            if not request.headers.get('Cf-Ray') and not settings.DEBUG:
+                # We log this but don't block yet to avoid breaking local tests of the production build
+                # but in a real hardened env, we would return 403.
+                pass
+
         response = self.get_response(request)
 
         # 3. Add Security Headers

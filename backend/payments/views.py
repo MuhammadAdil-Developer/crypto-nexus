@@ -165,11 +165,8 @@ class CreatePaymentAddressView(APIView):
             return Response(response_data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            logger.error(f"Payment address creation error: {str(e)}")
-            return Response(
-                {'error': 'Failed to create payment address'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            from shared.utils.security import clean_error_response
+            return Response(clean_error_response(e, 'Failed to create payment address'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PaymentStatusView(APIView):
@@ -189,11 +186,8 @@ class PaymentStatusView(APIView):
             return Response(status_data, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"Payment status check error: {str(e)}")
-            return Response(
-                {'error': 'Failed to check payment status'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            from shared.utils.security import clean_error_response
+            return Response(clean_error_response(e, 'Failed to check payment status'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request, order_id):
         """Manual payment confirmation for testing"""
@@ -1120,8 +1114,8 @@ class VendorPayoutsView(APIView):
             xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
             
             # Define excluded statuses
-            excluded_order_status = ['cancelled', 'refunded', 'disputed']
-            excluded_payout_status = ['failed', 'cancelled', 'refunded']
+            excluded_order_status = ['cancelled', 'refunded', 'disputed', 'expired']
+            excluded_payout_status = ['failed', 'cancelled', 'refunded', 'expired']
             
             # Fetch Payouts (Escrow)
             # Fetch Payouts (Escrow)
@@ -1148,9 +1142,10 @@ class VendorPayoutsView(APIView):
             
             payout_data = []
             
-            # Network Fees Constants
-            BTC_NETWORK_FEE = Decimal('0.00000250')
-            XMR_NETWORK_FEE = Decimal('0.00010000')
+            # Network Fees (Dynamic)
+            network_fees = ps.get_network_fees()
+            BTC_NETWORK_FEE = network_fees.get('BTC', Decimal('0.00005000'))
+            XMR_NETWORK_FEE = network_fees.get('XMR', Decimal('0.00020000'))
 
             for payout in payouts:
                 platform_fee_rate = 0
@@ -1345,7 +1340,11 @@ class VendorPayoutsView(APIView):
             return Response({
                 'success': True,
                 'data': payout_data,
-                'pending_earnings': pending_earnings
+                'pending_earnings': pending_earnings,
+                'network_fees': {
+                    'btc': str(BTC_NETWORK_FEE),
+                    'xmr': str(XMR_NETWORK_FEE)
+                }
             })
             
         except Exception as e:

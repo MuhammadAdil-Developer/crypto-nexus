@@ -596,6 +596,8 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 class ProductUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating products"""
     main_image = serializers.ImageField(required=False)
+    category = serializers.PrimaryKeyRelatedField(queryset=ProductCategory.objects.all(), required=False, allow_null=True)
+    sub_category = serializers.PrimaryKeyRelatedField(queryset=ProductSubCategory.objects.all(), required=False, allow_null=True)
     
     class Meta:
         model = Product
@@ -606,7 +608,7 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
             'main_image', 'main_images', 'tags',
             'account_age', 'quantity_available', 'special_features', 
             'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
-            'escrow_enabled', 'accepted_crypto', 'is_giveaway'
+            'escrow_enabled', 'accepted_crypto', 'is_giveaway', 'category', 'sub_category'
         ]
     
     def validate(self, data):

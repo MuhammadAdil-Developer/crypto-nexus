@@ -100,16 +100,20 @@ class IsVendorOrAdmin(BasePermission):
 def list_products(request):
     """List all approved products with filtering and search"""
     try:
-        # Get query parameters
+        from shared.utils.security import get_safe_int, get_safe_decimal, clean_error_response
+        
+        # Get query parameters with safe parsing to prevent SQLi/Error leaks
         search = request.GET.get('search', '')
         category = request.GET.get('category', '')
         account_type = request.GET.get('account_type', '')
-        min_price = request.GET.get('min_price', '')
-        max_price = request.GET.get('max_price', '')
+        min_price = get_safe_decimal(request.GET.get('min_price'))
+        max_price = get_safe_decimal(request.GET.get('max_price'))
         crypto = request.GET.get('crypto', '')
         sort_by = request.GET.get('sort_by', 'created_at')
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        
+        # Safe pagination params (max 100 per page to prevent DoS)
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         
         # Start with approved and in-stock products
         products = Product.objects.filter(
@@ -134,11 +138,11 @@ def list_products(request):
         if account_type:
             products = products.filter(account_type=account_type)
             
-        if min_price:
-            products = products.filter(price__gte=Decimal(min_price))
+        if min_price is not None:
+            products = products.filter(price__gte=min_price)
             
-        if max_price:
-            products = products.filter(price__lte=Decimal(max_price))
+        if max_price is not None:
+            products = products.filter(price__lte=max_price)
         
         if crypto:
             # Handle list field filtering for JSONField
@@ -178,19 +182,16 @@ def list_products(request):
         })
         
     except Exception as e:
-        logger.error(f"Error listing products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_popular_searches(request):
     """Get popular search suggestions based on most viewed/searched products"""
     try:
-        limit = int(request.GET.get('limit', 10))
+        from shared.utils.security import get_safe_int
+        limit = get_safe_int(request.GET.get('limit'), default=10, min_val=1, max_val=50)
         
         # Get products ordered by views_count, favorites_count, and created_at
         # This gives us the most popular products which are likely to be searched
@@ -295,12 +296,8 @@ def get_product_detail(request, product_id):
         })
         
     except Exception as e:
-        logger.error(f"Error getting product detail: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve product details',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve product details'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -320,20 +317,17 @@ def track_product_view(request, product_id):
         })
         
     except Exception as e:
-        logger.error(f"Error tracking product view: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to track product view',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to track product view'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_vendor_products(request):
     """Get products for the authenticated vendor"""
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int, clean_error_response
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         
         products = Product.objects.filter(
             vendor=request.user,
@@ -367,12 +361,8 @@ def get_vendor_products(request):
         })
         
     except Exception as e:
-        logger.error(f"Error getting vendor products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve vendor products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve vendor products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -380,8 +370,9 @@ def get_vendor_public_products(request, vendor_username):
     """Get public products for a specific vendor by username"""
     print(f"get_vendor_public_products called with vendor_username: {vendor_username}")
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int, clean_error_response
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         
         # Get products by vendor username - Approved and in-stock only
         products = Product.objects.filter(
@@ -456,12 +447,8 @@ def get_buyer_products(request):
         })
         
     except Exception as e:
-        logger.error(f"Error getting buyer products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve buyer products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve buyer products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -632,20 +619,17 @@ def create_product(request):
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
-        logger.error(f"Error creating product: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to create product',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to create product'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_all_products(request):
     """Get all products for admin"""
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int, clean_error_response
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         
         products = Product.objects.filter(
             is_deleted=False
@@ -672,12 +656,8 @@ def get_all_products(request):
         })
         
     except Exception as e:
-        logger.error(f"Error getting all products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PUT'])
 @permission_classes([IsAdminUser])
@@ -694,12 +674,8 @@ def approve_product(request, product_id):
         })
         
     except Exception as e:
-        logger.error(f"Error approving product: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to approve product',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to approve product'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PUT'])
 @permission_classes([IsAdminUser])
@@ -717,12 +693,8 @@ def reject_product(request, product_id):
         })
         
     except Exception as e:
-        logger.error(f"Error rejecting product: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to reject product',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to reject product'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PUT'])
 @permission_classes([IsVendorOrAdmin])
@@ -756,12 +728,8 @@ def resubmit_product(request, product_id):
         })
         
     except Exception as e:
-        logger.error(f"Error resubmitting product: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to resubmit product',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to resubmit product'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -778,12 +746,8 @@ def get_categories(request):
         })
         
     except Exception as e:
-        logger.error(f"Error getting categories: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve categories',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve categories'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
@@ -886,12 +850,8 @@ def update_category(request, category_id):
         })
         
     except Exception as e:
-        logger.error(f"Error updating category: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to update category',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to update category'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['DELETE'])
 @permission_classes([IsAdminUser])
@@ -919,12 +879,8 @@ def delete_category(request, category_id):
         })
         
     except Exception as e:
-        logger.error(f"Error deleting category: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to delete category',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to delete category'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -945,12 +901,8 @@ def get_subcategories(request, category_id):
         })
         
     except Exception as e:
-        logger.error(f"Error getting subcategories: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve subcategories',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve subcategories'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsVendorOrAdmin])
@@ -1044,12 +996,8 @@ def bulk_upload_products(request):
         })
         
     except Exception as e:
-        logger.error(f"Error in bulk upload: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to process bulk upload',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to process bulk upload'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
@@ -1085,27 +1033,22 @@ def export_products_csv(request):
         return response
         
     except Exception as e:
-        logger.error(f"Error exporting products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to export products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to export products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def buyer_listings(request):
     """Get products for buyer with sophisticated rotating sorting (like Fiverr)"""
     try:
-        from orders.models import Order
-        from django.db.models import Sum
+        from shared.utils.security import get_safe_int, get_safe_decimal, clean_error_response
         
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 50))  # Increased page size
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=50, min_val=1, max_val=100)
         search = request.GET.get('search', '')
         crypto = request.GET.get('crypto', '')
-        min_price = request.GET.get('min_price', '')
-        max_price = request.GET.get('max_price', '')
+        min_price = get_safe_decimal(request.GET.get('min_price'))
+        max_price = get_safe_decimal(request.GET.get('max_price'))
         category = request.GET.get('category', '')
         
         # Base queryset - approved and in-stock only
@@ -1359,12 +1302,8 @@ def buyer_listings(request):
         })
         
     except Exception as e:
-        logger.error(f"Error getting buyer products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve buyer products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve buyer products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1401,12 +1340,8 @@ def vendor_products(request):
         })
         
     except Exception as e:
-        logger.error(f"Error getting vendor products: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to retrieve vendor products',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve vendor products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
@@ -1470,12 +1405,8 @@ def update_product(request, product_id):
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
-        logger.error(f"Error updating product: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to update product',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to update product'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -1497,12 +1428,8 @@ def delete_product(request, product_id):
         })
         
     except Exception as e:
-        logger.error(f"Error deleting product: {str(e)}")
-        return Response({
-            'success': False,
-            'message': 'Failed to delete product',
-            'errors': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to delete product'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

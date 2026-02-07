@@ -197,7 +197,7 @@ class EscrowPayment(BaseModel):
     
     # Auto-release configuration
     auto_release_enabled = models.BooleanField(default=True)
-    auto_release_days = models.IntegerField(default=7)
+    auto_release_days = models.IntegerField(default=2)
     auto_release_at = models.DateTimeField(blank=True, null=True)
     
     # Release/refund details

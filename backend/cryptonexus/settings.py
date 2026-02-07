@@ -50,8 +50,8 @@ for host in ['api.accountzclub.com', 'accountzclub.com', 'accsclub.cc', 'account
 # Allow localhost always (per user request to fix DisallowedHost)
 ALLOWED_HOSTS.extend(['localhost', '127.0.0.1', 'localhost:8000'])
 
-# Allow production IP addresses for WebSocket connections
-ALLOWED_HOSTS.extend(['88.99.143.151', '94.130.201.44'])
+# Avoid direct IP access in production to prevent Cloudflare bypass
+# ALLOWED_HOSTS.extend(['88.99.143.151', '94.130.201.44'])
 
 # Application definition
 INSTALLED_APPS = [

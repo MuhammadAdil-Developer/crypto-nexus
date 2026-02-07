@@ -694,6 +694,21 @@ class PaymentService:
         self.btcpay = BTCPayServerService()
         self.monero = MoneroRPCService()
 
+    def get_network_fees(self):
+        """Get current estimated network fees for BTC and XMR"""
+        # BTC Fee from mempool.space (dynamic)
+        # We use a typical payout tx size of 250 vBytes
+        btc_fee = get_btc_estimated_miner_fee_btc() or Decimal('0.00005000')
+        
+        # XMR Fee is generally very stable (approx 0.0001 - 0.0005)
+        # We use a slightly generous estimate for safety
+        xmr_fee = Decimal('0.00020000')
+        
+        return {
+            'BTC': btc_fee,
+            'XMR': xmr_fee
+        }
+
     def get_fiat_to_crypto_rate(self, crypto_symbol: str, fiat_symbol: str = 'USD') -> Decimal:
         """Get exchange rate from Crypto to Fiat (e.g. 1 BTC = ? USD)"""
         try:
@@ -989,7 +1004,7 @@ class PaymentService:
             vendor=order.product.vendor,
             escrow_amount=amount,
             escrow_fee=escrow_fee,
-            auto_release_at=timezone.now() + timedelta(days=7)
+            auto_release_at=timezone.now() + timedelta(days=2)
         )
         
         # Create escrow payout record immediately
@@ -1050,7 +1065,7 @@ class PaymentService:
                     vendor_address=vendor_address,
                     status='pending',
                     auto_release_enabled=True,
-                    auto_release_at=timezone.now() + timedelta(days=7)
+                    auto_release_at=timezone.now() + timedelta(days=2)
                 )
                 
                 logger.info(f"Created escrow payout immediately for order {payment_address.order_id}: {net_amount} {payment_address.crypto_currency.symbol}")
@@ -2519,17 +2534,12 @@ class PayoutService:
                 # Special payout notification for vendor
                 try:
                     from shared.admin_notifications import send_user_notification
-                    currency_note = f'"{direct_payment.crypto_currency.symbol} Account"'
-                    if direct_payment.crypto_currency.symbol == 'XMR':
-                        currency_note = '"monero Account"'
-                    elif direct_payment.crypto_currency.symbol == 'BTC':
-                        currency_note = '"bitcoin Account"'
-                        
+                    product_name = direct_payment.order.product.headline
                     send_user_notification(
                         user=direct_payment.vendor,
                         notification_type='payout_completed',
                         title='Payment Sent to Wallet',
-                        message=f'Payment for order {direct_payment.order.order_id} has been fully confirmed and sent to your {direct_payment.crypto_currency.symbol} payout address.',
+                        message=f'Payment for order {direct_payment.order.order_id} - "{product_name}" has been confirmed and sent to your {direct_payment.crypto_currency.symbol} payout address.',
                         data={
                             'order_id': direct_payment.order.order_id,
                             'buyer_username': direct_payment.buyer.username,
@@ -2771,12 +2781,7 @@ class PayoutService:
                 # Special payout notification for vendor
                 try:
                     from shared.admin_notifications import send_user_notification
-                    currency_note = f'"{payout.crypto_currency.symbol} Account"'
-                    if payout.crypto_currency.symbol == 'XMR':
-                        currency_note = '"monero Account"'
-                    elif payout.crypto_currency.symbol == 'BTC':
-                        currency_note = '"bitcoin Account"'
-                        
+                    product_name = payout.order.product.headline
                     if payout.payout_type == 'refund':
                         # Notify Buyer about Refund
                         send_user_notification(
@@ -2810,7 +2815,7 @@ class PayoutService:
                             user=payout.vendor,
                             notification_type='payout_completed',
                             title='Payment Received',
-                            message=f'Payment received for order {payout.order.order_id} from {payout.buyer.username} - {currency_note}.',
+                            message=f'Payment received for order {payout.order.order_id} from {payout.buyer.username} - "{product_name}".',
                             data={
                                 'order_id': payout.order.order_id,
                                 'buyer_username': payout.buyer.username,

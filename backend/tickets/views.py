@@ -61,7 +61,10 @@ class TicketListCreateView(generics.ListCreateAPIView):
         if category_filter:
             queryset = queryset.filter(category=category_filter)
         if assigned_filter:
-            queryset = queryset.filter(assigned_to=assigned_filter)
+            if assigned_filter == 'unassigned':
+                queryset = queryset.filter(assigned_to__isnull=True)
+            else:
+                queryset = queryset.filter(assigned_to=assigned_filter)
         if search:
             queryset = queryset.filter(
                 Q(subject__icontains=search) |
@@ -206,36 +209,39 @@ def update_ticket_status(request, pk):
     
     try:
         ticket = Ticket.objects.get(id=pk)
+        
+        new_status = request.data.get('status')
+        if not new_status:
+            return Response(
+                {'error': 'Status is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update timestamps based on status
+        now = timezone.now()
+        if new_status == 'resolved':
+            ticket.resolved_at = now
+            # Notify user that their ticket is resolved
+            try:
+                from shared.admin_notifications import notify_user_ticket_resolved
+                notify_user_ticket_resolved(ticket, request.user)
+            except Exception as e:
+                logger.error(f"Error notifying user about ticket resolution: {e}")
+        elif new_status == 'closed':
+            ticket.closed_at = now
+        
+        ticket.status = new_status
+        ticket.save()
+        
+        return Response({'message': 'Ticket status updated successfully'})
     except Ticket.DoesNotExist:
         return Response(
             {'error': 'Ticket not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
-    
-    new_status = request.data.get('status')
-    if not new_status:
-        return Response(
-            {'error': 'Status is required'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Update timestamps based on status
-    now = timezone.now()
-    if new_status == 'resolved':
-        ticket.resolved_at = now
-        # Notify user that their ticket is resolved
-        try:
-            from shared.admin_notifications import notify_user_ticket_resolved
-            notify_user_ticket_resolved(ticket, request.user)
-        except Exception as e:
-            logger.error(f"Error notifying user about ticket resolution: {e}")
-    elif new_status == 'closed':
-        ticket.closed_at = now
-    
-    ticket.status = new_status
-    ticket.save()
-    
-    return Response({'message': 'Ticket status updated successfully'})
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to update ticket status'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['PATCH'])
@@ -317,12 +323,9 @@ def assign_ticket(request, pk):
                  logger.error(f"Failed to send assignment notification to user: {e}")
             
             return Response({'message': 'Ticket assigned successfully'})
-        except Exception as e:
-            logger.error(f"Error in assign_ticket: {e}")
-            return Response(
-                {'error': 'Failed to assign ticket due to server error'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to assign ticket'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
         ticket.assigned_to = None
         ticket.save()
@@ -335,24 +338,27 @@ def close_ticket(request, pk):
     """Close ticket (admin or ticket owner)"""
     try:
         ticket = Ticket.objects.get(id=pk)
+        
+        # Allow admin or ticket owner to close the ticket
+        if not is_admin_user(request.user) and ticket.user != request.user:
+            return Response(
+                {'error': 'You can only close your own tickets'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        ticket.status = 'closed'
+        ticket.closed_at = timezone.now()
+        ticket.save()
+        
+        return Response({'message': 'Ticket closed successfully'})
     except Ticket.DoesNotExist:
         return Response(
             {'error': 'Ticket not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
-    
-    # Allow admin or ticket owner to close the ticket
-    if not is_admin_user(request.user) and ticket.user != request.user:
-        return Response(
-            {'error': 'You can only close your own tickets'}, 
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
-    ticket.status = 'closed'
-    ticket.closed_at = timezone.now()
-    ticket.save()
-    
-    return Response({'message': 'Ticket closed successfully'})
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to close ticket'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -366,23 +372,26 @@ def reopen_ticket(request, pk):
     
     try:
         ticket = Ticket.objects.get(id=pk)
+        
+        if ticket.status != 'closed':
+            return Response(
+                {'error': 'Ticket is not closed'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        ticket.status = 'open'
+        ticket.closed_at = None
+        ticket.save()
+        
+        return Response({'message': 'Ticket reopened successfully'})
     except Ticket.DoesNotExist:
         return Response(
             {'error': 'Ticket not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
-    
-    if ticket.status != 'closed':
-        return Response(
-            {'error': 'Ticket is not closed'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    ticket.status = 'open'
-    ticket.closed_at = None
-    ticket.save()
-    
-    return Response({'message': 'Ticket reopened successfully'})
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to reopen ticket'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -409,84 +418,85 @@ def get_admin_users(request):
             'data': list(admin_users)
         })
     except Exception as e:
-        logger.error(f"Error getting admin users: {e}")
-        return Response(
-            {'error': 'Failed to retrieve admin users'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve admin users'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_ticket_statistics(request):
-    """Get ticket statistics"""
-    user = request.user
-    
-    if is_admin_user(user):
-        # Admin sees all tickets
-        tickets = Ticket.objects.all()
-    else:
-        # Users see only their tickets
-        tickets = Ticket.objects.filter(user=user)
-    
-    # Calculate statistics
-    total_tickets = tickets.count()
-    open_tickets = tickets.filter(status='open').count()
-    in_progress_tickets = tickets.filter(status='in_progress').count()
-    resolved_tickets = tickets.filter(status='resolved').count()
-    closed_tickets = tickets.filter(status='closed').count()
-    waiting_response_tickets = tickets.filter(status='waiting_response').count()
-    urgent_tickets = tickets.filter(priority='urgent').count()
-    high_priority_tickets = tickets.filter(priority='high').count()
-    
-    # Tickets by category
-    tickets_by_category = dict(
-        tickets.values('category').annotate(count=Count('id')).values_list('category', 'count')
-    )
-    
-    # Tickets by status
-    tickets_by_status = dict(
-        tickets.values('status').annotate(count=Count('id')).values_list('status', 'count')
-    )
-    
-    # Calculate average response time (for admin only)
-    avg_response_time = 0
-    if is_admin_user(user):
-        # Calculate average time between ticket creation and first admin response
-        tickets_with_responses = tickets.filter(
-            messages__sender__user_type='admin'
-        ).distinct()
+    \"\"\"Get ticket statistics\"\"\"
+    try:
+        user = request.user
         
-        if tickets_with_responses.exists():
-            total_time = 0
-            count = 0
-            for ticket in tickets_with_responses:
-                first_admin_message = ticket.messages.filter(
-                    sender__user_type='admin'
-                ).order_by('created_at').first()
-                
-                if first_admin_message:
-                    response_time = (first_admin_message.created_at - ticket.created_at).total_seconds() / 3600  # hours
-                    total_time += response_time
-                    count += 1
+        if is_admin_user(user):
+            # Admin sees all tickets
+            tickets = Ticket.objects.all()
+        else:
+            # Users see only their tickets
+            tickets = Ticket.objects.filter(user=user)
+        
+        # Calculate statistics
+        total_tickets = tickets.count()
+        open_tickets = tickets.filter(status='open').count()
+        in_progress_tickets = tickets.filter(status='in_progress').count()
+        resolved_tickets = tickets.filter(status='resolved').count()
+        closed_tickets = tickets.filter(status='closed').count()
+        waiting_response_tickets = tickets.filter(status='waiting_response').count()
+        urgent_tickets = tickets.filter(priority='urgent').count()
+        high_priority_tickets = tickets.filter(priority='high').count()
+        
+        # Tickets by category
+        tickets_by_category = dict(
+            tickets.values('category').annotate(count=Count('id')).values_list('category', 'count')
+        )
+        
+        # Tickets by status
+        tickets_by_status = dict(
+            tickets.values('status').annotate(count=Count('id')).values_list('status', 'count')
+        )
+        
+        # Calculate average response time (for admin only)
+        avg_response_time = 0
+        if is_admin_user(user):
+            # Calculate average time between ticket creation and first admin response
+            tickets_with_responses = tickets.filter(
+                messages__sender__user_type='admin'
+            ).distinct()
             
-            if count > 0:
-                avg_response_time = round(total_time / count, 1)
-    
-    stats = {
-        'total_tickets': total_tickets,
-        'open_tickets': open_tickets,
-        'in_progress_tickets': in_progress_tickets,
-        'resolved_tickets': resolved_tickets,
-        'closed_tickets': closed_tickets,
-        'waiting_response_tickets': waiting_response_tickets,
-        'urgent_tickets': urgent_tickets,
-        'high_priority_tickets': high_priority_tickets,
-        'tickets_by_category': tickets_by_category,
-        'tickets_by_status': tickets_by_status,
-        'avg_response_time': avg_response_time
-    }
-    
-    return Response(stats)
+            if tickets_with_responses.exists():
+                total_time = 0
+                count = 0
+                for ticket in tickets_with_responses:
+                    first_admin_message = ticket.messages.filter(
+                        sender__user_type='admin'
+                    ).order_by('created_at').first()
+                    
+                    if first_admin_message:
+                        response_time = (first_admin_message.created_at - ticket.created_at).total_seconds() / 3600  # hours
+                        total_time += response_time
+                        count += 1
+                
+                if count > 0:
+                    avg_response_time = round(total_time / count, 1)
+        
+        stats = {
+            'total_tickets': total_tickets,
+            'open_tickets': open_tickets,
+            'in_progress_tickets': in_progress_tickets,
+            'resolved_tickets': resolved_tickets,
+            'closed_tickets': closed_tickets,
+            'waiting_response_tickets': waiting_response_tickets,
+            'urgent_tickets': urgent_tickets,
+            'high_priority_tickets': high_priority_tickets,
+            'tickets_by_category': tickets_by_category,
+            'tickets_by_status': tickets_by_status,
+            'avg_response_time': avg_response_time
+        }
+        
+        return Response(stats)
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+        return Response(clean_error_response(e, 'Failed to retrieve ticket statistics'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class TicketTemplateListCreateView(generics.ListCreateAPIView):

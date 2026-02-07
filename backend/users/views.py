@@ -1086,10 +1086,11 @@ def list_users(request):
         paginated_data = queryset[start:end]
         
         # Get overall stats (unfiltered)
+        VendorApplication = apps.get_model('vendors', 'VendorApplication')
         global_stats = {
             'total_users': User.objects.filter(is_deleted=False).count(),
             'active_users': User.objects.filter(is_deleted=False, is_verified=True, is_active=True).count(),
-            'vendors': User.objects.filter(is_deleted=False, user_type='vendor').count(),
+            'vendors': VendorApplication.objects.filter(status='approved').count(),
             'banned_users': User.objects.filter(is_deleted=False, is_active=False).count()
         }
         

@@ -23,11 +23,10 @@ def auto_cancel_expired_orders_task():
     try:
         from django.utils import timezone
         
-        # Find orders that are pending payment and have expired
-        # status__in includes both model field strings and Enum values for safety
+        # Find orders that are pending or partial payment and have expired
         expired_orders = Order.objects.filter(
             order_status__in=['pending_payment', 'pending'],
-            payment_status__in=['pending', 'pending_payment'],
+            payment_status__in=['pending', 'pending_payment', 'partial'],
             payment_expires_at__lt=timezone.now()
         )
         

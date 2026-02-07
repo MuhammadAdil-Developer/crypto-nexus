@@ -81,7 +81,7 @@ def create_escrow_payout(order_id: str):
                 'escrow_amount': payment_address.received_amount,
                 'escrow_fee': payment_address.received_amount * Decimal('0.02'), # 2% escrow fee
                 'status': 'funded', # Since we created it after payment was confirmed
-                'auto_release_at': timezone.now() + timedelta(hours=72) # Default 3 days for auto-release
+                'auto_release_at': timezone.now() + timedelta(hours=48) # Default 2 days for auto-release
             }
         )
         

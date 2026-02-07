@@ -37,6 +37,10 @@ const getStatusColor = (status: string) => {
       return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
     case "Delivered":
       return "bg-green-500/10 text-green-400 border-green-500/20";
+    case "Refunded":
+      return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+    case "Partial Payment":
+      return "bg-amber-500/10 text-amber-400 border-amber-500/20";
     default:
       return "bg-gray-700 text-gray-300 border-gray-600";
   }
@@ -104,8 +108,17 @@ export default function VendorOrders() {
         }
       }
 
+      if (paymentStatus === 'refunded' || orderStatus === 'refunded') {
+        return 'Refunded';
+      }
+
+      if (paymentStatus === 'partial' || orderStatus === 'partial') {
+        return 'Partial Payment';
+      }
+
       switch (orderStatus) {
         case 'pending':
+        case 'pending_payment':
           return 'Pending';
         case 'processing':
           return 'Processing';
@@ -114,9 +127,14 @@ export default function VendorOrders() {
         case 'confirmed':
           return 'Completed';
         case 'cancelled':
+        case 'expired':
           return 'Cancelled';
         case 'paid':
           return 'Paid';
+        case 'refunded':
+          return 'Refunded';
+        case 'partial':
+          return 'Partial Payment';
         default:
           return 'Pending';
       }

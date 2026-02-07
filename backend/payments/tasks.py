@@ -115,21 +115,40 @@ def release_escrow_task(order_id: str, released_by_id: str = None):
         return {'success': False, 'error': str(e)}
 
 
-@shared_task
-def process_payout_task(payout_id: str):
+@shared_task(bind=True, max_retries=15, default_retry_delay=300)
+def process_payout_task(self, payout_id: str):
     """Task to process a generic payout (escrow, direct, or refund)"""
     try:
         from .services import PayoutService
+        from .models import Payout
+        
         payout_service = PayoutService()
+        payout = Payout.objects.get(id=payout_id)
+        
         success = payout_service.process_escrow_payout(payout_id)
         if success:
             logger.info(f"Payout {payout_id} processed successfully")
             return {'success': True}
         else:
+            # Check if we should retry (likely for Monero locked funds)
+            if payout.crypto_currency.symbol == 'XMR' and self.request.retries < self.max_retries:
+                logger.warning(f"XMR Payout {payout_id} failed (likely locked funds), retrying in 5 minutes...")
+                raise self.retry(countdown=300)
+            
             logger.error(f"Failed to process payout {payout_id}")
             return {'success': False, 'error': "Payout processing failed"}
+    except Payout.DoesNotExist:
+        logger.error(f"Payout {payout_id} not found")
+        return {'success': False, 'error': "Payout not found"}
     except Exception as e:
+        # Catch the retry exception and re-raise it
+        from celery.exceptions import Retry
+        if isinstance(e, Retry):
+            raise e
+            
         logger.error(f"Error in process_payout_task for payout {payout_id}: {str(e)}")
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=300)
         return {'success': False, 'error': str(e)}
 
 

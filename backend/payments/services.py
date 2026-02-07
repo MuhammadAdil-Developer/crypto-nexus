@@ -1965,7 +1965,7 @@ class PaymentService:
                     amount=amount_received,
                     refund_type='partial',
                     reason="partial",
-                    notes=f"Auto-refund of underpaid expired btcpay invoice. Received: {amount_received}",
+                    notes=f"Auto-refund of underpaid payment. Received: {amount_received}",
                     status='completed',
                     vendor_decision='approved',
                     vendor_decision_at=timezone.now(),
@@ -2702,16 +2702,21 @@ class PayoutService:
             
             # CRITICAL: Re-verify net_amount before sending to ensure fees are deducted
             # We use the actual rates from settings to ensure accuracy even in fallbacks
-            from .commission_models import CommissionSettings, VendorFee
-            cs = CommissionSettings.get_settings()
-            v_rate = VendorFee.get_vendor_fee(payout.vendor)
-            p_rate = (v_rate if v_rate is not None else cs.platform_fee_rate) / Decimal('100')
-            e_rate = cs.escrow_fee_rate / Decimal('100') if payout.payout_type == 'escrow' else Decimal('0')
-            
-            # Recalculate fees based on actual configuration
-            payout.platform_fee = payout.gross_amount * p_rate
-            payout.escrow_fee = payout.gross_amount * e_rate
-            expected_net = payout.gross_amount - payout.platform_fee - payout.escrow_fee
+            # Recalculate fees based on actual configuration - SKIP for refunds to respect original calculation
+            if payout.payout_type == 'refund':
+                p_rate = Decimal('0')
+                e_rate = Decimal('0')
+                expected_net = payout.net_amount
+            else:
+                from .commission_models import CommissionSettings, VendorFee
+                cs = CommissionSettings.get_settings()
+                v_rate = VendorFee.get_vendor_fee(payout.vendor)
+                p_rate = (v_rate if v_rate is not None else cs.platform_fee_rate) / Decimal('100')
+                e_rate = cs.escrow_fee_rate / Decimal('100') if payout.payout_type == 'escrow' else Decimal('0')
+                
+                payout.platform_fee = payout.gross_amount * p_rate
+                payout.escrow_fee = payout.gross_amount * e_rate
+                expected_net = payout.gross_amount - payout.platform_fee - payout.escrow_fee
             
             if abs(payout.net_amount - expected_net) > Decimal('0.00000001'):
                 logger.error(f"❌ FEE CALCULATION MISMATCH: Current net_amount {payout.net_amount} != Expected {expected_net}. Correcting to proper dynamic rates.")

@@ -480,6 +480,7 @@ export default function AdminOrders() {
                   <SelectItem value="disputed" className="text-white">Disputed</SelectItem>
                   <SelectItem value="cancelled" className="text-white">Cancelled</SelectItem>
                   <SelectItem value="refunded" className="text-white">Refunded</SelectItem>
+                  <SelectItem value="partial" className="text-white">Partial Payment</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
@@ -591,7 +592,8 @@ export default function AdminOrders() {
                                           order.order_status === "cancelled" ? "Order Cancelled" :
                                             order.order_status === "payment_received" ? "Order Payment Received" :
                                               order.order_status === "refunded" ? "Order Refunded" :
-                                                order.order_status || 'Unknown'}
+                                                order.order_status === "partial" ? "Partial Payment" :
+                                                  order.order_status || 'Unknown'}
                             </Badge>
                             {order.use_escrow && (
                               <div className="flex items-center gap-1 mt-1">

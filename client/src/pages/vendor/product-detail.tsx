@@ -1,0 +1,748 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Edit, Trash2, Eye, Calendar, DollarSign, Package, Star, Eye as EyeIcon, Heart, Tag, Folder, FolderOpen, User, Shield, Clock, Key, Truck, FileText, Download, CheckCircle, XCircle, Lock } from "lucide-react";
+import vendorService, { VendorProduct } from "@/services/vendorService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/ToastContainer";
+import { getImageUrl } from "@/config/api";
+import placeholderImage from "@/assets/placeholder.png";
+
+export default function VendorProductDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [product, setProduct] = useState<VendorProduct | null>(null);
+  const [showCredentials, setShowCredentials] = useState(false);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        console.log('🔍 Fetching product with ID:', id);
+
+        // Use dedicated product detail endpoint
+        const response = await vendorService.getProductDetail(id);
+
+        console.log('🔍 Product detail response:', response);
+        console.log('🔍 Response success:', response.success);
+        console.log('🔍 Response data:', response.data);
+
+        if (response.success && response.data) {
+          console.log('✅ Setting product state:', response.data);
+          setProduct(response.data);
+        } else {
+          console.error('❌ Product detail error:', response);
+          setError(response.message || 'Failed to fetch product');
+        }
+      } catch (err: any) {
+        console.error('❌ Error fetching product:', err);
+        setError(err.message || 'Failed to fetch product');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
+  const handleDelete = async () => {
+    if (!product) return;
+
+    try {
+      const response = await vendorService.deleteProduct(product.id);
+      if (response.success) {
+        showToast({
+          type: 'success',
+          title: 'Product deleted successfully!',
+          message: 'Your product has been deleted.',
+        });
+        navigate('/vendor/listings');
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Failed to delete product',
+          message: response.message || 'Failed to delete product',
+        });
+      }
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Failed to delete product',
+        message: err.message || 'Failed to delete product',
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-cyan mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading product details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <Eye className="w-12 h-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">Error loading product</h3>
+            <p className="text-gray-400 mb-4">{error || 'Product not found'}</p>
+            <Button onClick={() => navigate('/vendor/listings')} className="bg-blue-500 hover:bg-blue-600">
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Additional safety check to ensure product has all required properties
+  if (!product || typeof product !== 'object') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <Eye className="w-12 h-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">Invalid product data</h3>
+            <p className="text-gray-400 mb-4">The product data is not in the expected format.</p>
+            <Button onClick={() => navigate('/vendor/listings')} className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold">
+              Back to Listings
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/vendor/listings')}
+            className="text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Product Details</h1>
+            <p className="text-gray-400">View and manage your product</p>
+          </div>
+        </div>
+        <div className="flex space-x-3">
+          <Button
+            onClick={() => navigate(`/vendor/listings/edit/${product.id}`)}
+            className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold"
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Edit Product
+          </Button>
+
+          {/* Delete Product Icon with Confirmation */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="bg-gray-900 border border-gray-700">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-white">Delete Product</AlertDialogTitle>
+                <AlertDialogDescription className="text-gray-300">
+                  Are you sure you want to delete your listing "{product.listing_title}"?
+                  This action cannot be undone and will permanently remove your product from the marketplace.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-800">
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Yes, Delete Listing
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Product Image */}
+        <div className="lg:col-span-1">
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardContent className="p-6">
+              <img
+                src={getImageUrl(product.main_image) ||
+                  (product.main_images && product.main_images.length > 0
+                    ? getImageUrl(product.main_images[0])
+                    : placeholderImage)}
+                alt={product.headline || product.listing_title || "Product"}
+                className="w-full h-64 object-cover rounded-lg"
+                onError={(e) => {
+                  e.currentTarget.src = placeholderImage;
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Product Information */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Product Header */}
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-white mb-2">{product.headline || product.listing_title}</h2>
+            <div className="flex items-center space-x-4 mb-4">
+              <Badge className={`border ${getStatusColor(product.status)}`}>
+                {getStatusDisplayName(product.status)}
+              </Badge>
+              {product.escrow_enabled && (
+                <Badge className="bg-theme-cyan/20 text-theme-cyan border border-theme-cyan/30">
+                  <Lock className="w-3 h-3 mr-1" />
+                  ESCROW PROTECTED
+                </Badge>
+              )}
+              {product.is_giveaway && (
+                <Badge className="bg-cyan-500 text-black border-none font-bold">
+                  GIVEAWAY
+                </Badge>
+              )}
+              <span className="text-gray-400">ID: {product.id}</span>
+            </div>
+          </div>
+
+          {/* Product Information */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Product Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Package className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Product ID:</span>
+                  <span className="text-white font-mono">{product.id}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Tag className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Status:</span>
+                  <Badge className={getStatusColor(product.status)}>
+                    {getStatusDisplayName(product.status)}
+                  </Badge>
+                </div>
+                {product.escrow_enabled && (
+                  <div className="flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-400">Escrow:</span>
+                    <Badge className="bg-theme-cyan/20 text-theme-cyan border border-theme-cyan/30">
+                      <Lock className="w-3 h-3 mr-1" />
+                      ENABLED
+                    </Badge>
+                  </div>
+                )}
+                <div className="flex items-center space-x-2">
+                  <Folder className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Website:</span>
+                  <span className="text-white">{product.website || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Created:</span>
+                  <span className="text-white">
+                    {product.created_at ? new Date(product.created_at).toLocaleDateString() : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Package className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Stock:</span>
+                  <span className="text-white">{product.quantity_available !== undefined ? product.quantity_available : 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Vendor:</span>
+                  <span className="text-white">{product.vendor_username || 'N/A'}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Product Description */}
+          {product.description && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Product Description</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white text-sm leading-relaxed">{product.description}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pricing */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Pricing</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Base Price:</span>
+                  <span className="text-white">
+                    {product.is_giveaway ? (
+                      <span className="text-cyan-400 font-bold">FREE - $0.00</span>
+                    ) : (
+                      `$${parseFloat(product.price || '0').toFixed(2)}`
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Final Price:</span>
+                  <span className="text-theme-cyan font-bold">
+                    {product.is_giveaway ? (
+                      <span className="text-cyan-400">FREE - $0.00</span>
+                    ) : (
+                      `$${parseFloat(product.final_price || product.price || '0').toFixed(2)}`
+                    )}
+                  </span>
+                </div>
+                {(product.discount_percentage || 0) > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="w-4 h-4 text-theme-cyan" />
+                    <span className="text-gray-400">Discount:</span>
+                    <span className="text-theme-cyan">-{product.discount_percentage || 0}%</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Account Details */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Account Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Account Type:</span>
+                  <Badge variant="outline" className="text-theme-cyan border-theme-cyan">
+                    {product.account_type || 'N/A'}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Shield className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Access Type:</span>
+                  <Badge variant="outline" className="text-theme-cyan border-theme-cyan">
+                    {product.access_type || 'N/A'}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Account Balance:</span>
+                  <span className="text-white">{product.account_balance || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Account Age:</span>
+                  <span className="text-white">{product.account_age || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Key className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Access Method:</span>
+                  <span className="text-white">{product.access_method || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Truck className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Delivery Time:</span>
+                  <Badge variant="outline" className="text-theme-red border-theme-red">
+                    {product.delivery_time || 'N/A'}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Special Features & Restrictions */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Special Features & Restrictions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {product.special_features && product.special_features.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Special Features:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {product.special_features.map((feature: string, index: number) => (
+                      <Badge key={index} variant="secondary" className="bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30">
+                        {feature}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {product.region_restrictions && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Region Restrictions:</h4>
+                  <p className="text-white text-sm">{product.region_restrictions}</p>
+                </div>
+              )}
+
+              {product.tags && product.tags.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Tags:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {product.tags.map((tag: string, index: number) => (
+                      <Badge key={index} variant="outline" className="text-theme-red border-theme-red/50">
+                        #{tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delivery Information */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Delivery Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Truck className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Delivery Method:</span>
+                  <Badge variant="outline" className="text-theme-cyan border-theme-cyan">
+                    {product.delivery_method || 'N/A'}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400">Delivery Time:</span>
+                  <span className="text-white">
+                    {product.delivery_method === 'instant_auto' ? 'Instant' : 'Manual Approval'}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Performance Metrics */}
+          <Card className="border border-gray-700 bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white">Performance Metrics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-theme-cyan">{product.views_count || 0}</div>
+                  <p className="text-sm text-gray-400">Views</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-theme-red">{product.favorites_count || 0}</div>
+                  <p className="text-sm text-gray-400">Favorites</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-theme-cyan">{product.review_count || 0}</div>
+                  <p className="text-sm text-gray-400">Reviews</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-theme-red">
+                    {typeof product.rating === 'number' && !isNaN(product.rating) ? product.rating.toFixed(1) : '0.0'}
+                  </div>
+                  <p className="text-sm text-gray-400">Rating</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notes for Buyer */}
+          {product.notes_for_buyer && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Notes for Buyer</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white text-sm leading-relaxed">{product.notes_for_buyer}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Gallery Images */}
+          {product.gallery_images && product.gallery_images.length > 0 && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Gallery Images</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {product.gallery_images.map((image: string, index: number) => {
+                    const imageUrl = getImageUrl(image);
+                    return (
+                      <div key={index} className="relative group">
+                        <img
+                          src={imageUrl}
+                          alt={`Gallery image ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-600 group-hover:border-theme-cyan transition-colors"
+                          onError={(e) => {
+                            e.currentTarget.src = placeholderImage;
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Documents */}
+          {product.documents && product.documents.length > 0 && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {product.documents.map((doc: string, index: number) => {
+                    const docUrl = getImageUrl(doc);
+                    const docName = doc.split('/').pop() || `Document ${index + 1}`;
+                    return (
+                      <div key={index} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                        <FileText className="w-5 h-5 text-theme-cyan" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">Document {index + 1}</p>
+                          <p className="text-gray-400 text-xs truncate">{docName}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-theme-cyan border-theme-cyan hover:bg-theme-cyan/10 flex-shrink-0"
+                          onClick={() => window.open(docUrl, '_blank')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Approval Information */}
+          {product.status === 'approved' && product.approved_by && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Approval Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-theme-cyan" />
+                    <span className="text-gray-400">Approved By:</span>
+                    <span className="text-white">{product.approved_by || 'Admin'}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-400">Approved At:</span>
+                    <span className="text-white">
+                      {product.approved_at ? new Date(product.approved_at).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                {product.approval_notes && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Approval Notes:</h4>
+                    <p className="text-white text-sm">{product.approval_notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Rejection Information */}
+          {product.status === 'rejected' && product.rejection_reason && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Rejection Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <XCircle className="w-4 h-4 text-theme-red" />
+                    <span className="text-gray-400">Rejected By:</span>
+                    <span className="text-white">{product.rejected_by || 'Admin'}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-400">Rejected At:</span>
+                    <span className="text-white">
+                      {product.rejected_at ? new Date(product.rejected_at).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Rejection Reason:</h4>
+                  <p className="text-white text-sm">{product.rejection_reason}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Additional Information */}
+          {product.additional_info && (
+            <Card className="border border-gray-700 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-white">Additional Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-white text-sm leading-relaxed">{product.additional_info}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Credentials Display */}
+          {product.credentials_display && (() => {
+            let parsedCreds: Record<string, string> = {};
+            try {
+              parsedCreds = JSON.parse(product.credentials_display);
+            } catch (e) {
+              parsedCreds = { value: product.credentials_display };
+            }
+            return (
+              <Card className="border border-gray-700 bg-gray-900">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-bold text-white">Credentials Information</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowCredentials(!showCredentials)}
+                      className="text-theme-cyan hover:text-white"
+                    >
+                      {showCredentials ? <EyeIcon className="w-4 h-4 mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
+                      {showCredentials ? 'Hide' : 'Show'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {(() => {
+                      const getAllValues = (data: any): string[] => {
+                        if (!data) return [];
+                        if (typeof data === 'string') {
+                          const trimmed = data.trim();
+                          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                            try {
+                              const parsed = JSON.parse(trimmed);
+                              return getAllValues(parsed);
+                            } catch {
+                              return [data];
+                            }
+                          }
+                          return [data];
+                        }
+                        if (Array.isArray(data)) {
+                          return data.flatMap(getAllValues);
+                        }
+                        if (typeof data === 'object') {
+                          return Object.values(data).flatMap(getAllValues);
+                        }
+                        return [String(data)];
+                      };
+                      const values = getAllValues(product.credentials_display);
+                      return values.map((value, index) => (
+                        <div key={index} className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                          <span className="text-white font-mono text-sm">
+                            {showCredentials ? value : '••••••••••••'}
+                          </span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "approved":
+      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
+    case "pending_approval":
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
+    case "rejected":
+      return "bg-theme-red/10 text-theme-red border-theme-red/20";
+    case "draft":
+      return "bg-gray-800 text-gray-400 border-gray-700";
+    default:
+      return "bg-gray-800 text-gray-400 border-gray-700";
+  }
+};
+
+const getStatusDisplayName = (status: string) => {
+  switch (status) {
+    case "approved":
+      return "Active";
+    case "pending_approval":
+      return "Under Review";
+    case "rejected":
+      return "Rejected";
+    case "draft":
+      return "Draft";
+    default:
+      return status;
+  }
+}; 

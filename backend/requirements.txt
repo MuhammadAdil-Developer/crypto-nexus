@@ -1,0 +1,48 @@
+# Django and Core Dependencies
+Django
+djangorestframework
+django-cors-headers
+django-environ
+
+# Database
+psycopg2-binary
+django-extensions
+
+# Authentication & Security
+djangorestframework-simplejwt
+django-oauth-toolkit
+cryptography
+
+# API Documentation
+drf-spectacular
+
+# Task Queue & Background Jobs
+celery
+redis
+
+# WebSocket Support
+daphne
+channels
+channels-redis
+
+# File Handling
+Pillow
+django-storages
+
+# Validation & Serialization
+marshmallow
+
+# Testing
+pytest
+pytest-django
+
+# Development
+django-debug-toolbar
+
+# Environment & Configuration
+python-decouple
+django-filter
+
+# Two-Factor Authentication (TOTP)
+pyotp>=2.9.0
+qrcode[pil]>=7.4.2

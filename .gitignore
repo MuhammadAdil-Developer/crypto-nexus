@@ -1,0 +1,26 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Logs
+backend/logs/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Monero
+monero-win-*/
+monero-x86_64-*/
+nexus_wallet*
+*.address.txt
+.monero/
+monero-wallet-rpc.log
+monerod.log

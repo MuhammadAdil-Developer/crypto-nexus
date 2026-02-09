@@ -5,7 +5,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import AccessToken
 from shared.models import Conversation, Message
-from .serializers import MessageSerializer
+
 
 User = get_user_model()
 
@@ -252,6 +252,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 content=content,
                 message_type='text'
             )
+            if hasattr(message, 'is_flagged'):
+                message.is_flagged = False
+                message.save()
             
             # Update conversation's last message
             conversation.last_message = message
@@ -302,9 +305,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         message_type='product_reference',
                         metadata=product_info
                     )
+                    if hasattr(product_message, 'is_flagged'):
+                        product_message.is_flagged = False
+                        product_message.save()
                 
                 # Serialize both messages with context for is_sender field
                 # Create a mock request object for the serializer
+                from .serializers import MessageSerializer
                 mock_request = type('MockRequest', (), {
                     'user': self.scope['user'],
                     'is_authenticated': True
@@ -318,6 +325,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             # Serialize message with context for is_sender field
             # Create a mock request object for the serializer
+            from .serializers import MessageSerializer
             mock_request = type('MockRequest', (), {
                 'user': self.scope['user'],
                 'is_authenticated': True

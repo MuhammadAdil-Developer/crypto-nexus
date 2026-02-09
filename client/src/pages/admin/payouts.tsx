@@ -11,6 +11,10 @@ import { useState, useEffect } from "react";
 import { api } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { ChevronsUpDown } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useLocation, useNavigate } from "react-router-dom";
 import paymentService from "@/services/paymentService";
@@ -71,6 +75,81 @@ export default function AdminPayouts() {
 
   const [showPayoutPrompt, setShowPayoutPrompt] = useState(false);
   const [isBulkReleasing, setIsBulkReleasing] = useState(false);
+
+  // Manual Payout State
+  const [manualPayoutOpen, setManualPayoutOpen] = useState(false);
+  const [manualPayoutData, setManualPayoutData] = useState({
+    currency: 'BTC',
+    address: '',
+    amount: '',
+    order_id: '',
+    notes: ''
+  });
+  const [isSendingManual, setIsSendingManual] = useState(false);
+  const [lookups, setLookups] = useState<{ addresses: any[], orders: any[] }>({ addresses: [], orders: [] });
+  const [addressPopoverOpen, setAddressPopoverOpen] = useState(false);
+  const [orderPopoverOpen, setOrderPopoverOpen] = useState(false);
+
+  const fetchLookups = async () => {
+    try {
+      const response = await api.get('/payments/admin/manual-payout/lookups/');
+      if (response.data.success) {
+        setLookups({
+          addresses: response.data.addresses || [],
+          orders: response.data.orders || []
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch manual payout lookups", err);
+    }
+  };
+
+  useEffect(() => {
+    if (manualPayoutOpen) {
+      fetchLookups();
+    }
+  }, [manualPayoutOpen]);
+
+  const handleManualPayout = async () => {
+    if (!manualPayoutData.address || !manualPayoutData.amount) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields (Address & Amount)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSendingManual(true);
+      const response = await api.post('/payments/admin/manual-payout/', manualPayoutData);
+
+      if (response.data.success) {
+        toast({
+          title: "Success",
+          description: response.data.message,
+          variant: "default",
+        });
+        setManualPayoutOpen(false);
+        setManualPayoutData({
+          currency: 'BTC',
+          address: '',
+          amount: '',
+          order_id: '',
+          notes: ''
+        });
+        fetchPayouts();
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.error || "Failed to send manual payout",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingManual(false);
+    }
+  };
 
   // Fetch payouts from API
   const fetchPayouts = async (page: number = 1, limit: number = itemsPerPage) => {
@@ -447,6 +526,13 @@ export default function AdminPayouts() {
           <p className="text-gray-300 mt-1 text-sm sm:text-base">Manage vendor payouts and customer refund requests</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
+          <Button
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-lg shadow-orange-900/40 border-0 h-11 px-6 rounded-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2"
+            onClick={() => setManualPayoutOpen(true)}
+          >
+            <Wallet className="w-5 h-5 text-white" />
+            Send Manual Crypto
+          </Button>
           <Button
             className="bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/40 border-0 h-11 px-6 rounded-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2"
             onClick={handleBulkEscrowRelease}
@@ -1485,6 +1571,192 @@ export default function AdminPayouts() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Payout Dialog */}
+      <Dialog open={manualPayoutOpen} onOpenChange={setManualPayoutOpen}>
+        <DialogContent className="max-w-md bg-gray-900 border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Wallet className="w-6 h-6 text-accent" />
+              Send Crypto Manually
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Send BTC or XMR directly from the platform wallet to any address.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-400">Currency</label>
+              <Select
+                value={manualPayoutData.currency}
+                onValueChange={(v) => setManualPayoutData({ ...manualPayoutData, currency: v })}
+              >
+                <SelectTrigger className="bg-gray-950/50 border-gray-800 text-white h-12 focus:ring-accent">
+                  <SelectValue placeholder="Select Currency" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-800 text-white">
+                  <SelectItem value="BTC" className="focus:bg-accent/20 focus:text-white">Bitcoin (BTC)</SelectItem>
+                  <SelectItem value="XMR" className="focus:bg-accent/20 focus:text-white">Monero (XMR)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-400">Recipient Address</label>
+              <Popover open={addressPopoverOpen} onOpenChange={setAddressPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={addressPopoverOpen}
+                    className="w-full justify-between bg-gray-950/50 border-gray-800 text-white h-12 hover:bg-gray-900 font-normal px-3"
+                  >
+                    <span className="truncate">
+                      {manualPayoutData.address || "Select or enter address..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-gray-900 border-gray-800" align="start">
+                  <Command className="bg-transparent text-white">
+                    <CommandInput
+                      placeholder="Search saved addresses..."
+                      className="text-white bg-transparent"
+                      onValueChange={(val) => {
+                        // Allow manual typing by updating state directly if no match or just to keep track
+                        setManualPayoutData({ ...manualPayoutData, address: val });
+                      }}
+                    />
+                    <CommandList className="max-h-[200px] overflow-y-auto">
+                      <CommandEmpty className="py-2 px-4 text-sm text-gray-400">No matching addresses. Keep typing for manual entry.</CommandEmpty>
+                      <CommandGroup heading="Suggestions">
+                        {lookups.addresses
+                          .filter(a => a.currency === manualPayoutData.currency)
+                          .map((addr) => (
+                            <CommandItem
+                              key={`${addr.address}-${addr.label}`}
+                              value={addr.address}
+                              onSelect={(currentValue) => {
+                                setManualPayoutData({ ...manualPayoutData, address: currentValue });
+                                setAddressPopoverOpen(false);
+                              }}
+                              className="flex flex-col items-start py-2 px-3 aria-selected:bg-accent/20 cursor-pointer"
+                            >
+                              <span className="font-bold text-accent text-xs">{addr.label}</span>
+                              <span className="text-xs text-gray-400 truncate w-full">{addr.address}</span>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-400">Amount</label>
+              <Input
+                type="number"
+                step="0.00000001"
+                placeholder="0.00000000"
+                className="bg-gray-950/50 border-gray-800 text-white h-12 focus:border-accent"
+                value={manualPayoutData.amount}
+                onChange={(e) => setManualPayoutData({ ...manualPayoutData, amount: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-400">Link to Order ID (Optional)</label>
+              <Popover open={orderPopoverOpen} onOpenChange={setOrderPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={orderPopoverOpen}
+                    className="w-full justify-between bg-gray-950/50 border-gray-800 text-white h-12 hover:bg-gray-900 font-normal px-3"
+                  >
+                    <span className="truncate">
+                      {manualPayoutData.order_id || "Select or enter Order ID..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-gray-900 border-gray-800" align="start">
+                  <Command className="bg-transparent text-white">
+                    <CommandInput
+                      placeholder="Search orders..."
+                      className="text-white bg-transparent"
+                      onValueChange={(val) => {
+                        setManualPayoutData({ ...manualPayoutData, order_id: val });
+                      }}
+                    />
+                    <CommandList className="max-h-[200px] overflow-y-auto">
+                      <CommandEmpty className="py-2 px-4 text-sm text-gray-400">No matching orders.</CommandEmpty>
+                      <CommandGroup heading="Recent Orders">
+                        {lookups.orders.map((order) => (
+                          <CommandItem
+                            key={order.id}
+                            value={order.id}
+                            onSelect={(currentValue) => {
+                              setManualPayoutData({ ...manualPayoutData, order_id: currentValue });
+                              setOrderPopoverOpen(false);
+                            }}
+                            className="flex flex-col items-start py-2 px-3 aria-selected:bg-accent/20 cursor-pointer"
+                          >
+                            <span className="font-bold text-accent text-xs">{order.id}</span>
+                            <span className="text-xs text-gray-400 truncate w-full">{order.label}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-400">Internal Notes / Reason</label>
+              <Input
+                placeholder="Reason for manual payout..."
+                className="bg-gray-950/50 border-gray-800 text-white h-12 focus:border-accent"
+                value={manualPayoutData.notes}
+                onChange={(e) => setManualPayoutData({ ...manualPayoutData, notes: e.target.value })}
+              />
+            </div>
+
+            <div className="bg-accent/10 border border-accent/20 p-3 rounded-lg flex items-start gap-3">
+              <Clock className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+              <p className="text-xs text-accent-2">
+                <strong>Attention:</strong> This is a real blockchain transaction. Funds will be sent immediately from the platform's hot wallet. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setManualPayoutOpen(false)} className="border-border text-gray-400 hover:text-white">
+              Cancel
+            </Button>
+            <Button
+              className="bg-accent text-bg hover:bg-accent-2 font-bold min-w-[120px]"
+              onClick={handleManualPayout}
+              disabled={isSendingManual}
+            >
+              {isSendingManual ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Send Now
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>

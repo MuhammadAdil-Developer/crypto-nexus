@@ -22,8 +22,18 @@ from .views import (
     get_user_reports,
     update_report_status
 )
+from .moderation import (
+    blocked_keywords_list_create,
+    delete_blocked_keyword,
+    moderation_settings_list_update
+)
 
 urlpatterns = [
+    # Content Moderation
+    path('moderation/keywords/', blocked_keywords_list_create, name='blocked-keywords-list-create'),
+    path('moderation/keywords/<uuid:keyword_id>/', delete_blocked_keyword, name='delete-blocked-keyword'),
+    path('moderation/settings/', moderation_settings_list_update, name='moderation-settings'),
+
     # Conversations
     path('conversations/', ConversationListCreateView.as_view(), name='conversation-list-create'),
     path('conversations/admin/', get_all_conversations_admin, name='conversation-list-admin'),

@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+# Force sync comment
 from django.utils import timezone
 
 class BaseModel(models.Model):
@@ -218,6 +219,7 @@ class Message(BaseModel):
     ])
     metadata = models.JSONField(default=dict, blank=True)  # For additional data like file info, file_url, file_name, file_size, etc.
     attachment = models.FileField(upload_to='message_attachments/', blank=True, null=True)  # Store file attachments
+    is_flagged = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'messages'

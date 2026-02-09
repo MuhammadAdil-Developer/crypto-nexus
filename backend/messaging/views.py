@@ -15,6 +15,8 @@ from .serializers import (
     CreateConversationSerializer,
     SendMessageSerializer
 )
+
+from .moderation import run_auto_moderation
 from products.models import Product
 from users.models import User
 
@@ -125,6 +127,9 @@ class MessageListCreateView(generics.ListCreateAPIView):
         )
         if serializer.is_valid():
             message = serializer.save()
+            
+            # Run auto-moderation
+            run_auto_moderation(message)
             
             # Serialize message for real-time delivery (must be done before using it)
             response_serializer = MessageSerializer(message, context={'request': request})
@@ -278,7 +283,7 @@ def create_product_conversation(request):
         conversation.save()
         
         # Create product reference message immediately with refund/dispute context
-        from shared.models import Message
+
         if refund_id:
             # Get refund details for the message
             try:
@@ -348,7 +353,7 @@ def create_product_conversation(request):
             content = f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
         
         # Create the product reference message
-        Message.objects.create(
+        message = Message.objects.create(
             conversation=conversation,
             sender=sender,
             recipient=recipient,
@@ -356,6 +361,9 @@ def create_product_conversation(request):
             message_type='product_reference',
             metadata=product_info
         )
+        if hasattr(message, 'is_flagged'):
+            message.is_flagged = False
+            message.save()
     else:
         # For regular product conversations, check if one already exists
         # STRICT CHECK: Must match product AND exact participants (sender & recipient)
@@ -395,8 +403,7 @@ def create_product_conversation(request):
         conversation.participants.add(sender, recipient)
         conversation.save()
 
-        # Create initial product reference message for the new conversation
-        from shared.models import Message
+
         # Construct product info metadata
         product_info = {
             'product_id': str(product.id),
@@ -409,7 +416,7 @@ def create_product_conversation(request):
         
         content = f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
         
-        Message.objects.create(
+        message = Message.objects.create(
             conversation=conversation,
             sender=sender,
             recipient=recipient,
@@ -417,6 +424,9 @@ def create_product_conversation(request):
             message_type='product_reference',
             metadata=product_info
         )
+        if hasattr(message, 'is_flagged'):
+            message.is_flagged = False
+            message.save()
     
     serializer = ConversationSerializer(conversation, context={'request': request})
     # Include refund_id/dispute_id in response so frontend can track it

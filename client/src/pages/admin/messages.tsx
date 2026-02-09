@@ -137,18 +137,80 @@ export default function AdminMessages() {
   const [stats, setStats] = useState({
     totalConversations: 0,
     flaggedMessages: 0,
-    blockedKeywords: 0,
+    blockedKeywordsCount: 0,
     lockedConversations: 0
   });
 
-  const blockedKeywords = [
-    "scam", "fraud", "fake", "illegal", "stolen", "hack", "cracked", "virus", "malware", "phishing"
-  ];
+  const [dbKeywords, setDbKeywords] = useState<any[]>([]);
+  const [newKeyword, setNewKeyword] = useState("");
+  const [loadingKeywords, setLoadingKeywords] = useState(false);
+
+  const [moderationSettings, setModerationSettings] = useState<any[]>([]);
+  const [loadingSettings, setLoadingSettings] = useState(false);
 
   useEffect(() => {
     fetchConversations();
     fetchReports();
+    fetchKeywords();
+    fetchSettings();
   }, []);
+
+  const fetchKeywords = async () => {
+    try {
+      setLoadingKeywords(true);
+      const data = await messagingService.getBlockedKeywords();
+      setDbKeywords(data);
+      setStats(prev => ({ ...prev, blockedKeywordsCount: data.length }));
+    } catch (error) {
+      console.error('Error fetching keywords:', error);
+    } finally {
+      setLoadingKeywords(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      const data = await messagingService.getModerationSettings();
+      setModerationSettings(data);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const handleAddKeyword = async () => {
+    if (!newKeyword.trim()) return;
+    try {
+      await messagingService.addBlockedKeyword(newKeyword);
+      setNewKeyword("");
+      fetchKeywords();
+      toast({ title: "Success", description: "Keyword added successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleRemoveKeyword = async (id: string) => {
+    try {
+      await messagingService.deleteBlockedKeyword(id);
+      fetchKeywords();
+      toast({ title: "Success", description: "Keyword removed successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleToggleSetting = async (id: string, currentEnabled: boolean) => {
+    try {
+      await messagingService.updateModerationSetting(id, !currentEnabled);
+      fetchSettings();
+      toast({ title: "Success", description: "Setting updated successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
 
   const fetchReports = async () => {
     try {
@@ -216,7 +278,7 @@ export default function AdminMessages() {
       setStats({
         totalConversations,
         flaggedMessages,
-        blockedKeywords: blockedKeywords.length,
+        blockedKeywordsCount: dbKeywords.length,
         lockedConversations
       });
     } catch (error) {
@@ -421,7 +483,7 @@ export default function AdminMessages() {
               <Ban className="w-8 h-8 text-warning mr-4" />
               <div>
                 <p className="text-sm text-gray-400">Blocked Keywords</p>
-                <p className="text-2xl font-bold text-white">{stats.blockedKeywords}</p>
+                <p className="text-2xl font-bold text-white">{stats.blockedKeywordsCount}</p>
               </div>
             </div>
           </CardContent>
@@ -642,44 +704,37 @@ export default function AdminMessages() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Auto-Moderation Rules</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
-                      <div>
-                        <p className="text-white font-medium">Keyword Detection</p>
-                        <p className="text-sm text-gray-400">Automatically flag messages containing blocked keywords</p>
-                      </div>
-                      <Button variant="outline" className="border-border text-gray-300">
-                        Enabled
-                      </Button>
+                  {loadingSettings ? (
+                    <div className="py-4 text-center">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-accent" />
                     </div>
-
-                    <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
-                      <div>
-                        <p className="text-white font-medium">Spam Detection</p>
-                        <p className="text-sm text-gray-400">Flag repeated messages and potential spam content</p>
-                      </div>
-                      <Button variant="outline" className="border-border text-gray-300">
-                        Enabled
-                      </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      {moderationSettings.map((setting) => (
+                        <div key={setting.id} className="flex items-center justify-between p-4 bg-surface-2 rounded-lg border border-gray-800 hover:border-accent/30 transition-colors">
+                          <div className="pr-4">
+                            <p className="text-white font-medium">{setting.label}</p>
+                            <p className="text-sm text-gray-400">{setting.description}</p>
+                          </div>
+                          <Button
+                            variant={setting.is_enabled ? "default" : "outline"}
+                            className={setting.is_enabled ? "bg-accent/20 text-accent border-accent/30" : "border-gray-600 text-gray-400"}
+                            onClick={() => handleToggleSetting(setting.id, setting.is_enabled)}
+                          >
+                            {setting.is_enabled ? 'Enabled' : 'Disabled'}
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
-                      <div>
-                        <p className="text-white font-medium">Link Blocking</p>
-                        <p className="text-sm text-gray-400">Block external links in messages</p>
-                      </div>
-                      <Button variant="outline" className="border-border text-gray-300">
-                        Disabled
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Manual Review Queue</h3>
-                  <div className="text-center py-8 text-gray-400">
-                    <Flag className="w-12 h-12 mx-auto mb-4" />
-                    <p>No messages pending review</p>
+                  <div className="text-center py-8 text-gray-400 bg-surface-2 rounded-lg border border-gray-800 border-dashed">
+                    <Flag className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                    <p>No messages pending manual review</p>
+                    <p className="text-xs mt-1 text-gray-500">Flagged messages will appear here for final decision</p>
                   </div>
                 </div>
               </div>
@@ -690,13 +745,7 @@ export default function AdminMessages() {
         <TabsContent value="keywords">
           <Card className="crypto-card">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white">Blocked Keywords Management</CardTitle>
-                <Button className="bg-accent text-bg hover:bg-accent-2">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Keyword
-                </Button>
-              </div>
+              <CardTitle className="text-white">Blocked Keywords Management</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
@@ -704,10 +753,16 @@ export default function AdminMessages() {
                   <div className="flex space-x-4 mb-4">
                     <Input
                       placeholder="Add new blocked keyword..."
-                      className="bg-surface-2 border-border text-white"
-                      data-testid="new-keyword-input"
+                      className="bg-surface-2 border-border text-white flex-1"
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
                     />
-                    <Button className="bg-accent text-bg hover:bg-accent-2" data-testid="add-keyword-button">
+                    <Button
+                      className="bg-accent text-bg hover:bg-accent/90"
+                      onClick={handleAddKeyword}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
                       Add
                     </Button>
                   </div>
@@ -715,32 +770,46 @@ export default function AdminMessages() {
 
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Current Blocked Keywords</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {blockedKeywords.map((keyword, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-surface-2 rounded-lg"
-                        data-testid={`keyword-${index}`}
-                      >
-                        <span className="text-white">{keyword}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-danger hover:text-red-400"
-                          data-testid={`remove-keyword-${index}`}
+                  {loadingKeywords ? (
+                    <div className="py-8 text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent" />
+                    </div>
+                  ) : dbKeywords.length === 0 ? (
+                    <div className="text-center py-8 bg-surface-2 rounded-lg border border-gray-800 border-dashed">
+                      <p className="text-gray-500">No blocked keywords configured</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {dbKeywords.map((kw) => (
+                        <div
+                          key={kw.id}
+                          className="flex items-center justify-between p-3 bg-surface-2 rounded-lg border border-gray-800 hover:border-accent/30 transition-all group"
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                          <span className="text-white font-medium truncate mr-2" title={kw.keyword}>{kw.keyword}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-500 hover:text-danger hover:bg-danger/10 p-1 h-auto"
+                            onClick={() => handleRemoveKeyword(kw.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-6 p-4 bg-surface-2 rounded-lg">
-                  <p className="text-sm text-gray-400">
-                    <strong className="text-white">Note:</strong> Messages containing these keywords will be automatically flagged for review.
-                    Keywords are case-insensitive and partial matches are detected.
-                  </p>
+                <div className="mt-6 p-4 bg-accent/5 rounded-lg border border-accent/10">
+                  <div className="flex items-start">
+                    <div className="p-1 mt-0.5 bg-accent/20 rounded mr-3">
+                      <div className="w-1.5 h-1.5 bg-accent rounded-full" />
+                    </div>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      <strong className="text-accent">Moderation Note:</strong> Messages containing these keywords will be automatically flagged for review.
+                      Checks are case-insensitive and apply to partial word matches.
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>

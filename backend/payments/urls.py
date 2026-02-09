@@ -24,6 +24,8 @@ from .views import (
     AdminReportDownloadView,
     AdminEarningsAnalyticsView,
     TriggerSecurityNotificationsView,
+    AdminManualPayoutView,
+    AdminManualPayoutLookupsView,
 )
 from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView
 
@@ -66,6 +68,8 @@ urlpatterns = [
     path('admin/reports/<str:filename>', AdminReportDownloadView.as_view(), name='admin_report_download'),
     path('admin/earnings/', AdminEarningsAnalyticsView.as_view(), name='admin_earnings'),
     path('admin/trigger-security-notifications/', TriggerSecurityNotificationsView.as_view(), name='admin_security_notifications'),
+    path('admin/manual-payout/', AdminManualPayoutView.as_view(), name='admin_manual_payout'),
+    path('admin/manual-payout/lookups/', AdminManualPayoutLookupsView.as_view(), name='admin_manual_payout_lookups'),
 
     # Vendor endpoints
     path('vendor/payouts/', VendorPayoutsView.as_view(), name='vendor_payouts'),

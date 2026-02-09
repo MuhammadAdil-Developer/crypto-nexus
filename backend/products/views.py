@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count, Avg
+from django.db.models import Q, Count, Avg, Sum
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 import hashlib
@@ -11,6 +11,7 @@ from .models import Product, ProductCategory, ProductSubCategory, ProductView, P
 from shared.models import Notification
 from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductUpdateSerializer, ProductSubCategorySerializer, ProductCategorySerializer
 from users.models import User
+from orders.models import Order
 import json
 import csv
 import io
@@ -189,9 +190,10 @@ def list_products(request):
 @permission_classes([AllowAny])
 def get_popular_searches(request):
     """Get popular search suggestions based on most viewed/searched products"""
+    from shared.utils.security import get_safe_int
+    limit = get_safe_int(request.GET.get('limit'), default=10, min_val=1, max_val=50)
+    
     try:
-        from shared.utils.security import get_safe_int
-        limit = get_safe_int(request.GET.get('limit'), default=10, min_val=1, max_val=50)
         
         # Get products ordered by views_count, favorites_count, and created_at
         # This gives us the most popular products which are likely to be searched

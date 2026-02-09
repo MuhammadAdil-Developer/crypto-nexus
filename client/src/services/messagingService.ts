@@ -752,6 +752,86 @@ class MessagingService {
 
     return response.json();
   }
+
+  // Moderation Methods
+  async getBlockedKeywords(): Promise<any[]> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/keywords/`, {
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch blocked keywords');
+    }
+
+    return response.json();
+  }
+
+  async addBlockedKeyword(keyword: string): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/keywords/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ keyword }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.keyword ? errorData.keyword[0] : 'Failed to add keyword');
+    }
+
+    return response.json();
+  }
+
+  async deleteBlockedKeyword(keywordId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/keywords/${keywordId}/`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete blocked keyword');
+    }
+  }
+
+  async getModerationSettings(): Promise<any[]> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/settings/`, {
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch moderation settings');
+    }
+
+    return response.json();
+  }
+
+  async updateModerationSetting(settingId: string, is_enabled: boolean): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/settings/`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id: settingId, is_enabled }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update moderation setting');
+    }
+
+    return response.json();
+  }
 }
 
 export const messagingService = new MessagingService();

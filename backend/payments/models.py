@@ -227,6 +227,7 @@ class Payout(BaseModel):
         ('escrow', 'Escrow Release'),
         ('direct', 'Direct Payment'),
         ('refund', 'Partial Payment Refund'),
+        ('manual', 'Manual Admin Payout'),
     ]
     
     PAYOUT_STATUS = [
@@ -237,9 +238,9 @@ class Payout(BaseModel):
         ('cancelled', 'Cancelled'),
     ]
     
-    order = models.ForeignKey('orders.Order', on_delete=models.CASCADE, related_name='payouts')
-    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='payouts')
-    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_payouts')
+    order = models.ForeignKey('orders.Order', on_delete=models.CASCADE, related_name='payouts', null=True, blank=True)
+    vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='payouts', null=True, blank=True)
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_payouts', null=True, blank=True)
     
     payout_type = models.CharField(max_length=10, choices=PAYOUT_TYPES)
     crypto_currency = models.ForeignKey('shared.CryptoCurrency', on_delete=models.CASCADE)

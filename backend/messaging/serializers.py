@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from shared.models import Conversation, Message
+
 from users.models import User
 from products.models import Product
 
@@ -242,6 +243,11 @@ class SendMessageSerializer(serializers.ModelSerializer):
             metadata=metadata
         )
         
+        # Explicitly set is_flagged if the field exists
+        if hasattr(message, 'is_flagged'):
+            message.is_flagged = False
+            message.save()
+        
         # Update metadata with file URL if attachment exists
         if attachment:
             # Get the full URL for the attachment
@@ -255,3 +261,15 @@ class SendMessageSerializer(serializers.ModelSerializer):
         
         return message
 
+
+from .models import BlockedKeyword, ModerationSetting
+
+class BlockedKeywordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlockedKeyword
+        fields = ['id', 'keyword', 'created_at']
+
+class ModerationSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModerationSetting
+        fields = ['id', 'name', 'label', 'description', 'is_enabled', 'updated_at']

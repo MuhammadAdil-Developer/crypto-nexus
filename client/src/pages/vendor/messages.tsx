@@ -1317,6 +1317,10 @@ export default function VendorMessages() {
                           {buyer?.username?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
+                      {/* ONLINE STATUS INDICATOR */}
+                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-gray-900 rounded-full transition-colors duration-300 ${buyer?.is_online ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-500'
+                        }`} />
+
                       {conv.unread_count > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-4 w-4">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>

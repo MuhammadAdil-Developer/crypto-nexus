@@ -228,8 +228,14 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # Allow delivery when:
         # - Normal orders: status must be PAID or CONFIRMED (if marked as completed manually)
-        # - Giveaway orders: status can be PAID or CONFIRMED (we auto-confirm giveaways)
-        allowed_statuses = [OrderStatus.PAID.value, OrderStatus.CONFIRMED.value, OrderStatus.PROCESSING.value]
+        # - Also allow if already DELIVERED or COMPLETED (to update credentials)
+        allowed_statuses = [
+            OrderStatus.PAID.value, 
+            OrderStatus.CONFIRMED.value, 
+            OrderStatus.PROCESSING.value,
+            OrderStatus.DELIVERED.value,
+            'completed' # Legacy/External status support
+        ]
 
         if order.order_status not in allowed_statuses:
             return Response(

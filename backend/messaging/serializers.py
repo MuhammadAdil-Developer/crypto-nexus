@@ -67,14 +67,15 @@ class MessageSerializer(serializers.ModelSerializer):
             other_participants = obj.conversation.participants.exclude(id=request.user.id)
             if other_participants.exists():
                 other_user = other_participants.first()
+                from django.core.cache import cache
                 if other_user.user_type == 'admin':
                     return {
                         'id': str(other_user.id),
                         'username': 'Support Agent',
                         'user_type': 'admin',
-                        'profile_picture': None
+                        'profile_picture': None,
+                        'is_online': cache.get(f"user_online_{other_user.id}", False)
                     }
-                from django.core.cache import cache
                 return {
                     'id': str(other_user.id),
                     'username': other_user.username,
@@ -115,12 +116,14 @@ class ConversationSerializer(serializers.ModelSerializer):
             other_participants = obj.participants.exclude(id=request.user.id)
             if other_participants.exists():
                 other_user = other_participants.first()
+                from django.core.cache import cache
                 if other_user.user_type == 'admin':
                     return {
                         'id': str(other_user.id),
                         'username': 'Support Agent',
                         'user_type': 'admin',
-                        'profile_picture': None
+                        'profile_picture': None,
+                        'is_online': cache.get(f"user_online_{other_user.id}", False)
                     }
                 profile_picture_url = None
                 if other_user.profile_picture:

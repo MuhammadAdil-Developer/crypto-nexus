@@ -25,7 +25,9 @@ from .views import (
 from .moderation import (
     blocked_keywords_list_create,
     delete_blocked_keyword,
-    moderation_settings_list_update
+    moderation_settings_list_update,
+    get_flagged_messages,
+    resolve_flagged_message
 )
 
 urlpatterns = [
@@ -33,6 +35,8 @@ urlpatterns = [
     path('moderation/keywords/', blocked_keywords_list_create, name='blocked-keywords-list-create'),
     path('moderation/keywords/<uuid:keyword_id>/', delete_blocked_keyword, name='delete-blocked-keyword'),
     path('moderation/settings/', moderation_settings_list_update, name='moderation-settings'),
+    path('moderation/flagged/', get_flagged_messages, name='get-flagged-messages'),
+    path('moderation/flagged/<uuid:message_id>/resolve/', resolve_flagged_message, name='resolve-flagged-message'),
 
     # Conversations
     path('conversations/', ConversationListCreateView.as_view(), name='conversation-list-create'),

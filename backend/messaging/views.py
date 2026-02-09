@@ -364,6 +364,9 @@ def create_product_conversation(request):
         if hasattr(message, 'is_flagged'):
             message.is_flagged = False
             message.save()
+            
+        # Run auto-moderation
+        run_auto_moderation(message)
     else:
         # For regular product conversations, check if one already exists
         # STRICT CHECK: Must match product AND exact participants (sender & recipient)
@@ -427,6 +430,9 @@ def create_product_conversation(request):
         if hasattr(message, 'is_flagged'):
             message.is_flagged = False
             message.save()
+            
+        # Run auto-moderation
+        run_auto_moderation(message)
     
     serializer = ConversationSerializer(conversation, context={'request': request})
     # Include refund_id/dispute_id in response so frontend can track it

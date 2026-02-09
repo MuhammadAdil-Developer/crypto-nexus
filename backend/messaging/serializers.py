@@ -7,12 +7,17 @@ from products.models import Product
 
 class UserSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
+    is_online = serializers.SerializerMethodField()
     
     profile_picture = serializers.ImageField(read_only=True)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'profile_picture', 'user_type']
+        fields = ['id', 'username', 'email', 'profile_picture', 'user_type', 'is_online']
+    
+    def get_is_online(self, obj):
+        from django.core.cache import cache
+        return cache.get(f"user_online_{obj.id}", False)
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -35,7 +40,7 @@ class MessageSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url']
+        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url', 'is_flagged']
         read_only_fields = ['id', 'created_at']
     
     def get_attachment_url(self, obj):
@@ -69,11 +74,13 @@ class MessageSerializer(serializers.ModelSerializer):
                         'user_type': 'admin',
                         'profile_picture': None
                     }
+                from django.core.cache import cache
                 return {
                     'id': str(other_user.id),
                     'username': other_user.username,
                     'user_type': getattr(other_user, 'user_type', 'buyer'),
-                    'profile_picture': other_user.profile_picture.url if other_user.profile_picture else None
+                    'profile_picture': other_user.profile_picture.url if other_user.profile_picture else None,
+                    'is_online': cache.get(f"user_online_{other_user.id}", False)
                 }
         return None
 
@@ -122,11 +129,13 @@ class ConversationSerializer(serializers.ModelSerializer):
                     else:
                         profile_picture_url = other_user.profile_picture.url
 
+                from django.core.cache import cache
                 return {
                     'id': str(other_user.id),
                     'username': other_user.username,
                     'user_type': getattr(other_user, 'user_type', 'buyer'),
-                    'profile_picture': profile_picture_url
+                    'profile_picture': profile_picture_url,
+                    'is_online': cache.get(f"user_online_{other_user.id}", False)
                 }
         return None
 
@@ -247,6 +256,16 @@ class SendMessageSerializer(serializers.ModelSerializer):
         if hasattr(message, 'is_flagged'):
             message.is_flagged = False
             message.save()
+            
+        # Run auto-moderation
+        try:
+            from .moderation import run_auto_moderation
+            run_auto_moderation(message)
+        except ImportError:
+            pass # Avoid circular imports if still occurring
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error in auto-moderation: {e}")
         
         # Update metadata with file URL if attachment exists
         if attachment:

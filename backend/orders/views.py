@@ -227,15 +227,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
 
         # Allow delivery when:
-        # - Normal orders: status must be PAID
+        # - Normal orders: status must be PAID or CONFIRMED (if marked as completed manually)
         # - Giveaway orders: status can be PAID or CONFIRMED (we auto-confirm giveaways)
-        allowed_statuses = [OrderStatus.PAID.value]
-        if getattr(order, "is_giveaway", False):
-            allowed_statuses.append(OrderStatus.CONFIRMED.value)
+        allowed_statuses = [OrderStatus.PAID.value, OrderStatus.CONFIRMED.value, OrderStatus.PROCESSING.value]
 
         if order.order_status not in allowed_statuses:
             return Response(
-                {"error": "Order must be paid before delivery"},
+                {"error": f"Order cannot be delivered in current status: {order.order_status}. It must be Paid or Processing."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         

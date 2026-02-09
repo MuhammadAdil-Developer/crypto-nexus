@@ -256,6 +256,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message.is_flagged = False
                 message.save()
             
+            # Run auto-moderation
+            try:
+                from .moderation import run_auto_moderation
+                run_auto_moderation(message)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error in auto-moderation: {e}")
+            
             # Update conversation's last message
             conversation.last_message = message
             conversation.save()
@@ -545,7 +553,16 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         
+        # Join global presence group
+        await self.channel_layer.group_add(
+            'presence',
+            self.channel_name
+        )
+        
         await self.accept()
+        
+        # Mark user as online and broadcast
+        await self.toggle_presence(True)
 
     async def disconnect(self, close_code):
         # Leave user group
@@ -553,6 +570,50 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
             self.user_group_name,
             self.channel_name
         )
+        
+        # Leave global presence group
+        await self.channel_layer.group_discard(
+            'presence',
+            self.channel_name
+        )
+        
+        # Mark user as offline and broadcast
+        if hasattr(self, 'user_id'):
+            await self.toggle_presence(False)
+
+    async def toggle_presence(self, is_online):
+        """Broadcast user presence change to all participants and store in Redis"""
+        try:
+            # 1. Update Redis (for initial load state)
+            from django.core.cache import cache
+            cache_key = f"user_online_{self.user_id}"
+            if is_online:
+                # Store for 5 minutes, will be refreshed by ping/pong if implemented
+                # For now, just set it on connect
+                cache.set(cache_key, True, timeout=300) 
+            else:
+                cache.delete(cache_key)
+
+            # 2. Broadcast to global presence group
+            await self.channel_layer.group_send(
+                'presence',
+                {
+                    'type': 'user_presence',
+                    'data': {
+                        'user_id': self.user_id,
+                        'is_online': is_online
+                    }
+                }
+            )
+        except Exception as e:
+            logger.error(f"Presence error: {e}")
+
+    async def user_presence(self, event):
+        """Handle incoming presence events and send to client"""
+        await self.send(text_data=json.dumps({
+            'type': 'user_presence',
+            'data': event['data']
+        }))
 
     async def receive(self, text_data):
         try:

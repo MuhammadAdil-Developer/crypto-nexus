@@ -17,7 +17,7 @@ class RealtimeService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return;
     }
-    
+
     // Close existing connection if any (but preserve callbacks)
     if (this.ws) {
       console.log('🔄 Closing existing WebSocket connection before reconnecting...');
@@ -43,7 +43,7 @@ class RealtimeService {
 
     try {
       this.ws = new WebSocket(getWebSocketUrl(`/ws/realtime/${this.userId}/?token=${token}`));
-      
+
       this.ws.onopen = () => {
         console.log('✅ Realtime WebSocket connected successfully');
         console.log(`🔍 Active callbacks after connection:`, Array.from(this.callbacks.keys()).map(k => `${k}:${this.callbacks.get(k)?.length || 0}`));
@@ -90,7 +90,7 @@ class RealtimeService {
     const { type, data: payload, payload: payloadAlt } = data; // Backend sends both 'data' and 'payload'
     const actualPayload = payload || payloadAlt; // Use whichever is available
     console.log(`🔄 Handling realtime message type: ${type}`, actualPayload);
-    
+
     switch (type) {
       case 'new_message':
         console.log('📩 Triggering new_message callbacks');
@@ -156,6 +156,10 @@ class RealtimeService {
         console.log('🗑️ Triggering message_deleted callbacks');
         this.triggerCallbacks('message_deleted', actualPayload);
         break;
+      case 'user_presence':
+        console.log('👤 Triggering user_presence callbacks', actualPayload);
+        this.triggerCallbacks('user_presence', actualPayload);
+        break;
       default:
         console.log('❓ Unknown realtime message type:', type);
     }
@@ -164,12 +168,12 @@ class RealtimeService {
   private triggerCallbacks(eventType: string, payload: any): void {
     const callbacks = this.callbacks.get(eventType) || [];
     console.log(`🔔 Triggering ${eventType} callbacks, found ${callbacks.length} callbacks`);
-    
+
     if (callbacks.length === 0) {
       console.error(`❌ NO CALLBACKS FOUND for ${eventType}! This means handlers were not subscribed.`);
       console.error(`❌ All registered callbacks:`, Array.from(this.callbacks.keys()));
     }
-    
+
     callbacks.forEach((callback, index) => {
       try {
         console.log(`🔔 Executing callback ${index + 1}/${callbacks.length} for ${eventType}`);

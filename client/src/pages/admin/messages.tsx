@@ -141,6 +141,11 @@ export default function AdminMessages() {
     lockedConversations: 0
   });
 
+  // Keep Flag confirmation states
+  const [showConfirmFlagDialog, setShowConfirmFlagDialog] = useState(false);
+  const [messageToConfirm, setMessageToConfirm] = useState<any>(null);
+  const [isConfirmingFlag, setIsConfirmingFlag] = useState(false);
+
   const [dbKeywords, setDbKeywords] = useState<any[]>([]);
   const [newKeyword, setNewKeyword] = useState("");
   const [loadingKeywords, setLoadingKeywords] = useState(false);
@@ -148,11 +153,16 @@ export default function AdminMessages() {
   const [moderationSettings, setModerationSettings] = useState<any[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(false);
 
+  // Flagged messages states
+  const [flaggedMessages, setFlaggedMessages] = useState<any[]>([]);
+  const [loadingFlagged, setLoadingFlagged] = useState(false);
+
   useEffect(() => {
     fetchConversations();
     fetchReports();
     fetchKeywords();
     fetchSettings();
+    fetchFlagged();
   }, []);
 
   const fetchKeywords = async () => {
@@ -209,6 +219,36 @@ export default function AdminMessages() {
       toast({ title: "Success", description: "Setting updated successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const fetchFlagged = async () => {
+    try {
+      setLoadingFlagged(true);
+      const data = await messagingService.getFlaggedMessages();
+      setFlaggedMessages(data);
+      setStats(prev => ({ ...prev, flaggedMessages: data.length }));
+    } catch (error) {
+      console.error('Error fetching flagged messages:', error);
+    } finally {
+      setLoadingFlagged(false);
+    }
+  };
+
+  const handleResolveFlagged = async (messageId: string, action: 'unflag' | 'confirm') => {
+    try {
+      await messagingService.resolveFlaggedMessage(messageId, action);
+      fetchFlagged();
+      toast({
+        title: "Success",
+        description: action === 'unflag' ? "Message unflagged successfully" : "Message flag confirmed",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resolve flagged message",
+        variant: "destructive"
+      });
     }
   };
 
@@ -731,11 +771,65 @@ export default function AdminMessages() {
 
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Manual Review Queue</h3>
-                  <div className="text-center py-8 text-gray-400 bg-surface-2 rounded-lg border border-gray-800 border-dashed">
-                    <Flag className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                    <p>No messages pending manual review</p>
-                    <p className="text-xs mt-1 text-gray-500">Flagged messages will appear here for final decision</p>
-                  </div>
+                  {loadingFlagged ? (
+                    <div className="py-8 text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent" />
+                    </div>
+                  ) : flaggedMessages.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400 bg-surface-2 rounded-lg border border-gray-800 border-dashed">
+                      <Flag className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                      <p>No messages pending manual review</p>
+                      <p className="text-xs mt-1 text-gray-500">Flagged messages will appear here for final decision</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {flaggedMessages.map((msg) => (
+                        <div key={msg.id} className="p-4 bg-surface-2 rounded-lg border border-danger/30 hover:border-danger/50 transition-colors">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="destructive" className="text-[10px] uppercase">Flagged</Badge>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(msg.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-white">
+                                Sender: <span className="text-accent">{msg.sender?.username || 'System'}</span>
+                                <span className="text-gray-500 mx-2">→</span>
+                                Recipient: <span className="text-blue-400">{msg.recipient?.username || 'User'}</span>
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-gray-600 text-gray-300 hover:bg-gray-800"
+                                onClick={() => handleResolveFlagged(msg.id, 'unflag')}
+                              >
+                                <CheckCircle className="w-3.5 h-3.5 mr-1 text-green-500" />
+                                Unflag
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 bg-danger/20 text-danger border-danger/30 hover:bg-danger/30"
+                                onClick={() => {
+                                  setMessageToConfirm(msg);
+                                  setShowConfirmFlagDialog(true);
+                                }}
+                              >
+                                <Ban className="w-3.5 h-3.5 mr-1" />
+                                Keep Flagged
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-bg/50 rounded border border-border/50 italic text-gray-300 text-sm">
+                            "{msg.content}"
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -753,7 +847,8 @@ export default function AdminMessages() {
                   <div className="flex space-x-4 mb-4">
                     <Input
                       placeholder="Add new blocked keyword..."
-                      className="bg-surface-2 border-border text-white flex-1"
+                      className="bg-surface-1 border-border text-white flex-1 focus:ring-accent/50"
+                      style={{ backgroundColor: '#121212' }} // Force dark background to match premium UI
                       value={newKeyword}
                       onChange={(e) => setNewKeyword(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
@@ -1129,6 +1224,45 @@ export default function AdminMessages() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Lock Conversation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Confirm Flag Action Dialog */}
+      <AlertDialog open={showConfirmFlagDialog} onOpenChange={setShowConfirmFlagDialog}>
+        <AlertDialogContent className="bg-gray-900 border-gray-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Confirm Content Violation?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Confirming this flag will:
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>Permanently lock this conversation.</li>
+                <li>Send a formal security warning to the sender.</li>
+                <li>Mark this message as a confirmed violation.</li>
+              </ul>
+              <div className="mt-4 p-3 bg-red-950/30 border border-red-500/20 rounded text-sm text-red-200">
+                Are you sure you want to take this action?
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-700 bg-gray-800">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-danger hover:bg-danger/90 text-white focus:ring-danger"
+              onClick={async () => {
+                if (messageToConfirm) {
+                  setIsConfirmingFlag(true);
+                  await handleResolveFlagged(messageToConfirm.id, 'confirm');
+                  setIsConfirmingFlag(false);
+                  setShowConfirmFlagDialog(false);
+                  setMessageToConfirm(null);
+                }
+              }}
+              disabled={isConfirmingFlag}
+            >
+              {isConfirmingFlag ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Lock"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

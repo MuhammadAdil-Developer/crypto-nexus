@@ -384,6 +384,30 @@ export function MessagesPanel({
       }
     };
 
+    const handleUserPresence = (data: any) => {
+      const { user_id, is_online } = data;
+      console.log('👤 Presence Update (Buyer):', user_id, is_online);
+
+      // Update local conversations list
+      setLocalConversations(prev => prev.map(conv => ({
+        ...conv,
+        participants: conv.participants?.map((p: any) =>
+          String(p.id) === String(user_id) ? { ...p, is_online } : p
+        )
+      })));
+
+      // Update selected conversation
+      setSelectedConversation(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          participants: prev.participants?.map((p: any) =>
+            String(p.id) === String(user_id) ? { ...p, is_online } : p
+          )
+        };
+      });
+    };
+
     window.addEventListener('message_edited', handleWebSocketMessageEdited as EventListener);
     window.addEventListener('message_deleted', handleWebSocketMessageDeleted as EventListener);
 
@@ -458,15 +482,17 @@ export function MessagesPanel({
       }
     };
 
+    realtimeService.subscribe('conversation_updated', handleConversationUpdate);
     realtimeService.subscribe('message_edited', handleMessageEdited);
     realtimeService.subscribe('message_deleted', handleMessageDeleted);
-    realtimeService.subscribe('conversation_updated', handleConversationUpdate);
+    realtimeService.subscribe('user_presence', handleUserPresence);
 
     return () => {
       // Don't disconnect here - only disconnect when switching conversations
+      realtimeService.unsubscribe('conversation_updated', handleConversationUpdate);
       realtimeService.unsubscribe('message_edited', handleMessageEdited);
       realtimeService.unsubscribe('message_deleted', handleMessageDeleted);
-      realtimeService.unsubscribe('conversation_updated', handleConversationUpdate);
+      realtimeService.unsubscribe('user_presence', handleUserPresence);
       window.removeEventListener('message_edited', handleWebSocketMessageEdited as EventListener);
       window.removeEventListener('message_deleted', handleWebSocketMessageDeleted as EventListener);
     };
@@ -1013,7 +1039,8 @@ export function MessagesPanel({
                             {getVendorFromConversation(conv)?.username?.charAt(0) || (conv.product?.title?.charAt(0) || 'P')}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 border-2 border-gray-950 rounded-full shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
+                        <div className={`absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 border-2 border-gray-950 rounded-full transition-colors duration-300 ${getVendorFromConversation(conv)?.is_online ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-gray-500'
+                          }`} />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -1021,7 +1048,7 @@ export function MessagesPanel({
                           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                             <h4 className="font-medium text-white truncate text-sm sm:text-base flex items-center gap-2">
                               {conv.is_admin_chat ? (
-                                <span className="text-theme-cyan">(Admin Chat)</span>
+                                <span className="text-theme-cyan">Admin Chat</span>
                               ) : (
                                 conv.product?.headline || conv.product?.title || getVendorFromConversation(conv)?.username || 'Chat'
                               )}
@@ -1092,7 +1119,8 @@ export function MessagesPanel({
                         {getVendorFromConversation(selectedConversation)?.username?.charAt(0) || 'V'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 border-2 border-gray-950 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" title="Online" />
+                    <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 border-2 border-gray-950 rounded-full transition-colors duration-300 ${getVendorFromConversation(selectedConversation)?.is_online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-500'
+                      }`} title={getVendorFromConversation(selectedConversation)?.is_online ? "Online" : "Offline"} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3
@@ -1100,7 +1128,7 @@ export function MessagesPanel({
                       onClick={handleOpenUserProfile}
                     >
                       <span className="truncate">
-                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (getVendorFromConversation(selectedConversation)?.username || 'Support Agent')}
+                        {selectedConversation.is_admin_chat ? 'Admin Chat' : (getVendorFromConversation(selectedConversation)?.username || 'Support Agent')}
                       </span>
                       {selectedConversation.is_admin_chat && <Badge className="bg-theme-cyan/20 text-theme-cyan border-theme-cyan/30 text-[10px]">ADMIN</Badge>}
                       {/* Refund/Dispute badge */}
@@ -1177,7 +1205,7 @@ export function MessagesPanel({
                     <p className="text-xs sm:text-sm text-gray-400 flex items-center truncate">
                       <Package className="w-3 h-3 mr-1 flex-shrink-0" />
                       <span className="truncate">
-                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion')}
+                        {selectedConversation.is_admin_chat ? 'Admin Chat' : (selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion')}
                       </span>
                     </p>
                   </div>

@@ -832,6 +832,39 @@ class MessagingService {
 
     return response.json();
   }
+
+  async getFlaggedMessages(): Promise<any[]> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/flagged/`, {
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch flagged messages');
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  }
+
+  async resolveFlaggedMessage(messageId: string, action: 'unflag' | 'confirm'): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/messaging/moderation/flagged/${messageId}/resolve/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to resolve flagged message');
+    }
+
+    return response.json();
+  }
 }
 
 export const messagingService = new MessagingService();

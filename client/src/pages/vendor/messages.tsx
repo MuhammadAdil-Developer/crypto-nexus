@@ -293,12 +293,37 @@ export default function VendorMessages() {
       }
     };
 
+    const handleUserPresence = (data: any) => {
+      const { user_id, is_online } = data;
+      console.log('👤 Presence Update:', user_id, is_online);
+
+      // Update conversations list
+      setConversations(prev => prev.map(conv => ({
+        ...conv,
+        participants: conv.participants?.map((p: any) =>
+          String(p.id) === String(user_id) ? { ...p, is_online } : p
+        )
+      })));
+
+      // Update selected conversation
+      setSelectedConversation(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          participants: prev.participants?.map((p: any) =>
+            String(p.id) === String(user_id) ? { ...p, is_online } : p
+          )
+        };
+      });
+    };
+
     window.addEventListener('message_edited', handleWebSocketMessageEdited as EventListener);
     window.addEventListener('message_deleted', handleWebSocketMessageDeleted as EventListener);
 
     realtimeService.subscribe('conversation_updated', handleConversationUpdate);
     realtimeService.subscribe('message_edited', handleMessageEdited);
     realtimeService.subscribe('message_deleted', handleMessageDeleted);
+    realtimeService.subscribe('user_presence', handleUserPresence);
 
     return () => {
       messagingService.disconnect();
@@ -306,6 +331,7 @@ export default function VendorMessages() {
       realtimeService.unsubscribe('conversation_updated', handleConversationUpdate);
       realtimeService.unsubscribe('message_edited', handleMessageEdited);
       realtimeService.unsubscribe('message_deleted', handleMessageDeleted);
+      realtimeService.unsubscribe('user_presence', handleUserPresence);
       window.removeEventListener('message_edited', handleWebSocketMessageEdited as EventListener);
       window.removeEventListener('message_deleted', handleWebSocketMessageDeleted as EventListener);
     };
@@ -1302,7 +1328,7 @@ export default function VendorMessages() {
                       <div className="flex justify-between items-baseline mb-0.5">
                         <h4 className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-gray-200 group-hover:text-white'} flex items-center gap-2`}>
                           {conv.is_admin_chat ? (
-                            <span className="text-theme-cyan">(Admin Chat)</span>
+                            <span className="text-theme-cyan">Admin Chat</span>
                           ) : (
                             buyer?.username || 'Buyer'
                           )}
@@ -1316,7 +1342,7 @@ export default function VendorMessages() {
                       </p>
                       <p className="text-[10px] text-indigo-400 truncate flex items-center">
                         <Package className="w-3 h-3 mr-1 opacity-70" />
-                        {conv.is_admin_chat ? '(Admin Chat)' : (conv.product?.headline || conv.product?.title || 'Product')}
+                        {conv.is_admin_chat ? 'Admin Chat' : (conv.product?.headline || conv.product?.title || 'Product')}
                       </p>
                     </div>
                   </div>
@@ -1360,13 +1386,15 @@ export default function VendorMessages() {
                         {getBuyerFromConversation(selectedConversation)?.username?.charAt(0).toUpperCase() || 'B'}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-900 rounded-full"></span>
+                    {/* ACCURATE ONLINE STATUS */}
+                    <span className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-gray-900 rounded-full transition-colors duration-300 ${getBuyerFromConversation(selectedConversation)?.is_online ? 'bg-green-500' : 'bg-gray-500'
+                      }`}></span>
                   </div>
 
                   <div className="min-w-0 cursor-pointer" onClick={handleOpenUserProfile}>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-white text-base hover:text-cyan-400 transition-colors truncate">
-                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (getBuyerFromConversation(selectedConversation)?.username || 'Support Agent')}
+                        {selectedConversation.is_admin_chat ? 'Admin Chat' : (getBuyerFromConversation(selectedConversation)?.username || 'Support Agent')}
                       </h3>
                       {(() => {
                         // Check if this conversation was opened with dispute or refund context
@@ -1457,7 +1485,7 @@ export default function VendorMessages() {
                     <p className="text-xs text-gray-400 flex items-center truncate">
                       <Package className="w-3 h-3 mr-1 text-cyan-400" />
                       <span className="truncate hover:text-gray-300 transition-colors">
-                        {selectedConversation.is_admin_chat ? '(Admin Chat)' : (selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion')}
+                        {selectedConversation.is_admin_chat ? 'Admin Chat' : (selectedConversation.product?.headline || selectedConversation.product?.title || 'Product Discussion')}
                       </span>
                     </p>
                   </div>

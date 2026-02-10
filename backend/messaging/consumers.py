@@ -577,36 +577,80 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         
-        # Mark user as offline and broadcast
+        # Mark user as offline and broadcast IF this was the last session
         if hasattr(self, 'user_id'):
             await self.toggle_presence(False)
 
     async def toggle_presence(self, is_online):
-        """Broadcast user presence change to all participants and store in Redis"""
+        """Broadcast user presence change using session-aware logic"""
         try:
-            # 1. Update Redis (for initial load state)
+            import redis
+            from django.conf import settings
             from django.core.cache import cache
-            cache_key = f"user_online_{self.user_id}"
+            
+            # Use the configured REDIS_URL
+            redis_url = getattr(settings, 'REDIS_URL', 'redis://127.0.0.1:6379')
+            # Ensure it uses database 1 for presence (separate from channel layer if desired, or same)
+            if not redis_url.endswith('/1') and '?' not in redis_url:
+                redis_url = f"{redis_url}/1"
+                
+            r = redis.Redis.from_url(redis_url)
+            
+            session_key = f"user_sessions_{self.user_id}"
+            status_key = f"user_online_{self.user_id}"
+            
             if is_online:
-                # Store for 5 minutes, will be refreshed by ping/pong if implemented
-                # For now, just set it on connect
-                cache.set(cache_key, True, timeout=300) 
+                # Add this channel to the user's active sessions set
+                r.sadd(session_key, self.channel_name)
+                # Set expiration for the session set (1 hour of inactivity)
+                r.expire(session_key, 3600)
+                
+                # Check if they need to be marked online in the primary cache
+                already_online = cache.get(status_key, False)
+                if not already_online:
+                    cache.set(status_key, True, timeout=None)
+                    await self.broadcast_presence(True)
             else:
-                cache.delete(cache_key)
-
-            # 2. Broadcast to global presence group
-            await self.channel_layer.group_send(
-                'presence',
-                {
-                    'type': 'user_presence',
-                    'data': {
-                        'user_id': self.user_id,
-                        'is_online': is_online
-                    }
-                }
-            )
+                # Remove this channel from sessions
+                r.srem(session_key, self.channel_name)
+                
+                # Check if any sessions remain
+                remaining_sessions = r.scard(session_key)
+                if remaining_sessions == 0:
+                    # No more active tabs/connections
+                    cache.delete(status_key)
+                    # Use a small lock/delay check to avoid flickers on quick refreshes
+                    await self.broadcast_presence(False)
+                else:
+                    # Still online in other tabs, refresh expiration
+                    r.expire(session_key, 3600)
+                    
         except Exception as e:
-            logger.error(f"Presence error: {e}")
+            logger.error(f"Presence error for user {self.user_id}: {e}")
+            # Fallback: simple toggling if Redis Set logic fails
+            try:
+                from django.core.cache import cache
+                status_key = f"user_online_{self.user_id}"
+                if is_online:
+                    cache.set(status_key, True, timeout=300)
+                else:
+                    cache.delete(status_key)
+                await self.broadcast_presence(is_online)
+            except:
+                pass
+
+    async def broadcast_presence(self, is_online):
+        """Send presence event to the global channel group"""
+        await self.channel_layer.group_send(
+            'presence',
+            {
+                'type': 'user_presence',
+                'data': {
+                    'user_id': self.user_id,
+                    'is_online': is_online
+                }
+            }
+        )
 
     async def user_presence(self, event):
         """Handle incoming presence events and send to client"""

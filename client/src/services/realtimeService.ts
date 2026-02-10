@@ -7,9 +7,28 @@ class RealtimeService {
   private reconnectInterval = 3000;
   private userId: string | null = null;
   private callbacks: Map<string, Function[]> = new Map();
+  private pingInterval = 30000; // 30 seconds
+  private pingTimer: any = null;
 
   constructor() {
     this.userId = localStorage.getItem('userId');
+  }
+
+  private startHeartbeat(): void {
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    this.pingTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        console.log('📡 Sending heartbeat ping...');
+        this.ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, this.pingInterval);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
   }
 
   connect(): void {
@@ -46,6 +65,7 @@ class RealtimeService {
 
       this.ws.onopen = () => {
         console.log('✅ Realtime WebSocket connected successfully');
+        this.startHeartbeat();
         console.log(`🔍 Active callbacks after connection:`, Array.from(this.callbacks.keys()).map(k => `${k}:${this.callbacks.get(k)?.length || 0}`));
         this.reconnectAttempts = 0;
       };
@@ -68,6 +88,7 @@ class RealtimeService {
           wasClean: event.wasClean
         });
         console.log(`🔍 Callbacks before reconnect:`, Array.from(this.callbacks.keys()).map(k => `${k}:${this.callbacks.get(k)?.length || 0}`));
+        this.stopHeartbeat();
         // Preserve callbacks during reconnect - don't clear them
         // Only reconnect if not a clean close (code 1000) or if it was an unexpected close
         if (event.code !== 1000 || !event.wasClean) {
@@ -221,6 +242,7 @@ class RealtimeService {
   }
 
   disconnect(): void {
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close();
       this.ws = null;

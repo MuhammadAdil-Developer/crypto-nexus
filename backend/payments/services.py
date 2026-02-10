@@ -1203,7 +1203,7 @@ class PaymentService:
                     logger.warning(f"InvoiceExpiredPaidPartial received but total_paid is 0 for invoice {invoice_id}")
                     return True # Still mark as processed to avoid retry loop
 
-            if webhook_type in ['InvoiceReceivedPayment', 'InvoicePaymentSettled', 'InvoiceSettled', 'InvoiceProcessing']:
+            if webhook_type in ['InvoiceReceivedPayment', 'InvoicePaymentSettled', 'InvoiceSettled', 'InvoiceProcessing', 'InvoiceExpired', 'InvoiceInvalid', 'InvoicePaidAfterExpiration']:
                 # Determine status based on webhook type and payment data
                 payment_data = payload.get('payment', {})
                 payment_status = payment_data.get('status', '')
@@ -1219,10 +1219,16 @@ class PaymentService:
                         btcpay_status = 'Settled'  # Payment fully confirmed
                     else:
                         btcpay_status = 'Processing'
-                elif webhook_type == 'InvoicePaymentSettled':
-                    btcpay_status = 'Settled'  # Payment fully settled
-                elif webhook_type == 'InvoiceSettled':
-                    btcpay_status = 'Settled'  # Invoice completed
+                elif webhook_type in ['InvoicePaymentSettled', 'InvoiceSettled', 'InvoicePaidAfterExpiration']:
+                    btcpay_status = 'Settled'  # Payment fully settled, invoice completed, or paid late
+                elif webhook_type in ['InvoiceExpired', 'InvoiceInvalid']:
+                    # Special check for "Paid Late" which shows as Expired in BTCPay
+                    additional_status = payload.get('additionalStatus')
+                    if additional_status == 'PaidLate':
+                        logger.info(f"BTCPay Invoice {invoice_id} is Expired but PaidLate. Treating as Settled.")
+                        btcpay_status = 'Settled'
+                    else:
+                        btcpay_status = 'Expired' if webhook_type == 'InvoiceExpired' else 'Invalid'
                 
                 # Check for underpayment in ReceivedPayment webhook
                 is_partial = False
@@ -1527,7 +1533,8 @@ class PaymentService:
                 if order_to_update.payment_status != 'paid':
                     logger.info(f"Updating Order {order_to_update.order_id} to PAID status via direct webhook logic")
                     order_to_update.payment_status = 'paid'
-                    if order_to_update.order_status in ['pending', 'pending_payment']:
+                    # Allow transitioning back from 'cancelled' to 'paid' for late payments
+                    if order_to_update.order_status in ['pending', 'pending_payment', 'cancelled']:
                         if order_to_update.product.delivery_time == 'instant_auto':
                             order_to_update.order_status = 'confirmed' # Shows as "Completed"
                         else:
@@ -1617,7 +1624,13 @@ class PaymentService:
             new_order_status = btcpay_to_order_status.get(btcpay_status, OrderStatus.PENDING_PAYMENT.value)
             new_payment_status = btcpay_to_payment_status.get(btcpay_status, 'pending')
             
-            # CRITICAL: If the order is already marked as PAID, skip notifications and logic to avoid duplicate/infinite notifications
+            # CRITICAL: Protect 'paid' status from being downgraded to 'expired' or 'cancelled'
+            # (which can happen if a late payment settles but then an old 'Expired' webhook arrives)
+            if order.payment_status == 'paid' and new_payment_status in ['expired', 'cancelled']:
+                logger.info(f"Order {order_id} is already PAID. Protecting from downgrade to {new_payment_status}.")
+                return True
+
+            # If the order is already marked as PAID, skip further updates if new status is also PAID
             if order.payment_status == 'paid' and new_payment_status == 'paid':
                 logger.info(f"Order {order_id} is already marked as PAID. Skipping duplicate status update and notifications.")
                 return True

@@ -298,21 +298,40 @@ export default function VendorMessages() {
       console.log('👤 Presence Update:', user_id, is_online);
 
       // Update conversations list
-      setConversations(prev => prev.map(conv => ({
-        ...conv,
-        participants: conv.participants?.map((p: any) =>
+      setConversations(prev => prev.map(conv => {
+        const updatedParticipants = conv.participants?.map((p: any) =>
           String(p.id) === String(user_id) ? { ...p, is_online } : p
-        )
-      })));
+        );
+
+        let updatedOtherParticipant = conv.other_participant;
+        if (updatedOtherParticipant && String(updatedOtherParticipant.id) === String(user_id)) {
+          updatedOtherParticipant = { ...updatedOtherParticipant, is_online };
+        }
+
+        return {
+          ...conv,
+          participants: updatedParticipants,
+          other_participant: updatedOtherParticipant
+        };
+      }));
 
       // Update selected conversation
       setSelectedConversation(prev => {
         if (!prev) return prev;
+
+        const updatedParticipants = prev.participants?.map((p: any) =>
+          String(p.id) === String(user_id) ? { ...p, is_online } : p
+        );
+
+        let updatedOtherParticipant = prev.other_participant;
+        if (updatedOtherParticipant && String(updatedOtherParticipant.id) === String(user_id)) {
+          updatedOtherParticipant = { ...updatedOtherParticipant, is_online };
+        }
+
         return {
           ...prev,
-          participants: prev.participants?.map((p: any) =>
-            String(p.id) === String(user_id) ? { ...p, is_online } : p
-          )
+          participants: updatedParticipants,
+          other_participant: updatedOtherParticipant
         };
       });
     };

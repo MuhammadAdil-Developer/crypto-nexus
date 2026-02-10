@@ -247,6 +247,13 @@ CORS_ALLOW_CREDENTIALS = True
 # Redis Configuration
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+    }
+}
+
 # Celery Configuration
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

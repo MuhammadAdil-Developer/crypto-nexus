@@ -218,6 +218,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Cancel order
         order.order_status = OrderStatus.CANCELLED.value
         order.save()
+
+        # Check for auto-refund if payment was sent but order cancelled
+        try:
+            from payments.services import PaymentService
+            ps = PaymentService()
+            ps._handle_cancelled_order_refund(order)
+        except Exception as e:
+            logger.error(f"Error checking for refund during cancellation of order {order.order_id}: {e}")
         
         return Response({"message": "Order cancelled successfully"})
     
@@ -512,6 +520,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.order_status = OrderStatus.CANCELLED.value
             order.payment_status = 'expired'
             order.save()
+
+            # Check for auto-refund if payment was sent but order expired
+            try:
+                from payments.services import PaymentService
+                ps = PaymentService()
+                ps._handle_cancelled_order_refund(order)
+            except Exception as e:
+                logger.error(f"Error checking for refund during expiration of order {order.order_id}: {e}")
             
             # Release product quantity
             product = order.product

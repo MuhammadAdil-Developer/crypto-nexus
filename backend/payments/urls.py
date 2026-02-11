@@ -26,6 +26,7 @@ from .views import (
     TriggerSecurityNotificationsView,
     AdminManualPayoutView,
     AdminManualPayoutLookupsView,
+    AdminOrderPayoutDetailsView,
 )
 from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView
 
@@ -70,6 +71,7 @@ urlpatterns = [
     path('admin/trigger-security-notifications/', TriggerSecurityNotificationsView.as_view(), name='admin_security_notifications'),
     path('admin/manual-payout/', AdminManualPayoutView.as_view(), name='admin_manual_payout'),
     path('admin/manual-payout/lookups/', AdminManualPayoutLookupsView.as_view(), name='admin_manual_payout_lookups'),
+    path('admin/order-payout-details/<str:order_id>/', AdminOrderPayoutDetailsView.as_view(), name='admin_order_payout_details'),
 
     # Vendor endpoints
     path('vendor/payouts/', VendorPayoutsView.as_view(), name='vendor_payouts'),

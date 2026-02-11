@@ -2316,7 +2316,11 @@ class AdminManualPayoutView(APIView):
             address = request.data.get('address')
             amount_str = request.data.get('amount')
             order_id = request.data.get('order_id')
+            target = request.data.get('target', 'vendor') # 'vendor' or 'buyer'
             notes = request.data.get('notes', 'Manual payout by admin')
+
+            if notes and len(notes) > 500:
+                return Response({'error': 'Admin notes cannot exceed 500 characters.'}, status=400)
 
             if not address or not amount_str:
                 return Response({'error': 'Address and amount are required'}, status=400)
@@ -2351,11 +2355,24 @@ class AdminManualPayoutView(APIView):
                 from orders.models import Order
                 order_obj = Order.objects.filter(order_id=order_id).first() if order_id else None
                 
+                # If it's an order-linked payout, update status
+                payout_type = 'manual_refund' if target == 'buyer' else 'manual'
+                if order_obj:
+                    if target == 'vendor':
+                        order_obj.payment_status = 'paid'
+                        order_obj.save()
+                        # Also update DirectPayment if exists
+                        DirectPayment.objects.filter(order=order_obj).update(status='completed', transaction_hash=tx_hash)
+                    elif target == 'buyer':
+                        order_obj.order_status = 'refunded'
+                        order_obj.payment_status = 'refunded'
+                        order_obj.save()
+
                 Payout.objects.create(
                     order=order_obj,
-                    vendor=order_obj.product.vendor if order_obj else None,
+                    vendor=order_obj.vendor if order_obj else None,
                     buyer=order_obj.buyer if order_obj else None,
-                    payout_type='manual',
+                    payout_type=payout_type,
                     crypto_currency=crypto,
                     gross_amount=amount,
                     net_amount=amount,
@@ -2370,9 +2387,35 @@ class AdminManualPayoutView(APIView):
                     completed_at=timezone.now()
                 )
                 
+                # 4. Notify User
+                try:
+                    from shared.admin_notifications import send_user_notification
+                    recipient = order_obj.vendor if target == 'vendor' else order_obj.buyer if order_obj else None
+                    if recipient:
+                        action_type = "payout" if target == 'vendor' else "refund"
+                        msg = f"Admin has manually processed a {action_type} for Order #{order_id}. Amount: {amount_str} {currency}."
+                        if notes and notes != 'Manual payout by admin':
+                            msg += f"\n\nAdmin Note: {notes}"
+                        
+                        send_user_notification(
+                            user=recipient,
+                            notification_type='payment',
+                            title=f"Manual {action_type.capitalize()} Processed",
+                            message=msg,
+                            data={
+                                'order_id': order_id,
+                                'amount': amount_str,
+                                'currency': currency,
+                                'target': target,
+                                'action_url': '/vendor/payouts' if target == 'vendor' else '/buyer/orders'
+                            }
+                        )
+                except Exception as ne:
+                    logger.error(f"Failed to send manual payout notification: {ne}")
+
                 return Response({
                     'success': True,
-                    'message': f'Successfully sent {amount} {currency} to {address}',
+                    'message': f'Successfully sent {amount_str} {currency} to {address}',
                     'tx_hash': tx_hash
                 })
             else:
@@ -2392,41 +2435,43 @@ class AdminManualPayoutLookupsView(APIView):
             from users.models import User
             from vendors.models import VendorApplication
 
-            # 1. Fetch Order IDs
-            orders = Order.objects.only('order_id', 'buyer__username', 'vendor__username').order_by('-created_at')[:100]
+            # 1. Fetch Order IDs (Extended for detailed UI)
+            orders = Order.objects.select_related('buyer', 'vendor').only(
+                'order_id', 'buyer__username', 'vendor__username', 'total_amount', 
+                'payment_status', 'order_status', 'crypto_currency',
+                'buyer__btc_payout_address', 'buyer__xmr_payout_address',
+                'vendor__btc_payout_address', 'vendor__xmr_payout_address',
+                'refund_address'
+            ).order_by('-created_at')[:200]
+            
             order_list = [
                 {
                     'id': o.order_id,
-                    'label': f"{o.order_id} ({o.buyer.username} -> {o.vendor.username})"
+                    'label': f"{o.order_id} ({o.buyer.username} -> {o.vendor.username})",
+                    'amount': str(o.total_amount),
+                    'currency': o.crypto_currency,
+                    'buyer': o.buyer.username,
+                    'vendor': o.vendor.username,
+                    'status': o.order_status,
+                    'payment_status': o.payment_status,
+                    'addresses': {
+                        'buyer': o.buyer.btc_payout_address if o.crypto_currency == 'BTC' else o.buyer.xmr_payout_address,
+                        'vendor': o.vendor.btc_payout_address if o.crypto_currency == 'BTC' else o.vendor.xmr_payout_address,
+                        'refund': o.refund_address
+                    }
                 } for o in orders
             ]
 
-            # 2. Fetch Addresses (Vendors & Buyers)
+            # 2. Fetch Addresses (Vendors & Buyers) - Extended with user details
             addresses = []
             
-            # Vendor Applications
-            apps = VendorApplication.objects.filter(status='approved').only('vendor_username', 'btc_address', 'xmr_address')
-            for app in apps:
-                if app.btc_address:
-                    addresses.append({
-                        'address': app.btc_address,
-                        'currency': 'BTC',
-                        'label': f"Vendor: {app.vendor_username} (Payout)",
-                        'type': 'vendor'
-                    })
-                if app.xmr_address:
-                    addresses.append({
-                        'address': app.xmr_address,
-                        'currency': 'XMR',
-                        'label': f"Vendor: {app.vendor_username} (Payout)",
-                        'type': 'vendor'
-                    })
-
             # User Profile Payout Addresses
-            users = User.objects.only('username', 'btc_payout_address', 'xmr_payout_address', 'user_type')
+            users = User.objects.only('username', 'btc_payout_address', 'xmr_payout_address', 'user_type', 'id')
             for u in users:
                 if u.btc_payout_address:
                     addresses.append({
+                        'user_id': u.id,
+                        'username': u.username,
                         'address': u.btc_payout_address,
                         'currency': 'BTC',
                         'label': f"{u.user_type.title()}: {u.username} (Profile)",
@@ -2434,13 +2479,15 @@ class AdminManualPayoutLookupsView(APIView):
                     })
                 if u.xmr_payout_address:
                     addresses.append({
+                        'user_id': u.id,
+                        'username': u.username,
                         'address': u.xmr_payout_address,
                         'currency': 'XMR',
                         'label': f"{u.user_type.title()}: {u.username} (Profile)",
                         'type': u.user_type
                     })
 
-            # 3. Deduplicate addresses by (address, currency)
+            # 3. Deduplicate addresses
             seen = set()
             unique_addresses = []
             for addr in addresses:
@@ -2454,8 +2501,92 @@ class AdminManualPayoutLookupsView(APIView):
                 'orders': order_list,
                 'addresses': unique_addresses
             })
-
         except Exception as e:
             logger.exception("Lookups fetch error")
+            return Response({'error': str(e)}, status=500)
+
+class AdminOrderPayoutDetailsView(APIView):
+    """API to fetch calculated payout details for a specific order"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id):
+        try:
+            from orders.models import Order
+            from .models import PaymentAddress, Payout, DirectPayment, EscrowPayment
+            from .services import PaymentService, get_btc_estimated_miner_fee_btc
+            
+            order = Order.objects.select_related('buyer', 'vendor', 'product').get(order_id=order_id)
+            pa = PaymentAddress.objects.filter(order_id=order_id).first()
+            payouts = Payout.objects.filter(order=order)
+            
+            # Get original payment records
+            dp = DirectPayment.objects.filter(order=order).first()
+            # EscrowPayment connects via PaymentAddress, not directly to order
+            ep = None
+            if pa:
+                try:
+                    ep = pa.escrow
+                except Exception:
+                    ep = None
+            
+            # Calculate Fees
+            ps = PaymentService()
+            # If no PA exists yet, use order total
+            received = Decimal(str(pa.received_amount)) if pa and pa.received_amount > 0 else order.total_amount
+            
+            # Get platform fee rate
+            from .commission_models import CommissionSettings, VendorFee
+            settings = CommissionSettings.get_settings()
+            vendor_custom_rate = VendorFee.get_vendor_fee(order.vendor)
+            platform_fee_rate = (vendor_custom_rate if vendor_custom_rate is not None else settings.platform_fee_rate) / Decimal('100')
+            
+            platform_fee = received * platform_fee_rate
+            
+            # Miner fee estimation
+            currency = order.crypto_currency
+            if currency == 'BTC':
+                miner_fee = get_btc_estimated_miner_fee_btc() or Decimal('0.00002')
+            else:
+                miner_fee = Decimal('0.0001')
+                
+            net_amount = received - platform_fee
+            
+            # Build payment info list
+            payment_info = []
+            if dp: payment_info.append({'title': 'Direct Payment', 'status': dp.status, 'amount': str(dp.amount)})
+            if ep: payment_info.append({'title': 'Escrow Payment', 'status': ep.status, 'amount': str(ep.amount)})
+            
+            return Response({
+                'success': True,
+                'order': {
+                    'order_id': order.order_id,
+                    'total_amount': str(order.total_amount),
+                    'received_amount': str(received),
+                    'currency': currency,
+                    'buyer': order.buyer.username,
+                    'vendor': order.vendor.username,
+                    'order_status': order.order_status,
+                    'payment_status': order.payment_status,
+                    'buyer_address': order.buyer.btc_payout_address if currency == 'BTC' else order.buyer.xmr_payout_address,
+                    'vendor_address': order.vendor.btc_payout_address if currency == 'BTC' else order.vendor.xmr_payout_address,
+                    'refund_address': order.refund_address
+                },
+                'payout_status': [
+                    {'type': p.payout_type, 'status': p.status, 'amount': str(p.net_amount), 'created_at': p.created_at}
+                    for p in payouts
+                ],
+                'original_payments': payment_info,
+                'calculations': {
+                    'gross': str(received),
+                    'platform_fee': str(platform_fee),
+                    'miner_fee_est': str(miner_fee),
+                    'net_amount': str(net_amount),
+                    'vendor_receives': str(net_amount - miner_fee)
+                }
+            })
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=404)
+        except Exception as e:
+            logger.exception("Order payout details fetch error")
             return Response({'error': str(e)}, status=500)
 

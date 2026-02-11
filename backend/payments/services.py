@@ -1630,6 +1630,13 @@ class PaymentService:
                 logger.info(f"Order {order_id} is already PAID. Protecting from downgrade to {new_payment_status}.")
                 return True
 
+            # CRITICAL: If order is already CANCELLED or EXPIRED but payment arrived, trigger refund
+            # This handles the case where a buyer pays right as the order expires or they cancel it
+            if order.order_status == OrderStatus.CANCELLED.value and btcpay_status in ['Paid', 'Settled']:
+                logger.warning(f"Late payment detected for CANCELLED order {order_id}. Triggering refund flow.")
+                self._handle_cancelled_order_refund(order)
+                return True
+
             # If the order is already marked as PAID, skip further updates if new status is also PAID
             if order.payment_status == 'paid' and new_payment_status == 'paid':
                 logger.info(f"Order {order_id} is already marked as PAID. Skipping duplicate status update and notifications.")
@@ -2036,6 +2043,13 @@ class PaymentService:
                         status='pending'
                     )
                     
+                    # Trigger notifications for the new refund payout
+                    try:
+                        from shared.admin_notifications import notify_payout_created
+                        notify_payout_created(payout)
+                    except Exception as e:
+                        logger.error(f"Error notifying about partial payment refund: {e}")
+
                     process_payout_task.delay(str(payout.id))
                     logger.info(f"✅ AUTO-REFUND TRIGGERED for partial payment on order {order.order_id}")
             else:
@@ -2043,6 +2057,82 @@ class PaymentService:
                 
         except Exception as e:
             logger.error(f"Error in _handle_partial_payment_detected: {e}")
+
+    def _handle_cancelled_order_refund(self, order):
+        """
+        Check if a cancelled order has received funds that need to be refunded.
+        This is called when a user cancels an order that might have unconfirmed/pending funds.
+        """
+        try:
+            from .models import PaymentAddress, Payout
+            # 1. Get current accurate payment status from blockchain/BTCPay
+            # This triggers a direct node/API lookup to see if funds arrived while user was cancelling
+            status_info = self.check_payment_status(order.order_id)
+            
+            # 2. Re-fetch payment address to get latest received_amount from DB
+            pa = PaymentAddress.objects.filter(order_id=order.order_id).first()
+            if not pa:
+                return
+
+            received_amount = pa.received_amount
+            
+            # 3. If funds detected, trigger automatic refund flow
+            if received_amount > 0:
+                if not order.refund_address:
+                    logger.error(f"❌ CANNOT AUTO-REFUND cancelled order {order.order_id}: No refund address")
+                    return
+
+                # Check if refund already exists to avoid duplicates
+                if Payout.objects.filter(order=order, payout_type='refund').exists():
+                    return
+                
+                # Calculate network fee deduction (3% as requested)
+                gross = received_amount
+                fee_rate = Decimal('0.03')
+                platform_fee = gross * fee_rate
+                net = (gross - platform_fee).quantize(Decimal('1.00000000')) # 8 decimals
+                
+                if net <= 0:
+                    logger.warning(f"Refund amount {net} too small for order {order.order_id}")
+                    return
+
+                # Create Refund payout
+                payout = Payout.objects.create(
+                    order=order,
+                    vendor=order.vendor,
+                    buyer=order.buyer,
+                    payout_type='refund',
+                    crypto_currency=pa.crypto_currency,
+                    gross_amount=gross,
+                    net_amount=net,
+                    platform_fee=platform_fee,
+                    vendor_address=order.refund_address,
+                    status='pending',
+                    admin_notes="Auto-refund triggered by user cancellation with pending funds detected."
+                )
+                
+                # IMPORTANT: Update order to refunded state
+                order.order_status = 'refunded'
+                order.payment_status = 'refunded'
+                order.save()
+                
+                pa.status = 'refunded'
+                pa.save()
+
+                # Trigger notifications for the new refund payout
+                try:
+                    from shared.admin_notifications import notify_payout_created
+                    notify_payout_created(payout)
+                except Exception as e:
+                    logger.error(f"Error notifying about auto-refund: {e}")
+                
+                # Queue for immediate execution
+                from .tasks import process_payout_task
+                process_payout_task.delay(str(payout.id))
+                logger.info(f"✅ AUTO-REFUND TRIGGERED for cancelled order {order.order_id}. Net: {net} {pa.crypto_currency.symbol}")
+                
+        except Exception as e:
+            logger.error(f"Error in _handle_cancelled_order_refund: {e}")
 
     def check_payment_status(self, order_id: str) -> dict:
         """Check current payment status"""
@@ -2141,6 +2231,35 @@ class PaymentService:
             
             # Check for BTC payments if it's BTC and not already fully paid/refunded
             if payment_address.crypto_currency.symbol == 'BTC' and payment_address.status not in ['paid', 'refunded']:
+                # 1. BTCPay API Check (Primary source for PaidLate detection)
+                if payment_address.btcpay_invoice_id:
+                    try:
+                        from .services import BTCPayServerService
+                        btcpay = BTCPayServerService()
+                        invoice_data = btcpay.get_invoice_status(payment_address.btcpay_invoice_id)
+                        
+                        if invoice_data and isinstance(invoice_data, dict):
+                            btc_status = invoice_data.get('status')
+                            additional_status = invoice_data.get('additionalStatus')
+                            
+                            logger.info(f"Background check for BTC {order_id}: status={btc_status}, additional={additional_status}")
+                            
+                            # Support PaidLate detection in background polling
+                            if btc_status in ['Settled', 'Confirmed'] or (btc_status == 'Expired' and additional_status == 'PaidLate'):
+                                logger.info(f"SUCCESS: BTC Order {order_id} confirmed via BTCPay API (PaidLate: {additional_status == 'PaidLate'})")
+                                payment_address.status = 'paid'
+                                payment_address.confirmed_at = timezone.now()
+                                payment_address.save()
+                                self._update_order_status_dynamically(order_id, 'Settled' if btc_status == 'Expired' else btc_status)
+                                
+                                # Trigger direct payout if not escrow
+                                if not hasattr(payment_address, 'escrow'):
+                                    self._process_direct_payment_webhook(payment_address, is_settled=True)
+                                return payment_address.status
+                    except Exception as e:
+                        logger.error(f"Error checking BTCPay status for {order_id}: {e}")
+
+                # 2. Blockchain Fallback (if BTCPay is uncertain)
                 logger.info(f"Checking BTC blockchain fallback for order {order_id} (Address: {payment_address.payment_address})")
                 try:
                     # Use mempool.space API

@@ -98,23 +98,24 @@ class DirectPaymentMonitor:
                 invoice_data = self.btcpay_service.get_invoice_status(pa.btcpay_invoice_id)
                 if invoice_data and isinstance(invoice_data, dict):
                     status_str = invoice_data.get('status')
-                    logger.info(f"BTCPay Invoice {pa.btcpay_invoice_id} status: {status_str}")
+                    additional_status = invoice_data.get('additionalStatus')
+                    logger.info(f"BTCPay Invoice {pa.btcpay_invoice_id} status: {status_str}, additionalStatus: {additional_status}")
                     
-                    if status_str in ['Settled', 'Confirmed', 'Processing']:
+                    # Treat 'Settled', 'Confirmed' OR 'Expired' with 'PaidLate' as a success
+                    is_success = status_str in ['Settled', 'Confirmed'] or (status_str == 'Expired' and additional_status == 'PaidLate')
+                    
+                    if is_success:
                         # Determine confirmations
-                        # If Settled/Confirmed, we can assume enough confs
-                        # If Processing, it might be 0-conf or partial
-                        confs = required_confs if status_str in ['Settled', 'Confirmed'] else 0
+                        # If Settled/Confirmed or PaidLate, we assume enough confirmations for payout
+                        confs = required_confs
                         
-                        # Only confirm if it's actually settled (or has enough confs)
-                        # This aligns with user request for "Only on Settlement"
-                        if status_str in ['Settled', 'Confirmed']:
-                            self._confirm_payment(payment, f"btcpay_{status_str}", confs)
-                            return
-                        else:
-                            # Just update confirmations but don't mark as 'paid' yet
-                            self._update_confirmations_only(payment, confs)
-                            return
+                        logger.info(f"✅ SUCCESS DETECTED: {pa.btcpay_invoice_id} is {status_str} (PaidLate: {additional_status == 'PaidLate'})")
+                        self._confirm_payment(payment, f"btcpay_{status_str}", confs)
+                        return
+                    elif status_str == 'Processing':
+                        # Just update confirmations but don't mark as 'paid' yet
+                        self._update_confirmations_only(payment, 0)
+                        return
 
             # 2. Blockchain Fallback (Strict Address/Amount Filter)
             # CRITICAL FIX: Use pa.payment_address (PLATFORM DEPOSIT) not payment.vendor_address (VENDOR PAYOUT)

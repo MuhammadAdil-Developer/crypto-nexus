@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Check, Shield, Rocket } from 'lucide-react';
+import { X, Check, Shield, Rocket, RefreshCw } from 'lucide-react';
+import authService from '@/services/authService';
 
 interface CircleCaptchaModalProps {
   isOpen: boolean;
@@ -22,36 +23,50 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
 }) => {
   const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [sliderPosition, setSliderPosition] = useState(0);
-  const [targetPosition, setTargetPosition] = useState(0);
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [targetX, setTargetX] = useState<number>(0);
   const [isDragging, setIsDragging] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const trackRef = useRef<HTMLDivElement>(null);
-  // Remove unused sliderRef if not needed for logic, but helpful for debugging/extensions
-  // const sliderRef = useRef<HTMLDivElement>(null); 
   const maxAttempts = 3;
-  const tolerance = 5; // Percentage tolerance
+  const tolerance = 7; // Matching backend tolerance
 
-  // Generate random target position
+  // Fetch challenge from backend
   useEffect(() => {
     if (isOpen) {
       resetCaptcha();
     }
   }, [isOpen]);
 
-  const resetCaptcha = () => {
-    // Target position between 60% and 90%
-    const newTarget = 60 + Math.random() * 30;
-    setTargetPosition(newTarget);
+  const resetCaptcha = async () => {
+    setIsGenerating(true);
+    setErrorMsg(null);
     setSliderPosition(0);
     setIsVerified(false);
     setIsLoading(false);
     setIsDragging(false);
+
+    try {
+      const response = await authService.getCaptchaChallenge();
+      if (response.success) {
+        setChallengeId(response.data.challenge_id);
+        setTargetX(response.data.target_x);
+      } else {
+        setErrorMsg('Failed to load verification challenge');
+      }
+    } catch (err) {
+      setErrorMsg('Connection error. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if (isVerified || isLoading) return;
+    if (isVerified || isLoading || isGenerating || !challengeId) return;
     setIsDragging(true);
   };
 
@@ -70,38 +85,38 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
     setSliderPosition(newPosition);
   };
 
-  const handleMouseUp = () => {
-    if (!isDragging) return;
+  const handleMouseUp = async () => {
+    if (!isDragging || !challengeId) return;
     setIsDragging(false);
 
-    // Verify position
-    if (Math.abs(sliderPosition - targetPosition) <= tolerance) {
-      handleSuccess();
-    } else {
-      // Snap back if failed
-      setSliderPosition(0);
-      setAttempts(prev => prev + 1);
-
-      if (attempts + 1 >= maxAttempts) {
-        onError?.('Verification failed. Maximum attempts reached.');
-        setTimeout(onClose, 1000);
-      }
-    }
-  };
-
-  const handleSuccess = () => {
     setIsLoading(true);
-    setSliderPosition(targetPosition); // Snap to target
+    try {
+      const response = await authService.verifyCaptchaChallenge(challengeId, sliderPosition);
 
-    setTimeout(() => {
-      setIsVerified(true);
-      const token = `rocket_captcha_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      onVerify(token);
+      if (response.success) {
+        setIsVerified(true);
+        onVerify(response.captcha_token);
+        setTimeout(onClose, 1500);
+      } else {
+        // Failed verification
+        setSliderPosition(0);
+        setAttempts(prev => prev + 1);
+        setErrorMsg(response.message || 'Incorrect position');
 
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-    }, 600);
+        if (attempts + 1 >= maxAttempts) {
+          onError?.('Verification failed. Maximum attempts reached.');
+          setTimeout(onClose, 1000);
+        } else {
+          // Get a new challenge after failure to prevent brute forcing one challenge
+          resetCaptcha();
+        }
+      }
+    } catch (err) {
+      setErrorMsg('Verification error. Please retry.');
+      setSliderPosition(0);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Global event listeners for drag
@@ -165,23 +180,25 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
                 <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-3 ring-1 ring-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
                   <Rocket className="w-6 h-6 text-blue-400" />
                 </div>
-                <p className="text-gray-300 text-sm font-medium">{instruction}</p>
+                <p className="text-gray-300 text-sm font-medium">
+                  {isGenerating ? 'Prepping launch pad...' : errorMsg || instruction}
+                </p>
               </div>
 
               {/* Slider Track Container */}
               <div className="relative py-4 select-none touch-none">
                 <div
                   ref={trackRef}
-                  className="h-12 bg-gray-900 rounded-full border border-gray-700 relative overflow-hidden shadow-inner cursor-pointer"
+                  className={`h-12 bg-gray-900 rounded-full border border-gray-700 relative overflow-hidden ${isGenerating ? 'opacity-50' : 'cursor-pointer'}`}
                 >
                   {/* Grid Pattern/Texture in Track */}
                   <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,transparent_50%,rgba(255,255,255,0.1)_50%)] bg-[size:10px_100%]"></div>
 
-                  {/* Target Zone */}
+                  {/* Target Zone - Visible but verification happens backend */}
                   <div
                     className="absolute top-1 bottom-1 rounded-full bg-blue-500/10 border border-blue-500/40 flex items-center justify-center animate-pulse"
                     style={{
-                      left: `${targetPosition}%`,
+                      left: `${targetX}%`,
                       width: '44px',
                       transform: 'translateX(-50%)',
                       boxShadow: '0 0 10px rgba(59, 130, 246, 0.2)'
@@ -206,7 +223,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
                     onMouseDown={handleMouseDown}
                     onTouchStart={handleMouseDown}
                   >
-                    {isLoading ? (
+                    {isLoading || isGenerating ? (
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                       <Rocket className={`w-5 h-5 text-white ${isDragging ? 'rotate-45' : ''} transition-transform duration-300 drop-shadow-md`} />
@@ -215,15 +232,26 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
                 </div>
 
                 {/* Feedback Text */}
-                <div className="text-center mt-3 h-4">
+                <div className="text-center mt-3 h-4 flex items-center justify-center gap-2">
                   {isDragging ? (
                     <span className="text-[10px] text-blue-400 animate-pulse font-medium tracking-widest uppercase">
                       Targeting...
                     </span>
                   ) : (
-                    <span className="text-[10px] text-gray-600 font-medium tracking-wide">
-                      {attempts > 0 ? `${maxAttempts - attempts} attempts remaining` : 'Slide to verify'}
-                    </span>
+                    <>
+                      <span className={`text-[10px] font-medium tracking-wide ${errorMsg ? 'text-red-400' : 'text-gray-600'}`}>
+                        {errorMsg ? errorMsg : (attempts > 0 ? `${maxAttempts - attempts} attempts remaining` : 'Slide to verify')}
+                      </span>
+                      {!isVerified && !isLoading && !isDragging && (
+                        <button
+                          onClick={resetCaptcha}
+                          className="text-gray-500 hover:text-blue-400 transition-colors"
+                          title="Refresh Challenge"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

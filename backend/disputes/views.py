@@ -135,8 +135,9 @@ def create_dispute(request):
 def list_disputes(request):
     """List disputes based on user role"""
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         status_filter = request.GET.get('status')
         priority_filter = request.GET.get('priority')
         category_filter = request.GET.get('category')
@@ -518,21 +519,26 @@ def resolve_dispute(request, dispute_id):
                                     logger.info(f"Partial escrow refund sent: {half_amount} {currency} to buyer {dispute.buyer.username}, tx_hash: {tx_hash}")
                                     
                                     # Release remaining to vendor
+                                    # Get vendor payout address with fallback
                                     vendor_payout_address = None
-                                    if currency == 'BTC':
-                                        from vendors.models import VendorApplication
-                                        try:
-                                            vendor_app = VendorApplication.objects.get(vendor_username=dispute.vendor.username)
+                                    
+                                    # 1. Try VendorApplication
+                                    from vendors.models import VendorApplication
+                                    try:
+                                        vendor_app = VendorApplication.objects.get(vendor_username=dispute.vendor.username)
+                                        if currency == 'BTC':
                                             vendor_payout_address = vendor_app.btc_address
-                                        except VendorApplication.DoesNotExist:
-                                            pass
-                                    elif currency == 'XMR':
-                                        from vendors.models import VendorApplication
-                                        try:
-                                            vendor_app = VendorApplication.objects.get(vendor_username=dispute.vendor.username)
+                                        elif currency == 'XMR':
                                             vendor_payout_address = vendor_app.xmr_address
-                                        except VendorApplication.DoesNotExist:
-                                            pass
+                                    except VendorApplication.DoesNotExist:
+                                        pass
+                                        
+                                    # 2. Try User Profile fallback
+                                    if not vendor_payout_address:
+                                        if currency == 'BTC':
+                                            vendor_payout_address = getattr(dispute.vendor, 'btc_payout_address', None)
+                                        elif currency == 'XMR':
+                                            vendor_payout_address = getattr(dispute.vendor, 'xmr_payout_address', None)
                                     
                                     if vendor_payout_address and escrow_payment:
                                         remaining = escrow_payment.escrow_amount - half_amount

@@ -418,8 +418,9 @@ def get_vendor_public_products(request, vendor_username):
 def get_buyer_products(request):
     """Get products for buyer (approved products only)"""
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         
         products = Product.objects.filter(
             status='approved',

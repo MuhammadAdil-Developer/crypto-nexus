@@ -1048,8 +1048,9 @@ def list_users(request):
         Order = apps.get_model('orders', 'Order')
         
         # Get query parameters
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         search = request.GET.get('search', '')
         user_type = request.GET.get('user_type', '')
         status_filter = request.GET.get('status', '')

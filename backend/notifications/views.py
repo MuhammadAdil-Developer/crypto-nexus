@@ -13,14 +13,20 @@ from shared.models import Notification
 def list_notifications(request):
     """List notifications for the authenticated user (supports pagination and filters)."""
     try:
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int, get_safe_ordering
+        
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
+
         unread_only = request.GET.get('unread_only', '').lower() in ['1', 'true', 'yes']
         search = (request.GET.get('search') or '').strip()
         type_filter = (request.GET.get('type') or '').strip()  # order, payment, message, system
         date_from = request.GET.get('date_from')
         date_to = request.GET.get('date_to')
-        ordering = request.GET.get('ordering', '-created_at')
+        
+        # Input validation for ordering to prevent SQL injection
+        allowed_ordering_fields = ['created_at', '-created_at', 'title', '-title', 'type', '-type', 'is_read', '-is_read']
+        ordering = get_safe_ordering(request.GET.get('ordering'), allowed_ordering_fields, default='-created_at')
 
         qs = Notification.objects.filter(user=request.user)
         if unread_only:
@@ -38,8 +44,6 @@ def list_notifications(request):
             if dt:
                 qs = qs.filter(created_at__date__lte=dt)
 
-        if ordering not in ['created_at', '-created_at']:
-            ordering = '-created_at'
         qs = qs.order_by(ordering)
 
         total_count = qs.count()
@@ -116,7 +120,8 @@ def mark_notification_read(request, notification_id):
 def recent_notifications(request):
     """Get the most recent notifications (default 10) for quick bell icon view."""
     try:
-        limit = int(request.GET.get('limit', 10))
+        from shared.utils.security import get_safe_int
+        limit = get_safe_int(request.GET.get('limit'), default=10, min_val=1, max_val=50)
         items = Notification.objects.filter(user=request.user).order_by('-created_at')[:limit]
         data = [
             {

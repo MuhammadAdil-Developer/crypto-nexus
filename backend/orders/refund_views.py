@@ -206,8 +206,9 @@ def buyer_request_refund(request):
 def buyer_refund_requests(request):
     """Get buyer's refund requests"""
     try:
-        page = int(request.query_params.get('page', 1))
-        limit = int(request.query_params.get('limit', 10))
+        from shared.utils.security import get_safe_int
+        page = get_safe_int(request.query_params.get('page'), default=1, min_val=1)
+        limit = get_safe_int(request.query_params.get('limit'), default=10, min_val=1, max_val=100)
         status_filter = request.query_params.get('status', None)
         
         refunds = RefundRequest.objects.select_related('order', 'buyer', 'vendor').filter(buyer=request.user).order_by('-created_at')

@@ -29,7 +29,8 @@ class IsAdminUser(BasePermission):
 def list_approved_vendors(request):
     """Public: list approved vendors for discovery sections"""
     try:
-        limit = int(request.GET.get('limit', 8))
+        from shared.utils.security import get_safe_int
+        limit = get_safe_int(request.GET.get('limit'), default=8, min_val=1, max_val=50)
         vendors = VendorApplication.objects.filter(status='approved').order_by('-updated_at')[:limit]
         data = []
         for v in vendors:
@@ -78,8 +79,9 @@ def list_applications(request):
     
     try:
         # Get query parameters
-        page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 20))
+        from shared.utils.security import get_safe_int
+        page = get_safe_int(request.GET.get('page'), default=1, min_val=1)
+        page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         status_filter = request.GET.get('status', '')
         
         # Build queryset

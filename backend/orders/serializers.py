@@ -149,9 +149,6 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         fields = [
             'product', 'quantity', 'crypto_currency', 'refund_address'
         ]
-        extra_kwargs = {
-            'refund_address': {'required': True, 'allow_blank': False}
-        }
     
     def validate(self, data):
         """Validate order data"""

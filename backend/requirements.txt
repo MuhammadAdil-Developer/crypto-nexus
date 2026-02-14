@@ -28,6 +28,8 @@ channels-redis
 # File Handling
 Pillow
 django-storages
+cloudinary
+django-cloudinary-storage
 
 # Validation & Serialization
 marshmallow

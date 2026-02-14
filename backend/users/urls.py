@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, captcha_views
 
 urlpatterns = [
     # Authentication endpoints
@@ -28,4 +28,8 @@ urlpatterns = [
     # 2FA endpoints
     path('auth/enable-2fa/', views.enable_2fa, name='enable_2fa'),
     path('auth/disable-2fa/', views.disable_2fa, name='disable_2fa'),
-] 
+    
+    # Captcha endpoints
+    path('auth/captcha/challenge/', captcha_views.get_captcha_challenge, name='captcha_challenge'),
+    path('auth/captcha/verify/', captcha_views.verify_captcha_challenge, name='captcha_verify'),
+]

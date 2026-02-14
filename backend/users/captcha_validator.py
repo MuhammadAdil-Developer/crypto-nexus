@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import time
 import json
 from django.conf import settings
@@ -13,19 +14,49 @@ class CaptchaValidator:
     """
     
     @staticmethod
+    def _verify_token_signature(token):
+        """
+        Verify HMAC signature of captcha token to prevent forgery.
+        Expected format: prefix_timestamp_random_signature
+        """
+        try:
+            # Extract signature (last part after final underscore)
+            parts = token.rsplit('_', 1)
+            if len(parts) != 2:
+                return False
+            
+            token_without_sig = parts[0]
+            provided_signature = parts[1]
+            
+            # Generate expected signature using SECRET_KEY
+            secret = settings.SECRET_KEY.encode()
+            expected_signature = hmac.new(
+                secret,
+                token_without_sig.encode(),
+                hashlib.sha256
+            ).hexdigest()[:16]  # Use first 16 chars for brevity
+            
+            # Constant-time comparison to prevent timing attacks
+            return hmac.compare_digest(expected_signature, provided_signature)
+            
+        except Exception as e:
+            print(f"❌ Signature verification error: {e}")
+            return False
+    
+    @staticmethod
     def validate_captcha_token(token, site_key=None):
         """
-        Validate captcha token
+        Validate captcha token with HMAC signature verification.
         
         Args:
-            token (str): The captcha token to validate
+            token (str): The captcha token to validate (must include HMAC signature)
             site_key (str): Optional site key for additional validation
             
         Returns:
             dict: Validation result with success status and message
         """
         try:
-            print(f"🔍 Validating captcha token: {token}")  # Debug log
+            print(f"🔍 Validating captcha token: {token[:50]}...")  # Debug log (truncated)
             
             if not token:
                 print("❌ No token provided")  # Debug log
@@ -34,7 +65,15 @@ class CaptchaValidator:
                     'message': 'Captcha token is required'
                 }
             
-            # Parse token format: captcha_{timestamp}_{random_string} or rocket_captcha_{timestamp}_{random_string}
+            # CRITICAL SECURITY FIX: Verify cryptographic signature first
+            if not CaptchaValidator._verify_token_signature(token):
+                print("❌ Invalid token signature - possible forgery attempt")
+                return {
+                    'success': False,
+                    'message': 'Invalid captcha token signature'
+                }
+            
+            # Parse token format: captcha_{timestamp}_{random_string}_signature
             if not (token.startswith('captcha_') or token.startswith('rocket_captcha_') or token.startswith('math_captcha_')):
                 print("❌ Invalid token format")  # Debug log
                 return {
@@ -44,7 +83,9 @@ class CaptchaValidator:
             
             # Extract timestamp and validate
             try:
-                parts = token.split('_')
+                # Remove signature before parsing
+                token_without_sig = token.rsplit('_', 1)[0]
+                parts = token_without_sig.split('_')
                 timestamp = None
                 
                 # Dynamic timestamp finder: look for the first part that is a long digit string

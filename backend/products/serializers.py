@@ -2,7 +2,6 @@ import uuid
 from rest_framework import serializers
 from .models import Product, ProductCategory, ProductSubCategory
 
-
 class ProductCategorySerializer(serializers.ModelSerializer):
     """Serializer for product categories"""
     product_count = serializers.SerializerMethodField()
@@ -68,32 +67,33 @@ class ProductSerializer(serializers.ModelSerializer):
         if not obj.main_image:
             return None
         request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.main_image.url)
-        return obj.main_image.url
+        try:
+            url = obj.main_image.url
+            if request and not url.startswith('http'):
+                return request.build_absolute_uri(url)
+            return url
+        except Exception:
+            return None
 
     def get_gallery_images(self, obj):
         """Return absolute URLs for gallery images"""
         if not obj.gallery_images:
             return []
         
+        from django.core.files.storage import default_storage
         request = self.context.get('request')
         urls = []
         for path in obj.gallery_images:
             if not path: continue
-            url = path
-            if not path.startswith('http'):
-                if path.startswith('/media/'):
-                    url = path
-                elif path.startswith('media/'):
-                    url = f'/{path}'
+            try:
+                # Use storage.url() which handles cloud vs local automatically
+                url = default_storage.url(path)
+                if request and not url.startswith('http'):
+                    urls.append(request.build_absolute_uri(url))
                 else:
-                    url = f'/media/{path}'
-            
-            if request and not url.startswith('http'):
-                urls.append(request.build_absolute_uri(url))
-            else:
-                urls.append(url)
+                    urls.append(url)
+            except Exception:
+                urls.append(path)
         return urls
     
     def get_documents(self, obj):
@@ -101,23 +101,19 @@ class ProductSerializer(serializers.ModelSerializer):
         if not obj.documents:
             return []
             
+        from django.core.files.storage import default_storage
         request = self.context.get('request')
         urls = []
         for path in obj.documents:
             if not path: continue
-            url = path
-            if not path.startswith('http'):
-                if path.startswith('/media/'):
-                    url = path
-                elif path.startswith('media/'):
-                    url = f'/{path}'
+            try:
+                url = default_storage.url(path)
+                if request and not url.startswith('http'):
+                    urls.append(request.build_absolute_uri(url))
                 else:
-                    url = f'/media/{path}'
-            
-            if request and not url.startswith('http'):
-                urls.append(request.build_absolute_uri(url))
-            else:
-                urls.append(url)
+                    urls.append(url)
+            except Exception:
+                urls.append(path)
         return urls
     
     class Meta:
@@ -169,32 +165,32 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         if not obj.main_image:
             return None
         request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.main_image.url)
-        return obj.main_image.url
+        try:
+            url = obj.main_image.url
+            if request and not url.startswith('http'):
+                return request.build_absolute_uri(url)
+            return url
+        except Exception:
+            return None
     
     def get_gallery_images(self, obj):
         """Return absolute URLs for gallery images"""
         if not obj.gallery_images:
             return []
         
+        from django.core.files.storage import default_storage
         request = self.context.get('request')
         urls = []
         for path in obj.gallery_images:
             if not path: continue
-            url = path
-            if not path.startswith('http'):
-                if path.startswith('/media/'):
-                    url = path
-                elif path.startswith('media/'):
-                    url = f'/{path}'
+            try:
+                url = default_storage.url(path)
+                if request and not url.startswith('http'):
+                    urls.append(request.build_absolute_uri(url))
                 else:
-                    url = f'/media/{path}'
-            
-            if request and not url.startswith('http'):
-                urls.append(request.build_absolute_uri(url))
-            else:
-                urls.append(url)
+                    urls.append(url)
+            except Exception:
+                urls.append(path)
         return urls
     
     def get_documents(self, obj):
@@ -202,23 +198,19 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         if not obj.documents:
             return []
             
+        from django.core.files.storage import default_storage
         request = self.context.get('request')
         urls = []
         for path in obj.documents:
             if not path: continue
-            url = path
-            if not path.startswith('http'):
-                if path.startswith('/media/'):
-                    url = path
-                elif path.startswith('media/'):
-                    url = f'/{path}'
+            try:
+                url = default_storage.url(path)
+                if request and not url.startswith('http'):
+                    urls.append(request.build_absolute_uri(url))
                 else:
-                    url = f'/media/{path}'
-            
-            if request and not url.startswith('http'):
-                urls.append(request.build_absolute_uri(url))
-            else:
-                urls.append(url)
+                    urls.append(url)
+            except Exception:
+                urls.append(path)
         return urls
     
     class Meta:
@@ -257,7 +249,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
              rep.pop('credentials', None)
              
         return rep
-
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
@@ -302,7 +293,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
                 vendor = requester
         else:
             vendor = requester
-
+        
         # Check if vendor has payout addresses configured for the coins being accepted
         if vendor and not self.instance:  # Only for new listings
             is_vendor = getattr(vendor, 'user_type', None) == 'vendor'
@@ -688,4 +679,4 @@ class CredentialsRevealSerializer(serializers.Serializer):
                 product.reveal_credentials()
             return value
         except Product.DoesNotExist:
-            raise serializers.ValidationError("Product not found") 
+            raise serializers.ValidationError("Product not found")

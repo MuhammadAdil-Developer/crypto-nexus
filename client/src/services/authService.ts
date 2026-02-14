@@ -595,6 +595,35 @@ class AuthService {
       throw error;
     }
   }
+
+  // Get captcha challenge
+  async getCaptchaChallenge(): Promise<ApiResponse<{ challenge_id: string; target_x: number; instruction: string }>> {
+    try {
+      const response = await api.get<ApiResponse<{ challenge_id: string; target_x: number; instruction: string }>>('/auth/captcha/challenge/');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
+
+  // Verify captcha challenge
+  async verifyCaptchaChallenge(challengeId: string, userX: number): Promise<ApiResponse<{ captcha_token: string }>> {
+    try {
+      const response = await api.post<ApiResponse<{ captcha_token: string }>>('/auth/captcha/verify/', {
+        challenge_id: challengeId,
+        user_x: userX
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  }
 }
 
 export const authService = new AuthService();

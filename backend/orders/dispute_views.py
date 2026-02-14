@@ -177,8 +177,9 @@ def buyer_open_dispute(request):
 def buyer_disputes(request):
     """Get buyer's disputes"""
     try:
-        page = int(request.query_params.get('page', 1))
-        limit = int(request.query_params.get('limit', 10))
+        from shared.utils.security import get_safe_int
+        page = get_safe_int(request.query_params.get('page'), default=1, min_val=1)
+        limit = get_safe_int(request.query_params.get('limit'), default=10, min_val=1, max_val=100)
         status_filter = request.query_params.get('status', None)
         
         disputes = OrderDispute.objects.filter(initiator=request.user).order_by('-created_at')

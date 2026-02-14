@@ -52,3 +52,17 @@ def clean_error_response(e, message="An internal server error occurred"):
         response_data['errors'] = error_str
         
     return response_data
+
+def get_safe_ordering(val, allowed_fields, default='-created_at'):
+    """
+    Safely parse an ordering/sort-by parameter.
+    Ensures the value is in a whitelist of allowed fields.
+    Supports both 'fieldname' and '-fieldname' if specified in whitelist.
+    """
+    if not val:
+        return default
+    
+    if val in allowed_fields:
+        return val
+        
+    return default

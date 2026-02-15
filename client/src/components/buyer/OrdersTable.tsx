@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Key, Lock, Star, AlertTriangle, Timer, RefreshCw, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare, Gift } from "lucide-react";
+import { MoreVertical, Package, Truck, CheckCircle, XCircle, Clock, Shield, Key, Lock, Star, AlertTriangle, Timer, Copy, Wallet, Loader2, DollarSign, Calendar, User, Info, MessageSquare, Gift, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -858,17 +858,38 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                         <div className="flex-1" />
 
                         <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto mt-1 sm:mt-0 justify-end">
-                          {/* Cancel Button */}
-                          {(order.order_status === "pending_payment" || order.order_status === "pending") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="flex-1 sm:flex-initial text-red-400 hover:text-red-300 hover:bg-red-400/10 border border-red-400/20 rounded-xl font-bold text-xs"
-                              onClick={() => handleCancelOrderClick(order)}
-                            >
-                              <XCircle className="w-3 h-3 mr-2" /> Cancel
-                            </Button>
-                          )}
+                          {/* Cancel Button - CRITICAL: Only show if NO payment received yet */}
+                          {/* Once payment is received (even unconfirmed), disable cancel to prevent accidental cancellation */}
+                          {(() => {
+                            const isAwaitingPayment = (order.order_status === "pending_payment" || order.order_status === "pending") &&
+                              order.payment_status === "pending";
+                            const hasReceivedPayment = order.payment_status !== "pending"; // Payment received (unconfirmed or confirmed)
+
+                            // Show cancel button ONLY if no payment received yet
+                            if (isAwaitingPayment && !hasReceivedPayment) {
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="flex-1 sm:flex-initial text-red-400 hover:text-red-300 hover:bg-red-400/10 border border-red-400/20 rounded-xl font-bold text-xs"
+                                  onClick={() => handleCancelOrderClick(order)}
+                                >
+                                  <XCircle className="w-3 h-3 mr-2" /> Cancel
+                                </Button>
+                              );
+                            }
+
+                            // Show "Unconfirmed Payment" badge if payment received but not yet confirmed
+                            if (hasReceivedPayment && order.order_status === "pending_payment") {
+                              return (
+                                <Badge className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-3 py-1.5 text-[10px] rounded-lg font-bold">
+                                  <Clock className="w-3 h-3 mr-1 animate-pulse" /> PAYMENT RECEIVED - CONFIRMING
+                                </Badge>
+                              );
+                            }
+
+                            return null;
+                          })()}
 
                           {/* Review Button - Only show after confirmed/completed to reduce clutter */}
                           {(order.order_status === "confirmed" || order.order_status === "completed") && (

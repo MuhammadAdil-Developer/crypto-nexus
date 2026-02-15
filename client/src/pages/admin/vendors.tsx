@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2, User, CheckCircle, AlertTriangle } from "lucide-react";
+import { Search, Star, Store, DollarSign, ShoppingCart, Check, X, Clock, Eye, Mail, Phone, Bitcoin, Coins, Calendar, Shield, Globe, Share2, FileText, Download, CheckSquare, Square, Loader2, User, CheckCircle, AlertTriangle, Plus, MessageSquare } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { SAMPLE_VENDORS } from "@/lib/constants";
 import { toast } from "@/hooks/use-toast";
@@ -63,6 +63,26 @@ interface VendorApplication {
   images?: string; // Single string instead of array
 }
 
+interface Review {
+  id: string;
+  rating: number;
+  comment: string;
+  images: string[];
+  vendor_reply: string;
+  vendor_reply_date: string | null;
+  conversation: any[];
+  product: {
+    id: number;
+    headline: string;
+  };
+  buyer: {
+    id: number;
+    username: string;
+  };
+  created_at: string;
+}
+
+
 export default function AdminVendors() {
   // API Integration State
   const [applications, setApplications] = useState<VendorApplication[]>([]);
@@ -101,10 +121,26 @@ export default function AdminVendors() {
   const [confirmDialogVendor, setConfirmDialogVendor] = useState<VendorApplication | null>(null);
   const [confirmDialogAction, setConfirmDialogAction] = useState<'block' | 'unblock' | null>(null);
 
+  // Reviews State
+  const [vendorReviews, setVendorReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [isEditingReview, setIsEditingReview] = useState<string | null>(null);
+  const [editReviewData, setEditReviewData] = useState({ rating: 0, comment: "", vendor_reply: "" });
+  const [activeModalTab, setActiveModalTab] = useState<'details' | 'reviews'>('details');
+
+
   // Fetch applications on component mount
   useEffect(() => {
     fetchApplications();
   }, []);
+
+  // Fetch reviews when modal opens and vendor is selected
+  useEffect(() => {
+    if (isModalOpen && selectedApplication && activeModalTab === 'reviews') {
+      fetchVendorReviews(selectedApplication.vendor_username);
+    }
+  }, [isModalOpen, selectedApplication, activeModalTab]);
+
 
   // Fetch buyers for dropdown
   const fetchBuyers = async (searchTerm: string = "") => {
@@ -203,6 +239,98 @@ export default function AdminVendors() {
       setApplications([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchVendorReviews = async (vendorUsername: string) => {
+    try {
+      setLoadingReviews(true);
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(getApiUrl(`/products/admin/reviews/vendor/${vendorUsername}/`), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setVendorReviews(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching vendor reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const handleUpdateReview = async (reviewId: string) => {
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(getApiUrl(`/products/admin/reviews/${reviewId}/update/`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editReviewData)
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Review updated successfully",
+        });
+        setIsEditingReview(null);
+        if (selectedApplication) {
+          fetchVendorReviews(selectedApplication.vendor_username);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating review:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update review",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!window.confirm("Are you sure you want to delete this review?")) return;
+
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(getApiUrl(`/products/admin/reviews/${reviewId}/delete/`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Review deleted successfully",
+        });
+        if (selectedApplication) {
+          fetchVendorReviews(selectedApplication.vendor_username);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete review",
+        variant: "destructive",
+      });
     }
   };
 
@@ -316,6 +444,7 @@ export default function AdminVendors() {
     setIsModalOpen(false);
     setSelectedApplication(null);
     setAdminNotes("");
+    setActiveModalTab('details');
   };
 
   // Image Viewer Modal Functions
@@ -1282,300 +1411,340 @@ export default function AdminVendors() {
                 </Button>
               </div>
 
-              {/* Application Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Basic Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Basic Information</h3>
+              {/* Tabs for Details and Reviews */}
+              <Tabs value={activeModalTab} onValueChange={(v: any) => setActiveModalTab(v)} className="w-full">
+                <TabsList className="bg-gray-800 border-gray-700 mb-6">
+                  <TabsTrigger value="details" className="data-[state=active]:bg-accent data-[state=active]:text-bg">
+                    <Store className="w-4 h-4 mr-2" /> Application Details
+                  </TabsTrigger>
+                  <TabsTrigger value="reviews" className="data-[state=active]:bg-accent data-[state=active]:text-bg">
+                    <Star className="w-4 h-4 mr-2" /> Vendor Reviews
+                  </TabsTrigger>
+                </TabsList>
 
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Business Name</Label>
-                    <p className="text-white font-medium mt-2">{selectedApplication.business_name}</p>
-                  </div>
+                <TabsContent value="details" className="mt-0">
+                  {/* Application Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Basic Information</h3>
 
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Vendor Username</Label>
-                    <p className="text-white mt-2">@{selectedApplication.vendor_username}</p>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Email Address</Label>
-                    <p className="text-white flex items-center mt-2">
-                      <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                      {selectedApplication.email}
-                    </p>
-                  </div>
-
-                  {selectedApplication.phone && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-400">Phone Number</Label>
-                      <p className="text-white flex items-center mt-2">
-                        <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                        {selectedApplication.phone}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedApplication.website && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-400">Website</Label>
-                      <p className="text-blue-400 flex items-center mt-2">
-                        <Globe className="w-4 h-4 mr-2 text-gray-400" />
-                        {selectedApplication.website}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedApplication.social_media && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-400">Social Media</Label>
-                      <p className="text-white flex items-center mt-2">
-                        <Share2 className="w-4 h-4 mr-2 text-gray-400" />
-                        @{selectedApplication.social_media}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Store Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Store Information</h3>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Category</Label>
-                    <div className="mt-2">
-                      <Badge variant="outline" className="text-gray-300">
-                        {selectedApplication.category_display}
-                      </Badge>
-                    </div>
-                    {selectedApplication.sub_category && (
-                      <div className="mt-3">
-                        <Label className="text-sm font-medium text-gray-400">Sub Category</Label>
-                        <div className="mt-2">
-                          <Badge variant="outline" className="text-gray-400">
-                            {selectedApplication.sub_category}
-                          </Badge>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Business Type</Label>
-                    <p className="text-white mt-2">
-                      {selectedApplication.business_type_display || 'Not specified'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Years in Business</Label>
-                    <p className="text-white mt-2">
-                      {selectedApplication.years_in_business_display || 'Not specified'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Application Date</Label>
-                    <p className="text-white flex items-center mt-2">
-                      <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                      {selectedApplication.created_at_formatted}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-400">Status</Label>
-                    <div className="mt-2">
-                      <Badge className="bg-yellow-500 text-white">
-                        {selectedApplication.status_display}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Business Information */}
-              {(selectedApplication.target_market || selectedApplication.business_plan) && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Strategy</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedApplication.target_market && (
                       <div>
-                        <Label className="text-sm font-medium text-gray-400">Target Market</Label>
-                        <div className="bg-gray-800 rounded-lg p-4 mt-2">
-                          <p className="text-gray-300 leading-relaxed">
-                            {selectedApplication.target_market}
+                        <Label className="text-sm font-medium text-gray-400">Business Name</Label>
+                        <p className="text-white font-medium mt-2">{selectedApplication.business_name}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Vendor Username</Label>
+                        <p className="text-white mt-2">@{selectedApplication.vendor_username}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Email Address</Label>
+                        <p className="text-white flex items-center mt-2">
+                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                          {selectedApplication.email}
+                        </p>
+                      </div>
+
+                      {selectedApplication.phone && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Phone Number</Label>
+                          <p className="text-white flex items-center mt-2">
+                            <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                            {selectedApplication.phone}
                           </p>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {selectedApplication.business_plan && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Business Plan</Label>
-                        <div className="bg-gray-800 rounded-lg p-4 mt-2">
-                          <p className="text-gray-300 leading-relaxed">
-                            {selectedApplication.business_plan}
+                      {selectedApplication.website && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Website</Label>
+                          <p className="text-blue-400 flex items-center mt-2">
+                            <Globe className="w-4 h-4 mr-2 text-gray-400" />
+                            {selectedApplication.website}
                           </p>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                      )}
 
-              {/* Business Description */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Description</h3>
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <p className="text-gray-300 leading-relaxed">
-                    {selectedApplication.store_description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Payment Information */}
-              {(selectedApplication.btc_address || selectedApplication.xmr_address || selectedApplication.preferred_payment) && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Payment Information</h3>
-
-                  {selectedApplication.preferred_payment && (
-                    <div className="mb-4">
-                      <Label className="text-sm font-medium text-gray-400">Preferred Payment Method</Label>
-                      <Badge variant="outline" className="text-gray-300 ml-2">
-                        {selectedApplication.preferred_payment_display}
-                      </Badge>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedApplication.btc_address && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400 flex items-center">
-                          <Bitcoin className="w-4 h-4 mr-2" />
-                          Bitcoin Address
-                        </Label>
-                        <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded">
-                          {selectedApplication.btc_address}
-                        </p>
-                      </div>
-                    )}
-
-                    {selectedApplication.xmr_address && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400 flex items-center">
-                          <Coins className="w-4 h-4 mr-2" />
-                          Monero Address
-                        </Label>
-                        <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded">
-                          {selectedApplication.xmr_address}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Business Details */}
-              {(selectedApplication.business_address || selectedApplication.business_license || selectedApplication.tax_id || selectedApplication.insurance) && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Details</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedApplication.business_address && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Business Address</Label>
-                        <div className="bg-gray-800 rounded-lg p-3 mt-2">
-                          <p className="text-gray-300 text-sm">
-                            {selectedApplication.business_address}
+                      {selectedApplication.social_media && (
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Social Media</Label>
+                          <p className="text-white flex items-center mt-2">
+                            <Share2 className="w-4 h-4 mr-2 text-gray-400" />
+                            @{selectedApplication.social_media}
                           </p>
                         </div>
-                      </div>
-                    )}
-
-                    {selectedApplication.business_license && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Business License</Label>
-                        <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded mt-2">
-                          {selectedApplication.business_license}
-                        </p>
-                      </div>
-                    )}
-
-                    {selectedApplication.tax_id && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Tax ID</Label>
-                        <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded mt-2">
-                          {selectedApplication.tax_id}
-                        </p>
-                      </div>
-                    )}
-
-                    {selectedApplication.insurance && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-400">Insurance</Label>
-                        <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded mt-2">
-                          {selectedApplication.insurance}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Logo & Images */}
-              {(selectedApplication.logo || selectedApplication.images) && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Logo & Images</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label className="text-sm font-medium text-gray-400">Business Logo</Label>
-                      {selectedApplication.logo ? (
-                        <div className="mt-2">
-                          <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.logo)}>
-                            <img
-                              src={selectedApplication.logo}
-                              alt="Business Logo"
-                              className="w-32 h-32 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling.style.display = 'block';
-                              }}
-                            />
-
-                            {/* Hover Overlay with View Icon */}
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
-                              <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
-                                <div className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg">
-                                  <Eye className="w-5 h-5" />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="hidden w-32 h-32 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
-                              <span className="text-gray-400 text-sm">Logo not available</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-gray-500">Not provided</p>
                       )}
                     </div>
 
-                    <div>
-                      <Label className="text-sm font-medium text-gray-400">Additional Images</Label>
-                      {selectedApplication.images ? (
+                    {/* Store Information */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2">Store Information</h3>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Category</Label>
                         <div className="mt-2">
-                          {/* Handle both array and single string */}
-                          {Array.isArray(selectedApplication.images) ? (
-                            // If it's an array, map through it
-                            <div className="grid grid-cols-2 gap-2">
-                              {selectedApplication.images.map((image, index) => (
-                                <div key={index} className="relative group cursor-pointer" onClick={() => openImageViewer(image)}>
+                          <Badge variant="outline" className="text-gray-300">
+                            {selectedApplication.category_display}
+                          </Badge>
+                        </div>
+                        {selectedApplication.sub_category && (
+                          <div className="mt-3">
+                            <Label className="text-sm font-medium text-gray-400">Sub Category</Label>
+                            <div className="mt-2">
+                              <Badge variant="outline" className="text-gray-400">
+                                {selectedApplication.sub_category}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Business Type</Label>
+                        <p className="text-white mt-2">
+                          {selectedApplication.business_type_display || 'Not specified'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Years in Business</Label>
+                        <p className="text-white mt-2">
+                          {selectedApplication.years_in_business_display || 'Not specified'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Application Date</Label>
+                        <p className="text-white flex items-center mt-2">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                          {selectedApplication.created_at_formatted}
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-400">Status</Label>
+                        <div className="mt-2">
+                          <Badge className="bg-yellow-500 text-white">
+                            {selectedApplication.status_display}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Business Information */}
+                  {(selectedApplication.target_market || selectedApplication.business_plan) && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Strategy</h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {selectedApplication.target_market && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Target Market</Label>
+                            <div className="bg-gray-800 rounded-lg p-4 mt-2">
+                              <p className="text-gray-300 leading-relaxed">
+                                {selectedApplication.target_market}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedApplication.business_plan && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Business Plan</Label>
+                            <div className="bg-gray-800 rounded-lg p-4 mt-2">
+                              <p className="text-gray-300 leading-relaxed">
+                                {selectedApplication.business_plan}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Business Description */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Description</h3>
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <p className="text-gray-300 leading-relaxed">
+                        {selectedApplication.store_description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment Information */}
+                  {(selectedApplication.btc_address || selectedApplication.xmr_address || selectedApplication.preferred_payment) && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Payment Information</h3>
+
+                      {selectedApplication.preferred_payment && (
+                        <div className="mb-4">
+                          <Label className="text-sm font-medium text-gray-400">Preferred Payment Method</Label>
+                          <Badge variant="outline" className="text-gray-300 ml-2">
+                            {selectedApplication.preferred_payment_display}
+                          </Badge>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedApplication.btc_address && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400 flex items-center">
+                              <Bitcoin className="w-4 h-4 mr-2" />
+                              Bitcoin Address
+                            </Label>
+                            <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded">
+                              {selectedApplication.btc_address}
+                            </p>
+                          </div>
+                        )}
+
+                        {selectedApplication.xmr_address && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400 flex items-center">
+                              <Coins className="w-4 h-4 mr-2" />
+                              Monero Address
+                            </Label>
+                            <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded">
+                              {selectedApplication.xmr_address}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Business Details */}
+                  {(selectedApplication.business_address || selectedApplication.business_license || selectedApplication.tax_id || selectedApplication.insurance) && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Business Details</h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedApplication.business_address && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Business Address</Label>
+                            <div className="bg-gray-800 rounded-lg p-3 mt-2">
+                              <p className="text-gray-300 text-sm">
+                                {selectedApplication.business_address}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedApplication.business_license && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Business License</Label>
+                            <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded mt-2">
+                              {selectedApplication.business_license}
+                            </p>
+                          </div>
+                        )}
+
+                        {selectedApplication.tax_id && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Tax ID</Label>
+                            <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded mt-2">
+                              {selectedApplication.tax_id}
+                            </p>
+                          </div>
+                        )}
+
+                        {selectedApplication.insurance && (
+                          <div>
+                            <Label className="text-sm font-medium text-gray-400">Insurance</Label>
+                            <p className="text-gray-300 text-sm font-mono break-all bg-gray-800 p-3 rounded mt-2">
+                              {selectedApplication.insurance}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Logo & Images */}
+                  {(selectedApplication.logo || selectedApplication.images) && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Logo & Images</h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Business Logo</Label>
+                          {selectedApplication.logo ? (
+                            <div className="mt-2">
+                              <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.logo)}>
+                                <img
+                                  src={selectedApplication.logo}
+                                  alt="Business Logo"
+                                  className="w-32 h-32 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling.style.display = 'block';
+                                  }}
+                                />
+
+                                {/* Hover Overlay with View Icon */}
+                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
+                                    <div className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg">
+                                      <Eye className="w-5 h-5" />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="hidden w-32 h-32 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
+                                  <span className="text-gray-400 text-sm">Logo not available</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-gray-500">Not provided</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-gray-400">Additional Images</Label>
+                          {selectedApplication.images ? (
+                            <div className="mt-2">
+                              {/* Handle both array and single string */}
+                              {Array.isArray(selectedApplication.images) ? (
+                                // If it's an array, map through it
+                                <div className="grid grid-cols-2 gap-2">
+                                  {selectedApplication.images.map((image, index) => (
+                                    <div key={index} className="relative group cursor-pointer" onClick={() => openImageViewer(image)}>
+                                      <img
+                                        src={image}
+                                        alt={`Business Image ${index + 1}`}
+                                        className="w-full h-24 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                          e.currentTarget.nextElementSibling.style.display = 'block';
+                                        }}
+                                      />
+
+                                      {/* Hover Overlay with View Icon */}
+                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                        <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
+                                          <div className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-lg">
+                                            <Eye className="w-4 h-4" />
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="hidden absolute inset-0 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
+                                        <span className="text-gray-400 text-xs">Image not available</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                // If it's a single string
+                                <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.images)}>
                                   <img
-                                    src={image}
-                                    alt={`Business Image ${index + 1}`}
+                                    src={selectedApplication.images}
+                                    alt="Business Image"
                                     className="w-full h-24 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none';
@@ -1596,45 +1765,190 @@ export default function AdminVendors() {
                                     <span className="text-gray-400 text-xs">Image not available</span>
                                   </div>
                                 </div>
-                              ))}
+                              )}
                             </div>
                           ) : (
-                            // If it's a single string
-                            <div className="relative group cursor-pointer" onClick={() => openImageViewer(selectedApplication.images)}>
-                              <img
-                                src={selectedApplication.images}
-                                alt="Business Image"
-                                className="w-full h-24 object-cover rounded-lg border border-gray-600 transition-all duration-200 group-hover:scale-105 group-hover:border-blue-400"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling.style.display = 'block';
-                                }}
-                              />
-
-                              {/* Hover Overlay with View Icon */}
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
-                                <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
-                                  <div className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-lg">
-                                    <Eye className="w-4 h-4" />
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="hidden absolute inset-0 bg-gray-800 rounded-lg border border-gray-600 flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">Image not available</span>
-                              </div>
-                            </div>
+                            <p className="mt-2 text-sm text-gray-500">Not provided</p>
                           )}
                         </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-gray-500">Not provided</p>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Documents */}
+                </TabsContent>
+
+                <TabsContent value="reviews" className="mt-0">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b border-gray-600 pb-2 mb-4">
+                      <h3 className="text-lg font-semibold text-white">Vendor Feedback & Reviews</h3>
+                      <Badge variant="outline" className="text-accent border-accent/30">
+                        {vendorReviews.length} Total Reviews
+                      </Badge>
+                    </div>
+
+                    {loadingReviews ? (
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <Loader2 className="w-8 h-8 text-accent animate-spin mb-4" />
+                        <p className="text-gray-400">Loading vendor reviews...</p>
+                      </div>
+                    ) : vendorReviews.length === 0 ? (
+                      <div className="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                        <Star className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                        <p className="text-gray-400 text-lg">No reviews found for this vendor.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {vendorReviews.map((review) => (
+                          <div key={review.id} className="bg-gray-800 rounded-xl p-5 border border-gray-700 hover:border-gray-600 transition-colors">
+                            {isEditingReview === review.id ? (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-white font-bold">Edit Review</h4>
+                                  <div className="flex items-center space-x-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setIsEditingReview(null)}
+                                      className="text-gray-400 hover:text-white"
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="bg-accent text-bg hover:bg-accent-2"
+                                      onClick={() => handleUpdateReview(review.id)}
+                                    >
+                                      Save Changes
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label className="text-gray-400 text-sm mb-2 block">Rating (1-5)</Label>
+                                  <div className="flex items-center space-x-2">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                      <button
+                                        key={s}
+                                        onClick={() => setEditReviewData({ ...editReviewData, rating: s })}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${editReviewData.rating >= s ? 'bg-accent text-bg' : 'bg-gray-700 text-gray-400'}`}
+                                      >
+                                        <Star className={`w-4 h-4 ${editReviewData.rating >= s ? 'fill-bg' : ''}`} />
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label className="text-gray-400 text-sm mb-2 block">Review Comment</Label>
+                                  <textarea
+                                    value={editReviewData.comment}
+                                    onChange={(e) => setEditReviewData({ ...editReviewData, comment: e.target.value })}
+                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white h-24 resize-none focus:outline-none focus:border-accent"
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label className="text-gray-400 text-sm mb-2 block">Vendor Reply</Label>
+                                  <textarea
+                                    value={editReviewData.vendor_reply}
+                                    onChange={(e) => setEditReviewData({ ...editReviewData, vendor_reply: e.target.value })}
+                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white h-24 resize-none focus:outline-none focus:border-accent"
+                                    placeholder="Admin can override or add vendor reply..."
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="flex items-center bg-gray-900 px-2 py-1 rounded-lg border border-gray-700">
+                                      <Star className="w-3 h-3 text-accent fill-accent mr-1" />
+                                      <span className="text-white font-bold text-sm">{review.rating}.0</span>
+                                    </div>
+                                    <div>
+                                      <p className="text-white text-sm font-bold flex items-center">
+                                        <User className="w-3 h-3 mr-1 text-gray-400" />
+                                        @{review.buyer.username}
+                                        <span className="text-gray-500 font-normal mx-2">•</span>
+                                        <span className="text-gray-400 font-normal text-xs">{review.product.headline}</span>
+                                      </p>
+                                      <p className="text-gray-500 text-[10px] flex items-center mt-0.5">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {new Date(review.created_at).toLocaleDateString()} at {new Date(review.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0 text-gray-400 hover:text-accent hover:bg-accent/10"
+                                      onClick={() => {
+                                        setIsEditingReview(review.id);
+                                        setEditReviewData({
+                                          rating: review.rating,
+                                          comment: review.comment,
+                                          vendor_reply: review.vendor_reply || ""
+                                        });
+                                      }}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-red-400/10"
+                                      onClick={() => handleDeleteReview(review.id)}
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="bg-gray-900 rounded-lg p-3 mb-3 border-l-2 border-accent/30">
+                                  <p className="text-gray-200 text-sm italic leading-relaxed">"{review.comment}"</p>
+                                </div>
+
+                                {review.vendor_reply ? (
+                                  <div className="bg-gray-800/10 rounded-lg p-3 border border-gray-700 flex flex-col space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center">
+                                        <MessageSquare className="w-3 h-3 mr-1" /> Vendor Response
+                                      </span>
+                                      <span className="text-[10px] text-gray-500">
+                                        {review.vendor_reply_date ? new Date(review.vendor_reply_date).toLocaleDateString() : ''}
+                                      </span>
+                                    </div>
+                                    <p className="text-gray-300 text-sm leading-relaxed">{review.vendor_reply}</p>
+                                  </div>
+                                ) : (
+                                  <div className="py-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-[10px] h-7 text-gray-500 hover:text-accent"
+                                      onClick={() => {
+                                        setIsEditingReview(review.id);
+                                        setEditReviewData({
+                                          rating: review.rating,
+                                          comment: review.comment,
+                                          vendor_reply: ""
+                                        });
+                                      }}
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" /> Add Response (Admin)
+                                    </Button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 mb-4">Documents</h3>
 

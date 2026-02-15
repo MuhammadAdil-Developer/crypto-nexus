@@ -53,6 +53,57 @@ def get_btc_fee_rate_sat_per_vb() -> Optional[int]:
         return None
 
 
+def get_current_price_usd(symbol: str) -> Decimal:
+    """Get real-time USD price for a crypto symbol from public APIs (Kraken, CoinGecko)"""
+    symbol = symbol.upper()
+    
+    # 1. Kraken Public Ticker (Very reliable, no API key needed for public data)
+    try:
+        pair_map = {'BTC': 'XBTUSD', 'XMR': 'XMRUSD', 'LTC': 'LTCUSD', 'ETH': 'ETHUSD'}
+        kraken_pair = pair_map.get(symbol)
+        if kraken_pair:
+            r = requests.get(f"https://api.kraken.com/0/public/Ticker?pair={kraken_pair}", timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                if not data.get('error'):
+                    # Kraken returns result -> PairName -> c (close) -> [price, volume]
+                    result = data.get('result', {})
+                    for key in result:
+                        price = result[key]['c'][0]
+                        logger.info(f"✅ Price for {symbol} from Kraken: ${price}")
+                        return Decimal(str(price))
+    except Exception as e:
+        logger.warning(f"Kraken price fetch failed for {symbol}: {e}")
+
+    # 2. CoinGecko (Backup)
+    try:
+        id_map = {'BTC': 'bitcoin', 'XMR': 'monero', 'LTC': 'litecoin', 'ETH': 'ethereum'}
+        cg_id = id_map.get(symbol)
+        if cg_id:
+            r = requests.get(f"https://api.coingecko.com/api/v3/simple/price?ids={cg_id}&vs_currencies=usd", timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                price = data.get(cg_id, {}).get('usd')
+                if price:
+                    logger.info(f"✅ Price for {symbol} from CoinGecko: ${price}")
+                    return Decimal(str(price))
+    except Exception as e:
+        logger.warning(f"CoinGecko price fetch failed for {symbol}: {e}")
+
+    # 3. Fallback to DB stored price if live fetch fails (Least preferred)
+    try:
+        from shared.models import CryptoCurrency
+        crypto = CryptoCurrency.objects.filter(symbol=symbol).first()
+        if crypto and crypto.current_price:
+            logger.warning(f"⚠️ Using DB cached price for {symbol}: ${crypto.current_price}")
+            return Decimal(str(crypto.current_price))
+    except Exception:
+        pass
+
+    logger.error(f"❌ FAILED to get price for {symbol} from ALL sources. Returning 0.")
+    return Decimal('0')
+
+
 class BTCPayServerService:
     """Service for BTCPay Server integration"""
     
@@ -1237,14 +1288,14 @@ class PaymentService:
                     avg_amount = payment_data.get('amount')
                     if avg_amount:
                         received_amount = Decimal(str(avg_amount))
-                        # Use same tolerance as elsewhere (0.5%)
-                        # Tolerance Rule: $4.00 USD flat OR 1% of total (whichever is greater)
+                        # Use same tolerance as elsewhere (5%)
+                        # Tolerance Rule: $5.00 USD flat OR 5% of total (whichever is greater)
                         expected = Decimal(str(payment_address.expected_amount))
-                        current_price = self.get_fiat_to_crypto_rate(payment_address.crypto_currency.symbol)
+                        current_price = get_current_price_usd(payment_address.crypto_currency.symbol)
                         if current_price > 0:
-                            tolerance = max(Decimal('4.00') / current_price, expected * Decimal('0.01'))
+                            tolerance = max(Decimal('5.00') / current_price, expected * Decimal('0.05'))
                         else:
-                            tolerance = expected * Decimal('0.01')
+                            tolerance = expected * Decimal('0.05')
 
                         if received_amount < (expected - tolerance):
                             is_partial = True
@@ -1890,11 +1941,11 @@ class PaymentService:
             expected_amount_atomic = int(payment_address.expected_amount * Decimal('1000000000000'))
             
             # Determine tolerance (min $4 USD or 1% of total)
-            current_price = self.get_fiat_to_crypto_rate('XMR')
+            current_price = get_current_price_usd('XMR')
             if current_price > 0:
-                tolerance_crypto = max(Decimal('4.00') / current_price, payment_address.expected_amount * Decimal('0.01'))
+                tolerance_crypto = max(Decimal('5.00') / current_price, payment_address.expected_amount * Decimal('0.05'))
             else:
-                tolerance_crypto = payment_address.expected_amount * Decimal('0.01')
+                tolerance_crypto = payment_address.expected_amount * Decimal('0.05')
             
             tolerance_atomic = int(tolerance_crypto * Decimal('1000000000000'))
             

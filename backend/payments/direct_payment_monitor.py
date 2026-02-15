@@ -208,21 +208,23 @@ class DirectPaymentMonitor:
                     # Using Decimal for high-precision crypto comparisons
                     expected_crypto = Decimal(str(db_payment.amount))
                     received_crypto = Decimal(str(amount))
-                    current_price = Decimal(str(db_payment.crypto_currency.current_price or 0))
+                    from .services import get_current_price_usd
+                    current_price = get_current_price_usd(db_payment.crypto_currency.symbol)
                     
-                    # Tolerance Rule: $4.00 USD flat OR 1% of total (whichever is greater)
-                    # This prevents orders from being rejected for minor exchange rate variations or small dust shortfalls.
+                    # Tolerance Rule: $5.00 USD flat OR 5% of total (whichever is greater)
+                    # Increased from 1% to 5% to handle exchange rate volatility during payment window
                     if current_price > 0:
-                        tolerance_crypto = max(Decimal('4.00') / current_price, expected_crypto * Decimal('0.01'))
+                        tolerance_crypto = max(Decimal('5.00') / current_price, expected_crypto * Decimal('0.05'))
                     else:
-                        tolerance_crypto = expected_crypto * Decimal('0.01')
+                        tolerance_crypto = expected_crypto * Decimal('0.05')
                     
                     if received_crypto < (expected_crypto - tolerance_crypto):
                         is_partial = True
                         msg = f"[WARNING] PARTIAL PAYMENT DETECTED: Order {order.order_id}. Received {received_crypto}, Expected {expected_crypto}."
                         if current_price > 0:
                             shortfall_usd = (expected_crypto - received_crypto) * current_price
-                            msg += f" Shortfall: ~${shortfall_usd:.2f} USD."
+                            allowed_shortfall_usd = tolerance_crypto * current_price
+                            msg += f" Shortfall: ~${shortfall_usd:.2f} USD. (Allowed Tolerance: ~${allowed_shortfall_usd:.2f})"
                         logger.warning(msg)
                     else:
                         if received_crypto < expected_crypto:

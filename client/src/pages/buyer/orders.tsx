@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Package, Filter, Calendar, Download, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CheckCircle, Clock, XCircle } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
@@ -42,17 +42,29 @@ export default function BuyerOrders() {
   useEffect(() => {
     fetchOrders();
 
-    // Auto-refresh every 15 seconds to check for payment detections/status updates
+    // Auto-refresh every 20 seconds to check for payment detections/status updates
     const interval = setInterval(() => {
-      fetchOrders();
-    }, 15000);
+      // Logic: Only poll if there's at least one active order that could change status
+      // (pending_payment, pending, paid, processing)
+      const hasActiveOrders = orders.some(o =>
+        ['pending', 'pending_payment', 'paid', 'processing'].includes(o.order_status || '')
+      );
+
+      if (hasActiveOrders || orders.length === 0) {
+        fetchOrders(true); // Silent refresh
+      }
+    }, 20000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [orders.length]);
+
+  // Use a ref to ensure auto-open only happens once per navigation
+  const hasOpenedInitialOrder = useRef(false);
 
   // Show toast if navigated with state and auto-open order details
   useEffect(() => {
     const navState: any = location.state as any;
+    if (!navState) return;
 
     if (navState?.toast) {
       toast({
@@ -64,26 +76,26 @@ export default function BuyerOrders() {
       window.history.replaceState({}, document.title);
     }
 
-    // Auto-open order details if orderId is provided
-    if (navState?.openOrderId && orders.length > 0) {
+    // Auto-open order details if orderId is provided - ONLY ONCE
+    if (navState?.openOrderId && orders.length > 0 && !hasOpenedInitialOrder.current) {
       const orderToOpen = orders.find(o =>
         (o.order_id && o.order_id.toString() === navState.openOrderId.toString()) ||
         (o.id && o.id.toString() === navState.openOrderId.toString())
       );
 
       if (orderToOpen) {
+        hasOpenedInitialOrder.current = true;
         // Trigger order details modal opening
-        // This will be handled by OrdersTable component
         setTimeout(() => {
           const event = new CustomEvent('openOrderDetails', {
             detail: { orderId: navState.openOrderId }
           });
           window.dispatchEvent(event);
         }, 500);
-      }
 
-      // Clean the state
-      window.history.replaceState({}, document.title);
+        // Clean the state
+        window.history.replaceState({}, document.title);
+      }
     }
   }, [location.state, orders]);
 
@@ -187,9 +199,9 @@ export default function BuyerOrders() {
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       // Use getBuyerOrders to fetch all orders
       const ordersArray = await orderService.getBuyerOrders();
       setOrders(ordersArray);
@@ -204,13 +216,15 @@ export default function BuyerOrders() {
       setStats(statsData);
     } catch (error: any) {
       console.error('Error fetching orders:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch orders",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch orders",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 

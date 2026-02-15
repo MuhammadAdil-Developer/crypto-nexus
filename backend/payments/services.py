@@ -1288,18 +1288,22 @@ class PaymentService:
                     avg_amount = payment_data.get('amount')
                     if avg_amount:
                         received_amount = Decimal(str(avg_amount))
-                        # Use same tolerance as elsewhere (5%)
-                        # Tolerance Rule: $5.00 USD flat OR 5% of total (whichever is greater)
+                        # Tolerance Rule: $5.00 USD flat OR 10% of total (whichever is greater)
                         expected = Decimal(str(payment_address.expected_amount))
                         current_price = get_current_price_usd(payment_address.crypto_currency.symbol)
                         if current_price > 0:
-                            tolerance = max(Decimal('5.00') / current_price, expected * Decimal('0.05'))
+                            tolerance = max(Decimal('5.00') / current_price, expected * Decimal('0.10'))
                         else:
-                            tolerance = expected * Decimal('0.05')
+                            tolerance = expected * Decimal('0.10')
 
                         if received_amount < (expected - tolerance):
                             is_partial = True
                             logger.warning(f"BTCPay Underpayment Detected: Received {received_amount}, Expected {expected}. (Tolerance: {tolerance})")
+                        else:
+                            # If it's within tolerance but slightly under, mark it as 'paid' status in BTCPay context
+                            # to ensure we don't accidentally mark it as partial later
+                            if btcpay_status == 'Processing':
+                                btcpay_status = 'Settled' # Treat as settled for our logic if within tolerance
                 
                 if is_partial:
                     logger.warning(f"BTCPay Underpayment detected for {payment_address.order_id}: Received {received_amount}. Marking as partial.")
@@ -1323,7 +1327,7 @@ class PaymentService:
                 # Map BTCPay status to our payment status
                 status_mapping = {
                     'New': 'pending',
-                    'Processing': 'pending', # processing = pending (no toast yet)
+                    'Processing': 'paid', # processing = paid (hides Cancel button)
                     'Paid': 'paid', 
                     'Settled': 'paid',
                     'Invalid': 'cancelled',
@@ -1663,6 +1667,8 @@ class PaymentService:
             # Map BTCPay status to our order status
             btcpay_to_order_status = {
                 'New': OrderStatus.PENDING_PAYMENT.value,
+                'Processing': OrderStatus.PENDING_PAYMENT.value,
+                'Confirmed': OrderStatus.PAID.value,
                 'Paid': OrderStatus.PAID.value,
                 'Settled': OrderStatus.PAID.value,
                 'Invalid': OrderStatus.CANCELLED.value,
@@ -1672,6 +1678,8 @@ class PaymentService:
             # Map BTCPay status to payment status
             btcpay_to_payment_status = {
                 'New': 'pending',
+                'Processing': 'paid',  # 'paid' here means system detected the coins, hides 'Cancel'
+                'Confirmed': 'paid',
                 'Paid': 'paid',
                 'Settled': 'paid', 
                 'Invalid': 'cancelled',
@@ -1679,10 +1687,19 @@ class PaymentService:
             }
             
             new_order_status = btcpay_to_order_status.get(btcpay_status, OrderStatus.PENDING_PAYMENT.value)
-            new_payment_status = btcpay_to_payment_status.get(btcpay_status, 'pending')
+            new_payment_status = btcpay_to_payment_status.get(btcpay_status)
             
+            # CRITICAL: If new status is 'New' or 'Processing', and we already marked as 'paid' 
+            # (either via unconfirmed detection or previous confirmation), do NOT revert to 'pending'.
+            if new_payment_status == 'pending' and order.payment_status in ['paid', 'partial']:
+                logger.info(f"Order {order_id} already has payment detected. Skipping reset to 'pending'.")
+                new_payment_status = order.payment_status
+            
+            # Handle unknown statuses from BTCPay to avoid resetting to defaults
+            if not new_payment_status:
+                new_payment_status = order.payment_status
+
             # CRITICAL: Protect 'paid' status from being downgraded to 'expired' or 'cancelled'
-            # (which can happen if a late payment settles but then an old 'Expired' webhook arrives)
             if order.payment_status == 'paid' and new_payment_status in ['expired', 'cancelled']:
                 logger.info(f"Order {order_id} is already PAID. Protecting from downgrade to {new_payment_status}.")
                 return True
@@ -2287,12 +2304,16 @@ class PaymentService:
                             payment_address.confirmations = found_tx['confs']
                             
                             # Check for partial
-                            # Tolerance Rule: $4.00 USD flat OR 1% of total (whichever is greater)
+                            # Tolerance Rule: $5.00 USD flat OR 10% of total (whichever is greater)
                             current_price = self.get_fiat_to_crypto_rate('BTC')
-                            if current_price > 0:
-                                tolerance = max(Decimal('4.00') / current_price, payment_address.expected_amount * Decimal('0.01'))
+                            if current_price is None or current_price <= 0:
+                                # Fallback to global helper
+                                current_price = get_current_price_usd('BTC')
+                                
+                            if current_price and current_price > 0:
+                                tolerance = max(Decimal('5.00') / current_price, payment_address.expected_amount * Decimal('0.10'))
                             else:
-                                tolerance = payment_address.expected_amount * Decimal('0.01')
+                                tolerance = payment_address.expected_amount * Decimal('0.10')
                                 
                             is_partial = found_tx['amount'] < (payment_address.expected_amount - tolerance)
                             
@@ -2300,14 +2321,21 @@ class PaymentService:
                                 payment_address.status = 'partial'
                                 # If confirmed, we can trigger handle_partial
                                 if found_tx['confs'] >= 1:
+                                    logger.warning(f"BTC Partial Payment detected in background: {found_tx['amount']} vs {payment_address.expected_amount}")
                                     self._handle_partial_payment_detected(payment_address, found_tx['amount'])
                             else:
-                                # Not partial, check if enough confs
+                                # Not partial, mark as paid if we have confirmations
                                 req_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)
                                 if found_tx['confs'] >= req_confs:
                                     payment_address.status = 'paid'
                                     payment_address.confirmed_at = timezone.now()
                                     self._update_order_status_dynamically(order_id, 'Paid')
+                                else:
+                                    # Even if not fully confirmed, mark as 'paid' to hide Cancel button
+                                    if payment_address.status == 'pending':
+                                        payment_address.status = 'paid'
+                                        # Use update() to avoid triggering signals if possible, or just save
+                                        Order.objects.filter(order_id=order_id).update(payment_status='paid')
                             
                             payment_address.save()
                 except Exception as btc_e:

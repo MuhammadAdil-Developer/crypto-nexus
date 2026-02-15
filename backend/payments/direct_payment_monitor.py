@@ -198,61 +198,49 @@ class DirectPaymentMonitor:
                 db_payment = DirectPayment.objects.select_for_update().get(id=payment.id)
                 if db_payment.status == 'completed':
                     return
-
+                # Define order here for subsequent use
+                order = db_payment.order
+                
                 # Re-evaluate trigger needs with FRESH data
                 stuck_threshold = timezone.now() - timedelta(minutes=5)
                 is_stuck = db_payment.status in ['confirmed', 'processing'] and db_payment.updated_at < stuck_threshold
-                # CRITICAL SECURITY CHECK: Partial Payment Validation
-                # If amount is provided (from blockchain/RPC), compare it with expected amount
-                order = payment.order
-                is_partial = False
-                
                 # ============================================================
-                # CRITICAL FIX: PREVENT RACE CONDITION REFUNDS
+                # CRITICAL: Payment Validation & Tolerance
                 # ============================================================
-                # Once an order is marked as 'paid' or credentials are delivered,
-                # we MUST NOT refund it even if subsequent price checks fail tolerance.
-                # This prevents the bug where:
-                # 1. First check: BTC=$69k, shortfall=$3.50 → ACCEPTED, credentials delivered
-                # 2. Second check: BTC=$71k, shortfall=$5.20 → REFUNDED (WRONG!)
-                # ============================================================
-                order_already_paid = order.payment_status == 'paid' or order.order_status in ['paid', 'confirmed', 'delivered', 'completed']
+                from orders.models import OrderStatus
+                order_already_paid = order.payment_status == 'paid' or order.order_status in [
+                    OrderStatus.PAID.value, 
+                    OrderStatus.CONFIRMED.value, 
+                    OrderStatus.DELIVERED.value, 
+                    'completed'
+                ]
                 credentials_delivered = order.product_credentials is not None and order.product_credentials != {}
                 
+                is_partial = False
                 if order_already_paid or credentials_delivered:
-                    logger.warning(f"⚠️ SAFETY: Order {order.order_id} already marked as PAID or credentials delivered. Skipping partial payment check to prevent race condition refund.")
-                    is_partial = False  # Force accept to prevent refund
+                    logger.warning(f"⚠️ SAFETY: Order {order.order_id} already marked as PAID or credentials delivered. Skipping partial payment check.")
+                    is_partial = False
                 elif amount is not None:
-                    # Using Decimal for high-precision crypto comparisons
-                    expected_crypto = Decimal(str(db_payment.amount))
-                    received_crypto = Decimal(str(amount))
-                    from .services import get_current_price_usd
-                    current_price = get_current_price_usd(db_payment.crypto_currency.symbol)
+                    # expected and received are in CRYPTO (BTC/XMR)
+                    expected = Decimal(str(db_payment.amount))
+                    received = Decimal(str(amount))
+                    symbol = db_payment.crypto_currency.symbol
                     
-                    # Tolerance Rule: $5.00 USD flat OR 5% of total (whichever is greater)
-                    # Increased from 1% to 5% to handle exchange rate volatility during payment window
-                    if current_price > 0:
-                        tolerance_crypto = max(Decimal('5.00') / current_price, expected_crypto * Decimal('0.05'))
-                    else:
-                        tolerance_crypto = expected_crypto * Decimal('0.05')
+                    is_partial = not self._is_within_tolerance(expected, received, symbol)
                     
-                    if received_crypto < (expected_crypto - tolerance_crypto):
-                        is_partial = True
-                        msg = f"[WARNING] PARTIAL PAYMENT DETECTED: Order {order.order_id}. Received {received_crypto}, Expected {expected_crypto}."
-                        if current_price > 0:
-                            shortfall_usd = (expected_crypto - received_crypto) * current_price
-                            allowed_shortfall_usd = tolerance_crypto * current_price
-                            msg += f" Shortfall: ~${shortfall_usd:.2f} USD. (Allowed Tolerance: ~${allowed_shortfall_usd:.2f})"
-                        logger.warning(msg)
+                    if is_partial:
+                        logger.warning(f"⚠️ PARTIAL PAYMENT: Order {order.order_id}. Expected {expected}, Received {received} {symbol}")
                     else:
-                        if received_crypto < expected_crypto:
-                            logger.info(f"[INFO] TOLERATED UNDERPAYMENT: Order {order.order_id}. Shortfall within $5 USD limit. Proceeding as fully paid.")
-                        is_partial = False
+                        if received < expected:
+                            logger.info(f"✅ TOLERATED UNDERPAYMENT: Order {order.order_id}. Shortfall within allowed limits.")
                 
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
                 update_data = {}
                 if confirmations is not None: update_data['confirmations'] = confirmations
-                if amount: update_data['amount_received'] = amount # We'll need to add this field or use received_amount in PA
+                if amount: 
+                    update_data['amount_received'] = amount 
+                    # We also update the DirectPayment.amount if it was 0 for some reason 
+                    # (though it should have been set at creation)
                 
                 if needs_trigger and not is_partial:
                     db_payment.status = 'confirmed'
@@ -265,8 +253,6 @@ class DirectPaymentMonitor:
                     db_payment.updated_at = timezone.now()
                     db_payment.save(update_fields=['status', 'updated_at'])
                     needs_trigger = False
-                    # Note: We mark as 'refunded' so the monitor loop skips this order in future runs.
-                    # The auto-refund payout below handles the money return.
                 elif update_data:
                     DirectPayment.objects.filter(id=payment.id).update(**update_data)
                     needs_trigger = False
@@ -274,7 +260,7 @@ class DirectPaymentMonitor:
                     needs_trigger = False
                 
                 # Payment Address update
-                pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
+                pa = PaymentAddress.objects.filter(order_id=order.order_id).first()
                 if pa:
                     if confirmations is not None: pa.confirmations = confirmations
                     if tx_hash: pa.transaction_hash = tx_hash
@@ -290,7 +276,6 @@ class DirectPaymentMonitor:
                     pa.save()
 
                 # Update Order Status ONLY if not partial
-                order = payment.order
                 if is_partial:
                     order.payment_status = 'refunded'
                     order.order_status = 'refunded'
@@ -304,10 +289,10 @@ class DirectPaymentMonitor:
                             order=order,
                             buyer=order.buyer,
                             vendor=order.vendor,
-                            amount=received_crypto,
+                            amount=received, # Fix: replaced received_crypto with received
                             refund_type='partial',
                             reason="partial",
-                            notes=f"Auto-refund of underpaid blockchain detection. Received: {received_crypto}",
+                            notes=f"Auto-refund of underpaid blockchain detection. Received: {received}",
                             status='completed',
                             vendor_decision='approved',
                             vendor_decision_at=timezone.now(),
@@ -321,11 +306,9 @@ class DirectPaymentMonitor:
                         from payments.models import Payout
                         # Check if a refund payout already exists for this order to avoid duplicates
                         if not Payout.objects.filter(order=order, payout_type='refund').exists():
-                            # For refund, net_amount is what buyer gets. We can subtract a small fee if requested by client.
-                            # Client mentioned 2-5% fee. Let's use 3% as a default or keep it 0 as a gesture of good will for now.
-                            # The user said "return the partial amount minus the fee".
+                            # Calculations in Decimals
                             fee_pct = Decimal('0.03')
-                            refund_gross = received_crypto
+                            refund_gross = received # Fix: replaced received_crypto with received
                             refund_fee = refund_gross * fee_pct
                             refund_net = refund_gross - refund_fee
                             
@@ -340,7 +323,7 @@ class DirectPaymentMonitor:
                                 platform_fee=refund_fee,
                                 vendor_address=order.refund_address, # Sending to buyer's refund address
                                 status='pending',
-                                admin_notes=f"Auto-refund for partial payment. Expected: {expected_crypto}, Received: {received_crypto}. Fee: {refund_fee} (3%)"
+                                admin_notes=f"Auto-refund for partial payment. Expected: {expected}, Received: {received}. Fee: {refund_fee} (3%)"
                             )
                             logger.info(f"[AUTO-REFUND] AUTO-REFUND QUEUED: Order {order.order_id} for {refund_net} {order.crypto_currency} to {order.refund_address}")
                             
@@ -400,23 +383,12 @@ class DirectPaymentMonitor:
                     received_crypto = Decimal(str(amount))
                     pa.received_amount = float(received_crypto)
                     
-                    # Set status to partial if discrepancy detected (even before confirmation)
-                    expected_crypto = Decimal(str(pa.expected_amount))
-                    current_price = Decimal(str(pa.crypto_currency.current_price or 0))
-                    
-                    if current_price > 0:
-                        tolerance_crypto = max(Decimal('5.00') / current_price, expected_crypto * Decimal('0.01'))
-                    else:
-                        tolerance_crypto = expected_crypto * Decimal('0.01')
-                    
-                    is_underpaid = received_crypto < (expected_crypto - tolerance_crypto)
-                    if is_underpaid:
-                        pa.status = 'partial'
-                    
-                    # CRITICAL: Update Order.payment_status to hide Cancel button in frontend
+                    # Mark as 'paid' to hide cancel button as soon as ANY payment is detected
+                    # We don't mark as 'partial' here anymore to avoid poisoning the status
+                    # _confirm_payment will calculate the final tolerance once confirmed.
                     if order.payment_status == 'pending':
-                        logger.info(f"🔍 DETECTED: Order {order.order_id} payment detected ({confirmations} confs). Updating payment_status to hide cancel button.")
-                        order.payment_status = 'partial' if is_underpaid else 'paid'
+                        logger.info(f"🔍 DETECTED: Order {order.order_id} payment detected. Updating payment_status to hide cancel button.")
+                        order.payment_status = 'paid'
                         needs_save_order = True
                 
                 pa.save()
@@ -431,6 +403,25 @@ class DirectPaymentMonitor:
             )
         except Exception as e:
             logger.error(f"Error updating confirmations: {e}")
+
+    def _is_within_tolerance(self, expected, received, symbol):
+        """Standardized tolerance check: $5.00 flat OR 10% percentage cushion"""
+        try:
+            from .services import get_current_price_usd
+            current_price = get_current_price_usd(symbol)
+            
+            # If price fetch fails, use a generous 20% fallback cushion for safety
+            if current_price <= 0:
+                logger.warning(f"⚠️ Price fetch failed for {symbol}. Using emergency 20% tolerance.")
+                return received >= (expected * Decimal('0.80'))
+
+            # Rule: $5.00 cushion OR 10% of total (whichever is more generous)
+            tolerance_crypto = max(Decimal('5.00') / current_price, expected * Decimal('0.10'))
+            
+            return received >= (expected - tolerance_crypto)
+        except Exception as e:
+            logger.error(f"Tolerance check error: {e}")
+            return received >= expected # Default to strict if logic fails
 
     def _get_current_btc_height(self):
         try:

@@ -10,6 +10,7 @@ from enum import Enum
 
 class OrderStatus(Enum):
     """Order status enumeration"""
+    PENDING = 'pending'
     PENDING_PAYMENT = 'pending_payment'
     PAYMENT_RECEIVED = 'payment_received'
     PROCESSING = 'processing'

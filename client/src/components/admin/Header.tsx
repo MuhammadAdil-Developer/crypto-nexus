@@ -38,19 +38,11 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
     }
   }, [unreadCount, countReset]);
 
-  // Auto-refresh notifications aggressively - every 2 seconds
+  // Refresh immediately when dropdown opens
   useEffect(() => {
-    // Always refresh every 2 seconds (aggressive approach)
-    const interval = setInterval(() => {
-      refreshNotifications(true);
-    }, 2000);
-
-    // Also refresh immediately when dropdown opens
     if (dropdownOpen) {
       refreshNotifications(true);
     }
-
-    return () => clearInterval(interval);
   }, [dropdownOpen, refreshNotifications]);
 
   // When dropdown opens, mark all as read in backend and animate count to 0

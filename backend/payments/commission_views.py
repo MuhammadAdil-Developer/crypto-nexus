@@ -52,19 +52,18 @@ class CommissionSettingsView(APIView):
             
             # Update fields if provided
             if 'platform_fee_rate' in request.data:
-                settings.platform_fee_rate = Decimal(str(request.data['platform_fee_rate']))
+                rate = Decimal(str(request.data['platform_fee_rate']))
+                settings.platform_fee_rate = rate
+                # Sync other rates with the main platform rate as per user request to use this as the default
+                settings.default_commission_rate = rate
+                settings.streaming_commission_rate = rate
+                settings.software_commission_rate = rate
+                settings.gaming_commission_rate = rate
+                settings.services_commission_rate = rate
+            
             if 'escrow_fee_rate' in request.data:
                 settings.escrow_fee_rate = Decimal(str(request.data['escrow_fee_rate']))
-            if 'streaming_commission_rate' in request.data:
-                settings.streaming_commission_rate = Decimal(str(request.data['streaming_commission_rate']))
-            if 'software_commission_rate' in request.data:
-                settings.software_commission_rate = Decimal(str(request.data['software_commission_rate']))
-            if 'gaming_commission_rate' in request.data:
-                settings.gaming_commission_rate = Decimal(str(request.data['gaming_commission_rate']))
-            if 'services_commission_rate' in request.data:
-                settings.services_commission_rate = Decimal(str(request.data['services_commission_rate']))
-            if 'default_commission_rate' in request.data:
-                settings.default_commission_rate = Decimal(str(request.data['default_commission_rate']))
+            
             if 'min_commission_rate' in request.data:
                 settings.min_commission_rate = Decimal(str(request.data['min_commission_rate']))
             if 'max_commission_rate' in request.data:

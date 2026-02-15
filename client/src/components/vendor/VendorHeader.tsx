@@ -235,20 +235,11 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
     }
   };
 
-  // Auto-refresh notifications every 2 seconds (like admin header)
+  // Refresh immediately when dropdown opens
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (refreshNotifications) {
-        refreshNotifications(true);
-      }
-    }, 2000);
-
-    // Also refresh immediately when dropdown opens
     if (notificationDropdownOpen && refreshNotifications) {
       refreshNotifications(true);
     }
-
-    return () => clearInterval(interval);
   }, [notificationDropdownOpen, refreshNotifications]);
 
   const handleNotificationDropdownOpen = async (open: boolean) => {

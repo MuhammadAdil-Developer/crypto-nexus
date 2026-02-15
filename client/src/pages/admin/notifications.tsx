@@ -19,14 +19,7 @@ export default function AdminNotifications() {
   const [typeFilter, setTypeFilter] = useState<NotificationType>('all');
 
   useEffect(() => {
-    refreshNotifications();
-
-    // Auto-refresh aggressively every 3 seconds
-    const interval = setInterval(() => {
-      refreshNotifications(true);
-    }, 3000);
-
-    return () => clearInterval(interval);
+    refreshNotifications(true);
   }, [refreshNotifications]);
 
   const filteredNotifications = (() => {

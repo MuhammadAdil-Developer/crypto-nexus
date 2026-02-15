@@ -583,11 +583,14 @@ def get_vendor_statistics(request, vendor_username):
             symbol = p.crypto_currency.symbol.upper().strip()
             network_fee = BTC_NETWORK_FEE if symbol in ['BTC', 'BITCOIN'] else XMR_NETWORK_FEE
             
+            from payments.commission_models import CommissionSettings
+            cs = CommissionSettings.get_settings()
+            
             p_fee = p.platform_fee
-            if p_fee <= 0: p_fee = p.gross_amount * Decimal('0.04')
+            if p_fee <= 0: p_fee = p.gross_amount * (cs.platform_fee_rate / Decimal('100'))
             
             e_fee = p.escrow_fee
-            if e_fee <= 0: e_fee = p.gross_amount * Decimal('0.01')
+            if e_fee <= 0: e_fee = p.gross_amount * (cs.escrow_fee_rate / Decimal('100'))
             
             net = p.gross_amount - p_fee - e_fee - network_fee
             if net < 0: net = 0

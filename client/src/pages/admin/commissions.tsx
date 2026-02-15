@@ -393,34 +393,36 @@ export default function AdminCommissions() {
             <span className="sm:hidden">History</span>
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="settings">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            <div>
-              <Label className="text-gray-300 text-sm sm:text-base mb-2 block font-bold uppercase tracking-wider">Platform Fee %</Label>
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm font-bold uppercase tracking-wider">PLATFORM FEE %</Label>
               <div className="relative">
                 <Input
                   type="number"
                   step="0.1"
                   value={(formData.platform_fee_rate as any) ?? ''}
                   onChange={(e) => handleInputChange('platform_fee_rate', e.target.value)}
-                  className="bg-gray-950 border-gray-700 text-white focus:border-accent w-full"
+                  className="bg-gray-950 border-gray-700 text-white focus:border-accent w-full h-12 text-lg"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">%</div>
               </div>
+              <p className="text-xs text-gray-500 italic">This rate will be applied as the default for all vendors.</p>
             </div>
-            <div>
-              <Label className="text-gray-300 text-sm sm:text-base mb-2 block font-bold uppercase tracking-wider">Escrow Fee %</Label>
+
+            <div className="space-y-2">
+              <Label className="text-gray-300 text-sm font-bold uppercase tracking-wider">ESCROW FEE %</Label>
               <div className="relative">
                 <Input
                   type="number"
                   step="0.1"
                   value={(formData.escrow_fee_rate as any) ?? ''}
                   onChange={(e) => handleInputChange('escrow_fee_rate', e.target.value)}
-                  className="bg-gray-950 border-gray-700 text-white focus:border-accent w-full"
+                  className="bg-gray-950 border-gray-700 text-white focus:border-accent w-full h-12 text-lg"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">%</div>
               </div>
+              <p className="text-xs text-gray-500 italic">Standard processing fee for escrowed transactions.</p>
             </div>
           </div>
         </TabsContent>
@@ -704,7 +706,7 @@ export default function AdminCommissions() {
             )}
           </Card>
         </TabsContent>
-      </Tabs>
-    </main>
+      </Tabs >
+    </main >
   );
 }

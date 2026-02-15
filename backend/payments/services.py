@@ -2043,6 +2043,19 @@ class PaymentService:
             if not order:
                 return
             
+            # SAFETY GUARD: If order is already PAID or credentials delivered, NEVER mark as partial/refunded
+            # This protects against timing issues where background tasks find "underpayment" due to price shifts
+            # after a successful detection.
+            order_already_processed = (
+                order.payment_status == 'paid' or 
+                order.order_status in ['paid', 'confirmed', 'delivered', 'completed', 'processing']
+            )
+            credentials_delivered = order.product_credentials is not None and order.product_credentials != {}
+            
+            if order_already_processed or credentials_delivered:
+                logger.warning(f"⚠️ SAFETY LOCK: Order {order.order_id} already successfully processed ({order.order_status}). Aborting accidental partial refund flow.")
+                return
+
             if order.order_status == 'refunded':
                 return # Already handled
             
@@ -2161,12 +2174,12 @@ class PaymentService:
                 # 1 XMR = 10^12 atomic units
                 expected_amount_atomic = int(payment_address.expected_amount * Decimal('1000000000000'))
                 
-                # Determine tolerance (min $4 USD or 1% of total)
+                # Determine tolerance (min $5.00 USD flat cushion OR 10% of total)
                 current_price = self.get_fiat_to_crypto_rate('XMR')
-                if current_price > 0:
-                    tolerance_crypto = max(Decimal('4.00') / current_price, payment_address.expected_amount * Decimal('0.01'))
+                if current_price and current_price > 0:
+                    tolerance_crypto = max(Decimal('5.00') / current_price, payment_address.expected_amount * Decimal('0.10'))
                 else:
-                    tolerance_crypto = payment_address.expected_amount * Decimal('0.01')
+                    tolerance_crypto = payment_address.expected_amount * Decimal('0.10')
                 
                 tolerance_atomic = int(tolerance_crypto * Decimal('1000000000000'))
                 
@@ -2199,8 +2212,15 @@ class PaymentService:
                         payment_address.confirmed_at = timezone.now()
                         self._update_order_status_dynamically(order_id, 'Paid')
                     elif is_partial:
-                        # CRITICAL: Only trigger refund if it has at least 1 confirmation (paid_threshold)
-                        if current_confs >= paid_threshold:
+                        # SAFETY CHECK before triggering partial refund
+                        from orders.models import Order
+                        order = Order.objects.filter(order_id=order_id).first()
+                        already_paid = order and (order.payment_status == 'paid' or order.order_status in ['paid', 'confirmed', 'delivered', 'completed'])
+                        
+                        if already_paid:
+                            logger.warning(f"Order {order_id} is already PAID. Ignoring XMR shortfall of {payment_address.expected_amount - received_amount_xmr} XMR.")
+                            payment_address.status = 'paid'
+                        elif current_confs >= paid_threshold:
                             logger.warning(f"Order {order_id} has CONFIRMED PARTIAL payment ({received_amount_xmr} XMR). Refunding.")
                             payment_address.status = 'partial'
                             self._handle_partial_payment_detected(payment_address, received_amount_xmr)
@@ -2318,11 +2338,20 @@ class PaymentService:
                             is_partial = found_tx['amount'] < (payment_address.expected_amount - tolerance)
                             
                             if is_partial:
-                                payment_address.status = 'partial'
-                                # If confirmed, we can trigger handle_partial
-                                if found_tx['confs'] >= 1:
-                                    logger.warning(f"BTC Partial Payment detected in background: {found_tx['amount']} vs {payment_address.expected_amount}")
-                                    self._handle_partial_payment_detected(payment_address, found_tx['amount'])
+                                # SAFETY CHECK before triggering partial refund
+                                from orders.models import Order
+                                order = Order.objects.filter(order_id=order_id).first()
+                                already_paid = order and (order.payment_status == 'paid' or order.order_status in ['paid', 'confirmed', 'delivered', 'completed'])
+                                
+                                if already_paid:
+                                    logger.warning(f"Order {order_id} is already PAID. Ignoring BTC shortfall of {payment_address.expected_amount - found_tx['amount']} BTC.")
+                                    payment_address.status = 'paid'
+                                else:
+                                    payment_address.status = 'partial'
+                                    # If confirmed, we can trigger handle_partial
+                                    if found_tx['confs'] >= 1:
+                                        logger.warning(f"BTC Partial Payment detected in background: {found_tx['amount']} vs {payment_address.expected_amount}")
+                                        self._handle_partial_payment_detected(payment_address, found_tx['amount'])
                             else:
                                 # Not partial, mark as paid if we have confirmations
                                 req_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)

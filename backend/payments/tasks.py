@@ -297,6 +297,14 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             platform_fee_rate = vendor_custom_rate / Decimal('100')
         else:
             platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+            
+        logger.info(f"📊 FEE RATE DEBUG: Order {order_id}, Vendor {vendor.username}")
+        logger.info(f"   Vendor Custom Rate Found? {vendor_custom_rate is not None}")
+        if vendor_custom_rate is not None:
+             logger.info(f"   Using Custom Rate: {vendor_custom_rate}%")
+        else:
+             logger.info(f"   Using Default Rate: {commission_settings.platform_fee_rate}%")
+        logger.info(f"   Final Applied Rate: {platform_fee_rate} ({platform_fee_rate * 100}%)")
         
         # Allow 0% platform fee rate (e.g. for special vendors or testing)
         if platform_fee_rate < 0:
@@ -415,7 +423,11 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             net_amount = amount - platform_fee - escrow_fee
             
             if platform_fee < original_platform_fee:
-                logger.warning(f"REDUCED PLATFORM FEE for small transaction: Original={original_platform_fee}, Adjusted={platform_fee}")
+                logger.warning(f"⚠️ FEE REDUCED FOR SMALL TRANSACTION:")
+                logger.warning(f"   Original Fee: {original_platform_fee}")
+                logger.warning(f"   Adjusted Fee: {platform_fee}")
+                logger.warning(f"   Miner Fee: {estimated_miner_fee}")
+                logger.warning(f"   Reason: Ensuring vendor receives at least {min_vendor_receive}")
         
         # logger.info(f"Final calculation: Gross={amount}, Platform Fee={platform_fee}, Escrow Fee={escrow_fee}, Net={net_amount}")
         # logger.info(f"Estimated miner fee: {estimated_miner_fee} (will be deducted by BTCPay from net amount)")

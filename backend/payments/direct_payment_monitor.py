@@ -204,7 +204,23 @@ class DirectPaymentMonitor:
                 # If amount is provided (from blockchain/RPC), compare it with expected amount
                 order = payment.order
                 is_partial = False
-                if amount is not None:
+                
+                # ============================================================
+                # CRITICAL FIX: PREVENT RACE CONDITION REFUNDS
+                # ============================================================
+                # Once an order is marked as 'paid' or credentials are delivered,
+                # we MUST NOT refund it even if subsequent price checks fail tolerance.
+                # This prevents the bug where:
+                # 1. First check: BTC=$69k, shortfall=$3.50 → ACCEPTED, credentials delivered
+                # 2. Second check: BTC=$71k, shortfall=$5.20 → REFUNDED (WRONG!)
+                # ============================================================
+                order_already_paid = order.payment_status == 'paid' or order.order_status in ['paid', 'confirmed', 'delivered', 'completed']
+                credentials_delivered = order.product_credentials is not None and order.product_credentials != {}
+                
+                if order_already_paid or credentials_delivered:
+                    logger.warning(f"⚠️ SAFETY: Order {order.order_id} already marked as PAID or credentials delivered. Skipping partial payment check to prevent race condition refund.")
+                    is_partial = False  # Force accept to prevent refund
+                elif amount is not None:
                     # Using Decimal for high-precision crypto comparisons
                     expected_crypto = Decimal(str(db_payment.amount))
                     received_crypto = Decimal(str(amount))
@@ -228,7 +244,7 @@ class DirectPaymentMonitor:
                         logger.warning(msg)
                     else:
                         if received_crypto < expected_crypto:
-                            logger.info(f"[INFO] TOLERATED UNDERPAYMENT: Order {order.order_id}. Shortfall within $4 USD limit. Proceeding as fully paid.")
+                            logger.info(f"[INFO] TOLERATED UNDERPAYMENT: Order {order.order_id}. Shortfall within $5 USD limit. Proceeding as fully paid.")
                         is_partial = False
                 
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'

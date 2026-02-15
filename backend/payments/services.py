@@ -1702,149 +1702,96 @@ class PaymentService:
             # CRITICAL: Protect 'paid' status from being downgraded to 'expired' or 'cancelled'
             if order.payment_status == 'paid' and new_payment_status in ['expired', 'cancelled']:
                 logger.info(f"Order {order_id} is already PAID. Protecting from downgrade to {new_payment_status}.")
-                return True
-
-            # If the order is already marked as PAID, skip further updates if new status is also PAID
-            if order.payment_status == 'paid' and new_payment_status == 'paid':
-                logger.info(f"Order {order_id} is already marked as PAID. Skipping duplicate status update and notifications.")
-                return True
-            
-            
-            # Update order status
-            order.order_status = new_order_status
-            order.payment_status = new_payment_status
+                # Don't return True here, just skip the assignment below
+            else:
+                # Update order status in memory
+                order.order_status = new_order_status
+                order.payment_status = new_payment_status
             
             # Set payment confirmed timestamp if status is paid/settled
             if btcpay_status in ['Paid', 'Settled']:
-                # CRITICAL: If notification already sent (checked by payment_confirmed_at), skip to avoid duplicates
                 if order.payment_confirmed_at:
-                    logger.info(f"Notification already sent for order {order_id}. Skipping duplicate broadcast.")
-                    return True
+                    logger.info(f"Notification already sent for order {order_id}. Skipping duplicate broadcast but proceeding with payout verification.")
+                    has_notified = True
+                else:
+                    order.payment_confirmed_at = timezone.now()
+                    has_notified = False
                 
-                order.payment_confirmed_at = timezone.now()
-                
-                # Set product credentials for paid orders (like in confirm_payment_success)
-                # Only if delivery type is 'instant_auto' OR specifically configured for auto-delivery
-                is_auto_delivery = order.product.delivery_time == 'instant_auto'
-                
-                if order.product.credentials and not order.product_credentials and is_auto_delivery:
-                    order.product_credentials = {
-                        'credentials': order.product.credentials,
-                        'delivered_at': timezone.now().isoformat(),
-                        'delivery_method': order.product.delivery_time,
-                        'additional_info': order.product.additional_info or '',
-                        'notes': order.product.notes_for_buyer or ''
-                    }
-                    order.product.credentials_visible = True
-                    order.product.save()
-                    logger.info(f"Product credentials set for order {order_id} (Auto-Delivery)")
-                elif not is_auto_delivery:
-                    logger.info(f"Order {order_id} is Manual Delivery (type: {order.product.delivery_time}). Credentials NOT auto-released.")
-                
-                # Create notifications for buyer and vendor when payment is confirmed
-                try:
-                    from shared.models import Notification
-                    from asgiref.sync import async_to_sync
-                    from channels.layers import get_channel_layer
+                if not has_notified:
+                    # Set product credentials for paid orders (like in confirm_payment_success)
+                    # Only if delivery type is 'instant_auto' OR specifically configured for auto-delivery
+                    is_auto_delivery = order.product.delivery_time == 'instant_auto'
                     
-                    # Get credentials location/details for notification
-                    credentials_info = ""
-                    if order.product_credentials:
-                        creds = order.product_credentials.get('credentials', '')
-                        if creds:
-                            # Show first part of credentials or indicate location
-                            if isinstance(creds, str):
-                                credentials_info = f"Credentials are available in your order details."
-                            else:
-                                credentials_info = f"Your order credentials are ready."
-                    
-                    from shared.admin_notifications import send_user_notification
-                    
-                    # Notification for buyer
-                    send_user_notification(
-                        user=order.buyer,
-                        notification_type='payment_confirmed',
-                        title='Payment Confirmed',
-                        message=f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
-                        data={
-                            'order_id': order.order_id,
-                            'product_id': str(order.product.id),
-                            'product_headline': order.product.headline,
-                            'action_url': f'/buyer/orders',
-                            'has_credentials': bool(order.product_credentials)
+                    if order.product.credentials and not order.product_credentials and is_auto_delivery:
+                        order.product_credentials = {
+                            'credentials': order.product.credentials,
+                            'delivered_at': timezone.now().isoformat(),
+                            'delivery_method': order.product.delivery_time,
+                            'additional_info': order.product.additional_info or '',
+                            'notes': order.product.notes_for_buyer or ''
                         }
-                    )
+                        order.product.credentials_visible = True
+                        order.product.save()
+                        logger.info(f"Product credentials set for order {order_id} (Auto-Delivery)")
+                    elif not is_auto_delivery:
+                        logger.info(f"Order {order_id} is Manual Delivery (type: {order.product.delivery_time}). Credentials NOT auto-released.")
                     
-                    # Notification for vendor
-                    escrow_note = " (Escrow)" if order.use_escrow else ""
-                    send_user_notification(
-                        user=order.vendor,
-                        notification_type='payment_received',
-                        title='Payment Received',
-                        message=f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
-                        data={
-                            'order_id': order.order_id,
-                            'buyer_username': order.buyer.username,
-                            'product_id': str(order.product.id),
-                            'product_headline': order.product.headline,
-                            'action_url': f'/vendor/orders',
-                            'use_escrow': order.use_escrow
-                        }
-                    )
-                    
-                    # Trigger count refresh for all users (admin/vendor/buyer) when payment is confirmed
+                    # Create notifications for buyer and vendor when payment is confirmed
                     try:
-                        # Send to buyer
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{order.buyer.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'id': f'count_refresh_payment_{order.id}',
-                                    'type': 'system',
-                                    'title': 'Count Refresh',
-                                    'message': 'Order count updated',
-                                    'is_read': False,
-                                    'data': {
-                                        'action': 'refresh_counts',
-                                        'type': 'order'
-                                    },
-                                    'action_url': '',
-                                    'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                    'priority': 'low'
-                                }
+                        from shared.models import Notification
+                        from asgiref.sync import async_to_sync
+                        from channels.layers import get_channel_layer
+                        
+                        # Get credentials location/details for notification
+                        credentials_info = ""
+                        if order.product_credentials:
+                            creds = order.product_credentials.get('credentials', '')
+                            if creds:
+                                # Show first part of credentials or indicate location
+                                if isinstance(creds, str):
+                                    credentials_info = f"Credentials are available in your order details."
+                                else:
+                                    credentials_info = f"Your order credentials are ready."
+                        
+                        from shared.admin_notifications import send_user_notification
+                        
+                        # Notification for buyer
+                        send_user_notification(
+                            user=order.buyer,
+                            notification_type='payment_confirmed',
+                            title='Payment Confirmed',
+                            message=f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
+                            data={
+                                'order_id': order.order_id,
+                                'product_id': str(order.product.id),
+                                'product_headline': order.product.headline,
+                                'action_url': f'/buyer/orders',
+                                'has_credentials': bool(order.product_credentials)
                             }
                         )
                         
-                        # Send to vendor
-                        async_to_sync(channel_layer.group_send)(
-                            f'realtime_{order.vendor.id}',
-                            {
-                                'type': 'order_notification',
-                                'data': {
-                                    'id': f'count_refresh_payment_{order.id}',
-                                    'type': 'system',
-                                    'title': 'Count Refresh',
-                                    'message': 'Order count updated',
-                                    'is_read': False,
-                                    'data': {
-                                        'action': 'refresh_counts',
-                                        'type': 'order'
-                                    },
-                                    'action_url': '',
-                                    'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                    'priority': 'low'
-                                }
+                        # Notification for vendor
+                        escrow_note = " (Escrow)" if order.use_escrow else ""
+                        send_user_notification(
+                            user=order.vendor,
+                            notification_type='payment_received',
+                            title='Payment Received',
+                            message=f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
+                            data={
+                                'order_id': order.order_id,
+                                'buyer_username': order.buyer.username,
+                                'product_id': str(order.product.id),
+                                'product_headline': order.product.headline,
+                                'action_url': f'/vendor/orders',
+                                'use_escrow': order.use_escrow
                             }
                         )
                         
-                        # Send to all admins
-                        from django.contrib.auth import get_user_model
-                        User = get_user_model()
-                        admin_users = User.objects.filter(user_type='admin', is_active=True)
-                        for admin_user in admin_users:
+                        # Trigger count refresh for all users (admin/vendor/buyer) when payment is confirmed
+                        try:
+                            # Send to buyer
                             async_to_sync(channel_layer.group_send)(
-                                f'realtime_{admin_user.id}',
+                                f'realtime_{order.buyer.id}',
                                 {
                                     'type': 'order_notification',
                                     'data': {
@@ -1863,12 +1810,59 @@ class PaymentService:
                                     }
                                 }
                             )
+                            
+                            # Send to vendor
+                            async_to_sync(channel_layer.group_send)(
+                                f'realtime_{order.vendor.id}',
+                                {
+                                    'type': 'order_notification',
+                                    'data': {
+                                        'id': f'count_refresh_payment_{order.id}',
+                                        'type': 'system',
+                                        'title': 'Count Refresh',
+                                        'message': 'Order count updated',
+                                        'is_read': False,
+                                        'data': {
+                                            'action': 'refresh_counts',
+                                            'type': 'order'
+                                        },
+                                        'action_url': '',
+                                        'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                        'priority': 'low'
+                                    }
+                                }
+                            )
+                            
+                            # Send to all admins
+                            from django.contrib.auth import get_user_model
+                            User = get_user_model()
+                            admin_users = User.objects.filter(user_type='admin', is_active=True)
+                            for admin_user in admin_users:
+                                async_to_sync(channel_layer.group_send)(
+                                    f'realtime_{admin_user.id}',
+                                    {
+                                        'type': 'order_notification',
+                                        'data': {
+                                            'id': f'count_refresh_payment_{order.id}',
+                                            'type': 'system',
+                                            'title': 'Count Refresh',
+                                            'message': 'Order count updated',
+                                            'is_read': False,
+                                            'data': {
+                                                'action': 'refresh_counts',
+                                                'type': 'order'
+                                            },
+                                            'action_url': '',
+                                            'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
+                                            'priority': 'low'
+                                        }
+                                    }
+                                )
+                        except Exception as e:
+                            logger.error(f"Error sending count refresh notification: {e}")
+                        logger.info(f"Payment confirmation notifications created for order {order_id}")
                     except Exception as e:
-                        logger.error(f"Error sending count refresh notification: {e}")
-                except Exception as e:
-                    logger.error(f"Failed to send real-time payment notifications: {str(e)}")
-                
-                logger.info(f"Payment confirmation notifications created for order {order_id}")
+                        logger.error(f"Failed to send real-time payment notifications: {str(e)}")
             
             order.save()
             
@@ -2239,7 +2233,7 @@ class PaymentService:
                             # Verify if already confirmed in DirectPayment to avoid duplicate task spam
                             from .models import DirectPayment
                             dp = DirectPayment.objects.filter(order_id=order_id).first()
-                            if dp and dp.status not in ['confirmed', 'processing', 'completed']:
+                            if dp and dp.status not in ['processing', 'completed']:
                                 logger.info(f"🚀 Triggering/Retrying direct payment processing for order {order_id} (conf: {current_confs})")
                                 self._process_direct_payment_webhook(payment_address)
                             elif dp and dp.net_amount <= 0:
@@ -2360,11 +2354,15 @@ class PaymentService:
                                     payment_address.confirmed_at = timezone.now()
                                     self._update_order_status_dynamically(order_id, 'Paid')
                                 else:
-                                    # Even if not fully confirmed, mark as 'paid' to hide Cancel button
-                                    if payment_address.status == 'pending':
-                                        payment_address.status = 'paid'
-                                        # Use update() to avoid triggering signals if possible, or just save
-                                        Order.objects.filter(order_id=order_id).update(payment_status='paid')
+                                    order_obj = Order.objects.filter(order_id=order_id).first()
+                                    if order_obj.payment_status != 'paid':
+                                        order_obj.payment_status = 'paid'
+                                        order_obj.save(update_fields=['payment_status'])
+                                    
+                                    # Trigger direct payout if not escrow and enough confirmations
+                                    if not hasattr(payment_address, 'escrow'):
+                                        logger.info(f"BTC Background Check: Triggering direct payout check for {order_id}")
+                                        self._process_direct_payment_webhook(payment_address, is_settled=(found_tx['confs'] >= req_confs))
                             
                             payment_address.save()
                 except Exception as btc_e:

@@ -41,7 +41,7 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
   // Refresh immediately when dropdown opens
   useEffect(() => {
     if (dropdownOpen) {
-      refreshNotifications(true);
+      refreshNotifications(true, true);
     }
   }, [dropdownOpen, refreshNotifications]);
 
@@ -53,15 +53,15 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
         // Mark all notifications as read in backend
         const notificationService = (await import('@/services/notificationService')).default;
         await notificationService.markAllAsRead();
-        // Refresh notifications to get latest
-        refreshNotifications(true);
+        // Refresh notifications silently to get latest data without flickering
+        refreshNotifications(true, true);
         // Animate count to 0 immediately (visual only - notifications stay visible in dropdown)
         setLocalUnreadCount(0);
         setCountReset(true);
       } catch (error) {
         console.error('Error marking all notifications as read:', error);
-        // Still refresh and animate even if mark as read fails
-        refreshNotifications(true);
+        // Still refresh silently even if mark as read fails
+        refreshNotifications(true, true);
         setLocalUnreadCount(0);
         setCountReset(true);
       }

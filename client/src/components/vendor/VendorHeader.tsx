@@ -235,50 +235,32 @@ export function VendorHeader({ onMenuClick }: VendorHeaderProps = {}) {
     }
   };
 
-  // Refresh immediately when dropdown opens
-  useEffect(() => {
-    if (notificationDropdownOpen && refreshNotifications) {
-      refreshNotifications(true);
-    }
-  }, [notificationDropdownOpen, refreshNotifications]);
-
+  // Consolidate refresh logic: When dropdown opens, mark as read and refresh
   const handleNotificationDropdownOpen = async (open: boolean) => {
     setNotificationDropdownOpen(open);
 
-    // When dropdown opens, mark as read and refresh
     if (open) {
       try {
-        // Mark all as read in backend
+        // Step 1: Immediately mark all as read in backend
         await notificationService.markAllAsRead();
 
-        // Refresh notifications to get latest
+        // Refresh to update state and count (silently to avoid flickering)
         if (refreshNotifications) {
-          refreshNotifications(true);
+          refreshNotifications(true, true);
         }
 
-        // Immediately set unread count to 0
-        if (setUnreadCount) {
-          setUnreadCount(0);
-        }
+        // Step 3: Local UI update for immediate response (visual zeroing)
+        if (setUnreadCount) setUnreadCount(0);
 
-        // Update all notifications to mark them as read in state (but keep them visible)
+        // Update local state to mark them as read visually without blanking the list
         if (setAllNotifications) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setAllNotifications((prev: any) => {
-            const updated = (prev || []).map((n: any) => ({ ...n, unread: false }));
-            console.log('🔔 Marked all notifications as read, count:', updated.length);
-            return updated;
-          });
-        }
-        if (setNotifications) {
-          setNotifications([]);
+          setAllNotifications((prev: any) =>
+            (prev || []).map((n: any) => ({ ...n, unread: false }))
+          );
         }
       } catch (error) {
         console.error('Error marking notifications as read:', error);
-        // Still refresh even if mark as read fails
-        if (refreshNotifications) {
-          refreshNotifications(true);
-        }
+        if (refreshNotifications) refreshNotifications(true);
       }
     }
   };

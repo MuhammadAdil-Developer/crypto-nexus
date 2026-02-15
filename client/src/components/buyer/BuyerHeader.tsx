@@ -224,7 +224,7 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
         // Immediately set unread count to 0
         setMessagingUnreadCount(0);
         // Update all notifications to mark them as read in state
-        refreshNotifications(true);
+        refreshNotifications(true, true);
       } catch (error) {
         console.error('Error marking notifications as read:', error);
       }

@@ -24,7 +24,7 @@ interface MessagingContextType {
   notifications: MessageNotification[];
   allNotifications: MessageNotification[];
   isLoading: boolean;
-  refreshNotifications: (force?: boolean) => void;
+  refreshNotifications: (force?: boolean, silent?: boolean) => void;
   setUnreadCount: (count: number) => void;
   setNotifications: React.Dispatch<React.SetStateAction<MessageNotification[]>>;
   setAllNotifications: React.Dispatch<React.SetStateAction<MessageNotification[]>>;
@@ -42,7 +42,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // Use shared service singletons
 
-  const refreshNotifications = async (force = false) => {
+  const refreshNotifications = async (force = false, silent = false) => {
     // Prevent unnecessary reloads - use cache if refreshed recently
     const now = Date.now();
     if (!force && now - lastRefreshTime < refreshCacheTime && allNotifications.length > 0) {
@@ -50,7 +50,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
 
       // Get unread count from notification service
       const count = await notificationService.getUnreadCount();
@@ -152,7 +152,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     const handleMessagesMarkedRead = () => {
       if (!isMounted) return;
       // Force refresh to get updated unread count
-      refreshNotifications(true);
+      refreshNotifications(true, true);
     };
 
     window.addEventListener('messages_marked_read', handleMessagesMarkedRead);

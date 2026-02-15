@@ -127,12 +127,36 @@ export default function AdminVendors() {
   const [isEditingReview, setIsEditingReview] = useState<string | null>(null);
   const [editReviewData, setEditReviewData] = useState({ rating: 0, comment: "", vendor_reply: "" });
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'reviews'>('details');
+  const [platformFee, setPlatformFee] = useState<number>(5);
 
 
-  // Fetch applications on component mount
+  // Fetch applications and commission settings on component mount
   useEffect(() => {
     fetchApplications();
+    fetchCommissionSettings();
   }, []);
+
+  const fetchCommissionSettings = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(getApiUrl('/payments/admin/commission-settings/'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.settings) {
+          setPlatformFee(data.settings.platform_fee_rate);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching commission settings:', error);
+    }
+  };
 
   // Fetch reviews when modal opens and vendor is selected
   useEffect(() => {
@@ -1196,7 +1220,7 @@ export default function AdminVendors() {
                               </div>
                               <div>
                                 <p className="text-xs sm:text-sm text-gray-400">Commission Rate</p>
-                                <p className="text-sm sm:text-base text-white font-medium">5%</p>
+                                <p className="text-sm sm:text-base text-white font-medium">{platformFee}%</p>
                               </div>
                             </div>
 

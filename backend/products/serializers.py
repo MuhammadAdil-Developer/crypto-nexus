@@ -121,7 +121,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'headline', 'listing_title', 'website', 'account_type', 'access_type', 
             'account_balance', 'description', 'price', 'additional_info',
-            'delivery_time', 'credentials_display', 'main_image', 
+            'delivery_time', 'credentials_display', 'credentials', 'main_image', 
             'gallery_images', 'documents', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
@@ -131,6 +131,20 @@ class ProductSerializer(serializers.ModelSerializer):
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
             'rating', 'review_count', 'created_at', 'vendor_username'
         ]
+
+    def to_representation(self, instance):
+        """ONLY vendors can see credentials. Admins/Others cannot."""
+        rep = super().to_representation(instance)
+        request = self.context.get('request')
+        user = request.user if request else None
+        
+        # Only vendor sees their own credentials
+        is_vendor = user and user.is_authenticated and instance.vendor == user
+        
+        if not is_vendor:
+            rep.pop('credentials', None)
+            
+        return rep
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -463,19 +477,6 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             if key not in validated_data:
                 validated_data[key] = default_value
         
-        # Process main image if provided - Manual Save to ensure consistency
-        main_image = validated_data.pop('main_image', None)
-        if main_image:
-            try:
-                from django.core.files.storage import default_storage
-                file_path = default_storage.save(f'products/images/{main_image.name}', main_image)
-                validated_data['main_image'] = file_path
-                print(f"DEBUG: Manually saved main_image to {file_path}")
-            except Exception as e:
-                print(f"DEBUG: Error saving main_image: {e}")
-                # Fallback to standard save if manual fails (though unlikely if storage works)
-                validated_data['main_image'] = main_image
-
         # Process account_age - convert string to date if provided
         if 'account_age' in validated_data and validated_data['account_age']:
             try:
@@ -596,7 +597,7 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
             'headline', 'website', 'account_type', 'access_type', 'access_method',
             'account_balance', 'description', 'price', 'discount_percentage',
             'additional_info', 'delivery_time', 'delivery_method', 'credentials',
-            'main_image', 'main_images', 'tags',
+            'main_image', 'main_images', 'tags', 'status',
             'account_age', 'quantity_available', 'special_features', 
             'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
             'escrow_enabled', 'accepted_crypto', 'is_giveaway', 'category', 'sub_category'
@@ -631,19 +632,6 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update product with file handling"""
-        # Process main image if provided
-        # Process main image if provided - Manual Save
-        main_image = validated_data.pop('main_image', None)
-        if main_image:
-            try:
-                from django.core.files.storage import default_storage
-                file_path = default_storage.save(f'products/images/{main_image.name}', main_image)
-                validated_data['main_image'] = file_path
-                print(f"DEBUG: Manually saved main_image (update) to {file_path}")
-            except Exception as e:
-                print(f"DEBUG: Error saving main_image (update): {e}")
-                validated_data['main_image'] = main_image
-        
         # Update product
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

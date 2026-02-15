@@ -14,6 +14,7 @@ class MaintenanceModeMiddleware(MiddlewareMixin):
     ALLOWED_PATHS = [
         '/api/v1/auth/login/',
         '/api/v1/auth/refresh/',
+        '/api/v1/auth/captcha/', # ALLOW CAPTCHA FOR LOGIN
         '/api/v1/system/maintenance/',
         '/admin/',  # Django admin
         '/static/',

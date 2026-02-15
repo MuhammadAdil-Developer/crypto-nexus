@@ -178,7 +178,7 @@ def create_application(request):
         if len(application_message) < 100:
             return Response({
                 'success': False,
-                'message': 'Application message must be at least 1,000 characters'
+                'message': 'Application message must be at least 100 characters'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if application already exists for this vendor
@@ -286,8 +286,14 @@ def approve_application(request, application_id):
         
         # Notify user about application approval
         try:
+            admin_notes = request.data.get('admin_notes', '')
+            # Save notes to application if provided
+            if admin_notes:
+                application.admin_notes = admin_notes
+                application.save()
+                
             from shared.admin_notifications import notify_user_vendor_application_approved
-            notify_user_vendor_application_approved(application, request.user)
+            notify_user_vendor_application_approved(application, request.user, admin_notes)
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
@@ -325,7 +331,9 @@ def reject_application(request, application_id):
     
     try:
         application = get_object_or_404(VendorApplication, id=application_id)
-        rejection_reason = request.data.get('rejection_reason', '') or request.data.get('admin_notes', '')
+        rejection_reason = request.data.get('rejection_reason')
+        if not rejection_reason:
+            rejection_reason = request.data.get('admin_notes', '')
         application.status = 'rejected'
         application.admin_notes = rejection_reason
         application.reviewed_by = request.user

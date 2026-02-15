@@ -510,19 +510,25 @@ def notify_admin_product_resubmitted(product):
     )
 
 
-def notify_user_vendor_application_approved(application, admin_user):
+def notify_user_vendor_application_approved(application, admin_user, admin_notes=None):
     """Notify buyer when their vendor application is approved"""
     try:
         user = User.objects.get(username=application.vendor_username)
+        message = f'Congratulations! Your vendor application for "{application.business_name}" has been approved. You can now start listing products.'
+        
+        if admin_notes:
+            message += f'\n\nAdmin Notes: {admin_notes}'
+            
         send_user_notification(
             user=user,
             notification_type='system',
             title='Vendor Application Approved',
-            message=f'Congratulations! Your vendor application for "{application.business_name}" has been approved. You can now start listing products.',
+            message=message,
             data={
                 'application_id': str(application.id),
                 'business_name': application.business_name,
                 'admin_username': admin_user.username,
+                'admin_notes': admin_notes,
                 'action_url': '/vendor/dashboard'
             }
         )
@@ -532,14 +538,20 @@ def notify_user_vendor_application_approved(application, admin_user):
 
 def notify_user_vendor_application_rejected(application, admin_user, rejection_reason=None):
     """Notify buyer when their vendor application is rejected"""
+    import html
     try:
         user = User.objects.get(username=application.vendor_username)
-        reason_text = f' Reason: {rejection_reason}' if rejection_reason else ''
+        if rejection_reason:
+            escaped_reason = html.escape(rejection_reason)
+            message = f'Your vendor application for "{application.business_name}" has been rejected.\n\nReason: <b>{escaped_reason}</b>'
+        else:
+            message = f'Your vendor application for "{application.business_name}" has been rejected.'
+            
         send_user_notification(
             user=user,
             notification_type='system',
             title='Vendor Application Rejected',
-            message=f'Your vendor application for "{application.business_name}" has been rejected.{reason_text}',
+            message=message,
             data={
                 'application_id': str(application.id),
                 'business_name': application.business_name,

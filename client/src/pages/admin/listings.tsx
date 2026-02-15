@@ -71,6 +71,9 @@ interface Product {
   quantity_available?: number;
   discount_percentage?: string | null;
   auto_delivery_script?: string | null;
+  credentials?: string;
+  is_giveaway?: boolean;
+  accepted_crypto?: string[];
 }
 
 export default function AdminListings() {
@@ -258,11 +261,20 @@ export default function AdminListings() {
       website: "",
       description: "",
       vendor: "",
-      category: "",
-      btcPrice: "",
-      xmrPrice: "",
-      delivery: "",
-      status: "Pending"
+      category_id: "",
+      account_type: "",
+      price: "0",
+      delivery_time: "instant_auto",
+      access_type: "full_ownership",
+      access_method: "email_password",
+      account_age: "",
+      account_balance: "",
+      tags: "",
+      quantity_available: "1",
+      escrow_enabled: false,
+      is_giveaway: false,
+      accepted_crypto: ['BTC'],
+      status: "approved"
     }
   });
 
@@ -439,7 +451,7 @@ export default function AdminListings() {
         // FIXED: data.data is directly the array, not data.data.products
         const products = data.data || [];
         console.log('📊 Products array:', products);
-        console.log('📊 Products with statuses:', products.map(p => ({ id: p.id, status: p.status, headline: p.headline })));
+        console.log('📊 Products with statuses:', products.map((p: Product) => ({ id: p.id, status: p.status, headline: p.headline })));
 
         setAllProducts(products);
         setPendingProducts(products);
@@ -577,11 +589,20 @@ export default function AdminListings() {
       website: product.website || "",
       description: product.description || "",
       vendor: product.vendor_username || "",
-      category: product.account_type || "",
-      btcPrice: product.price || "",
-      xmrPrice: product.price || "",
-      delivery: product.delivery_time || "",
-      status: product.status || "Pending"
+      category_id: product.category?.id || "",
+      account_type: product.account_type || "",
+      price: parseFloat(product.price || "0").toFixed(2),
+      delivery_time: product.delivery_time || "instant_auto",
+      access_type: product.access_type || "full_ownership",
+      access_method: product.access_method || "email_password",
+      account_balance: product.account_balance || "",
+      account_age: product.account_age || "",
+      tags: (product.tags || []).join(', '),
+      quantity_available: (product.quantity_available || 1).toString(),
+      escrow_enabled: !!product.escrow_enabled,
+      is_giveaway: !!product.is_giveaway,
+      accepted_crypto: product.accepted_crypto || ['BTC'],
+      status: product.status || "approved"
     });
     setEditListingModalOpen(true);
   };
@@ -603,19 +624,26 @@ export default function AdminListings() {
       // Map form data to API format
       const updateData: any = {
         headline: data.title,
+        website: data.website,
         description: data.description,
-        price: data.btcPrice,
-        delivery_time: data.delivery,
-        account_type: data.category,
+        price: data.price,
+        quantity_available: parseInt(data.quantity_available) || 1,
+        delivery_time: data.delivery_time,
+        account_type: data.account_type,
+        category: data.category_id,
+        access_type: data.access_type,
+        access_method: data.access_method,
+        tags: (data.tags || "").split(',').map((t: string) => t.trim()).filter((t: string) => t),
+        account_age: data.account_age,
+        account_balance: data.account_balance,
+        escrow_enabled: data.escrow_enabled,
+        is_giveaway: data.is_giveaway,
+        accepted_crypto: data.accepted_crypto,
+        status: data.status
       };
 
-      // Add website if provided
-      if (data.website) {
-        updateData.website = data.website;
-      }
-
       // Use vendor update endpoint - admins can update any product
-      const response = await fetch(`${API_BASE_URL}/products/update/${selectedListing.id}/`, {
+      const response = await fetch(getApiUrl(`/products/update/${selectedListing.id}/`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1088,31 +1116,8 @@ export default function AdminListings() {
                       <Input {...createForm.register('quantity_available')} type="number" placeholder="1" className="text-sm mt-1" />
                     </div>
 
-                    <div>
-                      <Label className="text-sm">Region Restrictions</Label>
-                      <Input {...createForm.register('region_restrictions')} placeholder="e.g., US only, EU restricted" className="text-sm mt-1" />
-                    </div>
                   </div>
 
-                  {/* Credentials & Notes */}
-                  <div className="space-y-3 border-t border-gray-600/30 pt-4">
-                    <h3 className="text-sm font-semibold text-gray-300">Credentials & Additional Info</h3>
-
-                    <div>
-                      <Label className="text-sm">Credentials</Label>
-                      <Textarea {...createForm.register('credentials')} placeholder="Username:password or other access details" rows={2} className="text-sm mt-1" />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm">Additional Information</Label>
-                      <Textarea {...createForm.register('additional_info')} placeholder="Any extra details about the account" rows={2} className="text-sm mt-1" />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm">Notes for Buyer</Label>
-                      <Textarea {...createForm.register('notes_for_buyer')} placeholder="Instructions or warnings for the buyer" rows={2} className="text-sm mt-1" />
-                    </div>
-                  </div>
 
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row justify-end gap-2 border-t border-gray-600/30 pt-4">
@@ -1173,7 +1178,7 @@ export default function AdminListings() {
                 <div>
                   <p className="text-xs text-gray-400">Pending Review</p>
                   <p className="text-lg font-bold text-white">
-                    {allProducts.filter(p => p.status === 'pending_approval').length}
+                    {allProducts.filter((p: Product) => p.status === 'pending_approval').length}
                   </p>
                 </div>
               </div>
@@ -1189,7 +1194,7 @@ export default function AdminListings() {
                 <div>
                   <p className="text-xs text-gray-400">Approved</p>
                   <p className="text-lg font-bold text-white">
-                    {allProducts.filter(p => p.status === 'approved').length}
+                    {allProducts.filter((p: Product) => p.status === 'approved').length}
                   </p>
                 </div>
               </div>
@@ -1205,7 +1210,7 @@ export default function AdminListings() {
                 <div>
                   <p className="text-xs text-gray-400">Rejected</p>
                   <p className="text-lg font-bold text-white">
-                    {allProducts.filter(p => p.status === 'rejected').length}
+                    {allProducts.filter((p: Product) => p.status === 'rejected').length}
                   </p>
                 </div>
               </div>
@@ -1263,7 +1268,7 @@ export default function AdminListings() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-white">Products ({filteredProducts.length})</CardTitle>
-              {currentFilter === 'pending' && allProducts.filter(p => p.status === 'pending_approval').length > 0 && (
+              {currentFilter === 'pending' && allProducts.filter((p: Product) => p.status === 'pending_approval').length > 0 && (
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1459,133 +1464,326 @@ export default function AdminListings() {
 
         {/* Edit Product Modal */}
         <Dialog open={editListingModalOpen} onOpenChange={setEditListingModalOpen}>
-          <DialogContent className="max-w-2xl bg-card text-white border border-gray-600/30">
+          <DialogContent className="max-w-4xl max-h-[90vh] bg-card text-white border border-gray-600/30 overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-white">Edit Product</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-white">Full Listing Editor (Admin)</DialogTitle>
+              <DialogDescription className="text-gray-400">
+                You have full A to Z access to edit this listing.
+              </DialogDescription>
             </DialogHeader>
             <Form {...editForm}>
-              <form onSubmit={editForm.handleSubmit(handleUpdateProduct)} className="space-y-4">
-                <FormField
-                  control={editForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Product Title</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          className="bg-gray-800 border-gray-600 text-white"
-                          placeholder="Enter product title"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="website"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Website</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          className="bg-gray-800 border-gray-600 text-white"
-                          placeholder="Enter website URL"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          className="bg-gray-800 border-gray-600 text-white"
-                          placeholder="Enter product description"
-                          rows={4}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={editForm.handleSubmit(handleUpdateProduct)} className="space-y-6">
+
+                {/* Basic Info Section */}
+                <div className="space-y-4">
+                  <h3 className="text-md font-semibold text-accent border-b border-gray-600/30 pb-2">Basic Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Product Title (Headline)</FormLabel>
+                          <FormControl>
+                            <Input {...field} className="bg-gray-800 border-gray-600 text-white" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="website"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Website URL</FormLabel>
+                          <FormControl>
+                            <Input {...field} className="bg-gray-800 border-gray-600 text-white" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <FormField
                     control={editForm.control}
-                    name="btcPrice"
+                    name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-300">Price ($)</FormLabel>
+                        <FormLabel className="text-gray-300">Description</FormLabel>
                         <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            step="0.00000001"
-                            className="bg-gray-800 border-gray-600 text-white"
-                            placeholder="0.00"
-                          />
+                          <Textarea {...field} className="bg-gray-800 border-gray-600 text-white" rows={3} />
                         </FormControl>
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={editForm.control}
-                    name="delivery"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-300">Delivery Time</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            className="bg-gray-800 border-gray-600 text-white"
-                            placeholder="e.g., instant_auto"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="account_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Account Type</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="e.g., social, streaming" className="bg-gray-800 border-gray-600 text-white" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="category_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Category</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                                <SelectValue placeholder="Select Category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-surface-2 border-border">
+                              {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id} className="text-white hover:bg-gray-700">
+                                  {cat.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Listing Status</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                                <SelectValue placeholder="Status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-surface-2 border-border">
+                              <SelectItem value="approved" className="text-white">Approved</SelectItem>
+                              <SelectItem value="pending_approval" className="text-white">Pending Approval</SelectItem>
+                              <SelectItem value="rejected" className="text-white">Rejected</SelectItem>
+                              <SelectItem value="suspended" className="text-white">Suspended</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
-                <FormField
-                  control={editForm.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="social">Social Media</SelectItem>
-                          <SelectItem value="streaming">Streaming</SelectItem>
-                          <SelectItem value="gaming">Gaming</SelectItem>
-                          <SelectItem value="software">Software</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end space-x-3 pt-4">
+
+                {/* Technical Details Section */}
+                <div className="space-y-4">
+                  <h3 className="text-md font-semibold text-accent border-b border-gray-600/30 pb-2">Technical & Account Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="access_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Access Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                                <SelectValue placeholder="Type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-surface-2 border-border">
+                              <SelectItem value="full_ownership" className="text-white">Full Ownership</SelectItem>
+                              <SelectItem value="access" className="text-white">Access</SelectItem>
+                              <SelectItem value="shared" className="text-white">Shared</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="access_method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Access Method</FormLabel>
+                          <FormControl>
+                            <Input {...field} className="bg-gray-800 border-gray-600 text-white" placeholder="email:password" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="account_age"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Account Age</FormLabel>
+                          <FormControl>
+                            <Input {...field} className="bg-gray-800 border-gray-600 text-white" placeholder="e.g., 2 years" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="account_balance"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Account Balance/Credit</FormLabel>
+                          <FormControl>
+                            <Input {...field} className="bg-gray-800 border-gray-600 text-white" placeholder="e.g., $10 credit" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Pricing & Delivery Section */}
+                <div className="space-y-4">
+                  <h3 className="text-md font-semibold text-accent border-b border-gray-600/30 pb-2">Pricing & Delivery</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="price"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Price ($)</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="number" step="0.01" className="bg-gray-800 border-gray-600 text-white" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="quantity_available"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Stock Availability</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="number" className="bg-gray-800 border-gray-600 text-white" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="delivery_time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Delivery Time</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                                <SelectValue placeholder="Delivery" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-surface-2 border-border">
+                              <SelectItem value="instant_auto" className="text-white">Instant Auto</SelectItem>
+                              <SelectItem value="manual_24h" className="text-white">Manual 24h</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-md font-semibold text-accent border-b border-gray-600/30 pb-2">Listing Features & Meta</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="escrow_enabled"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2 space-y-0">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <FormLabel className="text-gray-300 cursor-pointer">Escrow Enabled</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="is_giveaway"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2 space-y-0">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <FormLabel className="text-gray-300 cursor-pointer">Is Giveaway</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={editForm.control}
+                    name="accepted_crypto"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-300">Accepted Crypto</FormLabel>
+                        <div className="flex gap-4 mt-2">
+                          {['BTC', 'XMR'].map((coin) => (
+                            <label key={coin} className="flex items-center space-x-2 cursor-pointer">
+                              <Checkbox
+                                checked={field.value?.includes(coin)}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, coin]);
+                                  } else {
+                                    field.onChange(current.filter((c: string) => c !== coin));
+                                  }
+                                }}
+                              />
+                              <span className="text-sm text-gray-300">{coin}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="tags"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-300">Tags (Comma separated, max 3)</FormLabel>
+                          <FormControl>
+                            <Input {...field} className="bg-gray-800 border-gray-600 text-white" placeholder="tag1, tag2, tag3" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+
+                <div className="flex justify-end space-x-3 pt-6 border-t border-gray-600/30">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setEditListingModalOpen(false)}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 h-10 px-6"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-accent text-bg hover:bg-accent-2"
+                    className="bg-accent text-bg hover:bg-accent-2 h-10 px-8 font-bold"
                   >
-                    Save Changes
+                    SAVE FULL LISTING
                   </Button>
                 </div>
               </form>
@@ -1701,12 +1899,6 @@ export default function AdminListings() {
                         <p className="text-white mt-1 leading-relaxed">{selectedListing.description}</p>
                       </div>
 
-                      {selectedListing.additional_info && (
-                        <div>
-                          <Label className="text-sm font-medium text-gray-400">Additional Information</Label>
-                          <p className="text-white mt-1 leading-relaxed">{selectedListing.additional_info}</p>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -1764,52 +1956,6 @@ export default function AdminListings() {
                     </div>
                   </div>
 
-                  {/* Tags & Special Features */}
-                  {(selectedListing.tags && selectedListing.tags.length > 0) || (selectedListing.special_features && selectedListing.special_features.length > 0) || selectedListing.region_restrictions ? (
-                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
-                      <h3 className="text-lg font-semibold text-white mb-3">Tags & Features</h3>
-                      <div className="space-y-3">
-                        {selectedListing.tags && selectedListing.tags.length > 0 && (
-                          <div>
-                            <Label className="text-sm font-medium text-gray-400 mb-2 block">Tags</Label>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedListing.tags.map((tag: string, index: number) => (
-                                <Badge key={index} variant="outline" className="text-purple-400 border-purple-400">
-                                  #{tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {selectedListing.special_features && selectedListing.special_features.length > 0 && (
-                          <div>
-                            <Label className="text-sm font-medium text-gray-400 mb-2 block">Special Features</Label>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedListing.special_features.map((feature: string, index: number) => (
-                                <Badge key={index} variant="secondary" className="bg-blue-500/20 text-blue-300 border-blue-400/30">
-                                  {feature}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {selectedListing.region_restrictions && (
-                          <div>
-                            <Label className="text-sm font-medium text-gray-400 mb-2 block">Region Restrictions</Label>
-                            <p className="text-white text-sm">{selectedListing.region_restrictions}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Notes for Buyer */}
-                  {selectedListing.notes_for_buyer && (
-                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
-                      <h3 className="text-lg font-semibold text-white mb-3">Notes for Buyer</h3>
-                      <p className="text-white text-sm leading-relaxed">{selectedListing.notes_for_buyer}</p>
-                    </div>
-                  )}
 
                   {/* Gallery Images */}
                   {selectedListing.gallery_images && selectedListing.gallery_images.length > 0 && (
@@ -1887,27 +2033,41 @@ export default function AdminListings() {
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-green-500">
-                          {typeof selectedListing.rating === 'number' && !isNaN(selectedListing.rating) ? selectedListing.rating.toFixed(1) : parseFloat(selectedListing.rating || '0').toFixed(1)}
+                          {parseFloat(selectedListing.rating || '0').toFixed(1)}
                         </div>
                         <p className="text-sm text-gray-400">Rating</p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Tags Display */}
+                  {selectedListing.tags && selectedListing.tags.length > 0 && (
+                    <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
+                      <h3 className="text-lg font-semibold text-white mb-3">Product Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedListing.tags.map((tag: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-purple-400 border-purple-400">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-600/20 bg-card">
+                  <div className="flex justify-end space-x-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setViewListingModalOpen(false)}
+                      className="border-gray-600/30 text-gray-300 hover:bg-gray-700/50 px-4 py-2"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
-
-            <div className="px-6 py-4 border-t border-gray-600/20 bg-card">
-              <div className="flex justify-end space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setViewListingModalOpen(false)}
-                  className="border-gray-600/30 text-gray-300 hover:bg-gray-700/50 px-4 py-2"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
           </DialogContent>
         </Dialog>
 
@@ -2116,6 +2276,6 @@ export default function AdminListings() {
           </DialogContent>
         </Dialog>
       </div>
-    </main>
+    </main >
   );
 }

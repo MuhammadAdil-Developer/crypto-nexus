@@ -460,7 +460,13 @@ def create_product(request):
     """Create a new product"""
     try:
         # Prepare incoming data and allow admins to create listings for a specified vendor
-        data = request.data.copy()
+        # Use a shallow copy logic that handles QueryDict (standard for multipart/form-data)
+        # to avoid wrapping everything in lists as dict(request.data) does.
+        if hasattr(request.data, 'dict'):
+            data = request.data.dict() # Shallow copy for QueryDict
+        else:
+            data = request.data.copy() # Standard dict copy (shallow for DRF data dicts)
+            
         # If admin provided a vendor username, resolve it to the user's id
         try:
             if hasattr(request.user, 'user_type') and request.user.user_type == 'admin':

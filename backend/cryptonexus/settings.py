@@ -163,18 +163,36 @@ STATICFILES_DIRS = [
 ]
 
 # Media files
+# Robust Cloudinary configuration
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', env.str('CLOUDINARY_CLOUD_NAME', default='')),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', env.str('CLOUDINARY_API_KEY', default='')),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', env.str('CLOUDINARY_API_SECRET', default='')),
 }
 
-if all([CLOUDINARY_STORAGE['CLOUD_NAME'], CLOUDINARY_STORAGE['API_KEY'], CLOUDINARY_STORAGE['API_SECRET']]):
+# Always define MEDIA_ROOT as a fallback
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
+try:
+    import cloudinary
+    import cloudinary_storage
+    HAS_CLOUDINARY_LIBS = True
+except ImportError:
+    HAS_CLOUDINARY_LIBS = False
+
+# Enable Cloudinary if both settings and libs are present
+if CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['API_KEY'] and HAS_CLOUDINARY_LIBS:
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    MEDIA_URL = '/media/'  # Cloudinary will handle this prefix
-else:
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+    # Django 4.2+ STORAGES support
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

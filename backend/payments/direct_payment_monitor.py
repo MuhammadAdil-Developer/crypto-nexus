@@ -205,15 +205,29 @@ class DirectPaymentMonitor:
                 order = payment.order
                 is_partial = False
                 if amount is not None:
-                    expected = float(db_payment.amount)
-                    received = float(amount)
+                    # Using Decimal for high-precision crypto comparisons
+                    expected_crypto = Decimal(str(db_payment.amount))
+                    received_crypto = Decimal(str(amount))
+                    current_price = Decimal(str(db_payment.crypto_currency.current_price or 0))
                     
-                    # Tolerance for minor dust/exchange fees (1% as per standard)
-                    tolerance = expected * 0.01
+                    # Tolerance Rule: $4.00 USD flat OR 1% of total (whichever is greater)
+                    # This prevents orders from being rejected for minor exchange rate variations or small dust shortfalls.
+                    if current_price > 0:
+                        tolerance_crypto = max(Decimal('4.00') / current_price, expected_crypto * Decimal('0.01'))
+                    else:
+                        tolerance_crypto = expected_crypto * Decimal('0.01')
                     
-                    if received < (expected - tolerance):
+                    if received_crypto < (expected_crypto - tolerance_crypto):
                         is_partial = True
-                        logger.warning(f"[WARNING] PARTIAL PAYMENT DETECTED: Order {order.order_id}. Expected {expected}, Received {received}. Status will be set to PARTIAL.")
+                        msg = f"[WARNING] PARTIAL PAYMENT DETECTED: Order {order.order_id}. Received {received_crypto}, Expected {expected_crypto}."
+                        if current_price > 0:
+                            shortfall_usd = (expected_crypto - received_crypto) * current_price
+                            msg += f" Shortfall: ~${shortfall_usd:.2f} USD."
+                        logger.warning(msg)
+                    else:
+                        if received_crypto < expected_crypto:
+                            logger.info(f"[INFO] TOLERATED UNDERPAYMENT: Order {order.order_id}. Shortfall within $4 USD limit. Proceeding as fully paid.")
+                        is_partial = False
                 
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
                 update_data = {}
@@ -270,10 +284,10 @@ class DirectPaymentMonitor:
                             order=order,
                             buyer=order.buyer,
                             vendor=order.vendor,
-                            amount=Decimal(str(received)),
+                            amount=received_crypto,
                             refund_type='partial',
                             reason="partial",
-                            notes=f"Auto-refund of underpaid blockchain detection. Received: {received}",
+                            notes=f"Auto-refund of underpaid blockchain detection. Received: {received_crypto}",
                             status='completed',
                             vendor_decision='approved',
                             vendor_decision_at=timezone.now(),
@@ -291,7 +305,7 @@ class DirectPaymentMonitor:
                             # Client mentioned 2-5% fee. Let's use 3% as a default or keep it 0 as a gesture of good will for now.
                             # The user said "return the partial amount minus the fee".
                             fee_pct = Decimal('0.03')
-                            refund_gross = Decimal(str(received))
+                            refund_gross = received_crypto
                             refund_fee = refund_gross * fee_pct
                             refund_net = refund_gross - refund_fee
                             
@@ -306,7 +320,7 @@ class DirectPaymentMonitor:
                                 platform_fee=refund_fee,
                                 vendor_address=order.refund_address, # Sending to buyer's refund address
                                 status='pending',
-                                admin_notes=f"Auto-refund for partial payment. Expected: {expected}, Received: {received}. Fee: {refund_fee} (3%)"
+                                admin_notes=f"Auto-refund for partial payment. Expected: {expected_crypto}, Received: {received_crypto}. Fee: {refund_fee} (3%)"
                             )
                             logger.info(f"[AUTO-REFUND] AUTO-REFUND QUEUED: Order {order.order_id} for {refund_net} {order.crypto_currency} to {order.refund_address}")
                             
@@ -350,10 +364,16 @@ class DirectPaymentMonitor:
                 if amount: 
                     pa.received_amount = float(amount)
                     # Set status to partial if discrepancy detected (even before confirmation)
-                    expected = float(pa.expected_amount)
-                    received = float(amount)
-                    tolerance = expected * 0.01
-                    if received < (expected - tolerance):
+                    expected_crypto = Decimal(str(pa.expected_amount))
+                    received_crypto = Decimal(str(amount))
+                    current_price = Decimal(str(pa.crypto_currency.current_price or 0))
+                    
+                    if current_price > 0:
+                        tolerance_crypto = max(Decimal('4.00') / current_price, expected_crypto * Decimal('0.01'))
+                    else:
+                        tolerance_crypto = expected_crypto * Decimal('0.01')
+                    
+                    if received_crypto < (expected_crypto - tolerance_crypto):
                         pa.status = 'partial'
                 
                 # Keep status as pending/partial to avoid premature toast

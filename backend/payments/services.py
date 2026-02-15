@@ -483,7 +483,7 @@ class MoneroRPCService:
             return result['result']['transfer']
         return None
     
-    def check_payment_by_subaddress(self, subaddress_index: int, expected_amount: int, tolerance_percent: float = 1.6) -> dict:
+    def check_payment_by_subaddress(self, subaddress_index: int, expected_amount: int, tolerance_atomic: int = 0) -> dict:
         """Check if payment has been received to specific subaddress (includes mempool)"""
         try:
             # Get all transfers for specific subaddress
@@ -525,7 +525,7 @@ class MoneroRPCService:
             
             # Calculate threshold with tolerance
             # Default tolerance expanded to 1.6% to accommodate user's small underpayment
-            threshold = int(expected_amount * (1.0 - (tolerance_percent / 100.0)))
+            threshold = expected_amount - tolerance_atomic
             is_partial = total_received < threshold
             
             logger.info(f"Subaddress {subaddress_index} Balance: {total_received} atomic units. Target: {expected_amount}, Min Threshold: {threshold}")
@@ -1238,11 +1238,17 @@ class PaymentService:
                     if avg_amount:
                         received_amount = Decimal(str(avg_amount))
                         # Use same tolerance as elsewhere (0.5%)
+                        # Tolerance Rule: $4.00 USD flat OR 1% of total (whichever is greater)
                         expected = Decimal(str(payment_address.expected_amount))
-                        tolerance = expected * Decimal('0.005')
+                        current_price = self.get_fiat_to_crypto_rate(payment_address.crypto_currency.symbol)
+                        if current_price > 0:
+                            tolerance = max(Decimal('4.00') / current_price, expected * Decimal('0.01'))
+                        else:
+                            tolerance = expected * Decimal('0.01')
+
                         if received_amount < (expected - tolerance):
                             is_partial = True
-                            logger.warning(f"BTCPay Underpayment Detected: Received {received_amount}, Expected {expected}")
+                            logger.warning(f"BTCPay Underpayment Detected: Received {received_amount}, Expected {expected}. (Tolerance: {tolerance})")
                 
                 if is_partial:
                     logger.warning(f"BTCPay Underpayment detected for {payment_address.order_id}: Received {received_amount}. Marking as partial.")
@@ -1879,15 +1885,24 @@ class PaymentService:
                 logger.error(f"Error finding payment address: {e}")
                 return False
                 
-            # Verify payment details via RPC to be safe
             # Determine expected amount in atomic units (piconero)
             # 1 XMR = 10^12 atomic units
             expected_amount_atomic = int(payment_address.expected_amount * Decimal('1000000000000'))
             
+            # Determine tolerance (min $4 USD or 1% of total)
+            current_price = self.get_fiat_to_crypto_rate('XMR')
+            if current_price > 0:
+                tolerance_crypto = max(Decimal('4.00') / current_price, payment_address.expected_amount * Decimal('0.01'))
+            else:
+                tolerance_crypto = payment_address.expected_amount * Decimal('0.01')
+            
+            tolerance_atomic = int(tolerance_crypto * Decimal('1000000000000'))
+            
             # Check payment
             payment_info = self.monero.check_payment_by_subaddress(
                 int(subaddr_index), 
-                expected_amount_atomic
+                expected_amount_atomic,
+                tolerance_atomic=tolerance_atomic
             )
             
             if payment_info.get('found'):
@@ -2074,11 +2089,23 @@ class PaymentService:
                 logger.info(f"Checking Monero payment for order {order_id}, subaddress index: {payment_address.monero_subaddress_index}")
                 
                 # Convert expected amount to atomic units (XMR uses 12 decimal places)
-                expected_amount_atomic = int(float(payment_address.expected_amount) * 1e12)
+                # Determine expected amount in atomic units (piconero)
+                # 1 XMR = 10^12 atomic units
+                expected_amount_atomic = int(payment_address.expected_amount * Decimal('1000000000000'))
+                
+                # Determine tolerance (min $4 USD or 1% of total)
+                current_price = self.get_fiat_to_crypto_rate('XMR')
+                if current_price > 0:
+                    tolerance_crypto = max(Decimal('4.00') / current_price, payment_address.expected_amount * Decimal('0.01'))
+                else:
+                    tolerance_crypto = payment_address.expected_amount * Decimal('0.01')
+                
+                tolerance_atomic = int(tolerance_crypto * Decimal('1000000000000'))
                 
                 payment_result = self.monero.check_payment_by_subaddress(
                     payment_address.monero_subaddress_index,
-                    expected_amount_atomic
+                    expected_amount_atomic,
+                    tolerance_atomic=tolerance_atomic
                 )
                 
                 if payment_result.get('found'):
@@ -2209,7 +2236,13 @@ class PaymentService:
                             payment_address.confirmations = found_tx['confs']
                             
                             # Check for partial
-                            tolerance = payment_address.expected_amount * Decimal('0.01')
+                            # Tolerance Rule: $4.00 USD flat OR 1% of total (whichever is greater)
+                            current_price = self.get_fiat_to_crypto_rate('BTC')
+                            if current_price > 0:
+                                tolerance = max(Decimal('4.00') / current_price, payment_address.expected_amount * Decimal('0.01'))
+                            else:
+                                tolerance = payment_address.expected_amount * Decimal('0.01')
+                                
                             is_partial = found_tx['amount'] < (payment_address.expected_amount - tolerance)
                             
                             if is_partial:

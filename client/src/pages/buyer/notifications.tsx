@@ -101,7 +101,7 @@ export default function BuyerNotifications() {
             <Button
               variant="outline"
               size="sm"
-              onClick={refreshNotifications}
+              onClick={() => refreshNotifications(true)}
               disabled={isLoading}
               className="border-gray-600"
             >
@@ -208,9 +208,10 @@ export default function BuyerNotifications() {
                           <Badge className="bg-blue-500 text-white text-xs">New</Badge>
                         )}
                       </div>
-                      <p className="text-gray-400 text-sm mb-2 line-clamp-2">
-                        {notification.message}
-                      </p>
+                      <p
+                        className="text-gray-400 text-sm mb-2 line-clamp-2"
+                        dangerouslySetInnerHTML={{ __html: notification.message }}
+                      />
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-gray-500">{notification.time}</p>
                         {notification.productTitle && (

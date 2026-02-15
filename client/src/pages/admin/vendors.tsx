@@ -243,13 +243,17 @@ export default function AdminVendors() {
       }
 
       const endpoint = confirmAction === 'approve' ? 'approve' : 'reject';
+      const notes = adminNotes && adminNotes.trim().length > 0
+        ? adminNotes
+        : `${confirmAction === 'approve' ? 'Approved' : 'Rejected'} by admin`;
+
       const response = await fetch(getApiUrl(`/vendors/applications/${confirmApplication.id}/${endpoint}/`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ admin_notes: `${confirmAction === 'approve' ? 'Approved' : 'Rejected'} by admin` })
+        body: JSON.stringify({ admin_notes: notes })
       });
 
       if (response.ok) {
@@ -1726,7 +1730,6 @@ export default function AdminVendors() {
                         setConfirmApplication(selectedApplication);
                         setConfirmAction('reject');
                         setIsConfirmModalOpen(true);
-                        closeModal(); // Close review modal
                       }}
                     >
                       <X className="w-4 h-4 mr-2" />
@@ -1739,7 +1742,6 @@ export default function AdminVendors() {
                         setConfirmApplication(selectedApplication);
                         setConfirmAction('approve');
                         setIsConfirmModalOpen(true);
-                        closeModal(); // Close review modal
                       }}
                     >
                       <Check className="w-4 h-4 mr-2" />

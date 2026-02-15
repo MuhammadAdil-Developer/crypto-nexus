@@ -134,7 +134,7 @@ export const CircleCaptchaModal: React.FC<CircleCaptchaModalProps> = ({
       window.removeEventListener('touchmove', handleMouseMove);
       window.removeEventListener('touchend', handleMouseUp);
     };
-  }, [isDragging, sliderPosition, targetPosition]);
+  }, [isDragging, sliderPosition, targetX]);
 
   if (!isOpen) return null;
 

@@ -1295,83 +1295,85 @@ export default function VendorMessages() {
               <p className="text-sm">No conversations found</p>
             </div>
           ) : (
-            filteredConversations.map((conv) => {
-              const buyer = getBuyerFromConversation(conv);
-              const isSelected = selectedConversation?.id === conv.id;
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+              {filteredConversations.map((conv) => {
+                const buyer = getBuyerFromConversation(conv);
+                const isSelected = selectedConversation?.id === conv.id;
 
-              // Safe access to last message content
-              const lastMsgContent = (() => {
-                const lastMsg = conv.last_message;
-                if (!lastMsg) return <span className="italic opacity-50">No messages yet</span>;
-                if (lastMsg.message_type === 'image') return <span className="flex items-center"><ImageIcon className="w-3 h-3 mr-1" /> Image</span>;
-                if (lastMsg.message_type === 'video') return <span className="flex items-center"><Video className="w-3 h-3 mr-1" /> Video</span>;
-                if (lastMsg.message_type === 'pdf') return <span className="flex items-center"><File className="w-3 h-3 mr-1" /> PDF</span>;
-                if (lastMsg.message_type === 'file' || lastMsg.message_type === 'document') {
-                  return <span className="flex items-center"><File className="w-3 h-3 mr-1" /> File</span>;
-                }
-                return lastMsg.content || <span className="italic opacity-50">No content</span>;
-              })();
+                // Safe access to last message content
+                const lastMsgContent = (() => {
+                  const lastMsg = conv.last_message;
+                  if (!lastMsg) return <span className="italic opacity-50">No messages yet</span>;
+                  if (lastMsg.message_type === 'image') return <span className="flex items-center"><ImageIcon className="w-3 h-3 mr-1" /> Image</span>;
+                  if (lastMsg.message_type === 'video') return <span className="flex items-center"><Video className="w-3 h-3 mr-1" /> Video</span>;
+                  if (lastMsg.message_type === 'pdf') return <span className="flex items-center"><File className="w-3 h-3 mr-1" /> PDF</span>;
+                  if (lastMsg.message_type === 'file' || lastMsg.message_type === 'document') {
+                    return <span className="flex items-center"><File className="w-3 h-3 mr-1" /> File</span>;
+                  }
+                  return lastMsg.content || <span className="italic opacity-50">No content</span>;
+                })();
 
-              return (
-                <div
-                  key={conv.id}
-                  onClick={() => handleConversationSelect(conv)}
-                  className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border border-transparent group relative ${isSelected
-                    ? 'bg-cyan-600/20 border-cyan-500/30'
-                    : 'hover:bg-gray-800/50 hover:border-gray-700/50'
-                    }`}
-                >
-                  {/* Active Indicator Bar for Selected */}
-                  {isSelected && (
-                    <div className="absolute left-0 top-3 bottom-3 w-1 bg-cyan-500 rounded-r-full" />
-                  )}
+                return (
+                  <div
+                    key={conv.id}
+                    onClick={() => handleConversationSelect(conv)}
+                    className={`p-3 rounded-xl cursor-pointer transition-all duration-200 border border-transparent group relative ${isSelected
+                      ? 'bg-cyan-600/20 border-cyan-500/30'
+                      : 'hover:bg-gray-800/50 hover:border-gray-700/50'
+                      }`}
+                  >
+                    {/* Active Indicator Bar for Selected */}
+                    {isSelected && (
+                      <div className="absolute left-0 top-3 bottom-3 w-1 bg-cyan-500 rounded-r-full" />
+                    )}
 
-                  <div className="flex items-center space-x-3 pl-2">
-                    <div className="relative flex-shrink-0">
-                      <Avatar className={`w-10 h-10 ring-2 ${isSelected ? 'ring-cyan-500/50' : 'ring-transparent group-hover:ring-gray-600'} overflow-hidden`}>
-                        {buyer?.profile_picture && (
-                          <AvatarImage src={getImageUrl(buyer.profile_picture)} className="object-cover" />
-                        )}
-                        <AvatarFallback className={`${isSelected ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-400'}`}>
-                          {buyer?.username?.charAt(0).toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      {/* ONLINE STATUS INDICATOR */}
-                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-gray-900 rounded-full transition-colors duration-300 ${buyer?.is_online ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-500'
-                        }`} />
-
-                      {conv.unread_count > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 justify-center items-center text-[10px] text-white font-bold">{conv.unread_count}</span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline mb-0.5">
-                        <h4 className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-gray-200 group-hover:text-white'} flex items-center gap-2`}>
-                          {conv.is_admin_chat ? (
-                            <span className="text-theme-cyan">Admin Chat</span>
-                          ) : (
-                            buyer?.username || 'Buyer'
+                    <div className="flex items-center space-x-3 pl-2">
+                      <div className="relative flex-shrink-0">
+                        <Avatar className={`w-10 h-10 ring-2 ${isSelected ? 'ring-cyan-500/50' : 'ring-transparent group-hover:ring-gray-600'} overflow-hidden`}>
+                          {buyer?.profile_picture && (
+                            <AvatarImage src={getImageUrl(buyer.profile_picture)} className="object-cover" />
                           )}
-                        </h4>
-                        <span className={`text-[10px] ${isSelected ? 'text-cyan-300' : 'text-gray-500'}`}>
-                          {getRelativeTime(conv.updated_at)}
-                        </span>
+                          <AvatarFallback className={`${isSelected ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-400'}`}>
+                            {buyer?.username?.charAt(0).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        {/* ONLINE STATUS INDICATOR */}
+                        <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-gray-900 rounded-full transition-colors duration-300 ${buyer?.is_online ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-500'
+                          }`} />
+
+                        {conv.unread_count > 0 && (
+                          <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 justify-center items-center text-[10px] text-white font-bold">{conv.unread_count}</span>
+                          </span>
+                        )}
                       </div>
-                      <p className={`text-xs truncate mb-1 ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>
-                        {lastMsgContent}
-                      </p>
-                      <p className="text-[10px] text-indigo-400 truncate flex items-center">
-                        <Package className="w-3 h-3 mr-1 opacity-70" />
-                        {conv.is_admin_chat ? 'Admin Chat' : (conv.product?.headline || conv.product?.title || 'Product')}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-0.5">
+                          <h4 className={`font-bold text-sm truncate ${isSelected ? 'text-white' : 'text-gray-200 group-hover:text-white'} flex items-center gap-2`}>
+                            {conv.is_admin_chat ? (
+                              <span className="text-theme-cyan">Admin Chat</span>
+                            ) : (
+                              buyer?.username || 'Buyer'
+                            )}
+                          </h4>
+                          <span className={`text-[10px] ${isSelected ? 'text-cyan-300' : 'text-gray-500'}`}>
+                            {getRelativeTime(conv.updated_at)}
+                          </span>
+                        </div>
+                        <p className={`text-xs truncate mb-1 ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>
+                          {lastMsgContent}
+                        </p>
+                        <p className="text-[10px] text-indigo-400 truncate flex items-center">
+                          <Package className="w-3 h-3 mr-1 opacity-70" />
+                          {conv.is_admin_chat ? 'Admin Chat' : (conv.product?.headline || conv.product?.title || 'Product')}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
 

@@ -362,6 +362,18 @@ class DirectPaymentMonitor:
                             }
                         else:
                             order.order_status = 'paid'
+                    # CRITICAL: Handle auto-delivery for orders that were already marked as 'paid' but haven't received credentials
+                    # This happens when payment is accepted with tolerance (underpayment within $5)
+                    elif order.order_status == 'paid' and order.product.delivery_time == 'instant_auto':
+                        if not order.product_credentials or order.product_credentials == {}:
+                            logger.info(f"🎁 AUTO-DELIVERY: Order {order.order_id} was paid with tolerance, delivering credentials now...")
+                            order.order_status = 'confirmed'  # Mark as completed
+                            order.delivered_at = timezone.now()
+                            order.product_credentials = {
+                                'credentials': order.product.credentials,
+                                'delivered_at': timezone.now().isoformat(),
+                                'delivery_method': 'auto'
+                            }
                 order.save()
                 
                 if needs_trigger and not is_partial:

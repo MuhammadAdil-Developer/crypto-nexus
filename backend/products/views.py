@@ -2635,6 +2635,131 @@ def buyer_reviews_simple(request):
         logger.error(f"Error in buyer_reviews_simple: {str(e)}")
         return Response({'success': False, 'message': 'Failed to retrieve my reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# Admin Review Management Views
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_get_vendor_reviews(request, vendor_username):
+    """Admin function to get all reviews for a specific vendor"""
+    try:
+        from users.models import User
+        vendor = get_object_or_404(User, username=vendor_username)
+        
+        reviews = ProductReview.objects.filter(product__vendor=vendor).select_related('user', 'product').order_by('-created_at')
+        
+        data = [
+            {
+                'id': str(r.id),
+                'rating': r.rating,
+                'comment': r.comment,
+                'images': r.images,
+                'vendor_reply': r.vendor_reply,
+                'vendor_reply_date': r.vendor_reply_date.isoformat() if r.vendor_reply_date else None,
+                'conversation': r.conversation or [],
+                'product': {
+                    'id': r.product.id,
+                    'headline': r.product.headline,
+                },
+                'buyer': {
+                    'id': r.user.id,
+                    'username': getattr(r.user, 'username', ''),
+                },
+                'created_at': r.created_at.isoformat(),
+            }
+            for r in reviews
+        ]
+        
+        return Response({
+            'success': True,
+            'message': f'Reviews for vendor {vendor_username} retrieved successfully',
+            'data': data
+        })
+    except Exception as e:
+        logger.error(f"Error in admin_get_vendor_reviews: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to retrieve vendor reviews', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAdminUser])
+def admin_update_review(request, review_id):
+    """Admin function to update a review"""
+    try:
+        review = get_object_or_404(ProductReview, id=review_id)
+        
+        rating = request.data.get('rating')
+        comment = request.data.get('comment')
+        vendor_reply = request.data.get('vendor_reply')
+        
+        if rating is not None:
+            review.rating = int(rating)
+        if comment is not None:
+            review.comment = comment.strip()
+        if vendor_reply is not None:
+            review.vendor_reply = vendor_reply.strip()
+            
+        review.save()
+        
+        # Re-calculate product aggregates
+        product = review.product
+        if product.is_active and not product.is_deleted:
+            try:
+                agg = ProductReview.objects.filter(product=product).aggregate(
+                    avg=Avg('rating'),
+                    cnt=Count('id')
+                )
+                product.rating = (agg.get('avg') or 0)
+                product.review_count = agg.get('cnt') or 0
+                product.save(update_fields=['rating', 'review_count'])
+            except Exception:
+                pass
+                
+        return Response({
+            'success': True,
+            'message': 'Review updated successfully',
+            'data': {
+                'id': str(review.id),
+                'rating': review.rating,
+                'comment': review.comment,
+                'vendor_reply': review.vendor_reply
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error in admin_update_review: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to update review', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def admin_delete_review(request, review_id):
+    """Admin function to delete a review"""
+    try:
+        review = get_object_or_404(ProductReview, id=review_id)
+        product = review.product
+        review_id_str = str(review.id)
+        review.delete()
+        
+        # Re-calculate product aggregates
+        if product.is_active and not product.is_deleted:
+            try:
+                agg = ProductReview.objects.filter(product=product).aggregate(
+                    avg=Avg('rating'),
+                    cnt=Count('id')
+                )
+                product.rating = (agg.get('avg') or 0)
+                product.review_count = agg.get('cnt') or 0
+                product.save(update_fields=['rating', 'review_count'])
+            except Exception:
+                pass
+                
+        return Response({
+            'success': True,
+            'message': 'Review deleted successfully',
+            'review_id': review_id_str
+        })
+    except Exception as e:
+        logger.error(f"Error in admin_delete_review: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to delete review', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def product_reviews_summary(request, product_id):

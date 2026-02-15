@@ -58,6 +58,11 @@ urlpatterns = [
     path('admin/<int:product_id>/approve/', views.admin_approve_product, name='admin_approve_product'),
     path('admin/<int:product_id>/reject/', views.admin_reject_product, name='admin_reject_product'),
     
+    # Admin review management
+    path('admin/reviews/vendor/<str:vendor_username>/', views.admin_get_vendor_reviews, name='admin_get_vendor_reviews'),
+    path('admin/reviews/<uuid:review_id>/update/', views.admin_update_review, name='admin_update_review'),
+    path('admin/reviews/<uuid:review_id>/delete/', views.admin_delete_review, name='admin_delete_review'),
+    
     # Resubmit endpoint
     path('<int:product_id>/resubmit/', views.resubmit_product, name='resubmit_product'),
     

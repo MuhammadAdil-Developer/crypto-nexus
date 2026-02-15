@@ -410,24 +410,27 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         else:
             # XMR fees are tiny and stable (~0.0001 XMR), no API needed
             estimated_miner_fee = Decimal('0.0001')
-        min_vendor_receive = Decimal('0.00001')
+        # DISABLED: Small transaction fee reduction
+        # This logic was reducing platform fees for small transactions, but it was
+        # overriding vendor custom rates (e.g., reducing 8% to 3%)
+        # If a vendor sets 8%, we should charge 8% regardless of transaction size
         
-        if net_amount - estimated_miner_fee < min_vendor_receive:
-            # Reduce platform fee to ensure vendor gets reasonable amount
-            original_platform_fee = platform_fee
-            # Calculate max platform fee that leaves vendor with reasonable amount
-            max_platform_fee = amount - escrow_fee - estimated_miner_fee - min_vendor_receive
-            if max_platform_fee < Decimal('0'):
-                max_platform_fee = Decimal('0')
-            platform_fee = min(platform_fee, max_platform_fee)
-            net_amount = amount - platform_fee - escrow_fee
-            
-            if platform_fee < original_platform_fee:
-                logger.warning(f"⚠️ FEE REDUCED FOR SMALL TRANSACTION:")
-                logger.warning(f"   Original Fee: {original_platform_fee}")
-                logger.warning(f"   Adjusted Fee: {platform_fee}")
-                logger.warning(f"   Miner Fee: {estimated_miner_fee}")
-                logger.warning(f"   Reason: Ensuring vendor receives at least {min_vendor_receive}")
+        # min_vendor_receive = Decimal('0.00001')
+        # if net_amount - estimated_miner_fee < min_vendor_receive:
+        #     # Reduce platform fee to ensure vendor gets reasonable amount
+        #     original_platform_fee = platform_fee
+        #     max_platform_fee = amount - escrow_fee - estimated_miner_fee - min_vendor_receive
+        #     if max_platform_fee < Decimal('0'):
+        #         max_platform_fee = Decimal('0')
+        #     platform_fee = min(platform_fee, max_platform_fee)
+        #     net_amount = amount - platform_fee - escrow_fee
+        #     
+        #     if platform_fee < original_platform_fee:
+        #         logger.warning(f"⚠️ FEE REDUCED FOR SMALL TRANSACTION:")
+        #         logger.warning(f"   Original Fee: {original_platform_fee}")
+        #         logger.warning(f"   Adjusted Fee: {platform_fee}")
+        #         logger.warning(f"   Miner Fee: {estimated_miner_fee}")
+        #         logger.warning(f"   Reason: Ensuring vendor receives at least {min_vendor_receive}")
         
         # logger.info(f"Final calculation: Gross={amount}, Platform Fee={platform_fee}, Escrow Fee={escrow_fee}, Net={net_amount}")
         # logger.info(f"Estimated miner fee: {estimated_miner_fee} (will be deducted by BTCPay from net amount)")

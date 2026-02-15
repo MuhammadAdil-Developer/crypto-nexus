@@ -113,8 +113,10 @@ class DirectPaymentMonitor:
                         self._confirm_payment(payment, f"btcpay_{status_str}", confs)
                         return
                     elif status_str == 'Processing':
-                        # Just update confirmations but don't mark as 'paid' yet
-                        self._update_confirmations_only(payment, 0)
+                        # Fetch the actual amount paid so far (including unconfirmed)
+                        paid_amount = self.btcpay_service.get_total_paid_amount(pa.btcpay_invoice_id)
+                        # Just update confirmations and amount to hide cancel button in frontend
+                        self._update_confirmations_only(payment, 0, amount=paid_amount)
                         return
 
             # 2. Blockchain Fallback (Strict Address/Amount Filter)
@@ -160,10 +162,10 @@ class DirectPaymentMonitor:
                 req_confs = django_settings.REQUIRED_CONFIRMATIONS.get('XMR', 10)
                 amount_xmr = Decimal(str(matched.get('amount', 0))) / Decimal('1000000000000')
                 
-                # We always confirm if confs >= threshold OR if it's a found partial
-                # _confirm_payment will handle the is_partial branching
-                if confs >= 1: # At least one conf for partial detection to be safe
+                if confs >= req_confs:
                     self._confirm_payment(payment, "monero_rpc", confs, matched.get('txid'), amount=amount_xmr)
+                else:
+                    self._update_confirmations_only(payment, confs, matched.get('txid'), amount=amount_xmr)
         except Exception as e:
             logger.error(f"XMR Monitor error: {e}")
 
@@ -384,30 +386,43 @@ class DirectPaymentMonitor:
             logger.error(f"Confirmation error: {e}")
 
     def _update_confirmations_only(self, payment, confirmations, tx_hash=None, amount=None):
-        """Update confirmations on DB records without triggering 'paid' status/toast"""
+        """Update confirmations on DB records and Mark Order as Paid/Partial to hide cancel button"""
         try:
             # Update PaymentAddress
             pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
+            order = payment.order
+            needs_save_order = False
+
             if pa:
                 if confirmations is not None: pa.confirmations = confirmations
                 if tx_hash: pa.transaction_hash = tx_hash
                 if amount: 
-                    pa.received_amount = float(amount)
+                    received_crypto = Decimal(str(amount))
+                    pa.received_amount = float(received_crypto)
+                    
                     # Set status to partial if discrepancy detected (even before confirmation)
                     expected_crypto = Decimal(str(pa.expected_amount))
-                    received_crypto = Decimal(str(amount))
                     current_price = Decimal(str(pa.crypto_currency.current_price or 0))
                     
                     if current_price > 0:
-                        tolerance_crypto = max(Decimal('4.00') / current_price, expected_crypto * Decimal('0.01'))
+                        tolerance_crypto = max(Decimal('5.00') / current_price, expected_crypto * Decimal('0.01'))
                     else:
                         tolerance_crypto = expected_crypto * Decimal('0.01')
                     
-                    if received_crypto < (expected_crypto - tolerance_crypto):
+                    is_underpaid = received_crypto < (expected_crypto - tolerance_crypto)
+                    if is_underpaid:
                         pa.status = 'partial'
+                    
+                    # CRITICAL: Update Order.payment_status to hide Cancel button in frontend
+                    if order.payment_status == 'pending':
+                        logger.info(f"🔍 DETECTED: Order {order.order_id} payment detected ({confirmations} confs). Updating payment_status to hide cancel button.")
+                        order.payment_status = 'partial' if is_underpaid else 'paid'
+                        needs_save_order = True
                 
-                # Keep status as pending/partial to avoid premature toast
                 pa.save()
+            
+            if needs_save_order:
+                order.save()
             
             # Update DirectPayment
             DirectPayment.objects.filter(id=payment.id).update(

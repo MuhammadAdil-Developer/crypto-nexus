@@ -41,6 +41,13 @@ export default function BuyerOrders() {
 
   useEffect(() => {
     fetchOrders();
+
+    // Auto-refresh every 15 seconds to check for payment detections/status updates
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Show toast if navigated with state and auto-open order details

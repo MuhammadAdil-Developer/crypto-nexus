@@ -15,7 +15,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { messagingService } from "@/services/messagingService";
 import { realtimeService } from "@/services/realtimeService";
-import { getRelativeTime } from "@/utils/timeUtils";
+import { getRelativeTime, formatMarketTime } from "@/utils/timeUtils";
 import { getImageUrl } from "@/config/api";
 import { useToast } from "@/hooks/use-toast";
 import { PageBanner } from "@/components/PageBanner";
@@ -1155,8 +1155,7 @@ export default function VendorMessages() {
   };
 
   const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatMarketTime(timestamp);
   };
 
   const formatPrice = (price: any) => {

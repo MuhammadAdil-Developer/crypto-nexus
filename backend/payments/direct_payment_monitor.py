@@ -31,20 +31,19 @@ class DirectPaymentMonitor:
             logger.error(f"Failed to initialize crypto services: {e}")
 
     def monitor_pending_direct_payments(self):
-        """Monitor ALL payments (15d window) with ultra-strict logic"""
+        """Monitor ALL payments (24h window) with stuck recovery logic"""
         try:
-            # ONLY monitor payments within the last 2 hours to avoid re-processing old orders
-            window = timezone.now() - timedelta(hours=2)
-            # Fetch ONLY pending/expired to avoid double-triggering confirmed/processing tasks
+            # Monitor payments within the last 24 hours to ensure recovery of stalled orders.
+            window = timezone.now() - timedelta(days=1)
+            # Include confirmed and processing to rescue stuck tasks via _confirm_payment's is_stuck logic
             payments = DirectPayment.objects.filter(
-                Q(status__in=['pending', 'expired']), 
+                Q(status__in=['pending', 'expired', 'confirmed', 'processing']), 
                 created_at__gt=window
             ).select_related('order', 'crypto_currency', 'vendor')
             
             if not payments.exists(): return
             
-            # Only log if we found something relevant to avoid log spam
-            # logger.info(f"🚀 SCANNER: Monitoring {payments.count()} orders...")
+            # logger.info(f"🚀 SCANNER: Monitoring {payments.count()} orders (24h window)...")
             current_height = self._get_current_btc_height()
 
             for payment in payments:
@@ -71,8 +70,8 @@ class DirectPaymentMonitor:
     def monitor_pending_payment_addresses(self):
         """Monitor Escrow payout addresses"""
         try:
-            # ONLY monitor payment addresses within the last 2 hours
-            window = timezone.now() - timedelta(hours=2)
+            # Monitor payment addresses within the last 24 hours
+            window = timezone.now() - timedelta(days=1)
             pending_addresses = PaymentAddress.objects.filter(
                 status__in=['pending', 'expired', 'processing', 'partial'],
                 created_at__gt=window
@@ -182,12 +181,13 @@ class DirectPaymentMonitor:
         try:
             # CRITICAL: Trigger if we are moving OUT of pending/expired 
             # NEVER auto-reset 'processing' status to avoid double-payout risk if task is slow
-            stuck_threshold = timezone.now() - timedelta(minutes=15) # Increased threshold
-            is_stuck = payment.status == 'confirmed' and payment.updated_at < stuck_threshold
+            stuck_threshold_rescue = timezone.now() - timedelta(minutes=15) # Increased threshold
+            is_stuck = payment.status in ['confirmed', 'processing'] and payment.updated_at < stuck_threshold_rescue
             needs_trigger = payment.status in ['pending', 'expired'] or is_stuck
             
             if is_stuck or (payment.status != 'completed' and payment.status != 'processing'):
-                 # logger.info(f"Monitoring {payment.order.order_id}: status={payment.status}, needs_trigger={needs_trigger}")
+                 if is_stuck:
+                     logger.warning(f"Rescuing stuck payment for order {payment.order.order_id} (Status: {payment.status})")
                  pass
             
             if is_stuck:
@@ -396,10 +396,12 @@ class DirectPaymentMonitor:
             if needs_save_order:
                 order.save()
             
-            # Update DirectPayment
+            # direct_payment.transaction_hash must ONLY hold the OUTBOUND VENDOR PAYOUT hash.
+            # Setting it to the buyer's incoming txid poisons the record and makes the system
+            # believe the vendor payout was already sent, blocking all future payout attempts.
+            # The buyer's incoming txid is safely stored in payment_address.transaction_hash.
             DirectPayment.objects.filter(id=payment.id).update(
-                confirmations=confirmations or 0,
-                transaction_hash=tx_hash or payment.transaction_hash
+                confirmations=confirmations or 0
             )
         except Exception as e:
             logger.error(f"Error updating confirmations: {e}")

@@ -38,6 +38,24 @@ def check_maintenance_status(request):
     })
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_market_time(request):
+    """
+    Returns the authoritative marketplace time (UTC)
+    """
+    from django.utils import timezone
+    now = timezone.now()
+    return Response({
+        'success': True,
+        'data': {
+            'market_time': now.isoformat(),
+            'timezone': 'UTC (Market Time)',
+            'timestamp': int(now.timestamp() * 1000)
+        }
+    })
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
 def manage_maintenance_mode(request):

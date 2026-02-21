@@ -1,31 +1,23 @@
-"""
-Manual trigger script for processing non-escrow payouts
-Run this after payment is confirmed to send funds to vendor
-
-Usage:
-    python trigger_payout.py ORD-XXXXX
-"""
-
 import os
-import sys
 import django
+import sys
+from decimal import Decimal
 
-# Setup Django
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+# Set up Django environment
+sys.path.append(r'c:\ac1\backend')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cryptonexus.settings')
 django.setup()
 
 from payments.tasks import process_non_escrow_payout
 
-if len(sys.argv) < 2:
-    print("Usage: python trigger_payout.py ORDER_ID")
-    print("Example: python trigger_payout.py ORD-E0016E8A")
-    sys.exit(1)
+order_id = 'ORD-403B5662'
 
-order_id = sys.argv[1]
-print(f"Triggering payout for order: {order_id}")
-
-# Trigger the payout task
-result = process_non_escrow_payout.delay(order_id)
-print(f"Task triggered: {result.id}")
-print("Check Celery logs for processing status")
+print(f"Manually triggering payout for order {order_id}...")
+try:
+    # We call it directly (not .delay) to see logs/errors here
+    result = process_non_escrow_payout(order_id, is_settled=True)
+    print(f"Result: {result}")
+except Exception as e:
+    import traceback
+    print(f"Error: {e}")
+    traceback.print_exc()

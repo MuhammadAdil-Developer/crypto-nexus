@@ -68,6 +68,11 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD', default='AVNS_MVpDJ4Ocg3gpXxYEydM'),
         'HOST': config('DB_HOST', default='pg-34e6acea-adilinbox4-8b41.k.aivencloud.com'),
         'PORT': config('DB_PORT', default='28770'),
+        'CONN_MAX_AGE': 20,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {
+            'application_name': 'marketplace_service',
+        }
     }
 }
 

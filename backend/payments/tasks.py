@@ -211,16 +211,32 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 direct_payment.save()
             
             # CRITICAL: DEBOUNCE / CONCURRENCY CHECK
-            # CRITICAL SAFETY: If it's already completed or has a hash, STOP.
-            # CRITICAL SAFETY: Only skip if it's really completed with a VALID payout hash.
-            # If the hash matches the BUYER's hash, it's a mistake (poisoned record) - we must proceed!
-            buyer_hash = payment_address.transaction_hash
-            payout_hash = direct_payment.transaction_hash
+            # CRITICAL SAFETY: Only block if this order already has a valid OUTBOUND vendor payout hash.
+            # NEVER block based on the buyer's incoming txid — that hash belongs on payment_address, NOT here.
+            # A valid payout hash looks like: 'btc_payout_<txhash>' OR a 64-char hex blockchain txid.
+            def _is_valid_payout_hash(h):
+                if not h or len(h) < 10:
+                    return False
+                if h.startswith('btc_payout_') or h.startswith('xmr_payout_'):
+                    return True
+                # 64-char hex = outbound blockchain txid from vendor payout
+                if len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h):
+                    return True
+                return False
             
-            # CRITICAL SAFETY: If it's already completed or has a hash, STOP.
-            # We are extremely conservative to prevent any chance of double-payout.
-            if direct_payment.status == 'completed' or (direct_payment.transaction_hash and len(direct_payment.transaction_hash) > 10):
-                return f"Order {order_id} already processed - will not re-process for safety"
+            payout_hash = direct_payment.transaction_hash
+            already_paid_out = direct_payment.status == 'completed' and _is_valid_payout_hash(payout_hash)
+            
+            if already_paid_out:
+                logger.info(f"Order {order_id} already has valid payout hash ({payout_hash[:20]}...) - skipping")
+                return f"Order {order_id} - payout already completed"
+            
+            if _is_valid_payout_hash(payout_hash) and direct_payment.status != 'completed':
+                # Has a payout hash but status not completed — treat as completed (edge case)
+                logger.warning(f"Order {order_id} has payout hash but status={direct_payment.status}. Marking completed.")
+                direct_payment.status = 'completed'
+                direct_payment.save(update_fields=['status'])
+                return f"Order {order_id} - payout hash found, status fixed to completed"
             
             # If already processing by another worker recently, skip
             if direct_payment.status == 'processing' and self.request.retries == 0:
@@ -326,20 +342,16 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         # ============================================================
         # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
         # NEVER use expected_amount - it's the amount BEFORE buyer's network fee!
-        # NOT expected_amount or direct_payment.amount (which might be stale)
         if payment_address.received_amount and payment_address.received_amount > 0:
             amount = payment_address.received_amount
-            # logger.info(f"✅ Using received_amount ({amount}) for fee calculation (after buyer's network fee deduction)")
         else:
-            logger.error(f"❌ CRITICAL ERROR: received_amount is {payment_address.received_amount} (must be > 0)!")
-            logger.error(f"   expected_amount: {payment_address.expected_amount}")
-            logger.error(f"   Cannot calculate fees without received_amount - payment may not be confirmed yet!")
-            raise ValueError(f"Cannot process payout: received_amount is {payment_address.received_amount} (must be > 0). Payment may not be fully confirmed.")
-        
-        # CRITICAL: ALWAYS update direct_payment.amount to received_amount BEFORE calculating fees
-        # This ensures platform fee is calculated on what we actually received, not expected_amount
+            # Handle missing received_amount with API fetch or fallback
+            amount = direct_payment.amount if direct_payment.amount > 0 else payment_address.expected_amount
+
+        # CRITICAL: Sync direct_payment.amount with the ACTUAL money in hand
+        # This prevents calculation mismatches later in the task.
         if direct_payment.amount != amount:
-            # logger.info(f"🔄 Updating direct_payment.amount from {direct_payment.amount} to {amount} (received_amount)")
+            logger.info(f"🔄 Syncing DirectPayment {direct_payment.id} amount: {direct_payment.amount} -> {amount} (actual)")
             direct_payment.amount = amount
             direct_payment.save(update_fields=['amount'])
         # else:
@@ -378,11 +390,16 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             logger.error(f"✅ CORRECTED platform_fee: {platform_fee}")
         
         # CRITICAL: Verify platform fee was calculated
-        if platform_fee <= 0:
-            logger.error(f"❌ CRITICAL: platform_fee is {platform_fee} (should be > 0)!")
+        if platform_fee < 0:
+            logger.error(f"❌ CRITICAL: platform_fee is {platform_fee} (must be >= 0)!")
+            raise ValueError(f"Platform fee calculation resulted in negative: {platform_fee}")
+        elif platform_fee == 0 and platform_fee_rate > 0:
+            logger.error(f"❌ CRITICAL: platform_fee is 0 but rate is {platform_fee_rate*100}%!")
             logger.error(f"Amount: {amount}, Rate: {platform_fee_rate}, Calculated: {amount * platform_fee_rate}")
             logger.error(f"Vendor: {vendor.username}, Custom rate: {vendor_custom_rate}, Default rate: {commission_settings.platform_fee_rate}%")
-            raise ValueError(f"Platform fee calculation resulted in zero: {platform_fee}")
+            raise ValueError(f"Platform fee calculation resulted in zero despite non-zero rate: {platform_fee_rate*100}%")
+        elif platform_fee == 0 and platform_fee_rate == 0:
+            logger.info(f"ℹPlatform fee is 0 (0% rate configured for vendor {vendor.username}) - proceeding with full payout to vendor")
         
         # Check if platform_fee is dust (approx 600 sats)
         # CRITICAL: Only set to 0 if it's truly dust AND we can't collect it
@@ -509,12 +526,15 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         logger.info(f"📤 SENDING TO VENDOR: {net_amount} {crypto_symbol} (network fee ~{estimated_miner_fee} will be deducted from this)")
         logger.info(f"💰 FINAL VENDOR RECEIVE: {expected_vendor_receive} {crypto_symbol} (after network fee)")
         
-        # CRITICAL FINAL CHECK: Before sending, reload from DB to ensure we have latest values
-        direct_payment.refresh_from_db()
-        if direct_payment.net_amount != net_amount:
-            logger.warning(f"⚠️ net_amount mismatch: calculated={net_amount}, DB={direct_payment.net_amount}")
-            logger.warning(f"Using DB value: {direct_payment.net_amount}")
-            net_amount = direct_payment.net_amount
+        # CRITICAL FINAL CHECK: Update DB with our locally calculated fees
+        # DO NOT refresh_from_db here as it might bring back stale expected_amount prices
+        # if the webhook updated it with wrong data earlier.
+        direct_payment.platform_fee = platform_fee
+        direct_payment.escrow_fee = escrow_fee
+        direct_payment.net_amount = net_amount
+        direct_payment.save()
+        
+        logger.info(f"✅ LOCAL CALCULATION FINALIZED: net_amount={net_amount} (gross: {direct_payment.amount})")
         
         # CRITICAL: Final verification before sending
         if net_amount > direct_payment.amount:
@@ -523,12 +543,14 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             direct_payment.save()
             raise ValueError(f"Cannot send payout: net_amount ({net_amount}) > gross ({direct_payment.amount})!")
         
-        # If net == gross, it's only valid if platform_fee is 0
+        # If net == gross, it's only valid if platform_fee is 0 (i.e 0% rate vendor)
         if net_amount == direct_payment.amount and direct_payment.platform_fee > 0:
             logger.error(f"❌ CRITICAL ERROR: net_amount == gross but platform_fee {direct_payment.platform_fee} was not deducted!")
             direct_payment.status = 'failed'
             direct_payment.save()
             raise ValueError(f"Platform fee not deducted from net_amount!")
+        elif net_amount == direct_payment.amount and direct_payment.platform_fee == 0:
+            logger.info(f"ℹ️ net_amount == gross because platform_fee is 0 (0% rate) - this is correct for vendor {vendor.username}")
         
         logger.info(f"✅ FINAL VERIFICATION PASSED: Sending {net_amount} {crypto_symbol} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee})")
         

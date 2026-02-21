@@ -280,6 +280,72 @@ def get_popular_searches(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+def autocomplete_suggestions(request):
+    """Dynamic autocomplete suggestions based on product titles, tags, and categories"""
+    query = request.GET.get('q', '').strip()
+    if not query or len(query) < 2:
+        return Response({'success': True, 'data': []})
+    
+    from shared.utils.security import get_safe_int
+    limit = get_safe_int(request.GET.get('limit'), default=10, min_val=1, max_val=20)
+    
+    try:
+        # Search in Product titles (listing_title or headline)
+        products = Product.objects.filter(
+            status='approved',
+            is_active=True,
+            is_deleted=False,
+            quantity_available__gt=0
+        ).filter(
+            Q(listing_title__icontains=query) | 
+            Q(headline__icontains=query) |
+            Q(tags__icontains=query)
+        ).values('listing_title', 'headline', 'id', 'views_count').distinct()[:limit]
+        
+        suggestions = []
+        seen = set()
+        
+        for p in products:
+            term = p['listing_title'] or p['headline']
+            if term and term.lower() not in seen:
+                suggestions.append({
+                    'term': term,
+                    'type': 'product',
+                    'id': p['id'],
+                    'count': p['views_count']
+                })
+                seen.add(term.lower())
+                
+        if len(suggestions) < limit:
+            # Also search categories for variety
+            categories = ProductCategory.objects.filter(
+                is_active=True, 
+                is_deleted=False
+            ).filter(
+                Q(name__icontains=query) | Q(slug__icontains=query)
+            ).values('name', 'slug')[:5]
+            
+            for c in categories:
+                term = c['name']
+                if term.lower() not in seen:
+                    suggestions.append({
+                        'term': term,
+                        'type': 'category',
+                        'slug': c['slug'],
+                        'count': 0
+                    })
+                    seen.add(term.lower())
+                
+        return Response({
+            'success': True,
+            'data': suggestions[:limit]
+        })
+    except Exception as e:
+        logger.error(f"Error in autocomplete_suggestions: {str(e)}")
+        return Response({'success': False, 'data': [], 'error': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def get_product_detail(request, product_id):
     """Get detailed product information"""
     try:
@@ -1079,7 +1145,8 @@ def buyer_listings(request):
 
         # Apply crypto filter
         if crypto:
-            products_qs = products_qs.filter(accepted_crypto__contains=[crypto])
+            # More robust check for JSONField list
+            products_qs = products_qs.filter(accepted_crypto__icontains=crypto)
 
         # Apply price filters
         if min_price:
@@ -1094,8 +1161,8 @@ def buyer_listings(request):
                 Q(category__slug__icontains=category)
             )
 
-        # Get unique vendor IDs
-        vendor_ids = list(set([p.vendor_id for p in products_qs]))
+        # Get unique vendor IDs efficiently
+        vendor_ids = products_qs.values_list('vendor_id', flat=True).distinct()
         
         # Get vendor statistics for sophisticated sorting using bulk queries
         vendor_stats = {}

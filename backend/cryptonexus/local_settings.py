@@ -3,8 +3,8 @@
 
 # BTCPay Server - Production
 BTCPAY_SERVER_URL = 'https://pay.accountzclub.com'
-BTCPAY_STORE_ID = '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7'
-BTCPAY_API_KEY = 'f66dd13f59806719fcee1eb31be75057ea47c1fd'
+BTCPAY_STORE_ID = '8wYTiCWKm47tXgi9mZe1Vf99ZKpStCXbKUJTpNumgmEC'
+BTCPAY_API_KEY = '6460c3257b528997986804a5677df63102ec7947'
 
 # Monero RPC - Mainnet
 MONERO_RPC_URL = 'http://127.0.0.1:18082/json_rpc'

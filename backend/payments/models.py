@@ -138,6 +138,7 @@ class PaymentAddress(BaseModel):
     payment_address = models.CharField(max_length=255)
     expected_amount = models.DecimalField(max_digits=20, decimal_places=8)
     received_amount = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    linked_order_ids = models.JSONField(default=list, blank=True, help_text="List of order IDs covered by this payment in case of bulk purchase")
     
     # Monero specific fields
     monero_subaddress_index = models.IntegerField(blank=True, null=True)
@@ -186,7 +187,8 @@ class EscrowPayment(BaseModel):
         ('cancelled', 'Cancelled'),
     ]
     
-    payment_address = models.OneToOneField(PaymentAddress, on_delete=models.CASCADE, related_name='escrow')
+    payment_address = models.ForeignKey(PaymentAddress, on_delete=models.CASCADE, related_name='escrows')
+    order = models.OneToOneField('orders.Order', on_delete=models.CASCADE, related_name='escrow_payment', null=True, blank=True)
     buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='buyer_escrows')
     vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='vendor_escrows')
     

@@ -94,10 +94,11 @@ function BuyerListingsContent() {
     total_count: 0,
     total_pages: 1
   });
-  const [allProducts, setAllProducts] = useState<Product[]>([]); // Store all products for search
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [popularSearches, setPopularSearches] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [autocompleteTerm, setAutocompleteTerm] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const searchRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -181,12 +182,20 @@ function BuyerListingsContent() {
     }
   }, [isLoading, filteredProducts, searchParams, setSearchParams]);
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Initial fetch or fetch on filter change
   useEffect(() => {
     setCurrentPage(1);
     setHasMore(true);
     fetchProducts(1, true);
-  }, [selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
+  }, [debouncedSearchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
 
   // Fetch popular searches for auto-suggestion
   useEffect(() => {
@@ -196,7 +205,8 @@ function BuyerListingsContent() {
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            setSuggestions(result.data);
+            setPopularSearches(result.data);
+            if (!searchQuery) setSuggestions(result.data);
           }
         }
       } catch (error) {
@@ -205,6 +215,31 @@ function BuyerListingsContent() {
     };
     fetchPopularSearches();
   }, []);
+
+  // Fetch real-time suggestions based on current search query
+  useEffect(() => {
+    if (!searchQuery || searchQuery.length < 2) {
+      setSuggestions(popularSearches);
+      return;
+    }
+
+    const fetchDynamicSuggestions = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/products/suggestions/?q=${encodeURIComponent(searchQuery)}&limit=8`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setSuggestions(result.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching dynamic suggestions:', error);
+      }
+    };
+
+    const timer = setTimeout(fetchDynamicSuggestions, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, popularSearches]);
 
   // Handle clicking outside suggestions
   useEffect(() => {
@@ -258,12 +293,14 @@ function BuyerListingsContent() {
     }
   };
 
-  // Fetch all products when searching (for cross-page search)
+  // Fetch all products when searching (for cross-page search) - Disabled in favor of server-side search
+  /*
   useEffect(() => {
     if (searchQuery || selectedCrypto !== "all" || minPrice || maxPrice || selectedCategory !== "all" || sortBy !== "server" || selectedDeliveryMethod !== "all") {
       fetchAllProducts();
     }
   }, [searchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
+  */
 
   // Infinite Scroll Observer
   useEffect(() => {
@@ -322,97 +359,33 @@ function BuyerListingsContent() {
     loadCategories();
   }, []);
 
-  const fetchAllProducts = async () => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
 
-      // Fetch all products for search (use a large page size or fetch all)
-      const cryptoParam = selectedCrypto !== "all" ? `&crypto=${selectedCrypto}` : '';
-      const priceParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
-      const categoryParam = selectedCategory !== "all" ? `&category=${selectedCategory}` : '';
-      const sortParam = sortBy !== "server" ? `&sort_mode=${sortBy}` : '';
-
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=1&page_size=1000${cryptoParam}${priceParam}${categoryParam}${sortParam}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const productsArray = data.data || data.results || [];
-        setAllProducts(productsArray);
-      }
-    } catch (error) {
-      console.error('Error fetching all products for search:', error);
-    }
-  };
-
-  // Filter and sort products - use allProducts for search to search across all pages
+  // Filter and sort products
   useEffect(() => {
-    // Use allProducts if searching or filtering by delivery method, otherwise use current page products
-    const sourceProducts = (searchQuery || selectedDeliveryMethod !== "all") ? allProducts : products;
-    let filtered = [...sourceProducts];
+    // Use server-provided products as the source of truth
+    let filtered = [...products];
 
-    // Apply category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(product => {
-        const productCategorySlug = product.category?.slug || '';
-        return productCategorySlug === selectedCategory;
-      });
-    }
-
-    // Apply crypto filter
-    if (selectedCrypto !== "all") {
-      filtered = filtered.filter(product => {
-        // Standardize on accepted_crypto from backend
-        const acceptedCryptos = product.accepted_crypto || [];
-        // Support BOTH uppercase and check for exact matches
-        return acceptedCryptos.some(crypto => crypto.toUpperCase() === selectedCrypto.toUpperCase());
-      });
-    }
-
-    // Apply search filter - search across all products, not just current page
-    if (searchQuery) {
-      filtered = filtered.filter(product =>
-        product.listing_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.vendor.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    }
-
-    // Filter by quantity_available - hide out of stock products as requested
-    filtered = filtered.filter(product => (product.quantity_available || 0) > 0);
+    // Apply client-side filters that might not be fully handled by backend yet (like delivery method)
 
     // Apply delivery method filter
     if (selectedDeliveryMethod !== "all") {
       filtered = filtered.filter(product => {
-        // Check both delivery_method and delivery_time
         const method = (product.delivery_method || "").toLowerCase();
         const time = (product.delivery_time || "").toLowerCase();
         const combined = `${method} ${time}`;
 
         if (selectedDeliveryMethod === "auto") {
-          // Check for 'instant', 'auto', or 'automatic' in either field
           return combined.includes("instant") || combined.includes("auto");
         }
-
-        // For manual
         if (selectedDeliveryMethod === "manual") {
           return combined.includes("manual");
         }
-
         return method === selectedDeliveryMethod;
       });
     }
 
-    // Apply client-side sorting only if user explicitly selected a sort option.
-    // Default 'server' preserves the order returned by the API (personalized ordering).
-
     setFilteredProducts(filtered);
-  }, [products, allProducts, searchQuery, selectedCategory, selectedCrypto, sortBy, selectedDeliveryMethod]);
+  }, [products, selectedDeliveryMethod]);
 
   const fetchProducts = async (page = currentPage, isInitial = false) => {
     if (isFetchingMore && !isInitial) return;
@@ -425,12 +398,12 @@ function BuyerListingsContent() {
       if (!token) return;
 
       const cryptoParam = selectedCrypto !== "all" ? `&crypto=${selectedCrypto}` : '';
-      const dateParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
+      const priceParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
       const categoryParam = selectedCategory !== "all" ? `&category=${selectedCategory}` : '';
       const sortParam = sortBy !== "server" ? `&sort_mode=${sortBy}` : '';
       // Removed deliveryParam to rely on client-side filtering as backend support is uncertain
 
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${cryptoParam}${dateParam}${categoryParam}${sortParam}`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${debouncedSearchQuery ? `&search=${encodeURIComponent(debouncedSearchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}${sortParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -749,7 +722,7 @@ function BuyerListingsContent() {
           <div className="flex items-center gap-3">
             <div className="h-6 w-1 bg-theme-red rounded-full" />
             <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">
-              Discovered <span className="text-white">{(searchQuery || selectedDeliveryMethod !== "all") ? filteredProducts.length : pagination.total_count}</span> Artifacts
+              Discovered <span className="text-white">{pagination.total_count}</span> Artifacts
             </span>
             {isLoading && (
               <div className="flex items-center gap-2 text-xs text-theme-cyan animate-pulse">

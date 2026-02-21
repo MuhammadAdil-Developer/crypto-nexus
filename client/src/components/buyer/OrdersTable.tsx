@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Order as ServiceOrder, orderService } from "@/services/orderService";
+import { formatMarketTime } from "@/utils/timeUtils";
 
 export interface Order extends ServiceOrder {
   is_giveaway?: boolean;
@@ -609,12 +610,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
               </div>
             ) : (
               displayOrders.map((order) => {
-                const orderDate = new Date(order.created_at);
-                const formattedDate = orderDate.toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit'
-                });
+                const formattedDate = formatMarketTime(order.created_at);
 
                 // Refund & Dispute Logic
                 const existingRefund = refundRequests[order.order_id];
@@ -638,7 +634,7 @@ export function OrdersTable({ compact = false, orders = [], onOrderUpdate }: Ord
                 // 4. No existing dispute
                 const disputeWindowHours = 72;
                 const referenceTime = order.delivered_at || order.confirmed_at || order.created_at;
-                const hoursSinceReference = (new Date().getTime() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
+                const hoursSinceReference = (Date.now() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
                 const isWithinWindow = hoursSinceReference <= disputeWindowHours;
 
                 const canCreateDispute = order.use_escrow &&

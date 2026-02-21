@@ -127,6 +127,11 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'OopsDropDB#1'),
         'HOST': os.environ.get('DB_HOST', '88.99.143.151'),
         'PORT': os.environ.get('DB_PORT', '5432'),
+        'CONN_MAX_AGE': 20,  # Reduced to 20 seconds to rotate more frequently
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {
+            'application_name': 'cryptonexus_main',
+        }
     }
 }
 

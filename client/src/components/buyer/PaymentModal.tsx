@@ -180,15 +180,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     setApiError(null);
 
     try {
-      // Bulk flow: create an order per item, then create payment addresses per order
+      // Bulk flow: create an order per item, then ONE consolidated payment address for all
       if (items && items.length > 0) {
         const createdOrders: any[] = [];
-        const paymentAddresses: any[] = [];
+        let totalUsdPrice = 0;
+
+        // 1. Create all orders first to capture their IDs
         for (const it of items) {
           const itn = normalizeCartItem(it);
-          if (!itn.productId) {
-            throw new Error('Invalid product id in cart item');
-          }
+          if (!itn.productId) throw new Error('Invalid product id in cart item');
+
           const orderData = {
             product: itn.productId,
             quantity: itn.quantity,
@@ -197,49 +198,51 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
             refund_address: refundAddress
           };
 
-          // create order via orderService
           const order = await orderService.createOrder(orderData);
           createdOrders.push(order);
-
-          const oid = order.order_id || order.id || order.order_id || order.id;
-          // Convert USD price to Crypto
-          const usdPrice = parseFloat(itn.price || '0') * itn.quantity;
-          const cryptoAmount = await paymentService.getFiatToCryptoRate(usdPrice, 'USD', selectedCrypto);
-          const amount = paymentService.formatCryptoAmount(cryptoAmount.toString(), selectedCrypto);
-
-          const pay = await paymentService.createPaymentAddress({
-            order_id: oid,
-            crypto_currency: selectedCrypto,
-            amount: amount,
-            payment_type: paymentType as "wallet" | "buy" | "exchange",
-            use_escrow: itn.use_escrow
-          });
-          paymentAddresses.push(pay);
+          totalUsdPrice += parseFloat(itn.price || '0') * itn.quantity;
         }
 
-        setRealPaymentAddresses(paymentAddresses);
-        setRealPaymentAddress(paymentAddresses[0] || null);
-        setOrderId(createdOrders[0]?.order_id || createdOrders[0]?.id || '');
+        // 2. Setup anchor order and linked orders
+        const anchorOrder = createdOrders[0];
+        const anchorOrderId = anchorOrder.order_id || anchorOrder.id;
+        const otherOrderIds = createdOrders.slice(1).map(o => o.order_id || o.id);
 
-        // start polling first order
+        // 3. Convert TOTAL USD price to Crypto
+        const cryptoAmount = await paymentService.getFiatToCryptoRate(totalUsdPrice, 'USD', selectedCrypto);
+        const formattedAmount = paymentService.formatCryptoAmount(cryptoAmount.toString(), selectedCrypto);
+
+        // 4. Create SINGLE consolidated payment address
+        const paymentData = await paymentService.createPaymentAddress({
+          order_id: anchorOrderId,
+          crypto_currency: selectedCrypto,
+          amount: formattedAmount,
+          payment_type: paymentType as "wallet" | "buy" | "exchange",
+          use_escrow: createdOrders.some(o => o.use_escrow), // Pass high-level hint, backend will also check per-order
+          linked_order_ids: otherOrderIds
+        });
+
+        // 5. Update state for Step 3
+        setRealPaymentAddress(paymentData);
+        setRealPaymentAddresses([paymentData]);
+        setOrderId(anchorOrderId);
+
+        // Start polling the anchor order
         if (pollingInterval) {
           paymentService.stopPaymentPolling(pollingInterval);
         }
-        const firstOrderId = createdOrders[0]?.order_id || createdOrders[0]?.id;
-        if (firstOrderId) {
-          const interval = paymentService.startPaymentPolling(firstOrderId, (status: PaymentStatus) => {
-            setRealPaymentStatus(status);
-            if (status.status === 'paid') {
-              toast({ title: 'Payment Confirmed!', description: 'At least one order has been paid.' });
-              setStep(4);
-            } else if (status.status === 'expired') {
-              toast({ title: 'Payment Expired', description: 'Payment window has expired.', variant: 'destructive' });
-            }
-          });
-          setPollingInterval(interval);
-        }
+        const interval = paymentService.startPaymentPolling(anchorOrderId, (status: PaymentStatus) => {
+          setRealPaymentStatus(status);
+          if (status.status === 'paid') {
+            toast({ title: 'Payment Confirmed!', description: 'Bulk payment received and processed.' });
+            setStep(4);
+          } else if (status.status === 'expired') {
+            toast({ title: 'Payment Expired', description: 'Payment window has expired.', variant: 'destructive' });
+          }
+        });
+        setPollingInterval(interval);
 
-        toast({ title: 'Orders Created & Payment Addresses Generated', description: 'Please complete payments for each vendor separately.' });
+        toast({ title: 'Consolidated Payment Generated', description: 'One payment address covers all items in your cart.' });
         setStep(3);
         return;
       }

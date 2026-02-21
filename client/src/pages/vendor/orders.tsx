@@ -20,6 +20,7 @@ import { productService } from "@/services/productService";
 import { RefundModal } from "@/components/vendor/RefundModal";
 import { PageBanner } from "@/components/PageBanner";
 import { useCryptoPrices } from "@/contexts/PriceContext";
+import { formatMarketTime } from "@/utils/timeUtils";
 
 
 
@@ -64,13 +65,12 @@ export default function VendorOrders() {
 
   // Transform API data to match existing structure
   const transformOrderData = (apiOrder: Order) => {
-    const orderDate = new Date(apiOrder.created_at);
-    const date = orderDate.toISOString().split('T')[0];
-    const time = orderDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    const formattedMarketTime = formatMarketTime(apiOrder.created_at);
+    // Split into date and time for existing UI compatibility if needed, 
+    // or just use the full string.
+    const [datePart, timePart] = formattedMarketTime.split(' ');
+    const date = datePart;
+    const time = `${timePart} MT`;
 
     const getStatusDisplay = (apiOrder: Order) => {
       const paymentStatus = apiOrder.payment_status?.toLowerCase();

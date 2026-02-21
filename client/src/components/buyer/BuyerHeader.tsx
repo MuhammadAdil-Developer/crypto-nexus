@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/services/authService";
 import { getImageUrl } from "@/config/api";
 import notificationService from "@/services/notificationService";
+import { formatMarketTime } from "@/utils/timeUtils";
 
 export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: boolean; onMenuClick?: () => void }) {
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
@@ -112,6 +113,15 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
     return () => {
       window.removeEventListener('profileUpdate', handleProfileUpdate);
     };
+  }, []);
+
+  const [marketTime, setMarketTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMarketTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const fetchUserData = async () => {
@@ -246,6 +256,16 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
         </div>
         {/* Right Controls - Search bar removed from header */}
         <div className="flex items-center space-x-4 ml-auto">
+          {/* Market Time Clock */}
+          <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/50 group hover:border-theme-red/30 transition-all duration-300">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500 group-hover:text-theme-red transition-colors">Market Time</span>
+              <span className="text-xs font-mono text-gray-300 tabular-nums">
+                {formatMarketTime(marketTime).split(' ')[1]} MT
+              </span>
+            </div>
+          </div>
           {/* Notifications */}
           <DropdownMenu onOpenChange={handleNotificationDropdownOpen}>
             <DropdownMenuTrigger asChild>

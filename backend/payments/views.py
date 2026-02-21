@@ -123,12 +123,14 @@ class CreatePaymentAddressView(APIView):
 
             # Create payment address
             payment_service = PaymentService()
+            linked_order_ids = data.get('linked_order_ids', [])
             payment_address = payment_service.create_payment_address(
                 order_id=order_id,
                 crypto_currency=crypto_currency,
                 amount=amount,
                 payment_type=payment_type,
-                use_escrow=use_escrow
+                use_escrow=use_escrow,
+                linked_order_ids=linked_order_ids
             )
             
             # Prepare response

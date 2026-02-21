@@ -10,6 +10,9 @@ urlpatterns = [
     # Public maintenance status check
     path('maintenance/status/', views.check_maintenance_status, name='maintenance_status'),
     
+    # Authoritative marketplace time
+    path('market-time/', views.get_market_time, name='get_market_time'),
+    
     # Admin-only maintenance mode management
     path('maintenance/manage/', views.manage_maintenance_mode, name='manage_maintenance'),
     

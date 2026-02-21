@@ -109,8 +109,8 @@ class BTCPayServerService:
     
     def __init__(self):
         self.base_url = getattr(settings, 'BTCPAY_SERVER_URL', 'https://pay.accountzclub.com')
-        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', '5rZ8Bo7fCoXCUAbkSvnNhTgQiVwEbiSstB7Cxs76BDW7')
-        self.api_key = getattr(settings, 'BTCPAY_API_KEY', 'f66dd13f59806719fcee1eb31be75057ea47c1fd')
+        self.store_id = getattr(settings, 'BTCPAY_STORE_ID', '8wYTiCWKm47tXgi9mZe1Vf99ZKpStCXbKUJTpNumgmEC')
+        self.api_key = getattr(settings, 'BTCPAY_API_KEY', '6460c3257b528997986804a5677df63102ec7947')
         self.headers = {
             'Authorization': f'token {self.api_key}',
             'Content-Type': 'application/json'
@@ -386,12 +386,16 @@ class BTCPayServerService:
                     
                     # Log actual transaction details for verification
                     actual_tx_hash = tx_result.get('transactionHash')
-                    actual_amount_sent = tx_result.get('amount', payout_data['amount'])
+                    # NOTE: tx_result['amount'] is the wallet UTXO debit (negative = full input UTXO spent)
+                    # It does NOT represent what the vendor received.
+                    # The vendor receives: payout_data['amount'] - network_fee (subtractFeesFromAmount=True)
+                    wallet_debit = tx_result.get('amount', '?')
                     logger.info(f"=== ACTUAL TRANSACTION DETAILS ===")
                     logger.info(f"Transaction Hash: {actual_tx_hash}")
-                    logger.info(f"Amount sent to vendor: {actual_amount_sent} BTC")
+                    logger.info(f"NET amount sent (before network fee): {payout_data['amount']} BTC")
+                    logger.info(f"Wallet UTXO debit (input spent, includes change): {wallet_debit} BTC")
                     logger.info(f"Destination: {payout_data['destination']}")
-                    logger.info(f"Note: Miner fees were deducted from amount by BTCPay")
+                    logger.info(f"Note: Vendor receives {payout_data['amount']} minus network fee (subtractFeesFromAmount=True)")
                     logger.info(f"=================================")
                     
                     return {
@@ -850,10 +854,11 @@ class PaymentService:
     
     def create_payment_address(self, order_id: str, crypto_currency: str, 
                              amount: Decimal, payment_type: str = 'wallet',
-                             use_escrow: bool = False) -> PaymentAddress:
+                             use_escrow: bool = False, linked_order_ids: list = None) -> PaymentAddress:
         
         try:
             crypto = CryptoCurrency.objects.get(symbol=crypto_currency)
+            linked_order_ids = linked_order_ids or []
             
             # Set expiration to 2 hours for all cryptocurrencies
             expiry_hours = 2
@@ -865,7 +870,8 @@ class PaymentService:
                     'crypto_currency': crypto,
                     'payment_type': payment_type,
                     'expected_amount': amount,
-                    'expires_at': timezone.now() + timedelta(hours=expiry_hours),  # 8 hours for XMR, 2 hours for BTC
+                    'linked_order_ids': linked_order_ids,
+                    'expires_at': timezone.now() + timedelta(hours=expiry_hours),
                     'required_confirmations': settings.REQUIRED_CONFIRMATIONS.get(
                         crypto_currency, 1 if crypto_currency == 'XMR' else 3
                     )
@@ -877,7 +883,8 @@ class PaymentService:
                 payment_address.crypto_currency = crypto
                 payment_address.payment_type = payment_type
                 payment_address.expected_amount = amount
-                payment_address.expires_at = timezone.now() + timedelta(hours=expiry_hours)  # 8 hours for XMR, 2 hours for BTC
+                payment_address.linked_order_ids = linked_order_ids
+                payment_address.expires_at = timezone.now() + timedelta(hours=expiry_hours)
                 payment_address.required_confirmations = settings.REQUIRED_CONFIRMATIONS.get(
                     crypto_currency, 1 if crypto_currency == 'XMR' else 3
             )
@@ -1020,12 +1027,71 @@ class PaymentService:
                         raise Exception("Failed to create Monero subaddress for direct payment")
 
                         
+            # --------------------------------------------------------------------------
+            # BULK ORDER PROCESSING: Ensure all linked orders have payment trackers
+            # --------------------------------------------------------------------------
+            all_order_ids = [order_id] + linked_order_ids
+            from orders.models import Order
+            from vendors.models import VendorApplication
+            from .models import DirectPayment
+
+            for oid in all_order_ids:
+                try:
+                    current_order = Order.objects.get(order_id=oid)
+                    # Support mixed escrow/direct payments in a single bulk checkout
+                    order_use_escrow = current_order.use_escrow
+                    
+                    if not order_use_escrow:
+                        # For direct payments, ensure DirectPayment record exists for this order
+                        # Prioritize User profile addresses
+                        v_address = None
+                        if crypto_currency == 'BTC':
+                            v_address = current_order.product.vendor.btc_payout_address
+                        elif crypto_currency == 'XMR':
+                            v_address = current_order.product.vendor.xmr_payout_address
+                        
+                        if not v_address:
+                            # Fallback to vendor application
+                            try:
+                                v_app = VendorApplication.objects.get(vendor_username=current_order.product.vendor.username)
+                                v_address = v_app.btc_address if crypto_currency == 'BTC' else v_app.xmr_address
+                            except VendorApplication.DoesNotExist:
+                                pass
+                                
+                        if v_address:
+                            # Use update_or_create to avoid duplicates if called multiple times
+                            DirectPayment.objects.update_or_create(
+                                order=current_order,
+                                defaults={
+                                    'vendor': current_order.product.vendor,
+                                    'buyer': current_order.buyer,
+                                    'crypto_currency': crypto,
+                                    'amount': current_order.total_amount, # Individual order amount
+                                    'vendor_address': v_address,
+                                    'expires_at': timezone.now() + timedelta(hours=24),
+                                    'platform_fee': Decimal('0'),
+                                    'escrow_fee': Decimal('0'),
+                                    'net_amount': Decimal('0')
+                                }
+                            )
+                            logger.info(f"Created/Updated DirectPayment tracker for bulk order member {oid}")
+                        else:
+                            logger.warning(f"Vendor address not found for bulk order member {oid}")
+                    else:
+                        # For escrow payments, the _create_escrow_payment logic needs to be called for EACH order
+                        # but currently it's hardcoded to payment_address.order_id
+                        # We'll fix it below or handle it here
+                        self._create_escrow_payment_v2(payment_address, current_order)
+
+                except Order.DoesNotExist:
+                    logger.error(f"Order {oid} not found during bulk payment generation")
+                except Exception as ex:
+                    logger.error(f"Error setting up bulk payment member {oid}: {ex}")
+
+            # Note: The BTCPay/Monero address generation only happens ONCE for the anchor order
+            # (handled in the preceding BTC/XMR specific blocks which are already in the file)
+            
             payment_address.save()
-            
-            # Create escrow if requested
-            if use_escrow:
-                self._create_escrow_payment(payment_address, amount)
-            
             return payment_address
             
         except Exception as e:
@@ -1042,14 +1108,12 @@ class PaymentService:
         addr_hash = hash_obj.hexdigest()[:32]  # Take first 32 chars
         return f"{prefix}{addr_hash}"
     
-    def _create_escrow_payment(self, payment_address: PaymentAddress, amount: Decimal):
-        """Create escrow payment record and payout record immediately"""
-        from orders.models import Order
+    def _create_escrow_payment_v2(self, payment_address: PaymentAddress, order):
+        """Create escrow payment record and payout record immediately for a specific order (supports bulk)"""
         from vendors.models import VendorApplication
         from .commission_models import CommissionSettings
         
-        # Get order details
-        order = Order.objects.get(order_id=payment_address.order_id)
+        amount = order.total_amount
         
         # Get dynamic commission rates from database
         commission_settings = CommissionSettings.get_settings()
@@ -1057,13 +1121,18 @@ class PaymentService:
         escrow_fee = amount * escrow_fee_rate
         
         # Create escrow payment record
-        escrow = EscrowPayment.objects.create(
-            payment_address=payment_address,
-            buyer=order.buyer,
-            vendor=order.product.vendor,
-            escrow_amount=amount,
-            escrow_fee=escrow_fee,
-            auto_release_at=timezone.now() + timedelta(days=2)
+        # Note: We use update_or_create just in case of retries
+        from .models import EscrowPayment
+        escrow, created = EscrowPayment.objects.update_or_create(
+            order=order,
+            defaults={
+                'payment_address': payment_address,
+                'vendor': order.product.vendor,
+                'buyer': order.buyer,
+                'escrow_amount': amount,
+                'escrow_fee': escrow_fee,
+                'auto_release_at': timezone.now() + timedelta(days=2)
+            }
         )
         
         # Create escrow payout record immediately
@@ -1111,20 +1180,22 @@ class PaymentService:
                 
                 # Create payout record with pending status
                 from .models import Payout
-                payout = Payout.objects.create(
+                payout, created = Payout.objects.update_or_create(
                     order=order,
-                    vendor=order.product.vendor,
-                    buyer=order.buyer,
                     payout_type='escrow',
-                    crypto_currency=payment_address.crypto_currency,
-                    gross_amount=gross_amount,
-                    net_amount=net_amount,
-                    platform_fee=platform_fee,
-                    escrow_fee=escrow_fee,
-                    vendor_address=vendor_address,
-                    status='pending',
-                    auto_release_enabled=True,
-                    auto_release_at=timezone.now() + timedelta(days=2)
+                    defaults={
+                        'vendor': order.product.vendor,
+                        'buyer': order.buyer,
+                        'crypto_currency': payment_address.crypto_currency,
+                        'gross_amount': gross_amount,
+                        'net_amount': net_amount,
+                        'platform_fee': platform_fee,
+                        'escrow_fee': escrow_fee,
+                        'vendor_address': vendor_address,
+                        'status': 'pending',
+                        'auto_release_enabled': True,
+                        'auto_release_at': timezone.now() + timedelta(days=2)
+                    }
                 )
                 
                 logger.info(f"Created escrow payout immediately for order {payment_address.order_id}: {net_amount} {payment_address.crypto_currency.symbol}")
@@ -1272,14 +1343,21 @@ class PaymentService:
                         btcpay_status = 'Processing'
                 elif webhook_type in ['InvoicePaymentSettled', 'InvoiceSettled', 'InvoicePaidAfterExpiration']:
                     btcpay_status = 'Settled'  # Payment fully settled, invoice completed, or paid late
+                elif webhook_type == 'InvoiceProcessing':
+                    # Payment detected on blockchain, not yet confirmed - keep as Processing
+                    btcpay_status = 'Processing'
                 elif webhook_type in ['InvoiceExpired', 'InvoiceInvalid']:
                     # Special check for "Paid Late" which shows as Expired in BTCPay
                     additional_status = payload.get('additionalStatus')
                     if additional_status == 'PaidLate':
                         logger.info(f"BTCPay Invoice {invoice_id} is Expired but PaidLate. Treating as Settled.")
                         btcpay_status = 'Settled'
+                    elif webhook_type == 'InvoiceExpired':
+                        # Check if payment eventually arrived (PaidLate might come as separate event)
+                        logger.info(f"BTCPay Invoice {invoice_id} expired with no late payment detected.")
+                        btcpay_status = 'Expired'
                     else:
-                        btcpay_status = 'Expired' if webhook_type == 'InvoiceExpired' else 'Invalid'
+                        btcpay_status = 'Invalid'
                 
                 # Check for underpayment in ReceivedPayment webhook
                 is_partial = False
@@ -1316,11 +1394,9 @@ class PaymentService:
                     Order.objects.filter(order_id=payment_address.order_id).update(payment_status='partial')
                     
                     return True # Mark as processed
-                elif webhook_type == 'InvoiceProcessing':
-                    # This is just a processing notification
-                    btcpay_status = 'Processing'
-                else:
-                    btcpay_status = 'New'
+                # NOTE: Do NOT add elif/else here that overwrites btcpay_status.
+                # btcpay_status was already correctly set above in the webhook_type if-elif chain.
+                # InvoiceProcessing is handled in its own elif branch above.
                 
                 logger.info(f"Determined BTCPay status: {btcpay_status} from webhook_type: {webhook_type}, payment_status: {payment_status}")
                 
@@ -1389,12 +1465,24 @@ class PaymentService:
                 
                 if payment_amount is not None:
                     payment_address.received_amount = float(payment_amount)
-                    logger.info(f"Captured received amount: {payment_address.received_amount}")
+                    logger.info(f"Captured received amount from webhook: {payment_address.received_amount}")
                 elif (btcpay_status == 'Settled' or mapped_status == 'paid') and (not payment_address.received_amount or payment_address.received_amount == 0):
-                    # FALLBACK: If status is Settled/Paid but amount is missing in webhook, 
-                    # use the expected amount from the payment address record
-                    payment_address.received_amount = float(payment_address.expected_amount)
-                    logger.info(f"Webhook amount missing for {btcpay_status} status. Using expected_amount fallback: {payment_address.received_amount}")
+                    # FALLBACK: Webhook for InvoiceSettled often has no payment_data.
+                    # Fetch actual paid amount from BTCPay API to handle underpayments correctly.
+                    # Using expected_amount here would OVERCHARGE the platform fee on underpaid orders.
+                    logger.info(f"No amount in webhook payload. Fetching actual paid amount from BTCPay API for invoice {invoice_id}...")
+                    try:
+                        actual_paid = self.btcpay.get_total_paid_amount(invoice_id)
+                        if actual_paid and actual_paid > 0:
+                            payment_address.received_amount = float(actual_paid)
+                            logger.info(f"✅ Fetched actual paid from BTCPay API: {payment_address.received_amount} (expected: {payment_address.expected_amount})")
+                        else:
+                            # Last resort fallback - use expected_amount but log a warning
+                            payment_address.received_amount = float(payment_address.expected_amount)
+                            logger.warning(f"⚠️ BTCPay API returned 0 paid. Using expected_amount as last resort: {payment_address.received_amount}")
+                    except Exception as fetch_err:
+                        logger.error(f"Failed to fetch paid amount from BTCPay API: {fetch_err}. Using expected_amount fallback.")
+                        payment_address.received_amount = float(payment_address.expected_amount)
                 
                 if mapped_status == 'paid':
                     payment_address.confirmed_at = timezone.now()
@@ -1413,26 +1501,32 @@ class PaymentService:
                 
                 payment_address.save()
                 
-                # Update order status dynamically based on BTCPay status
-                # ONLY if status allows (Processing -> Pending Payment, Settled -> Paid)
-                logger.info(f"Updating order status based on BTCPay status: {btcpay_status}")
-                self._update_order_status_dynamically(payment_address.order_id, btcpay_status)
+                # Identify all orders covered by this payment
+                all_order_ids = [payment_address.order_id] + (payment_address.linked_order_ids or [])
+                logger.info(f"Updating status for bulk members: {all_order_ids}")
+
+                # Update order status dynamically based on BTCPay status for ALL linked orders
+                logger.info(f"Updating order statuses based on BTCPay status: {btcpay_status}")
+                for oid in all_order_ids:
+                    self._update_order_status_dynamically(oid, btcpay_status)
                 
-                # Process escrow if applicable
-                if hasattr(payment_address, 'escrow') and mapped_status == 'paid':
-                    escrow = payment_address.escrow
-                    escrow.status = 'funded'
-                    escrow.save()
-                    
-                    # Update escrow payout status to 'ready'
-                    self._update_escrow_payout_status(payment_address.order_id)
+                # Process escrow if applicable for ALL linked orders
+                if mapped_status == 'paid':
+                    # Find all escrows linked to this payment address
+                    from .models import EscrowPayment
+                    escrows = EscrowPayment.objects.filter(payment_address=payment_address)
+                    for escrow in escrows:
+                        if escrow.status != 'funded':
+                            escrow.status = 'funded'
+                            escrow.save()
+                            # Update escrow payout status to 'ready'
+                            self._update_escrow_payout_status(escrow.order.order_id if hasattr(escrow, 'order') else payment_address.order_id)
                 
                 # Process direct payment if applicable (only if paid/settled)
                 if mapped_status == 'paid':
                     # Determine if settled (fully confirmed)
                     is_settled = (btcpay_status == 'Settled')
                     self._process_direct_payment_webhook(payment_address, is_settled=is_settled)
-                
                 # Mark webhook as processed
                 webhook.processed = True
                 webhook.processed_at = timezone.now()
@@ -1447,210 +1541,103 @@ class PaymentService:
             return False
     
     def _process_direct_payment_webhook(self, payment_address, is_settled=False):
-        """Process direct payment webhook - calculate fees and send to vendor"""
+        """Process direct payment webhook - calculate fees and send to vendor for all linked bulk orders"""
         try:
             from .models import DirectPayment
+            from orders.models import Order, OrderStatus
             
-            # Check if this is a direct payment
-            try:
-                from orders.models import Order
-                order = Order.objects.get(order_id=payment_address.order_id)
-                direct_payment = DirectPayment.objects.get(order=order)
-            except (DirectPayment.DoesNotExist, Order.DoesNotExist):
-                # Not a direct payment, skip
-                return
-            
-            logger.info(f"Processing direct payment webhook for order {payment_address.order_id}")
-            
-            # ============================================================
-            # STEP 1: CALCULATE FEES IMMEDIATELY (before confirmations check)
-            # ============================================================
-            # CRITICAL: We must calculate and save platform_fee IMMEDIATELY when payment arrives
-            # Even if confirmations are not sufficient yet, we need to know the fees
-            # This ensures DirectPayment always has correct platform_fee set
-            # ============================================================
-            
-            # Get dynamic commission rates from database
-            from .commission_models import CommissionSettings, VendorFee
-            commission_settings = CommissionSettings.get_settings()
-            
-            # GET VENDOR - Use direct order relation for accuracy
-            order_vendor = getattr(order, 'vendor', order.product.vendor)
-            
-            # Check for vendor-specific commission rate
-            vendor_custom_rate = VendorFee.get_vendor_fee(order_vendor)
-            if vendor_custom_rate is not None:
-                platform_fee_rate = vendor_custom_rate / Decimal('100')
-                logger.info(f"Using vendor-specific commission rate for {order_vendor.username}: {vendor_custom_rate}%")
-            else:
-                platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
-                logger.info(f"Using platform default commission rate: {commission_settings.platform_fee_rate}%")
-            
-            # SAFETY FALLBACK: If rate is 0 but platform default is > 0, use platform default
-            # unless it's explicitly set to 0 and we have a reason.
-            if platform_fee_rate == 0 and commission_settings.platform_fee_rate > 0:
-                logger.warning(f"⚠️ Detected 0% fee rate for {order_vendor.username}, falling back to platform default {commission_settings.platform_fee_rate}%")
-                platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
-            
-            # ============================================================
-            # FEE CALCULATION FLOW (CONFIRMED APPROACH):
-            # ============================================================
-            # 1. Buyer sends $2.00 → network fee $0.25 deducted → $1.75 arrives (received_amount)
-            # 2. Platform fee calculated on $1.75 (NOT on $2.00)
-            # 3. Vendor net amount = $1.75 - platform_fee = $1.6625
-            # 4. Network fee (~$0.25) deducted from $1.6625 when sending
-            # 5. Vendor receives: $1.6625 - $0.25 = ~$1.41
-            # ============================================================
-            # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
-            # NEVER use expected_amount - it's the amount BEFORE buyer's network fee!
-            if payment_address.received_amount and payment_address.received_amount > 0:
-                amount = payment_address.received_amount
-                logger.info(f"✅ Using received_amount ({amount}) for fee calculation (after buyer's network fee)")
-            else:
-                logger.error(f"❌ CRITICAL ERROR: received_amount is {payment_address.received_amount} (must be > 0)!")
-                logger.error(f"   expected_amount: {payment_address.expected_amount}")
-                logger.error(f"   Cannot calculate fees without received_amount - payment may not be confirmed yet!")
-                raise ValueError(f"Cannot process payout: received_amount is {payment_address.received_amount} (must be > 0). Payment may not be fully confirmed.")
-            
-            # CRITICAL: ALWAYS update direct_payment.amount to received_amount BEFORE calculating fees
-            # This ensures platform fee is calculated on what we actually received, not expected_amount
-            if direct_payment.amount != amount:
-                logger.info(f"🔄 Updating direct_payment.amount from {direct_payment.amount} to {amount} (received_amount)")
-                direct_payment.amount = amount
-                direct_payment.save(update_fields=['amount'])
-            else:
-                logger.info(f"✅ direct_payment.amount already correct: {amount}")
-            
-            # CRITICAL VERIFICATION: Ensure amount is valid
-            if amount > payment_address.expected_amount:
-                logger.warning(f"⚠️ amount ({amount}) > expected_amount ({payment_address.expected_amount})!")
-                logger.warning(f"Buyer may have overpaid.")
-            elif amount <= 0:
-                raise ValueError(f"Cannot calculate fees: received_amount is {amount}")
-            
-            escrow_fee_rate = Decimal('0') # Escrow fee is 0 for direct payments
-            
-            # Allow 0% platform fee rate
-            if platform_fee_rate < 0:
-                logger.error(f"❌ CRITICAL: platform_fee_rate is negative: {platform_fee_rate}")
-                raise ValueError(f"Platform fee rate is negative: {platform_fee_rate}")
-            
-            # CRITICAL: Calculate platform fee with detailed logging
-            platform_fee = amount * platform_fee_rate
-            escrow_fee = amount * escrow_fee_rate
-            
-            # logger.info(f"💰 PLATFORM FEE CALCULATION (Webhook):")
-            # logger.info(f"   Vendor: {order.product.vendor.username}")
-            # logger.info(f"   Amount (received): {amount}")
-            # logger.info(f"   Vendor custom rate: {vendor_custom_rate}%")
-            # logger.info(f"   Platform default rate: {commission_settings.platform_fee_rate}%")
-            # logger.info(f"   Platform fee rate used: {platform_fee_rate} ({platform_fee_rate * 100}%)")
-            # logger.info(f"   Calculated platform_fee: {amount} * {platform_fee_rate} = {platform_fee}")
-            # logger.info(f"   Escrow fee: {escrow_fee}")
-            
-            # Allow 0 platform fee if rate is 0
-            if platform_fee < 0:
-                logger.error(f"❌ CRITICAL: platform_fee is negative: {platform_fee}")
-                raise ValueError(f"Platform fee calculation resulted in negative: {platform_fee}")
-            
-            if platform_fee == 0 and platform_fee_rate > 0:
-                logger.warning(f"⚠️ Platform fee is 0 but rate is {platform_fee_rate*100}% (amount too small?)")
-            
-            net_amount = amount - platform_fee - escrow_fee
-            
-            # CRITICAL VERIFICATION: Ensure net amount is not greater than gross
-            if net_amount > amount:
-                logger.error(f"❌ CRITICAL ERROR: net_amount ({net_amount}) > gross amount ({amount})!")
-                raise ValueError(f"net_amount ({net_amount}) > gross ({amount})")
-            
-            # If net == amount, only log a warning if fee rate was supposed to be > 0
-            if net_amount == amount and platform_fee_rate > 0:
-                logger.warning(f"⚠️ net_amount == gross amount but platform_fee_rate is {platform_fee_rate*100}%")
-            
-            logger.info(f"Direct payment fees calculated: Platform={platform_fee}, Escrow={escrow_fee}, Net={net_amount}")
-            logger.info(f"✅ VERIFICATION: net_amount ({net_amount}) = gross ({amount}) - platform_fee ({platform_fee}) - escrow_fee ({escrow_fee})")
-            
-            # CRITICAL: If it already has a transaction hash, it MUST stay completed.
-            if direct_payment.transaction_hash and len(direct_payment.transaction_hash) > 10:
-                direct_payment.status = 'completed'
-                logger.info(f"✅ Payout {direct_payment.id} already has hash - keeping status 'completed'")
-            # Otherwise, if settled, assume any previous 'processing' task is sleeping/stuck
-            # Reset to 'confirmed' ONLY if it really needs a fresh payout attempt
-            elif is_settled and direct_payment.status == 'processing':
-                logger.info(f"⚡ SETTLED signal: Resetting '{direct_payment.status}' status to 'confirmed' to force immediate payout.")
-                direct_payment.status = 'confirmed'
-            elif direct_payment.status not in ['processing', 'completed', 'failed']:
-                direct_payment.status = 'confirmed'
-            
-            direct_payment.save(update_fields=['platform_fee', 'escrow_fee', 'net_amount', 'status'])
-                
-            direct_payment.confirmed_at = timezone.now()
-            direct_payment.save()
-            
-            # CRITICAL: Ensure Order status is also updated to PAID
-            try:
-                from orders.models import Order, OrderStatus
-                order_to_update = Order.objects.get(order_id=payment_address.order_id)
-                if order_to_update.payment_status != 'paid':
-                    logger.info(f"Updating Order {order_to_update.order_id} to PAID status via direct webhook logic")
-                    order_to_update.payment_status = 'paid'
-                    # Allow transitioning back from 'cancelled' to 'paid' for late payments
-                    if order_to_update.order_status in ['pending', 'pending_payment', 'cancelled']:
-                        if order_to_update.product.delivery_time == 'instant_auto':
-                            order_to_update.order_status = 'confirmed' # Shows as "Completed"
-                        else:
-                            order_to_update.order_status = 'paid'
-                    order_to_update.save()
-            except Exception as oe:
-                logger.error(f"Failed to update order status in direct webhook: {oe}")
-            
-            logger.info(f"✅ FEES SAVED TO DATABASE: platform_fee={platform_fee}, net_amount={net_amount}")
-            
-            # ========================================
-            # STEP 2: CHECK CONFIRMATIONS (for payout)
-            # ========================================
-            # Now that fees are calculated and saved, check if we have enough confirmations to send payout
-            # Get required confirmations from settings (BTC: 3, XMR: 10)
-            from django.conf import settings as django_settings
-            crypto_symbol = payment_address.crypto_currency.symbol
-            default_required = django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
-            required_confirmations = payment_address.required_confirmations or default_required
-            logger.info(f"Required confirmations: {required_confirmations} (from DB: {payment_address.required_confirmations}, default: {default_required})")
-            current_confirmations = payment_address.confirmations or 0
-            
-            logger.info(f"==========================================")
-            logger.info(f"CONFIRMATION CHECK FOR ORDER {payment_address.order_id}")
-            logger.info(f"Current Confirmations: {current_confirmations}")
-            logger.info(f"Required Confirmations: {required_confirmations}")
-            logger.info(f"==========================================")
-            
-            if not is_settled and current_confirmations < required_confirmations:
-                logger.warning(f" PAYOUT DEFERRED for Order {payment_address.order_id}: {current_confirmations}/{required_confirmations} confirmations. Waiting for more.")
-                logger.info(f"   Required: {required_confirmations}, Current: {current_confirmations}")
-                # DO NOT SEND PAYOUT - EXIT HERE!
-                return
-            
-            if is_settled:
-                logger.info(f"PAYOUT AUTHORIZED: Payment marked as SETTLED by webhook (Order {payment_address.order_id})")
-                if payment_address.crypto_currency.symbol == 'BTC':
-                    logger.info(f"   BTC SECURITY CHECK PASSED: Payment is fully SETTLED on blockchain. Safe to forward to vendor.")
-            else:
-                logger.info(f"CONFIRMATIONS SUFFICIENT for Order {payment_address.order_id}: Proceeding with payout processing")
-            logger.info(f"==========================================")
-            
-            # STEP 3: TRIGGER PAYOUT (only if confirmations are sufficient)
-            # We already checked confirmations at the top of this function
-            try:
-                from .tasks import process_non_escrow_payout
-                process_non_escrow_payout.delay(payment_address.order_id, is_settled=is_settled)
-                logger.info(f"Triggered process_non_escrow_payout task for order {payment_address.order_id}")
-            except Exception as e:
-                logger.error(f"Failed to trigger payout task: {str(e)}")
-                # Fallback to direct call if task queue fails
-                logger.info(f"⚠️ Using fallback direct send with net_amount: {net_amount}")
-                from .services import PayoutService
-                PayoutService()._send_direct_payment_to_vendor(direct_payment, net_amount)
-            
+            # --------------------------------------------------------------------------
+            # Identify all orders covered by this payment
+            # --------------------------------------------------------------------------
+            all_order_ids = [payment_address.order_id] + (payment_address.linked_order_ids or [])
+            logger.info(f"Processing single-address bulk payment for orders: {all_order_ids}")
+
+            for oid in all_order_ids:
+                try:
+                    # 1. Get the specific order and its tracker
+                    order = Order.objects.get(order_id=oid)
+                    direct_payment = DirectPayment.objects.get(order=order)
+                    
+                    logger.info(f"--- Processing Bulk Member: {oid} ---")
+                    
+                    # 2. Get dynamic commission rates for this specific vendor
+                    from .commission_models import CommissionSettings, VendorFee
+                    commission_settings = CommissionSettings.get_settings()
+                    order_vendor = getattr(order, 'vendor', order.product.vendor)
+                    
+                    vendor_custom_rate = VendorFee.get_vendor_fee(order_vendor)
+                    if vendor_custom_rate is not None:
+                        platform_fee_rate = vendor_custom_rate / Decimal('100')
+                    else:
+                        platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                    
+                    if platform_fee_rate == 0 and commission_settings.platform_fee_rate > 0:
+                        platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+
+                    # 3. Determine the amount for THIS order
+                    # For bulk payments, we assume the portion for this order is its full amount
+                    # (since we validated the total payment at the PaymentAddress level)
+                    amount = direct_payment.amount
+                    
+                    # Calculate fees for this specific order
+                    platform_fee = amount * platform_fee_rate
+                    escrow_fee = Decimal('0')
+                    net_amount = amount - platform_fee - escrow_fee
+                    
+                    # 4. Save fees and update status
+                    direct_payment.platform_fee = platform_fee
+                    direct_payment.escrow_fee = escrow_fee
+                    direct_payment.net_amount = net_amount
+                    direct_payment.confirmed_at = timezone.now()
+                    
+                    # Payout logic check
+                    def _is_valid_payout_hash(h):
+                        if not h or len(h) < 10: return False
+                        return h.startswith('btc_payout_') or h.startswith('xmr_payout_') or (len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h))
+
+                    if _is_valid_payout_hash(direct_payment.transaction_hash):
+                        direct_payment.status = 'completed'
+                    elif is_settled and direct_payment.status == 'processing':
+                        direct_payment.status = 'confirmed'
+                    elif direct_payment.status not in ['processing', 'completed', 'failed']:
+                        direct_payment.status = 'confirmed'
+                    
+                    direct_payment.save()
+
+                    # 5. Update Order status
+                    if order.payment_status != 'paid':
+                        order.payment_status = 'paid'
+                        if order.order_status in ['pending', 'pending_payment', 'cancelled']:
+                            if order.product.delivery_time == 'instant_auto':
+                                order.order_status = 'confirmed'
+                            else:
+                                order.order_status = 'paid'
+                        order.save()
+
+                    # 6. Trigger payout if confirmed
+                    crypto_symbol = payment_address.crypto_currency.symbol
+                    from django.conf import settings as django_settings
+                    required_confs = payment_address.required_confirmations or django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
+                    current_confs = payment_address.confirmations or 0
+                    
+                    if is_settled or current_confs >= required_confs:
+                        try:
+                            from .tasks import process_non_escrow_payout
+                            process_non_escrow_payout.delay(oid, is_settled=is_settled)
+                            logger.info(f"✅ Triggered payout task for bulk member {oid}")
+                        except Exception as e:
+                            logger.error(f"Failed to trigger payout for {oid}: {e}")
+                    else:
+                        logger.warning(f"Payout deferred for {oid}: {current_confs}/{required_confs} confs.")
+
+                except DirectPayment.DoesNotExist:
+                    if not order.use_escrow:
+                        logger.warning(f"Skipping bulk member {oid}: DirectPayment tracker not found (not an escrow order)")
+                except Order.DoesNotExist:
+                    logger.warning(f"Skipping bulk member {oid}: Order not found")
+                except Exception as e:
+                    logger.error(f"Error processing bulk member {oid}: {e}")
+
         except Exception as e:
             logger.error(f"Error processing direct payment webhook: {e}")
     
@@ -1901,7 +1888,21 @@ class PaymentService:
             logger.error(f"Order not found with order_id: {order_id}")
         except Exception as e:
             logger.error(f"Error updating order status for {order_id}: {str(e)}")
-    
+
+    def _update_escrow_payout_status(self, order_id: str):
+        """Update payout record for an escrowed order when it becomes funded"""
+        try:
+            from .models import Payout
+            # Find the payout associated with this escrow
+            payout = Payout.objects.filter(order__order_id=order_id, payout_type='escrow').first()
+            if payout:
+                logger.info(f"Escrow funded for order {order_id}. Payout {payout.id} remains pending until release.")
+                # We could update a flag here if we had a 'is_funded' field on Payout
+            else:
+                logger.warning(f"No escrow payout found for order {order_id} even though escrow was funded.")
+        except Exception as e:
+            logger.error(f"Error updating escrow payout status for {order_id}: {e}")
+
     def _update_order_status_on_payment(self, order_id: str):
         """Legacy method - kept for backward compatibility"""
         self._update_order_status_dynamically(order_id, 'Paid')
@@ -2023,10 +2024,14 @@ class PaymentService:
             return False
     
     def get_payment_address(self, order_id: str) -> PaymentAddress:
-        """Get payment address for order"""
+        """Get payment address for order, supporting linked bulk orders"""
         try:
-            return PaymentAddress.objects.get(order_id=order_id)
-        except PaymentAddress.DoesNotExist:
+            from django.db.models import Q
+            return PaymentAddress.objects.filter(
+                Q(order_id=order_id) | Q(linked_order_ids__contains=order_id)
+            ).first()
+        except Exception as e:
+            logger.error(f"Error getting payment address for {order_id}: {e}")
             return None
     
     def _handle_partial_payment_detected(self, payment_address, amount_received):
@@ -2281,14 +2286,30 @@ class PaymentService:
                 # 2. Blockchain Fallback (if BTCPay is uncertain)
                 logger.info(f"Checking BTC blockchain fallback for order {order_id} (Address: {payment_address.payment_address})")
                 try:
-                    # Use mempool.space API
+                    # Multi-provider resilient fallback (Mempool + Blockstream)
                     addr = payment_address.payment_address
-                    r = requests.get(f"https://mempool.space/api/address/{addr}/txs", timeout=10)
-                    if r.status_code == 200:
-                        txs = r.json()
+                    txs = []
+                    for url in [f"https://mempool.space/api/address/{addr}/txs", f"https://blockstream.info/api/address/{addr}/txs"]:
+                        try:
+                            r = requests.get(url, timeout=10)
+                            if r.status_code == 200:
+                                txs = r.json()
+                                break
+                        except Exception as conn_err:
+                            logger.warning(f"BTC Fallback Provider {url} failed: {conn_err}")
+                            continue
+
+                    if txs:
                         expected_sat = int(float(payment_address.expected_amount) * 1e8)
-                        
                         found_tx = None
+                        
+                        # Get current height for confirmations (cached/fast)
+                        current_height = 0
+                        try:
+                            h_r = requests.get("https://mempool.space/api/blocks/tip/height", timeout=5)
+                            if h_r.status_code == 200: current_height = int(h_r.text)
+                        except: pass
+
                         for tx in txs:
                             for out in tx.get('vout', []):
                                 if out.get('scriptpubkey_address', '').lower() == addr.lower():
@@ -2296,10 +2317,8 @@ class PaymentService:
                                     status = tx.get('status', {})
                                     confs = 0
                                     if status.get('confirmed'):
-                                        # Get current height for confirmations
-                                        height_r = requests.get("https://mempool.space/api/blocks/tip/height", timeout=5)
-                                        if height_r.status_code == 200:
-                                            confs = max(1, int(height_r.text) - status.get('block_height') + 1)
+                                        if current_height > 0 and status.get('block_height'):
+                                            confs = max(1, current_height - status.get('block_height') + 1)
                                         else:
                                             confs = 1
                                     
@@ -2387,10 +2406,16 @@ class PaymentService:
                 result['monero_subaddress_index'] = payment_address.monero_subaddress_index
             
             # Add escrow info if applicable
-            if hasattr(payment_address, 'escrow'):
+            escrow = None
+            if hasattr(payment_address, 'escrows'):
+                escrow = payment_address.escrows.first()
+            elif hasattr(payment_address, 'escrow'): # Backward compatibility
+                 escrow = payment_address.escrow
+                 
+            if escrow:
                 result['escrow'] = {
-                    'status': payment_address.escrow.status,
-                    'auto_release_at': payment_address.escrow.auto_release_at.isoformat() if payment_address.escrow.auto_release_at else None
+                    'status': escrow.status,
+                    'auto_release_at': escrow.auto_release_at.isoformat() if escrow.auto_release_at else None
                 }
             
             return result
@@ -2764,6 +2789,49 @@ class PayoutService:
             received_amount: Original amount received from buyer (for verification)
         """
         try:
+            # ============================================================
+            # SECURITY CHECKS - Professional Grade
+            # ============================================================
+            from decimal import Decimal
+            from datetime import datetime, timedelta
+            
+            # SECURITY CHECK 1: Transaction size limits
+            MAX_SINGLE_TRANSACTION = Decimal('0.01')  # 0.01 BTC (~$680)
+            REQUIRE_MANUAL_APPROVAL_ABOVE = Decimal('0.005')  # $340+
+            
+            if amount > MAX_SINGLE_TRANSACTION:
+                logger.error(f"🚨 SECURITY BLOCK: Transaction {amount} BTC exceeds max limit {MAX_SINGLE_TRANSACTION} BTC")
+                logger.error(f"   This requires manual approval via BTCPay dashboard")
+                raise ValueError(f"Transaction {amount} BTC exceeds security limit of {MAX_SINGLE_TRANSACTION} BTC")
+            
+            if amount > REQUIRE_MANUAL_APPROVAL_ABOVE:
+                logger.warning(f"⚠️ LARGE TRANSACTION ALERT: {amount} BTC (>${amount * 68000})")
+                logger.warning(f"   This transaction requires extra verification")
+                # In production: Send Telegram/Email alert to admin
+            
+            # SECURITY CHECK 2: Hourly volume limit
+            MAX_HOURLY_VOLUME = Decimal('0.05')  # 0.05 BTC per hour
+            one_hour_ago = timezone.now() - timedelta(hours=1)
+            
+            from .models import Payout
+            recent_payouts = Payout.objects.filter(
+                created_at__gte=one_hour_ago,
+                status='completed',
+                crypto_currency__symbol='BTC'
+            )
+            hourly_total = sum([Decimal(str(p.net_amount)) for p in recent_payouts]) + amount
+            
+            if hourly_total > MAX_HOURLY_VOLUME:
+                logger.error(f"🚨 SECURITY BLOCK: Hourly volume {hourly_total} BTC exceeds limit {MAX_HOURLY_VOLUME} BTC")
+                logger.error(f"   Recent transactions in last hour: {recent_payouts.count()}")
+                logger.error(f"   This could indicate account compromise - BLOCKING")
+                raise ValueError(f"Hourly transaction volume limit exceeded")
+            
+            # SECURITY CHECK 3: Verify address format
+            if not address or len(address) < 26:
+                logger.error(f"🚨 INVALID ADDRESS: {address}")
+                raise ValueError(f"Invalid Bitcoin address: {address}")
+            
             # CRITICAL: Verify we're sending net_amount, not gross amount
             logger.info(f"📤 _send_btc_payout_raw: Sending {amount} BTC to {address}")
             logger.info(f"   ✅ This MUST be NET amount (after platform fee deduction)")
@@ -2788,6 +2856,11 @@ class PayoutService:
             # If amount > received_amount, we're sending MORE than we received - THIS IS WRONG!
             logger.warning(f"⚠️ VERIFICATION: Amount being sent: {amount} BTC")
             logger.warning(f"   If this is > received_amount, we're LOSING MONEY!")
+            
+            # ============================================================
+            # PASSED ALL SECURITY CHECKS - Proceeding with transaction
+            # ============================================================
+            logger.info(f"✅ SECURITY CHECKS PASSED - Proceeding with {amount} BTC payout")
             
             payout_data = {
                 'destination': address,

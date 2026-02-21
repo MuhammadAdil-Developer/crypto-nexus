@@ -66,6 +66,11 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD', default='cryptonexus_password'),
         'HOST': config('DB_HOST', default='postgres'),
         'PORT': config('DB_PORT', default='5432'),
+        'CONN_MAX_AGE': 20,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {
+            'application_name': 'user_service',
+        }
     }
 }
 

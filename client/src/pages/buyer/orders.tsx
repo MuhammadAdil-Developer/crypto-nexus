@@ -14,6 +14,7 @@ import {
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/hooks/use-toast";
 import { PageBanner } from "@/components/PageBanner";
+import { formatMarketTime, getRelativeMarketTime } from "@/utils/timeUtils";
 
 interface OrderStats {
   totalOrders: number;
@@ -277,19 +278,8 @@ export default function BuyerOrders() {
     { label: "Cancelled", value: stats.cancelled.toString(), color: "from-rose-500 to-red-600", icon: <XCircle className="w-6 h-6" /> }
   ];
 
-  const getTimeAgo = (date: Date) => {
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (seconds < 60) {
-      return `${seconds}s ago`;
-    } else if (seconds < 3600) {
-      return `${Math.floor(seconds / 60)}m ago`;
-    } else if (seconds < 86400) {
-      return `${Math.floor(seconds / 3600)}h ago`;
-    } else {
-      return `${Math.floor(seconds / 86400)}d ago`;
-    }
+  const getTimeAgo = (date: string | Date) => {
+    return getRelativeMarketTime(date);
   };
 
   return (
@@ -529,8 +519,7 @@ export default function BuyerOrders() {
           ) : (
             <div className="space-y-4">
               {orders.slice(0, 3).map((order) => {
-                const orderDate = new Date(order.created_at);
-                const timeAgo = getTimeAgo(orderDate);
+                const timeAgo = getTimeAgo(order.created_at);
 
                 return (
                   <div key={order.order_id} className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg">

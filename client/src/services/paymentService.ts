@@ -66,7 +66,7 @@ export interface SupportedCurrency {
 
 class PaymentService {
 
-  async createPaymentAddress(data: { order_id: string; crypto_currency: string; amount: string; payment_type: string; use_escrow: boolean }): Promise<PaymentAddress> {
+  async createPaymentAddress(data: { order_id: string; crypto_currency: string; amount: string; payment_type: string; use_escrow: boolean; linked_order_ids?: string[] }): Promise<PaymentAddress> {
     try {
       const response = await api.post("/payments/create/", data);
       return response.data;

@@ -53,6 +53,7 @@ import { productService, Product } from "@/services/productService";
 import { messagingService } from "@/services/messagingService";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { usePendingOrder, PendingOrderProvider } from "@/contexts/PendingOrderContext";
+import brandLogo from "@/assets/banner/logo.png";
 
 // Add these interfaces at the top of the file (after imports)
 
@@ -1029,7 +1030,7 @@ function BuyerHomeContent() {
             </div>
             {/* Auto-suggestions dropdown - wider than search bar for visibility */}
             {showSuggestions && (
-              <div className="absolute top-full left-0 w-full sm:w-[110%] min-w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] max-h-96 overflow-y-auto">
+              <div className="absolute top-full left-0 w-full sm:w-[125%] lg:w-[150%] min-w-full bg-gray-800/98 backdrop-blur-xl border border-gray-700 rounded-lg shadow-2xl z-[9999] max-h-96 overflow-y-auto custom-scrollbar">
                 {isLoadingSuggestions ? (
                   <div className="px-4 py-3 text-center">
                     <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
@@ -1467,7 +1468,7 @@ function BuyerHomeContent() {
                             <span className="text-gray-400">
                               {order.status === 'delivered' ? 'Delivered on:' : 'Expected delivery:'}
                             </span>
-                            <span className="text-gray-300">
+                            <span className="text-gray-300 group-hover:text-white font-medium">
                               {order.deliveryDate}
                             </span>
                           </div>

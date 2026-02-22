@@ -602,9 +602,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
 
     def _get_admin_stats(self, days_range=30):
-        """Helper to get comprehensive admin statistics"""
+        """Helper to get comprehensive admin statistics (High Performance)"""
         from django.apps import apps
-        from django.db.models import Sum, Count, F, Q
+        from django.db.models import Sum, Count, Q, Case, When, IntegerField, DecimalField
+        from django.db.models.functions import Coalesce
         
         User = apps.get_model('users', 'User')
         VendorApplication = apps.get_model('vendors', 'VendorApplication')
@@ -616,51 +617,67 @@ class OrderViewSet(viewsets.ModelViewSet):
         last_month_start = today_start - timedelta(days=30)
         prev_month_start = last_month_start - timedelta(days=30)
         
-        # 1. Users Stats
-        user_base_qs = User.objects.filter(is_deleted=False)
-        total_users = user_base_qs.count()
-        users_last_month = user_base_qs.filter(date_joined__gte=last_month_start).count()
-        users_prev_month = user_base_qs.filter(date_joined__gte=prev_month_start, date_joined__lt=last_month_start).count()
+        # 1. Grouped User Stats
+        user_stats = User.objects.filter(is_deleted=False).aggregate(
+            total=Count('id'),
+            total_buyers=Count('id', filter=Q(user_type='buyer')),
+            total_vendors=Count('id', filter=Q(user_type='vendor')),
+            last_month=Count('id', filter=Q(date_joined__gte=last_month_start)),
+            prev_month=Count('id', filter=Q(date_joined__gte=prev_month_start, date_joined__lt=last_month_start))
+        )
         user_growth = 0
-        if users_prev_month > 0:
-            user_growth = ((users_last_month - users_prev_month) / users_prev_month) * 100
-        elif users_last_month > 0:
-            user_growth = 100
+        if user_stats['prev_month'] > 0:
+            user_growth = ((user_stats['last_month'] - user_stats['prev_month']) / user_stats['prev_month']) * 100
+        elif user_stats['last_month'] > 0: user_growth = 100
             
-        total_buyers_count = User.objects.filter(user_type='buyer', is_deleted=False).count()
-        total_vendors_count = User.objects.filter(user_type='vendor', is_deleted=False).count()
-        
-        # 2. Vendor Stats
-        active_vendors = VendorApplication.objects.filter(status='approved').count()
-        vendors_last_month = VendorApplication.objects.filter(status='approved', updated_at__gte=last_month_start).count()
-        vendors_prev_month = VendorApplication.objects.filter(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start).count()
+        # 2. Grouped Vendor Stats
+        vendor_stats = VendorApplication.objects.aggregate(
+            active=Count('id', filter=Q(status='approved')),
+            last_month=Count('id', filter=Q(status='approved', updated_at__gte=last_month_start)),
+            prev_month=Count('id', filter=Q(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start))
+        )
         vendor_growth = 0
-        if vendors_prev_month > 0:
-            vendor_growth = ((vendors_last_month - vendors_prev_month) / vendors_prev_month) * 100
-        elif vendors_last_month > 0:
-            vendor_growth = 100
+        if vendor_stats['prev_month'] > 0:
+            vendor_growth = ((vendor_stats['last_month'] - vendor_stats['prev_month']) / vendor_stats['prev_month']) * 100
+        elif vendor_stats['last_month'] > 0: vendor_growth = 100
 
-        # 3. Listing Stats
-        live_listings = Product.objects.filter(status='approved', is_active=True, is_deleted=False).count()
-        listings_last_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=last_month_start).count()
-        listings_prev_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=prev_month_start, created_at__lt=last_month_start).count()
+        # 3. Grouped Listing Stats
+        listing_stats = Product.objects.filter(is_deleted=False).aggregate(
+            live=Count('id', filter=Q(status='approved', is_active=True)),
+            last_month=Count('id', filter=Q(status='approved', created_at__gte=last_month_start)),
+            prev_month=Count('id', filter=Q(status='approved', created_at__gte=prev_month_start, created_at__lt=last_month_start))
+        )
         listing_growth = 0
-        if listings_prev_month > 0:
-            listing_growth = ((listings_last_month - listings_prev_month) / listings_prev_month) * 100
-        elif listings_last_month > 0:
-            listing_growth = 100
+        if listing_stats['prev_month'] > 0:
+            listing_growth = ((listing_stats['last_month'] - listing_stats['prev_month']) / listing_stats['prev_month']) * 100
+        elif listing_stats['last_month'] > 0: listing_growth = 100
             
-        # 4. Order Stats
-        orders_today = Order.objects.filter(created_at__gte=today_start).count()
-        orders_yesterday = Order.objects.filter(created_at__gte=yesterday_start, created_at__lt=today_start).count()
+        # 4. Grouped Order Stats
+        order_stats_agg = Order.objects.aggregate(
+            total=Count('id'),
+            today=Count('id', filter=Q(created_at__gte=today_start)),
+            yesterday=Count('id', filter=Q(created_at__gte=yesterday_start, created_at__lt=today_start)),
+            completed_today=Count('id', filter=Q(
+                Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
+                Q(payment_status='paid'),
+                created_at__gte=today_start
+            )),
+            disputed=Count('id', filter=Q(order_status=OrderStatus.DISPUTED.value)),
+            pending_payments=Count('id', filter=Q(
+                Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
+                Q(payment_status='pending') |
+                (Q(use_escrow=True) & ~Q(order_status__in=[
+                    OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PAID.value
+                ]))
+            ))
+        )
         order_growth_daily = 0
-        if orders_yesterday > 0:
-            order_growth_daily = ((orders_today - orders_yesterday) / orders_yesterday) * 100
-        elif orders_today > 0:
-            order_growth_daily = 100
+        if order_stats_agg['yesterday'] > 0:
+            order_growth_daily = ((order_stats_agg['today'] - order_stats_agg['yesterday']) / order_stats_agg['yesterday']) * 100
+        elif order_stats_agg['today'] > 0: order_growth_daily = 100
 
-        # 5. Escrow Overview (Optimized)
-        escrow_base_qs = Order.objects.filter(
+        # 5. Optimized Escrow
+        escrow_totals = Order.objects.filter(
             use_escrow=True
         ).exclude(
             order_status__in=[
@@ -669,52 +686,36 @@ class OrderViewSet(viewsets.ModelViewSet):
                 OrderStatus.REFUNDED.value,
                 OrderStatus.PENDING_PAYMENT.value
             ]
-        )
+        ).values('crypto_currency').annotate(total=Sum('total_amount'))
         
-        escrow_totals = escrow_base_qs.values('crypto_currency').annotate(total=Sum('total_amount'))
         total_escrow_btc = 0.0
         total_escrow_xmr = 0.0
         for t in escrow_totals:
             if t['crypto_currency'] == 'BTC': total_escrow_btc = float(t['total'] or 0)
             elif t['crypto_currency'] == 'XMR': total_escrow_xmr = float(t['total'] or 0)
                 
-        pending_releases = Order.objects.filter(use_escrow=True, order_status=OrderStatus.CONFIRMED.value).count()
-        auto_release_orders = Order.objects.filter(use_escrow=True, order_status=OrderStatus.DELIVERED.value).count()
-        disputed_orders = Order.objects.filter(order_status=OrderStatus.DISPUTED.value).count()
-        
-        total_orders_all_time = Order.objects.count()
-        completed_today = Order.objects.filter(
-            Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
-            Q(payment_status='paid'),
-            created_at__gte=today_start
-        ).count()
-        
-        pending_payments_count = Order.objects.filter(
-            Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
-            Q(payment_status='pending') |
-            (Q(use_escrow=True) & ~Q(order_status__in=[
-                OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value
-            ]))
-        ).count()
+        escrow_extra = Order.objects.filter(use_escrow=True).aggregate(
+            pending_releases=Count('id', filter=Q(order_status=OrderStatus.CONFIRMED.value)),
+            auto_release=Count('id', filter=Q(order_status=OrderStatus.DELIVERED.value))
+        )
 
         return {
             'statistics': {
-                'users': {'total': total_users, 'buyers': total_buyers_count, 'vendors': total_vendors_count, 'growth_pct': round(user_growth, 1)},
-                'vendors': {'total': active_vendors, 'growth_pct': round(vendor_growth, 1)},
-                'listings': {'total': live_listings, 'growth_pct': round(listing_growth, 1)},
-                'orders': {'today': orders_today, 'yesterday': orders_yesterday, 'growth_pct': round(order_growth_daily, 1)},
-                'total_orders': total_orders_all_time,
-                'paid_orders': completed_today,
-                'pending_payments': pending_payments_count,
-                'active_escrow_orders': escrow_base_qs.count(),
-                'disputed_orders': disputed_orders
+                'users': {'total': user_stats['total'], 'buyers': user_stats['total_buyers'], 'vendors': user_stats['total_vendors'], 'growth_pct': round(user_growth, 1)},
+                'vendors': {'total': vendor_stats['active'], 'growth_pct': round(vendor_growth, 1)},
+                'listings': {'total': listing_stats['live'], 'growth_pct': round(listing_growth, 1)},
+                'orders': {'today': order_stats_agg['today'], 'yesterday': order_stats_agg['yesterday'], 'growth_pct': round(order_growth_daily, 1)},
+                'total_orders': order_stats_agg['total'],
+                'paid_orders': order_stats_agg['completed_today'],
+                'pending_payments': order_stats_agg['pending_payments'],
+                'disputed_orders': order_stats_agg['disputed']
             },
             'escrow_stats': {
                 'btc_total': total_escrow_btc,
                 'xmr_total': total_escrow_xmr,
-                'pending_releases': pending_releases,
-                'auto_release_orders': auto_release_orders,
-                'disputed_orders': disputed_orders
+                'pending_releases': escrow_extra['pending_releases'],
+                'auto_release_orders': escrow_extra['auto_release'],
+                'disputed_orders': order_stats_agg['disputed']
             }
         }
 

@@ -136,6 +136,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   } as Product : null);
 
 
+  // Sync escrow status with product settings - Buyer cannot override
+  useEffect(() => {
+    if (effectiveProduct) {
+      setUseEscrow(!!effectiveProduct.escrow_enabled);
+    }
+  }, [effectiveProduct]);
+
   // Credit card form data
   const [cardData, setCardData] = useState({
     cardNumber: '',
@@ -876,9 +883,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                           {crypto === 'BTC' ? (
                             <Bitcoin className="w-6 h-6 text-orange-500" />
                           ) : (
-                            <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">XMR</span>
-                            </div>
+                            <svg viewBox="0 0 24 24" className="w-6 h-6 fill-[#FF6600]">
+                              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm0 3l-4 4h2v6h4v-6h2l-4-4z" className="hidden" />
+                              <path d="M18.067 15.111v3.297h2.518V5.592h-2.518v9.117L12.04 8.76l-6.026 5.949V5.592H3.501v12.816h2.518v-3.297L12.04 9.172l6.027 5.939z" />
+                            </svg>
                           )}
                           <div>
                             <Label htmlFor={crypto} className="text-white font-medium cursor-pointer">
@@ -952,28 +960,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </div>
               )}
 
-              {/* Optional Escrow Toggle for non-escrow products - compact version */}
-              {!effectiveProduct?.escrow_enabled && effectiveProduct?.escrow_available && (
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardContent className="pt-5 pb-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <Shield className="w-5 h-5 text-blue-400 shrink-0" />
-                        <div>
-                          <p className="text-white font-medium text-sm">Escrow Protection</p>
-                          <p className="text-gray-400 text-xs mt-0.5">2% fee · Payment held until order confirmed</p>
-                        </div>
-                      </div>
-                      <Checkbox
-                        id="escrow"
-                        checked={useEscrow}
-                        onCheckedChange={(checked) => setUseEscrow(checked === true)}
-                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+
 
               <div onClick={() => {
                 const stock = effectiveProduct?.quantity_available !== undefined ? effectiveProduct.quantity_available : 1;

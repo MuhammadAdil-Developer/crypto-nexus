@@ -685,7 +685,13 @@ def get_vendor_statistics(request, vendor_username):
                 'most_selling_product': most_selling_product,
             }
         })
-        
+    except Exception as e:
+        logger.error(f"Error in get_vendor_statistics: {str(e)}")
+        return Response({
+            'success': False,
+            'message': f'Error fetching statistics: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_vendor_dashboard_aggregated(request):
@@ -708,7 +714,7 @@ def get_vendor_dashboard_aggregated(request):
         products = Product.objects.filter(vendor=user, is_deleted=False)
         total_products = products.count()
         active_listings = products.filter(status='approved', is_active=True).count()
-        out_of_stock = products.filter(status='approved', stock_quantity=0).count()
+        out_of_stock = products.filter(status='approved', quantity_available=0).count()
         under_review = products.filter(status__in=['pending_approval', 'under_review']).count()
 
         # 2. Revenue & Sales

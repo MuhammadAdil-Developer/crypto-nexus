@@ -11,6 +11,7 @@ import { productService } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
 import { getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
+import brandLogo from "@/assets/banner/logo.png";
 import { useCryptoPrices } from '@/contexts/PriceContext';
 
 interface Order {
@@ -396,17 +397,17 @@ export const OrderProductModal: React.FC<OrderProductModalProps> = ({ order, isO
                       getImageUrl(order.product.main_image) ||
                       (order.product.main_images && order.product.main_images.length > 0
                         ? getImageUrl(order.product.main_images[0])
-                        : placeholderImage)
+                        : brandLogo)
                     }
                     alt={order.product?.headline || order.product?.listing_title || 'Product'}
                     className="w-full h-full object-contain bg-transparent"
                     onError={(e) => {
-                      e.currentTarget.src = placeholderImage;
+                      e.currentTarget.src = brandLogo;
                     }}
                   />
                 ) : (
                   <img
-                    src={placeholderImage}
+                    src={brandLogo}
                     alt="Placeholder"
                     className="w-full h-full object-contain bg-transparent"
                   />

@@ -26,6 +26,7 @@ import { PageBanner } from "@/components/PageBanner";
 // API Service
 import { API_BASE_URL, getImageUrl } from '@/config/api';
 import placeholderImage from "@/assets/placeholder.png";
+import brandLogo from "@/assets/banner/logo.png";
 import { productService } from "@/services/productService";
 
 interface Product {
@@ -525,8 +526,8 @@ function BuyerListingsContent() {
 
               {/* Smart Auto-Suggestion Dropdown - Widened for full product name visibility */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 w-full sm:w-[120%] lg:w-[140%] min-w-full bg-gray-900/95 backdrop-blur-2xl border border-gray-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                <div className="absolute top-full left-0 w-full sm:w-[130%] lg:w-[160%] min-w-full bg-gray-900/98 backdrop-blur-3xl border border-gray-700/50 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-2 max-h-[450px] overflow-y-auto custom-scrollbar">
                     <div className="px-4 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5 mb-1">
                       Trending Searches
                     </div>
@@ -545,7 +546,7 @@ function BuyerListingsContent() {
                             {suggestion.type === 'website' && <Grid className="w-4 h-4 text-blue-400" />}
                             {!suggestion.type && <Search className="w-4 h-4 text-gray-500" />}
                           </div>
-                          <span className="flex-1 text-sm text-gray-300 group-hover:text-white font-medium leading-snug break-words">
+                          <span className="flex-1 text-sm text-gray-300 group-hover:text-white font-medium leading-snug truncate whitespace-nowrap">
                             {suggestion.term}
                           </span>
                           <Badge variant="secondary" className="shrink-0 bg-white/5 text-gray-500 group-hover:bg-theme-cyan/20 group-hover:text-theme-cyan border-none text-[9px] font-black uppercase tracking-tighter">
@@ -758,8 +759,9 @@ function BuyerListingsContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {[...Array(12)].map((_, index) => (
                 <Card key={index} className="border border-gray-700 bg-gray-900 overflow-hidden group">
-                  <div className="relative aspect-video bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 overflow-hidden">
+                  <div className="relative aspect-video bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 overflow-hidden flex items-center justify-center">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-700/20 to-transparent animate-shimmer"></div>
+                    <img src={brandLogo} alt="AC Logo" className="w-16 h-16 opacity-10 object-contain" />
                   </div>
                   <CardContent className="p-4 space-y-3">
                     <div className="space-y-2">

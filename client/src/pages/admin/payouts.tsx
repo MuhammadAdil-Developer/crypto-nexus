@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, DollarSign, Wallet, RefreshCw, Check, X, Clock, Download, CheckCircle } from "lucide-react";
+import { Search, DollarSign, Wallet, RefreshCw, Check, X, Clock, Download, CheckCircle, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";

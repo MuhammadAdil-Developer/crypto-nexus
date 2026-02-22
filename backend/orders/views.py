@@ -266,11 +266,18 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def delete_order(self, request, pk=None):
         """Admin only: delete order permanently and notify participants"""
-        if not request.user.user_type == 'admin':
-            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+        # Improved permission check
+        is_admin = request.user.user_type == 'admin' or request.user.is_staff
+        if not is_admin:
+            return Response({'error': 'Unauthorized: Administrator access required'}, status=status.HTTP_403_FORBIDDEN)
             
-        order = self.get_object()
+        try:
+            order = self.get_object()
+        except Exception as e:
+            return Response({'error': f'Order not found: {str(e)}'}, status=status.HTTP_404_NOT_FOUND)
+            
         reason = request.data.get('reason', '')
+        order_id = order.order_id
         
         # Notify buyer and vendor before deletion
         try:
@@ -295,11 +302,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                 data={'order_id': order.order_id, 'reason': reason}
             )
         except Exception as e:
-            logger.error(f"Error notifying participants about order deletion: {e}")
+            logger.error(f"Error notifying participants about order deletion {order_id}: {e}")
+            # Continue with deletion even if notification fails
             
         # Delete the order
-        order_id = order.order_id
-        order.delete()
+        try:
+            order.delete()
+        except Exception as e:
+            logger.error(f"Error deleting order {order_id}: {e}")
+            return Response({'error': f'Database error during deletion: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response({
             'success': True,

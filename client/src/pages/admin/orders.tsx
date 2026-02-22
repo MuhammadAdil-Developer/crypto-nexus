@@ -160,9 +160,19 @@ export default function AdminOrders() {
         loadData();
       }
     } catch (err: any) {
+      console.error("Order deletion error:", err);
+
+      // Try to extract a meaningful error message
+      let errorMessage = "Failed to delete order";
+      if (err.response?.data) {
+        errorMessage = err.response.data.error || err.response.data.detail || errorMessage;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
       toast({
         title: "Delete Failed",
-        description: err.response?.data?.error || "Failed to delete order",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

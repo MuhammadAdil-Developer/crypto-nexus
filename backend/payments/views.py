@@ -1807,6 +1807,13 @@ class AdminCryptoStatusView(APIView):
     permission_classes = [IsAuthenticated] # Relaxed permissions for testing
     
     def get(self, request):
+        from django.core.cache import cache
+        cache_key = 'admin_crypto_status'
+        cached_response = cache.get(cache_key)
+        if cached_response:
+            logger.info("AdminCryptoStatus: Returning cached response")
+            return Response(cached_response)
+
         try:
             logger.info("AdminCryptoStatus: Starting fetch")
             payment_service = PaymentService()
@@ -1976,12 +1983,14 @@ class AdminCryptoStatusView(APIView):
                 }
             ]
                 
-            return Response({
+            response_data = {
                 'nodes': nodes,
                 'wallets': wallets,
                 'transactions': recent_txs,
                 'security': security_status
-            })
+            }
+            cache.set(cache_key, response_data, 60) # Cache for 60 seconds
+            return Response(response_data)
             
         except Exception as e:
             import traceback

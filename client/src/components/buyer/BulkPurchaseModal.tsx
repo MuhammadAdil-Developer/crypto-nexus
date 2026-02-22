@@ -7,6 +7,7 @@ import PaymentModal from './PaymentModal';
 import { useToast } from '@/hooks/use-toast';
 import { formatBTC } from '@/lib/priceUtils';
 import { useCryptoPrices } from '@/contexts/PriceContext';
+import brandLogo from "@/assets/banner/logo.png";
 
 interface BulkPurchaseModalProps {
   isOpen: boolean;
@@ -89,8 +90,8 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-700/70 bg-gray-900/95 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-theme-red/15 rounded-xl flex items-center justify-center shrink-0">
-              <ShoppingCart className="w-4.5 h-4.5 text-theme-red" />
+            <div className="w-10 h-10 bg-theme-red/15 rounded-xl flex items-center justify-center shrink-0 border border-theme-red/20 overflow-hidden">
+              <img src={brandLogo} alt="AC Logo" className="w-6 h-6 object-contain" />
             </div>
             <div>
               <h2 className="text-white font-bold text-base sm:text-lg leading-tight">Bulk Purchase Summary</h2>
@@ -109,26 +110,24 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
         <div className="flex-1 overflow-y-auto overscroll-contain">
           <div className="px-4 sm:px-6 py-4 space-y-4">
 
-            {/* Cart Items */}
-            {cartItems.length === 0 ? (
-              <div className="py-10 flex flex-col items-center text-gray-500 gap-3">
-                <Package className="w-12 h-12 opacity-30" />
-                <p className="text-sm">Your cart is empty</p>
-              </div>
+            <div className="py-10 flex flex-col items-center text-gray-500 gap-3">
+              <img src={brandLogo} alt="AC Logo" className="w-12 h-12 opacity-10 object-contain grayscale" />
+              <p className="text-sm">Your cart is empty</p>
+            </div>
             ) : (
-              <div className="space-y-2.5">
-                {cartItems.map((item) => {
-                  const itemTotal = (parseFloat(item.price) || 0) * item.quantity;
-                  const imageUrl = getItemImage(item);
+            <div className="space-y-2.5">
+              {cartItems.map((item) => {
+                const itemTotal = (parseFloat(item.price) || 0) * item.quantity;
+                const imageUrl = getItemImage(item);
 
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 p-3 bg-gray-800/60 border border-gray-700/50 rounded-xl hover:border-gray-600/70 transition-colors"
-                    >
-                      {/* Product Image */}
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden bg-gray-700 shrink-0 ring-1 ring-white/5">
-                        {imageUrl ? (
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 p-3 bg-gray-800/60 border border-gray-700/50 rounded-xl hover:border-gray-600/70 transition-colors"
+                  >
+                    {/* Product Image */}
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden bg-gray-700 shrink-0 ring-1 ring-white/5">
+                      {imageUrl ? (
                           <img
                             src={imageUrl}
                             alt={item.listing_title}
@@ -139,36 +138,34 @@ const BulkPurchaseModal: React.FC<BulkPurchaseModalProps> = ({ isOpen, onClose, 
                               (e.target as HTMLImageElement).parentElement!.classList.add('flex', 'items-center', 'justify-center');
                             }}
                           />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="w-5 h-5 text-gray-500" />
+                          <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                             <img src={brandLogo} alt="AC Logo" className="w-6 h-6 opacity-30 object-contain grayscale" />
                           </div>
-                        )}
                       </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-white font-medium text-sm truncate leading-tight">{item.listing_title}</h4>
-                        <p className="text-gray-500 text-xs mt-0.5 truncate">@{item.vendor?.username || 'Unknown'}</p>
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-gray-700 text-gray-300">
-                            ×{item.quantity}
-                          </Badge>
-                          <span className="text-gray-500 text-[10px]">
-                            ${parseFloat(item.price).toFixed(2)} each
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Price */}
-                      <div className="text-right shrink-0">
-                        <p className="text-white font-bold text-sm font-mono">{formatBTC(itemTotal / (btcPrice || 100000))}</p>
-                        <p className="text-gray-500 text-[10px] mt-0.5">${itemTotal.toFixed(2)}</p>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-medium text-sm truncate leading-tight">{item.listing_title}</h4>
+                      <p className="text-gray-500 text-xs mt-0.5 truncate">@{item.vendor?.username || 'Unknown'}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-gray-700 text-gray-300">
+                          ×{item.quantity}
+                        </Badge>
+                        <span className="text-gray-500 text-[10px]">
+                          ${parseFloat(item.price).toFixed(2)} each
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Price */}
+                    <div className="text-right shrink-0">
+                      <p className="text-white font-bold text-sm font-mono">{formatBTC(itemTotal / (btcPrice || 100000))}</p>
+                      <p className="text-gray-500 text-[10px] mt-0.5">${itemTotal.toFixed(2)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             )}
 
             {/* Price Breakdown */}

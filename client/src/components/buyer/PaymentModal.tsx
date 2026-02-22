@@ -883,10 +883,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                           {crypto === 'BTC' ? (
                             <Bitcoin className="w-6 h-6 text-orange-500" />
                           ) : (
-                            <svg viewBox="0 0 24 24" className="w-6 h-6 fill-[#FF6600]">
-                              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm0 3l-4 4h2v6h4v-6h2l-4-4z" className="hidden" />
-                              <path d="M18.067 15.111v3.297h2.518V5.592h-2.518v9.117L12.04 8.76l-6.026 5.949V5.592H3.501v12.816h2.518v-3.297L12.04 9.172l6.027 5.939z" />
-                            </svg>
+                            <div className="w-7 h-7 rounded-full bg-[#f60] flex items-center justify-center shrink-0 shadow-sm border border-white/10">
+                              <svg viewBox="0 0 64 64" className="w-4.5 h-4.5">
+                                <path fill="#fff" d="M49 47h7V24h-7v17l-17-17-17 17V24H8v23h7V32l17 17 17-17z" />
+                              </svg>
+                            </div>
                           )}
                           <div>
                             <Label htmlFor={crypto} className="text-white font-medium cursor-pointer">

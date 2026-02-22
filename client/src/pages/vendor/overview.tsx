@@ -17,6 +17,7 @@ import vendorService from "@/services/vendorService";
 import { api, authService } from "@/services/authService";
 import { useCryptoPrices } from "@/contexts/PriceContext";
 import { getImageUrl } from "@/config/api";
+import brandLogo from "@/assets/banner/logo.png";
 
 interface Order {
   id: string;
@@ -160,7 +161,7 @@ export default function VendorOverview() {
           ...p,
           revenue: `$${p.revenue.toFixed(2)}`,
           status: 'Active',
-          stock: 'N/A' // Managed individually
+          stock: p.stock ?? 0
         }));
         setTopProducts(mappedProducts);
         setCachedData(CACHE_KEYS.TOP_PRODUCTS, mappedProducts);
@@ -696,11 +697,11 @@ export default function VendorOverview() {
                   topProducts.map((product) => (
                     <div key={product.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-800 rounded-lg">
                       <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-md">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner border border-white/5">
                           {product.image ? (
                             <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
-                            <Package className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500" />
+                            <img src={brandLogo} alt="AC Logo" className="w-6 h-6 opacity-30 object-contain" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">

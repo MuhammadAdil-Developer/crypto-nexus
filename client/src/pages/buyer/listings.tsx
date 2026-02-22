@@ -526,7 +526,7 @@ function BuyerListingsContent() {
 
               {/* Smart Auto-Suggestion Dropdown - Widened for full product name visibility */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 w-full sm:w-[130%] lg:w-[160%] min-w-full bg-gray-900/98 backdrop-blur-3xl border border-gray-700/50 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full left-0 w-full sm:w-[130%] lg:w-[160%] min-w-full bg-[#0a0f14] border border-gray-700/50 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-2 max-h-[450px] overflow-y-auto custom-scrollbar">
                     <div className="px-4 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5 mb-1">
                       Trending Searches

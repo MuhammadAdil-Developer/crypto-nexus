@@ -18,6 +18,7 @@ import { api, authService } from "@/services/authService";
 import { useCryptoPrices } from "@/contexts/PriceContext";
 import { getImageUrl } from "@/config/api";
 import brandLogo from "@/assets/banner/logo.png";
+import { getRelativeMarketTime } from "@/utils/timeUtils";
 
 interface Order {
   id: string;
@@ -796,7 +797,7 @@ export default function VendorOverview() {
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <span className="text-[10px] sm:text-xs text-gray-400">{message.time}</span>
+                      <span className="text-[10px] sm:text-xs text-gray-400">{getRelativeMarketTime(message.time)}</span>
                     </div>
                   </div>
                 ))

@@ -1095,7 +1095,7 @@ def list_users(request):
         global_stats = {
             'total_users': User.objects.filter(is_deleted=False).count(),
             'active_users': User.objects.filter(is_deleted=False, is_verified=True, is_active=True).count(),
-            'vendors': VendorApplication.objects.filter(status='approved', user__is_active=True, user__is_deleted=False).count(),
+            'vendors': VendorApplication.objects.filter(status='approved', vendor_username__in=User.objects.filter(is_active=True, is_deleted=False).values_list('username', flat=True)).count(),
             'banned_users': User.objects.filter(is_deleted=False, is_active=False).count()
         }
         

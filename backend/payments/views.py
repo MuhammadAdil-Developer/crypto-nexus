@@ -1059,7 +1059,7 @@ class AdminPayoutView(APIView):
         try:
             payout_id = request.data.get('payout_id')
             action = request.data.get('action')  # release, cancel
-            notes = request.data.get('notes', '')
+            notes = request.data.get('notes') or request.data.get('reason', '')
             
             if not payout_id or not action:
                 return Response(
@@ -1109,6 +1109,46 @@ class AdminPayoutView(APIView):
                 return Response({
                     'success': True,
                     'message': 'Payout cancelled'
+                })
+            
+            elif action == 'delete':
+                if not request.user.user_type == 'admin':
+                    return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+                
+                # Find payout
+                from .models import Payout, DirectPayment
+                payout = None
+                try:
+                    payout = Payout.objects.get(id=payout_id)
+                except Payout.DoesNotExist:
+                    try:
+                        payout = DirectPayment.objects.get(id=payout_id)
+                    except DirectPayment.DoesNotExist:
+                        return Response({'error': 'Payout not found'}, status=status.HTTP_404_NOT_FOUND)
+                
+                vendor = payout.vendor
+                order_id = payout.order.order_id if payout.order else "Unknown"
+                
+                # Send notification to vendor
+                try:
+                    from shared.models import Notification
+                    reason_text = f" Reason: {notes}" if notes else ""
+                    Notification.objects.create(
+                        user=vendor,
+                        type='system',
+                        title="Payout Record Deleted",
+                        message=f"Administrator has deleted a payout record (Order: {order_id}).{reason_text}",
+                        data={'order_id': order_id, 'reason': notes}
+                    )
+                except Exception as e:
+                    logger.error(f"Error notifying vendor about payout deletion: {e}")
+                
+                # Delete the record
+                payout.delete()
+                
+                return Response({
+                    'success': True,
+                    'message': 'Payout record deleted successfully and vendor notified'
                 })
             
             else:

@@ -249,28 +249,62 @@ class OrderViewSet(viewsets.ModelViewSet):
             channel_layer = get_channel_layer()
             if channel_layer:
                 async_to_sync(channel_layer.group_send)(
-                    f'realtime_{order.buyer.id}',
+                    f'notifications_{order.buyer.id}',
                     {
-                        'type': 'order_notification',
+                        'type': 'notification',
                         'data': {
-                            'id': f'deliver_{order.order_id}_{int(timezone.now().timestamp())}',
-                            'type': 'order',
                             'title': 'Product Delivered!',
-                            'message': f'Your account for {order.product.headline} is ready.',
-                            'is_read': False,
-                            'data': {
-                                'orderId': order.order_id,
-                                'type': 'order_update',
-                                'status': 'delivered'
-                            },
-                            'created_at': timezone.now().isoformat()
+                            'message': f'Credentials for "{order.product.headline}" are now available.'
                         }
                     }
                 )
         except Exception as e:
-            logger.error(f"Failed to create delivery notification for order {order.order_id}: {str(e)}")
+            logger.error(f"Error notifying buyer about delivery: {e}")
+            
+        return Response({"message": "Order delivered successfully"})
+
+    @action(detail=True, methods=['post'])
+    def delete_order(self, request, pk=None):
+        """Admin only: delete order permanently and notify participants"""
+        if not request.user.user_type == 'admin':
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        order = self.get_object()
+        reason = request.data.get('reason', '')
         
-        return Response({"message": "Product delivered successfully"})
+        # Notify buyer and vendor before deletion
+        try:
+            from shared.models import Notification
+            reason_text = f" Reason: {reason}" if reason else ""
+            
+            # Notify buyer
+            Notification.objects.create(
+                user=order.buyer,
+                type='system',
+                title="Order Deleted by Admin",
+                message=f"Administrator has deleted your order #{order.order_id}.{reason_text}",
+                data={'order_id': order.order_id, 'reason': reason}
+            )
+            
+            # Notify vendor
+            Notification.objects.create(
+                user=order.vendor,
+                type='system',
+                title="Order Deleted by Admin",
+                message=f"Administrator has deleted order #{order.order_id} involving your product.{reason_text}",
+                data={'order_id': order.order_id, 'reason': reason}
+            )
+        except Exception as e:
+            logger.error(f"Error notifying participants about order deletion: {e}")
+            
+        # Delete the order
+        order_id = order.order_id
+        order.delete()
+        
+        return Response({
+            'success': True,
+            'message': f'Order {order_id} deleted successfully and participants notified'
+        })
     
     @action(detail=True, methods=['post'])
     def confirm(self, request, pk=None):

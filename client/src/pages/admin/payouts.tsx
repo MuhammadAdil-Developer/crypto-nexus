@@ -59,6 +59,10 @@ export default function AdminPayouts() {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [payoutToRelease, setPayoutToRelease] = useState<PayoutData | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [payoutToDelete, setPayoutToDelete] = useState<PayoutData | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [refunds, setRefunds] = useState<any[]>([]);
@@ -254,6 +258,38 @@ export default function AdminPayouts() {
       setIsReleasing(false);
       setConfirmModalOpen(false);
       setPayoutToRelease(null);
+    }
+  };
+
+  const handleDeletePayout = async () => {
+    if (!payoutToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      const response = await api.post('/payments/admin/payouts/', {
+        payout_id: payoutToDelete.id,
+        action: 'delete',
+        reason: deleteReason
+      });
+
+      if (response.data.success) {
+        toast({
+          title: "Payout Deleted",
+          description: response.data.message || "The payout has been deleted and the vendor notified."
+        });
+        setDeleteModalOpen(false);
+        setPayoutToDelete(null);
+        setDeleteReason("");
+        fetchPayouts();
+      }
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err.response?.data?.error || "Failed to delete payout",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -533,23 +569,6 @@ export default function AdminPayouts() {
       {error && (
         <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-red-300 mb-6">
           API Error: {error}
-        </div>
-      )}
-      {!loading && !error && (
-        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4 text-green-300 mb-6">
-          Connected! Found {payouts.length} payouts.
-          <div className="mt-2 text-sm space-y-1">
-            <div className="flex items-center space-x-4">
-              <span className="text-blue-300">Escrow: {payouts.filter(p => p.type === 'escrow').length}</span>
-              <span className="text-purple-300">Direct: {payouts.filter(p => p.type === 'direct').length}</span>
-            </div>
-            {payouts.filter(p => p.type === 'escrow').length === 0 && (
-              <div className="text-yellow-300 text-xs mt-2 p-2 bg-yellow-900/20 rounded border border-yellow-500/30">
-                💡 <strong>Tip:</strong> Escrow payouts only appear when buyers confirm their orders.
-                Create an escrow-enabled product order and have the buyer confirm it to see escrow payouts here.
-              </div>
-            )}
-          </div>
         </div>
       )}
 
@@ -903,6 +922,19 @@ export default function AdminPayouts() {
                                 <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
                                 <span className="hidden sm:inline">View Details</span>
                                 <span className="sm:hidden">Details</span>
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-500/30 transition-all duration-200 text-xs sm:text-sm w-full sm:w-auto mt-1"
+                                onClick={() => {
+                                  setPayoutToDelete(payout);
+                                  setDeleteModalOpen(true);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                                <span className="hidden sm:inline">Delete Record</span>
+                                <span className="sm:hidden">Delete</span>
                               </Button>
                             </div>
                           </td>
@@ -1604,6 +1636,60 @@ export default function AdminPayouts() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Payout Confirmation */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="max-w-md bg-gray-900 border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-500">
+              <Trash2 className="w-5 h-5" />
+              Delete Payout Record
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              This will permanently delete this payout record from the system.
+              The vendor will be notified about this deletion.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Reason for Deletion (Optional)</label>
+              <textarea
+                className="w-full h-24 bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm focus:ring-1 focus:ring-red-500 outline-none transition-all"
+                placeholder="Explain why this record is being deleted..."
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+              />
+              <p className="text-[10px] text-gray-500 italic">This reason will be included in the system notification sent to the vendor.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteModalOpen(false)}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeletePayout}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Confirm Delete"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

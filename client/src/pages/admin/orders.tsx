@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
-import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download, MessageSquare } from "lucide-react";
+import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download, MessageSquare, Trash2 } from "lucide-react";
 import { SAMPLE_ORDERS } from "@/lib/constants";
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +34,12 @@ export default function AdminOrders() {
   // Pagination state - Changed default to 10
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Order Deletion State
+  const [deleteOrderModalOpen, setDeleteOrderModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [orderDeleteReason, setOrderDeleteReason] = useState("");
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
 
   // Load orders and dashboard data
   const loadData = async () => {
@@ -127,6 +133,40 @@ export default function AdminOrders() {
         description: error.message,
         variant: "destructive"
       });
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+
+    try {
+      setIsDeletingOrder(true);
+      // We'll use the generic OrderViewSet destroy method (DELETE /api/v1/orders/{id}/)
+      // but passing reason in the body/query? DRF destroy doesn't usually take body.
+      // I'll implement a custom action for this if needed, or just use a custom endpoint.
+      // Let's use a POST to /api/v1/orders/{id}/delete/ for convenience.
+      const response = await api.post(`/orders/${orderToDelete.id}/delete_order/`, {
+        reason: orderDeleteReason
+      });
+
+      if (response.data.success) {
+        toast({
+          title: "Order Deleted",
+          description: response.data.message || "The order has been deleted and participants notified."
+        });
+        setDeleteOrderModalOpen(false);
+        setOrderToDelete(null);
+        setOrderDeleteReason("");
+        loadData();
+      }
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err.response?.data?.error || "Failed to delete order",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeletingOrder(false);
     }
   };
 
@@ -699,6 +739,18 @@ export default function AdminOrders() {
                             >
                               {openingChatId === order.id ? <span className="animate-spin w-3 h-3 border-2 border-indigo-400 rounded-full border-t-transparent"></span> : <MessageSquare className="w-4 h-4" />}
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                              onClick={() => {
+                                setOrderToDelete(order);
+                                setDeleteOrderModalOpen(true);
+                              }}
+                              data-testid={`delete-order-${order.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -1066,6 +1118,62 @@ export default function AdminOrders() {
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+
+      {/* Delete Order Confirmation Dialog */}
+      <Dialog open={deleteOrderModalOpen} onOpenChange={setDeleteOrderModalOpen}>
+        <DialogContent className="max-w-md bg-gray-900 border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-danger">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Order
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-gray-400 text-sm">
+              Are you sure you want to delete order <span className="text-accent font-mono">#{orderToDelete?.order_id}</span>?
+              This action will permanently remove the order record. Both the buyer and vendor will be notified.
+            </p>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-300">Reason for Deletion (Optional)</Label>
+              <textarea
+                className="w-full h-24 bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm focus:ring-1 focus:ring-danger outline-none transition-all"
+                placeholder="Why are you deleting this order?"
+                value={orderDeleteReason}
+                onChange={(e) => setOrderDeleteReason(e.target.value)}
+              />
+              <p className="text-[10px] text-gray-500 italic">This reason will be sent to both the buyer and vendor.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteOrderModalOpen(false);
+                setOrderToDelete(null);
+                setOrderDeleteReason("");
+              }}
+              className="border-gray-700 text-gray-400 hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteOrder}
+              disabled={isDeletingOrder}
+              className="bg-danger hover:bg-danger/80"
+            >
+              {isDeletingOrder ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Permanently"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </main >
   );
 }

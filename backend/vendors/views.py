@@ -37,7 +37,8 @@ def list_approved_vendors(request):
     try:
         from shared.utils.security import get_safe_int
         limit = get_safe_int(request.GET.get('limit'), default=8, min_val=1, max_val=50)
-        vendors = VendorApplication.objects.filter(status='approved', user__is_active=True, user__is_deleted=False).order_by('-updated_at')[:limit]
+        active_usernames = User.objects.filter(is_active=True, is_deleted=False).values_list('username', flat=True)
+        vendors = VendorApplication.objects.filter(status='approved', vendor_username__in=active_usernames).order_by('-updated_at')[:limit]
         data = []
         for v in vendors:
             # Safely build logo URL
@@ -91,7 +92,8 @@ def list_applications(request):
         status_filter = request.GET.get('status', '')
         
         # Build queryset - only applications for non-deleted users
-        queryset = VendorApplication.objects.filter(user__is_deleted=False)
+        non_deleted_usernames = User.objects.filter(is_deleted=False).values_list('username', flat=True)
+        queryset = VendorApplication.objects.filter(vendor_username__in=non_deleted_usernames)
         
         # If no applications exist, create sample data for testing
         if queryset.count() == 0:
@@ -130,7 +132,7 @@ def list_applications(request):
                 VendorApplication.objects.create(**app_data)
             
             # Refresh queryset
-            queryset = VendorApplication.objects.filter(user__is_deleted=False)
+            queryset = VendorApplication.objects.filter(vendor_username__in=non_deleted_usernames)
         
         # Apply status filter
         if status_filter:

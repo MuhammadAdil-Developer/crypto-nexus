@@ -257,12 +257,15 @@ export function BuyerHeader({ hasBanner = false, onMenuClick }: { hasBanner?: bo
         {/* Right Controls - Search bar removed from header */}
         <div className="flex items-center space-x-4 ml-auto">
           {/* Market Time Clock */}
-          <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/50 group hover:border-theme-red/30 transition-all duration-300">
+          <div
+            className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/50 group hover:border-theme-red/30 transition-all duration-300"
+            title="Market Time is standardized to UTC for all users globally."
+          >
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500 group-hover:text-theme-red transition-colors">Market Time</span>
               <span className="text-xs font-mono text-gray-300 tabular-nums">
-                {formatMarketTime(marketTime).split(' ')[1]} MT
+                {marketTime.toISOString().split('T')[1].split('.')[0].substring(0, 5)} MT
               </span>
             </div>
           </div>

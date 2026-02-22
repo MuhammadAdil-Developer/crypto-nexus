@@ -39,15 +39,16 @@ class OrderViewSet(viewsets.ModelViewSet):
     pagination_class = LargeResultsSetPagination
     
     def get_queryset(self):
-        """Filter orders based on user role"""
+        """Filter orders based on user role with optimized database access"""
         user = self.request.user
+        base_qs = Order.objects.select_related('buyer', 'vendor', 'product').order_by('-created_at')
         
         if user.is_staff or user.user_type == 'admin':  # Admin can see all orders
-            return Order.objects.all()
+            return base_qs
         elif user.user_type == 'vendor':  # Vendor can see their orders
-            return Order.objects.filter(vendor=user)
+            return base_qs.filter(vendor=user)
         else:  # Buyer can see their orders
-            return Order.objects.filter(buyer=user)
+            return base_qs.filter(buyer=user)
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action"""
@@ -100,32 +101,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED
             )
         
-        # Generate payment address using PaymentService
-        try:
-            from payments.services import PaymentService
-            payment_service = PaymentService()
-            
-            payment_address = payment_service.create_payment_address(
-                order_id=order.order_id,
-                crypto_currency=order.crypto_currency,
-                amount=order.total_amount,
-                payment_type='wallet',
-                use_escrow=order.use_escrow
-            )
-            
-            # Update order with payment address
-            order.payment_address = payment_address.payment_address
-            order.payment_expires_at = payment_address.expires_at
-            order.save()
-            
-            logger.info(f"Order {order.order_id} created successfully with payment address")
-            
-        except Exception as e:
-            logger.error(f"Payment address generation failed for order {order.order_id}: {str(e)}")
-            # Order is still created but without payment address
-            # This will be handled by the frontend
+        # Prepare response (Moved to end to allow notifications to run)
+        response_data = OrderSerializer(order).data
         
-        # Create notifications for buyer, vendor, and admin
         try:
             from shared.models import Notification
             from shared.admin_notifications import notify_admin_order_created, send_user_notification
@@ -623,234 +601,207 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def _get_admin_stats(self, days_range=30):
+        """Helper to get comprehensive admin statistics"""
+        from django.apps import apps
+        from django.db.models import Sum, Count, F, Q
+        
+        User = apps.get_model('users', 'User')
+        VendorApplication = apps.get_model('vendors', 'VendorApplication')
+        Product = apps.get_model('products', 'Product')
+        
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today_start - timedelta(days=1)
+        last_month_start = today_start - timedelta(days=30)
+        prev_month_start = last_month_start - timedelta(days=30)
+        
+        # 1. Users Stats
+        user_base_qs = User.objects.filter(is_deleted=False)
+        total_users = user_base_qs.count()
+        users_last_month = user_base_qs.filter(date_joined__gte=last_month_start).count()
+        users_prev_month = user_base_qs.filter(date_joined__gte=prev_month_start, date_joined__lt=last_month_start).count()
+        user_growth = 0
+        if users_prev_month > 0:
+            user_growth = ((users_last_month - users_prev_month) / users_prev_month) * 100
+        elif users_last_month > 0:
+            user_growth = 100
+            
+        total_buyers_count = User.objects.filter(user_type='buyer', is_deleted=False).count()
+        total_vendors_count = User.objects.filter(user_type='vendor', is_deleted=False).count()
+        
+        # 2. Vendor Stats
+        active_vendors = VendorApplication.objects.filter(status='approved').count()
+        vendors_last_month = VendorApplication.objects.filter(status='approved', updated_at__gte=last_month_start).count()
+        vendors_prev_month = VendorApplication.objects.filter(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start).count()
+        vendor_growth = 0
+        if vendors_prev_month > 0:
+            vendor_growth = ((vendors_last_month - vendors_prev_month) / vendors_prev_month) * 100
+        elif vendors_last_month > 0:
+            vendor_growth = 100
+
+        # 3. Listing Stats
+        live_listings = Product.objects.filter(status='approved', is_active=True, is_deleted=False).count()
+        listings_last_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=last_month_start).count()
+        listings_prev_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=prev_month_start, created_at__lt=last_month_start).count()
+        listing_growth = 0
+        if listings_prev_month > 0:
+            listing_growth = ((listings_last_month - listings_prev_month) / listings_prev_month) * 100
+        elif listings_last_month > 0:
+            listing_growth = 100
+            
+        # 4. Order Stats
+        orders_today = Order.objects.filter(created_at__gte=today_start).count()
+        orders_yesterday = Order.objects.filter(created_at__gte=yesterday_start, created_at__lt=today_start).count()
+        order_growth_daily = 0
+        if orders_yesterday > 0:
+            order_growth_daily = ((orders_today - orders_yesterday) / orders_yesterday) * 100
+        elif orders_today > 0:
+            order_growth_daily = 100
+
+        # 5. Escrow Overview (Optimized)
+        escrow_base_qs = Order.objects.filter(
+            use_escrow=True
+        ).exclude(
+            order_status__in=[
+                OrderStatus.CONFIRMED.value, 
+                OrderStatus.CANCELLED.value, 
+                OrderStatus.REFUNDED.value,
+                OrderStatus.PENDING_PAYMENT.value
+            ]
+        )
+        
+        escrow_totals = escrow_base_qs.values('crypto_currency').annotate(total=Sum('total_amount'))
+        total_escrow_btc = 0.0
+        total_escrow_xmr = 0.0
+        for t in escrow_totals:
+            if t['crypto_currency'] == 'BTC': total_escrow_btc = float(t['total'] or 0)
+            elif t['crypto_currency'] == 'XMR': total_escrow_xmr = float(t['total'] or 0)
+                
+        pending_releases = Order.objects.filter(use_escrow=True, order_status=OrderStatus.CONFIRMED.value).count()
+        auto_release_orders = Order.objects.filter(use_escrow=True, order_status=OrderStatus.DELIVERED.value).count()
+        disputed_orders = Order.objects.filter(order_status=OrderStatus.DISPUTED.value).count()
+        
+        total_orders_all_time = Order.objects.count()
+        completed_today = Order.objects.filter(
+            Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
+            Q(payment_status='paid'),
+            created_at__gte=today_start
+        ).count()
+        
+        pending_payments_count = Order.objects.filter(
+            Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
+            Q(payment_status='pending') |
+            (Q(use_escrow=True) & ~Q(order_status__in=[
+                OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value
+            ]))
+        ).count()
+
+        return {
+            'statistics': {
+                'users': {'total': total_users, 'buyers': total_buyers_count, 'vendors': total_vendors_count, 'growth_pct': round(user_growth, 1)},
+                'vendors': {'total': active_vendors, 'growth_pct': round(vendor_growth, 1)},
+                'listings': {'total': live_listings, 'growth_pct': round(listing_growth, 1)},
+                'orders': {'today': orders_today, 'yesterday': orders_yesterday, 'growth_pct': round(order_growth_daily, 1)},
+                'total_orders': total_orders_all_time,
+                'paid_orders': completed_today,
+                'pending_payments': pending_payments_count,
+                'active_escrow_orders': escrow_base_qs.count(),
+                'disputed_orders': disputed_orders
+            },
+            'escrow_stats': {
+                'btc_total': total_escrow_btc,
+                'xmr_total': total_escrow_xmr,
+                'pending_releases': pending_releases,
+                'auto_release_orders': auto_release_orders,
+                'disputed_orders': disputed_orders
+            }
+        }
+
     @action(detail=False, methods=['get'])
     def admin_dashboard(self, request):
-        """Admin dashboard with comprehensive statistics"""
+        """Admin dashboard with comprehensive statistics (optimized)"""
         if not (request.user.is_staff or request.user.user_type == 'admin'):
-            return Response(
-                {"error": "Admin access required"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"error": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
         
         try:
             from django.apps import apps
             from django.db.models import Sum, Count, F
             from django.db.models.functions import TruncDate
             
-            # Use get_model to avoid circular import issues
-            User = apps.get_model('users', 'User')
-            VendorApplication = apps.get_model('vendors', 'VendorApplication')
-            Product = apps.get_model('products', 'Product')
+            # 1. Get stats from helper
+            days_range = int(request.query_params.get('days', 30))
+            if days_range not in [7, 30, 90]: days_range = 30
             
-            # Get chart range from request (default 30 days)
-            try:
-                days_range = int(request.query_params.get('days', 30))
-                if days_range not in [7, 30, 90]:
-                    days_range = 30
-            except ValueError:
-                days_range = 30
+            all_stats = self._get_admin_stats(days_range)
             
-            now = timezone.now()
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            yesterday_start = today_start - timedelta(days=1)
-            last_month_start = today_start - timedelta(days=30)
-            prev_month_start = last_month_start - timedelta(days=30)
-            
-            # --- 1. Statistics Cards Data ---
-            
-            # Users Stats (Matching Admin Users Page logic)
-            user_base_qs = User.objects.filter(is_deleted=False)
-            total_users = user_base_qs.count()
-            users_last_month = user_base_qs.filter(date_joined__gte=last_month_start).count()
-            users_prev_month = user_base_qs.filter(date_joined__gte=prev_month_start, date_joined__lt=last_month_start).count()
-            user_growth = 0
-            if users_prev_month > 0:
-                user_growth = ((users_last_month - users_prev_month) / users_prev_month) * 100
-            elif users_last_month > 0:
-                user_growth = 100
-                
-            # Vendor Stats
-            active_vendors = VendorApplication.objects.filter(status='approved').count()
-            vendors_last_month = VendorApplication.objects.filter(status='approved', updated_at__gte=last_month_start).count()
-            vendors_prev_month = VendorApplication.objects.filter(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start).count()
-            
-            # Buyer vs Vendor breakdown for detailed stats
-            total_buyers_count = User.objects.filter(user_type='buyer', is_deleted=False).count()
-            total_vendors_count = User.objects.filter(user_type='vendor', is_deleted=False).count()
-            
-            vendor_growth = 0
-            if vendors_prev_month > 0:
-                vendor_growth = ((vendors_last_month - vendors_prev_month) / vendors_prev_month) * 100
-            elif vendors_last_month > 0:
-                vendor_growth = 100
-
-            # Listing Stats (Active and Approved listings only)
-            live_listings = Product.objects.filter(status='approved', is_active=True, is_deleted=False).count()
-            listings_last_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=last_month_start).count()
-            listings_prev_month = Product.objects.filter(status='approved', is_deleted=False, created_at__gte=prev_month_start, created_at__lt=last_month_start).count()
-            listing_growth = 0
-            if listings_prev_month > 0:
-                listing_growth = ((listings_last_month - listings_prev_month) / listings_prev_month) * 100
-            elif listings_last_month > 0:
-                listing_growth = 100
-                
-            # Order Stats (Today vs Yesterday)
-            orders_today = Order.objects.filter(created_at__gte=today_start).count()
-            orders_yesterday = Order.objects.filter(created_at__gte=yesterday_start, created_at__lt=today_start).count()
-            order_growth_daily = 0
-            if orders_yesterday > 0:
-                order_growth_daily = ((orders_today - orders_yesterday) / orders_yesterday) * 100
-            elif orders_today > 0:
-                order_growth_daily = 100
-
-            # --- 2. Chart Data (Dynamically Aggregated) ---
-            
-            # Calculate start date for chart
+            # 2. Chart Data
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
             chart_start_date = today_start - timedelta(days=days_range - 1)
             
-            # Helper to get daily counts
             def get_daily_counts(model_class, date_field):
-                qs = model_class.objects.filter(**{f"{date_field}__gte": chart_start_date})
-                return qs.annotate(
+                return model_class.objects.filter(**{f"{date_field}__gte": chart_start_date}).annotate(
                     date=TruncDate(date_field)
-                ).values('date').annotate(
-                    count=Count('id')
-                ).order_by('date')
+                ).values('date').annotate(count=Count('id')).order_by('date')
 
-            # Fetch stats
-            order_stats = get_daily_counts(Order, 'created_at')
-            user_stats = get_daily_counts(User, 'date_joined')
-            product_stats = get_daily_counts(Product, 'created_at') # New listings
+            User = apps.get_model('users', 'User')
+            Product = apps.get_model('products', 'Product')
             
-            # Convert to dicts
-            order_dict = {str(stat['date']): stat['count'] for stat in order_stats}
-            user_dict = {str(stat['date']): stat['count'] for stat in user_stats}
-            product_dict = {str(stat['date']): stat['count'] for stat in product_stats}
+            order_dict = {str(s['date']): s['count'] for s in get_daily_counts(Order, 'created_at')}
+            user_dict = {str(s['date']): s['count'] for s in get_daily_counts(User, 'date_joined')}
+            product_dict = {str(s['date']): s['count'] for s in get_daily_counts(Product, 'created_at')}
             
             chart_data = []
             for i in range(days_range - 1, -1, -1):
-                date = today_start - timedelta(days=i)
-                date_str = date.strftime('%Y-%m-%d')
-                
+                date_str = (today_start - timedelta(days=i)).strftime('%Y-%m-%d')
                 chart_data.append({
                     'date': date_str,
                     'orders': order_dict.get(date_str, 0),
                     'users': user_dict.get(date_str, 0),
                     'listings': product_dict.get(date_str, 0)
                 })
-                
-            # --- 3. Escrow Overview ---
             
-            escrow_orders = Order.objects.filter(
-                use_escrow=True
-            ).exclude(
-                order_status__in=[
-                    OrderStatus.CONFIRMED.value, 
-                    OrderStatus.CANCELLED.value, 
-                    OrderStatus.REFUNDED.value,
-                    OrderStatus.PENDING_PAYMENT.value
-                ]
-            )
-            
-            # Calculate totals
-            total_escrow_btc = 0.0
-            total_escrow_xmr = 0.0
-            
-            for order in escrow_orders:
-                try:
-                    amount = float(order.total_amount)
-                    if order.crypto_currency == 'BTC':
-                        total_escrow_btc += amount
-                    elif order.crypto_currency == 'XMR':
-                        total_escrow_xmr += amount
-                except (ValueError, TypeError):
-                    continue
-                    
-            pending_releases = Order.objects.filter(
-                use_escrow=True,
-                order_status=OrderStatus.CONFIRMED.value
-            ).count()
-            
-            auto_release_orders = Order.objects.filter(
-                use_escrow=True,
-                order_status=OrderStatus.DELIVERED.value
-            ).count()
-            
-            disputed_orders = Order.objects.filter(order_status=OrderStatus.DISPUTED.value).count()
-            
-            # Recent orders - LIMITED TO 6
-            recent_orders = Order.objects.order_by('-created_at')[:6]
-            
-            # --- Extended Stats for Admin/Orders Page ---
-            # Total Orders (All time)
-            total_orders_all_time = Order.objects.count()
-            
-            # Completed Today (Paid/Delivered/Confirmed today)
-            completed_today = Order.objects.filter(
-                Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
-                Q(payment_status='paid'),
-                created_at__gte=today_start
-            ).count()
-            
-            # Pending Payments (In Escrow or Pending Payment)
-            pending_payments_count = Order.objects.filter(
-                Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
-                Q(payment_status='pending') |
-                (Q(use_escrow=True) & ~Q(order_status__in=[
-                    OrderStatus.CONFIRMED.value, 
-                    OrderStatus.CANCELLED.value, 
-                    OrderStatus.REFUNDED.value
-                ]))
-            ).count()
-            
-            # Active Escrow Orders (Strictly funds held)
-            active_escrow_count = escrow_orders.count()
+            # 3. Recent Orders
+            recent_orders = Order.objects.select_related('buyer', 'vendor', 'product').order_by('-created_at')[:6]
             
             return Response({
-                'statistics': {
-                    'users': {
-                        'total': total_users,
-                        'buyers': total_buyers_count,
-                        'vendors': total_vendors_count,
-                        'growth_pct': round(user_growth, 1)
-                    },
-                    'vendors': {
-                        'total': active_vendors,
-                        'growth_pct': round(vendor_growth, 1)
-                    },
-                    'listings': {
-                        'total': live_listings,
-                        'growth_pct': round(listing_growth, 1)
-                    },
-                    'orders': {
-                        'today': orders_today,
-                        'yesterday': orders_yesterday,
-                        'growth_pct': round(order_growth_daily, 1)
-                    },
-                    # Add compatibility fields for Admin Orders Page
-                    'total_orders': total_orders_all_time,
-                    'paid_orders': completed_today,
-                    'pending_payments': pending_payments_count,
-                    'active_escrow_orders': active_escrow_count,
-                    'disputed_orders': disputed_orders
-                },
+                **all_stats,
                 'chart_data': chart_data,
-                'escrow_stats': {
-                    'btc_total': total_escrow_btc,
-                    'xmr_total': total_escrow_xmr,
-                    'pending_releases': pending_releases,
-                    'auto_release_orders': auto_release_orders,
-                    'disputed_orders': disputed_orders
-                },
                 'recent_orders': OrderSerializer(recent_orders, many=True).data
             })
-            
         except Exception as e:
-            logger.error(f"Error generating admin dashboard stats: {str(e)}")
-            return Response(
-                {"error": f"Failed to generate dashboard statistics: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error(f"Error generating admin dashboard: {str(e)}")
+            return Response({"error": str(e)}, status=500)
+
+    @action(detail=False, methods=['get'])
+    def orders_page_aggregated(self, request):
+        """Aggregated endpoint for Admin Orders page: stats + orders list"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            return Response({"error": "Admin access required"}, status=403)
+            
+        try:
+            # 1. Get stats
+            all_stats = self._get_admin_stats(30)
+            
+            # 2. Get filtered/paginated orders
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                response = self.get_paginated_response(serializer.data)
+                response.data['statistics_summary'] = all_stats['statistics']
+                response.data['escrow_summary'] = all_stats['escrow_stats']
+                return response
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                **all_stats,
+                'results': serializer.data
+            })
+        except Exception as e:
+            logger.error(f"Error in orders_page_aggregated: {str(e)}")
+            return Response({"error": str(e)}, status=500)
     
     def _get_payment_service(self, crypto_currency):
         """Get appropriate payment service"""

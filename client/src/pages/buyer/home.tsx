@@ -1027,9 +1027,9 @@ function BuyerHomeContent() {
                 <Search className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
               </Button>
             </div>
-            {/* Auto-suggestions dropdown - positioned relative to max-w-4xl container */}
+            {/* Auto-suggestions dropdown - wider than search bar for visibility */}
             {showSuggestions && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] max-h-80 overflow-y-auto">
+              <div className="absolute top-full left-0 w-full sm:w-[110%] min-w-full bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-[9999] max-h-96 overflow-y-auto">
                 {isLoadingSuggestions ? (
                   <div className="px-4 py-3 text-center">
                     <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto" />
@@ -1053,9 +1053,9 @@ function BuyerHomeContent() {
                         onClick={() => handleSuggestionClick(suggestion)}
                         className="px-4 py-3 hover:bg-gray-700 cursor-pointer flex items-center justify-between"
                       >
-                        <div className="flex items-center flex-1">
-                          <Search className="w-4 h-4 text-gray-400 mr-3" />
-                          <span className="text-white">{suggestion.term}</span>
+                        <div className="flex items-center flex-1 min-w-0">
+                          <Search className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
+                          <span className="text-white py-1">{suggestion.term}</span>
                         </div>
                         {suggestion.count > 0 && (
                           <span className="text-xs text-gray-400">{suggestion.count}+ views</span>

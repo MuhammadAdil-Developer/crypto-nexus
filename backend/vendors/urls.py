@@ -13,6 +13,7 @@ urlpatterns = [
     path('approved/', views.list_approved_vendors, name='list_approved_vendors'),
     
     # Vendor statistics
+    path('dashboard/aggregated/', views.get_vendor_dashboard_aggregated, name='vendor_dashboard_aggregated'),
     path('statistics/<str:vendor_username>/', views.get_vendor_statistics, name='get_vendor_statistics'),
     
     # Admin invite vendor

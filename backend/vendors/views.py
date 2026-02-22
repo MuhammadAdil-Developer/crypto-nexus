@@ -13,6 +13,11 @@ from .serializers import VendorApplicationSerializer
 from products.models import Product, ProductReview
 from orders.models import Order
 from users.models import User
+from shared.models import Conversation, Message
+from django.db.models import Sum, F, Count, Max
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class IsAdminUser(BasePermission):
@@ -681,9 +686,139 @@ def get_vendor_statistics(request, vendor_username):
             }
         })
         
-    except Exception as e:
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_vendor_dashboard_aggregated(request):
+    """
+    Optimized aggregated dashboard data for vendors in a single call.
+    Returns: stats, recent_orders, top_products, recent_messages, balance.
+    """
+    user = request.user
+    if not (user.user_type == 'vendor' or user.is_staff):
         return Response({
-            'success': False,
-            'message': 'Failed to fetch vendor statistics',
-            'errors': str(e)
+            'success': False, 
+            'message': 'Only vendors can access this dashboard'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        # Define valid order statuses for revenue/sales
+        VALID_STATUSES = ['paid', 'completed', 'delivered', 'confirmed', 'payment_received']
+        
+        # 1. Product Stats
+        products = Product.objects.filter(vendor=user, is_deleted=False)
+        total_products = products.count()
+        active_listings = products.filter(status='approved', is_active=True).count()
+        out_of_stock = products.filter(status='approved', stock_quantity=0).count()
+        under_review = products.filter(status__in=['pending_approval', 'under_review']).count()
+
+        # 2. Revenue & Sales
+        vendor_orders = Order.objects.filter(vendor=user)
+        completed_orders = vendor_orders.filter(order_status__in=VALID_STATUSES)
+        
+        sales_count = completed_orders.count()
+        total_revenue = completed_orders.aggregate(total=Sum('total_amount'))['total'] or 0
+
+        # 3. Recent Orders (Top 4 as per UI layout)
+        recent_orders_qs = vendor_orders.select_related('product', 'buyer').order_by('-created_at')[:4]
+        recent_orders = []
+        
+        for o in recent_orders_qs:
+            recent_orders.append({
+                'id': str(o.id),
+                'order_id': o.order_id,
+                'buyer': {'username': o.buyer.username if o.buyer else 'Unknown'},
+                'product': {'headline': o.product.headline if o.product else 'Unknown'},
+                'total_amount': str(o.total_amount),
+                'crypto_currency': o.crypto_currency,
+                'payment_status': o.payment_status,
+                'order_status': o.order_status,
+                'created_at': o.created_at.isoformat(),
+                'use_escrow': getattr(o, 'use_escrow', False)
+            })
+
+        # 4. Top Products (By sales count)
+        top_products_qs = completed_orders.values(
+            'product__id', 'product__headline', 'product__price'
+        ).annotate(
+            sales_count=Count('id'),
+            revenue=Sum('total_amount')
+        ).order_by('-sales_count')[:5]
+        
+        top_products = []
+        for tp in top_products_qs:
+            top_products.append({
+                'id': str(tp['product__id']),
+                'name': tp['product__headline'],
+                'sales': tp['sales_count'],
+                'revenue': float(tp['revenue']),
+                'price': float(tp['product__price'])
+            })
+
+        # 5. Recent Messages
+        conversations = Conversation.objects.filter(
+            participants=user
+        ).prefetch_related('participants', 'product').order_by('-updated_at')[:4]
+        
+        recent_messages = []
+        for conv in conversations:
+            other_participant = conv.participants.exclude(id=user.id).first()
+            last_message = Message.objects.filter(conversation=conv).order_by('-created_at').first()
+            unread_count = Message.objects.filter(conversation=conv, recipient=user, is_read=False).count()
+            
+            if other_participant and last_message:
+                recent_messages.append({
+                    'id': str(conv.id),
+                    'buyer': other_participant.username,
+                    'product': conv.product.headline if conv.product else 'Product',
+                    'lastMessage': last_message.content[:100],
+                    'time': last_message.created_at.isoformat(),
+                    'unread': unread_count > 0
+                })
+
+        # 6. Balance & Disputes
+        balance = getattr(user, 'account_balance', 0)
+        active_disputes = vendor_orders.filter(order_status='disputed').count()
+
+        return Response({
+            'success': True,
+            'data': {
+                'stats': {
+                    'revenue': {
+                        'total': float(total_revenue),
+                        'trend': 0,
+                        'period': 'all_time'
+                    },
+                    'sales': {
+                        'total': sales_count,
+                        'trend': 0,
+                        'period': 'all_time'
+                    },
+                    'listings': {
+                        'active': active_listings,
+                        'total': total_products,
+                        'attention_required': out_of_stock,
+                        'under_review': under_review
+                    },
+                    'balance': {
+                        'available': float(balance),
+                        'currency': 'USD'
+                    },
+                    'cases': {
+                        'active': active_disputes,
+                        'trend': 0
+                    }
+                },
+                'recent_orders': recent_orders,
+                'top_products': top_products,
+                'recent_messages': recent_messages
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in vendor_dashboard_aggregated: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return Response({
+            'success': False, 
+            'message': f'Failed to fetch aggregated dashboard data: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

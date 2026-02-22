@@ -388,6 +388,15 @@ class OrderService {
     }
   }
 
+  async getOrdersAggregated(page: number = 1, pageSize: number = 10): Promise<any> {
+    try {
+      const response = await api.get(`/orders/orders_page_aggregated/?page=${page}&page_size=${pageSize}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(extractErrorMessage(error, 'Failed to fetch aggregated orders data'));
+    }
+  }
+
   async expireOrder(orderId: string): Promise<Order> {
     try {
       // Backend now accepts order ID in URL path (detail=True)

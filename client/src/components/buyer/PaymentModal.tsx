@@ -194,7 +194,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
             product: itn.productId,
             quantity: itn.quantity,
             crypto_currency: selectedCrypto,
-            use_escrow: itn.use_escrow,
+            use_escrow: useEscrow, // Use modal global toggle for consolidated checkout
             refund_address: refundAddress
           };
 
@@ -208,8 +208,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         const anchorOrderId = anchorOrder.order_id || anchorOrder.id;
         const otherOrderIds = createdOrders.slice(1).map(o => o.order_id || o.id);
 
-        // 3. Convert TOTAL USD price to Crypto
-        const cryptoAmount = await paymentService.getFiatToCryptoRate(totalUsdPrice, 'USD', selectedCrypto);
+        // 3. Convert TOTAL USD price to Crypto (using pricing.total to include escrow fees)
+        const cryptoAmount = await paymentService.getFiatToCryptoRate(pricing.total, 'USD', selectedCrypto);
         const formattedAmount = paymentService.formatCryptoAmount(cryptoAmount.toString(), selectedCrypto);
 
         // 4. Create SINGLE consolidated payment address
@@ -225,6 +225,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         // 5. Update state for Step 3
         setRealPaymentAddress(paymentData);
         setRealPaymentAddresses([paymentData]);
+        setPaymentAddress(paymentData.payment_address);
+        setPaymentAmount(paymentData.expected_amount);
         setOrderId(anchorOrderId);
 
         // Start polling the anchor order
@@ -682,7 +684,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const availableCryptos = effectiveProduct?.accepted_crypto || effectiveProduct?.accepted_cryptocurrencies || ['BTC', 'XMR'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -690,7 +692,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-gray-900 rounded-xl shadow-2xl overflow-y-auto">
+      <div className="relative w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] bg-gray-900 rounded-t-2xl sm:rounded-xl shadow-2xl overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -950,76 +952,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </div>
               )}
 
-              {/* Optional Escrow Option for non-escrow products */}
+              {/* Optional Escrow Toggle for non-escrow products - compact version */}
               {!effectiveProduct?.escrow_enabled && effectiveProduct?.escrow_available && (
-                <div className="space-y-3">
-                  <Card className="bg-gray-800 border-gray-700">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id="escrow"
-                          checked={useEscrow}
-                          onCheckedChange={(checked) => {
-                            setUseEscrow(checked === true);
-                            // Show warning if disabling escrow
-                            if (!checked) {
-                              toast({
-                                title: "⚠️ Direct Order Warning",
-                                description: "Direct orders have no refund guarantee. Please review vendor policies before proceeding.",
-                                variant: "destructive",
-                                duration: 5000,
-                              });
-                            }
-                          }}
-                        />
-                        <div className="flex-1">
-                          <Label htmlFor="escrow" className="text-white font-medium cursor-pointer flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-blue-500" />
-                            Use Escrow Protection (2% fee)
-                          </Label>
-                          <p className="text-gray-400 text-sm mt-1">
-                            Your payment will be held securely until you confirm receipt of the product. Recommended for first-time purchases.
-                          </p>
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardContent className="pt-5 pb-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <Shield className="w-5 h-5 text-blue-400 shrink-0" />
+                        <div>
+                          <p className="text-white font-medium text-sm">Escrow Protection</p>
+                          <p className="text-gray-400 text-xs mt-0.5">2% fee · Payment held until order confirmed</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  {!useEscrow && (
-                    <Card className="bg-red-900/20 border-red-500/30">
-                      <CardContent className="pt-6">
-                        <div className="flex items-start space-x-3">
-                          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <h4 className="text-red-300 font-semibold text-sm mb-2">⚠️ Direct Order - No Dispute Rights</h4>
-                            <p className="text-red-200 text-xs mb-2">
-                              You are creating a <span className="font-bold text-red-300">direct order without escrow protection</span>. This means:
-                            </p>
-                            <ul className="text-red-200 text-xs space-y-2 list-disc list-inside mb-3">
-                              <li><span className="font-semibold">Payment goes directly to vendor:</span> Funds are sent immediately to the seller's wallet.</li>
-                              <li><span className="font-semibold">NO DISPUTE POSSIBILITY:</span> You <span className="font-bold text-red-300">cannot initiate a dispute</span> for direct orders at any time.</li>
-                              <li><span className="font-semibold">No Marketplace Intervention:</span> AccountzClub will <span className="font-bold text-red-300">not intervene</span> in direct sales transactions.</li>
-                              <li><span className="font-semibold">Seller Policies Apply:</span> Refunds depend entirely on the seller's individual policies stated in their profile.</li>
-                              <li><span className="font-semibold">Manual Refunds Only:</span> If the seller agrees to refund, they must do so manually. AccountzClub cannot force refunds.</li>
-                              <li><span className="font-semibold">You are a Passenger:</span> You have <span className="font-bold text-red-300">no decisional control</span> over the payment after it's sent.</li>
-                            </ul>
-                            <div className="bg-red-900/30 border border-red-500/40 rounded-lg p-3 mb-2">
-                              <p className="text-red-200 text-xs font-semibold mb-1">
-                                ⚠️ CRITICAL: Direct orders cannot be disputed. Review seller policies carefully before proceeding.
-                              </p>
-                              <p className="text-red-200 text-xs">
-                                You can report seller misconduct, but this does not affect the transaction or sales process.
-                              </p>
-                            </div>
-                            <p className="text-red-200 text-xs font-semibold">
-                              💡 Consider enabling escrow protection for your safety.
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
+                      <Checkbox
+                        id="escrow"
+                        checked={useEscrow}
+                        onCheckedChange={(checked) => setUseEscrow(checked === true)}
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               <div onClick={() => {

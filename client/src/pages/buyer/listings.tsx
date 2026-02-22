@@ -523,9 +523,9 @@ function BuyerListingsContent() {
                 </div>
               </div>
 
-              {/* Smart Auto-Suggestion Dropdown */}
+              {/* Smart Auto-Suggestion Dropdown - Widened for full product name visibility */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-gray-900/95 backdrop-blur-2xl border border-gray-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full left-0 w-full sm:w-[120%] lg:w-[140%] min-w-full bg-gray-900/95 backdrop-blur-2xl border border-gray-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                     <div className="px-4 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5 mb-1">
                       Trending Searches
@@ -537,18 +537,19 @@ function BuyerListingsContent() {
                         <div
                           key={idx}
                           onClick={() => handleSuggestionClick(suggestion.term)}
-                          className="flex items-center justify-between px-4 py-3 hover:bg-white/5 rounded-xl cursor-pointer group transition-all"
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl cursor-pointer group transition-all"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="shrink-0">
                             {suggestion.type === 'product' && <Zap className="w-4 h-4 text-yellow-400" />}
                             {suggestion.type === 'tag' && <Star className="w-4 h-4 text-theme-cyan" />}
                             {suggestion.type === 'website' && <Grid className="w-4 h-4 text-blue-400" />}
-                            <span className="text-sm text-gray-300 group-hover:text-white font-medium">
-                              {suggestion.term}
-                            </span>
+                            {!suggestion.type && <Search className="w-4 h-4 text-gray-500" />}
                           </div>
-                          <Badge variant="secondary" className="bg-white/5 text-gray-500 group-hover:bg-theme-cyan/20 group-hover:text-theme-cyan border-none text-[9px] font-black uppercase tracking-tighter">
-                            {suggestion.type}
+                          <span className="flex-1 text-sm text-gray-300 group-hover:text-white font-medium leading-snug break-words">
+                            {suggestion.term}
+                          </span>
+                          <Badge variant="secondary" className="shrink-0 bg-white/5 text-gray-500 group-hover:bg-theme-cyan/20 group-hover:text-theme-cyan border-none text-[9px] font-black uppercase tracking-tighter">
+                            {suggestion.type || 'search'}
                           </Badge>
                         </div>
                       ))}

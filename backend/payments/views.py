@@ -11,7 +11,7 @@ import logging
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from .services import PaymentService, EscrowService, PayoutService
 from .mock_services import get_payment_service
@@ -47,8 +47,15 @@ class CreatePaymentAddressView(APIView):
             try:
                 order = Order.objects.get(order_id=order_id)
                 
-                # SECURITY FIX: Always use server-side order total, ignore client input
+                # SECURITY FIX: Calculate sum of all linked orders to get consolidated total
+                linked_order_ids = data.get('linked_order_ids', [])
                 amount = order.total_amount
+                
+                if linked_order_ids:
+                    from orders.models import Order
+                    additional_amount = Order.objects.filter(order_id__in=linked_order_ids).aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0')
+                    amount += additional_amount
+                    logger.info(f"Consolidated amount for bulk order {order_id}: {amount} (Members: {len(linked_order_ids) + 1})")
                 
                 if order.order_status == OrderStatus.CANCELLED.value or order.payment_status == 'expired':
                     return Response(

@@ -9,6 +9,7 @@ from django.utils import timezone
 from .models import PaymentAddress, EscrowPayment, PaymentWebhook, BlockchainTransaction, DirectPayment
 from shared.models import CryptoCurrency
 from typing import Optional
+from django.db.models import Q
 import logging
 from requests.auth import HTTPDigestAuth
 
@@ -880,6 +881,9 @@ class PaymentService:
             
             # If payment address already exists, update it
             if not created:
+                # IMPORTANT: Check if amount changed (e.g. from single-order to bulk-consolidated)
+                amount_changed = abs(payment_address.expected_amount - amount) > Decimal('0.00000001')
+                
                 payment_address.crypto_currency = crypto
                 payment_address.payment_type = payment_type
                 payment_address.expected_amount = amount
@@ -887,9 +891,12 @@ class PaymentService:
                 payment_address.expires_at = timezone.now() + timedelta(hours=expiry_hours)
                 payment_address.required_confirmations = settings.REQUIRED_CONFIRMATIONS.get(
                     crypto_currency, 1 if crypto_currency == 'XMR' else 3
-            )
+                )
+                if amount_changed:
+                    logger.info(f"Amount changed for order {order_id} ({payment_address.expected_amount} -> {amount}). Forcing address regeneration.")
+                    payment_address.payment_address = None # Reset to force re-generation below
             
-            # Generate address based on cryptocurrency (only if not already created)
+            # Generate address based on cryptocurrency (only if not already created or if amount changed)
             if crypto_currency == 'BTC' and not payment_address.payment_address:
                 if use_escrow:
                     # Use BTCPay Server for escrow payments
@@ -1092,6 +1099,33 @@ class PaymentService:
             # (handled in the preceding BTC/XMR specific blocks which are already in the file)
             
             payment_address.save()
+
+            # 4. Create DirectPayment records for ALL orders in the group
+            all_order_ids = [order_id] + linked_order_ids
+            from orders.models import Order
+            orders_to_sync = Order.objects.filter(order_id__in=all_order_ids)
+            
+            for o in orders_to_sync:
+                DirectPayment.objects.get_or_create(
+                    order=o,
+                    defaults={
+                        'vendor': o.vendor,
+                        'buyer': o.buyer,
+                        'crypto_currency': crypto_currency_obj,
+                        'amount': o.total_amount,
+                        'vendor_address': o.vendor_wallet_address or "MISSING_ADDRESS",
+                        'status': 'pending',
+                        'expires_at': expires_at
+                    }
+                )
+            
+            Order.objects.filter(order_id__in=all_order_ids).update(
+                payment_address=payment_address.payment_address,
+                payment_expires_at=payment_address.expires_at,
+                payment_status='pending'
+            )
+            logger.info(f"Created/Updated DirectPayment records and Order metadata for {len(all_order_ids)} bulk members")
+
             return payment_address
             
         except Exception as e:
@@ -1575,9 +1609,20 @@ class PaymentService:
                         platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
 
                     # 3. Determine the amount for THIS order
-                    # For bulk payments, we assume the portion for this order is its full amount
-                    # (since we validated the total payment at the PaymentAddress level)
-                    amount = direct_payment.amount
+                    global_received = Decimal(str(payment_address.received_amount or 0))
+                    global_expected = Decimal(str(payment_address.expected_amount or 0))
+                    
+                    if global_received > 0 and global_expected > 0:
+                        # Pro-rate the received amount based on this order's share of the expected total
+                        order_share = order.total_amount / global_expected
+                        amount = global_received * order_share
+                        logger.info(f"Pro-rated bulk portion for {oid}: {amount} (Received: {global_received})")
+                    else:
+                        amount = direct_payment.amount
+                    
+                    # Sync DirectPayment amount
+                    if abs(direct_payment.amount - amount) > Decimal('0.00000001'):
+                        direct_payment.amount = amount
                     
                     # Calculate fees for this specific order
                     platform_fee = amount * platform_fee_rate
@@ -2002,8 +2047,9 @@ class PaymentService:
                 self._update_order_status_dynamically(payment_address.order_id, 'Paid')
                 
                 # Process escrow if applicable
-                if hasattr(payment_address, 'escrow'):
-                    escrow = payment_address.escrow
+                escrows_mgr = getattr(payment_address, 'escrows', None)
+                if escrows_mgr and escrows_mgr.exists():
+                    escrow = escrows_mgr.first()
                     escrow.status = 'funded'
                     escrow.save()
                     
@@ -2026,7 +2072,6 @@ class PaymentService:
     def get_payment_address(self, order_id: str) -> PaymentAddress:
         """Get payment address for order, supporting linked bulk orders"""
         try:
-            from django.db.models import Q
             return PaymentAddress.objects.filter(
                 Q(order_id=order_id) | Q(linked_order_ids__contains=order_id)
             ).first()
@@ -2161,8 +2206,14 @@ class PaymentService:
             except Order.DoesNotExist:
                 pass
             
-            payment_address = PaymentAddress.objects.get(order_id=order_id)
-            
+            payment_address = self.get_payment_address(order_id)
+            if not payment_address:
+                return {
+                    'order_id': order_id,
+                    'status': 'error',
+                    'message': 'Payment address not found for this order'
+                }
+
             # Check for Monero payments if it's XMR
             # Check for Monero payments if it's XMR
             if payment_address.crypto_currency.symbol == 'XMR' and payment_address.monero_subaddress_index:
@@ -2410,7 +2461,7 @@ class PaymentService:
             if hasattr(payment_address, 'escrows'):
                 escrow = payment_address.escrows.first()
             elif hasattr(payment_address, 'escrow'): # Backward compatibility
-                 escrow = payment_address.escrow
+                 escrow = payment_address.escrows.first()
                  
             if escrow:
                 result['escrow'] = {
@@ -2519,7 +2570,7 @@ class PaymentService:
         """Release escrow payment to vendor"""
         try:
             payment_address = PaymentAddress.objects.get(order_id=order_id)
-            escrow = payment_address.escrow
+            escrow = payment_address.escrows.first()
             
             # SECURITY: Prevent release if payment is not fully settled/confirmed
             from django.conf import settings as django_settings
@@ -2632,7 +2683,7 @@ class EscrowService:
         """Mark escrow as disputed"""
         try:
             payment_address = PaymentAddress.objects.get(order_id=order_id)
-            escrow = payment_address.escrow
+            escrow = payment_address.escrows.first()
             
             escrow.status = 'disputed'
             escrow.dispute_reason = reason
@@ -2911,7 +2962,7 @@ class PayoutService:
             # Check if escrow exists and payment is confirmed
             try:
                 payment_address = PaymentAddress.objects.get(order_id=order_id)
-                escrow = payment_address.escrow
+                escrow = payment_address.escrows.first()
                 
                 # Check if payment is confirmed (not just escrow status)
                 if payment_address.status != 'paid':
@@ -3023,7 +3074,7 @@ class PayoutService:
                 if payout.payout_type == 'escrow':
                     try:
                         payment_address = PaymentAddress.objects.get(order_id=payout.order.order_id)
-                        escrow = payment_address.escrow
+                        escrow = payment_address.escrows.first()
                         escrow.status = 'released'
                         escrow.released_at = timezone.now()
                         escrow.release_transaction_hash = transaction_hash

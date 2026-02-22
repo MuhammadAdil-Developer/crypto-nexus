@@ -48,17 +48,67 @@ def auto_release_escrow_payouts():
 
 @shared_task
 def check_direct_payment_status():
-    """Check status of all pending direct and subaddress payments"""
+    """Trigger background monitoring tasks for all pending orders"""
     try:
-        # Check direct vendor payments
-        direct_payment_monitor.monitor_pending_direct_payments()
+        from .models import DirectPayment, PaymentAddress
+        from django.db.models import Q
+        from datetime import datetime, timedelta
         
-        # Check escrow/subaddress payments
-        direct_payment_monitor.monitor_pending_payment_addresses()
+        window = timezone.now() - timedelta(days=1)
         
-        return "Monitored all pending crypto payments"
+        # 1. Trigger tasks for Direct Payments
+        payments = DirectPayment.objects.filter(
+            Q(status__in=['pending', 'expired', 'confirmed', 'processing']),
+            created_at__gt=window
+        )
+        for p in payments:
+            monitor_individual_payment.delay(p.id)
+            
+        # 2. Trigger tasks for Escrow/Subaddresses
+        addresses = PaymentAddress.objects.filter(
+            status__in=['pending', 'expired', 'processing', 'partial'],
+            created_at__gt=window
+        )
+        for pa in addresses:
+            monitor_individual_address.delay(pa.id)
+            
+        return f"Triggered {payments.count() + addresses.count()} individual monitor tasks"
     except Exception as e:
-        logger.error(f"Error in check_direct_payment_status: {str(e)}")
+        logger.error(f"Error triggering monitor tasks: {e}")
+        return str(e)
+
+@shared_task
+def monitor_individual_payment(payment_id):
+    """Background task to monitor a single direct payment"""
+    try:
+        from .models import DirectPayment
+        from .direct_payment_monitor import direct_payment_monitor
+        p = DirectPayment.objects.get(id=payment_id)
+        
+        if p.status in ['completed', 'failed']: return "Skipped completed"
+        
+        current_height = direct_payment_monitor._get_current_btc_height()
+        if p.crypto_currency.symbol == 'BTC':
+            direct_payment_monitor._monitor_btc_payment(p, current_height)
+        elif p.crypto_currency.symbol == 'XMR':
+            direct_payment_monitor._monitor_xmr_payment(p)
+            
+        return f"Monitored payment {p.id}"
+    except Exception as e:
+        logger.error(f"Error in monitor_individual_payment: {e}")
+        return str(e)
+
+@shared_task
+def monitor_individual_address(address_id):
+    """Background task to monitor a single payment address"""
+    try:
+        from .models import PaymentAddress
+        from .services import PaymentService
+        pa = PaymentAddress.objects.get(id=address_id)
+        PaymentService().check_payment_status(pa.order_id)
+        return f"Checked address {pa.order_id}"
+    except Exception as e:
+        # Avoid logger spam for missing/broken data
         return str(e)
 
 
@@ -67,10 +117,17 @@ def create_escrow_payout(order_id: str):
     """Task to initialize escrow payout record when payment is confirmed"""
     try:
         from orders.models import Order
+        from django.db.models import Q
         from .models import EscrowPayment, PaymentAddress
         
         order = Order.objects.get(order_id=order_id)
-        payment_address = PaymentAddress.objects.get(order_id=order_id)
+        payment_address = PaymentAddress.objects.filter(
+            Q(order_id=order_id) | Q(linked_order_ids__contains=order_id)
+        ).first()
+
+        if not payment_address:
+            logger.error(f"Payment address not found for order {order_id} during escrow creation")
+            return f"Error: No payment address for {order_id}"
         
         # Create escrow payment record
         escrow, created = EscrowPayment.objects.get_or_create(
@@ -168,11 +225,14 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             DirectPayment.objects.filter(order=order).update(status='refunded')
             return f"Order {order_id} already refunded - payout aborted"
         
-        # Get payment address
-        try:
-            payment_address = PaymentAddress.objects.get(order_id=order_id)
-        except PaymentAddress.DoesNotExist:
-            logger.error(f"Payment address not found for order {order_id}")
+        # Get payment address (Account for bulk orders where this order might be a linked member)
+        from django.db.models import Q
+        payment_address = PaymentAddress.objects.filter(
+            Q(order_id=order_id) | Q(linked_order_ids__contains=order_id)
+        ).first()
+        
+        if not payment_address:
+            logger.error(f"Payment address not found for order {order_id} (searched anchor and links)")
             return f"Payment address not found for order {order_id}"
             
         # Get vendor payout address from profile
@@ -196,7 +256,7 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                     'vendor': vendor,
                     'buyer': order.buyer,
                     'crypto_currency': payment_address.crypto_currency,
-                    'amount': payment_address.received_amount if (payment_address.received_amount and payment_address.received_amount > 0) else Decimal(str(payment_address.expected_amount)), 
+                    'amount': order.total_amount, # Use individual order amount, pro-rating happens below
                     'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
                     'status': 'pending',
                     'platform_fee': Decimal('0'),
@@ -340,18 +400,27 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         # 5. When sending $1.6625 to vendor → network fee (~$0.25) deducted from this amount
         # 6. Vendor receives: $1.6625 - $0.25 = ~$1.41
         # ============================================================
-        # CRITICAL: Always use received_amount (what actually arrived after buyer's network fee)
-        # NEVER use expected_amount - it's the amount BEFORE buyer's network fee!
-        if payment_address.received_amount and payment_address.received_amount > 0:
-            amount = payment_address.received_amount
+        # BULK ORDER HANDLING: Determine portion for THIS order
+        # ============================================================
+        is_bulk = bool(payment_address.linked_order_ids)
+        global_received = Decimal(str(payment_address.received_amount or 0))
+        global_expected = Decimal(str(payment_address.expected_amount or 0))
+        
+        if is_bulk and global_received > 0 and global_expected > 0:
+            # Pro-rate the received amount based on this order's share of the expected total
+            # This handles both overpayments and tolerated underpayments gracefully
+            order_share = order.total_amount / global_expected
+            amount = global_received * order_share
+            logger.info(f"Bulk member {order_id} share: {amount} (OrderTotal: {order.total_amount}, GlobalReceived: {global_received})")
+        elif global_received > 0:
+            amount = global_received
         else:
-            # Handle missing received_amount with API fetch or fallback
-            amount = direct_payment.amount if direct_payment.amount > 0 else payment_address.expected_amount
+            # Fallback for old orders or stuck monitor updates
+            amount = direct_payment.amount if direct_payment.amount > 0 else order.total_amount
 
-        # CRITICAL: Sync direct_payment.amount with the ACTUAL money in hand
-        # This prevents calculation mismatches later in the task.
-        if direct_payment.amount != amount:
-            logger.info(f"🔄 Syncing DirectPayment {direct_payment.id} amount: {direct_payment.amount} -> {amount} (actual)")
+        # CRITICAL: Sync direct_payment.amount with the ACTUAL money in hand for THIS order
+        if abs(direct_payment.amount - amount) > Decimal('0.00000001'):
+            logger.info(f"🔄 Syncing DirectPayment {direct_payment.id} amount: {direct_payment.amount} -> {amount} (portion)")
             direct_payment.amount = amount
             direct_payment.save(update_fields=['amount'])
         # else:

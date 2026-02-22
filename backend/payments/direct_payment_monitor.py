@@ -43,7 +43,7 @@ class DirectPaymentMonitor:
             
             if not payments.exists(): return
             
-            # logger.info(f"🚀 SCANNER: Monitoring {payments.count()} orders (24h window)...")
+            # Group monitoring to prevent massive blocking loops
             current_height = self._get_current_btc_height()
 
             for payment in payments:
@@ -89,7 +89,9 @@ class DirectPaymentMonitor:
             from django.conf import settings
             required_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)
             
-            pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
+            pa = PaymentAddress.objects.filter(
+                Q(order_id=payment.order.order_id) | Q(linked_order_ids__contains=payment.order.order_id)
+            ).first()
             if not pa: return
 
             # 1. BTCPay Check
@@ -142,8 +144,9 @@ class DirectPaymentMonitor:
 
     def _monitor_xmr_payment(self, payment):
         try:
-            from .models import PaymentAddress
-            pa = PaymentAddress.objects.filter(order_id=payment.order.order_id).first()
+            pa = PaymentAddress.objects.filter(
+                Q(order_id=payment.order.order_id) | Q(linked_order_ids__contains=payment.order.order_id)
+            ).first()
             if not pa: return
             
             if not self.monero_service:
@@ -234,11 +237,22 @@ class DirectPaymentMonitor:
                         if received < expected:
                             logger.info(f"✅ TOLERATED UNDERPAYMENT: Order {order.order_id}. Shortfall within allowed limits.")
                 
+                # Payment Address lookup (Needed for bulk pro-rating below)
+                pa = PaymentAddress.objects.filter(
+                    Q(order_id=order.order_id) | Q(linked_order_ids__contains=order.order_id)
+                ).first()
+
                 # Use .update() for non-status-changing updates to avoid poisoning 'updated_at'
                 update_data = {}
                 if confirmations is not None: update_data['confirmations'] = confirmations
-                if amount: 
-                    update_data['amount_received'] = amount 
+                if amount:
+                    # PRO-RATE for bulk orders so amount_received reflects this order's share
+                    global_expected = Decimal(str(pa.expected_amount if pa else db_payment.amount))
+                    if pa and pa.linked_order_ids and global_expected > 0:
+                        order_share = order.total_amount / global_expected
+                        update_data['amount_received'] = amount * order_share
+                    else:
+                        update_data['amount_received'] = amount
                     # We also update the DirectPayment.amount if it was 0 for some reason 
                     # (though it should have been set at creation)
                 
@@ -260,7 +274,6 @@ class DirectPaymentMonitor:
                     needs_trigger = False
                 
                 # Payment Address update
-                pa = PaymentAddress.objects.filter(order_id=order.order_id).first()
                 if pa:
                     if confirmations is not None: pa.confirmations = confirmations
                     if tx_hash: pa.transaction_hash = tx_hash
@@ -272,7 +285,7 @@ class DirectPaymentMonitor:
                         pa.status = 'paid'
                         pa.confirmed_at = timezone.now()
                     
-                    if amount: pa.received_amount = float(amount)
+                    if amount: pa.received_amount = Decimal(str(amount))
                     pa.save()
 
                 # Update Order Status ONLY if not partial
@@ -363,7 +376,7 @@ class DirectPaymentMonitor:
                 
                 if needs_trigger and not is_partial:
                     from .tasks import process_non_escrow_payout
-                    # logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
+                    logger.info(f"💰 TRIGGERING PAYOUT: {order.order_id} (Source: {source}, Stuck Rescue: {is_stuck})")
                     process_non_escrow_payout.delay(order.order_id, is_settled=True)
         except Exception as e:
             logger.error(f"Confirmation error: {e}")
@@ -380,8 +393,7 @@ class DirectPaymentMonitor:
                 if confirmations is not None: pa.confirmations = confirmations
                 if tx_hash: pa.transaction_hash = tx_hash
                 if amount: 
-                    received_crypto = Decimal(str(amount))
-                    pa.received_amount = float(received_crypto)
+                    pa.received_amount = Decimal(str(amount))
                     
                     # Mark as 'paid' to hide cancel button as soon as ANY payment is detected
                     # We don't mark as 'partial' here anymore to avoid poisoning the status
@@ -435,7 +447,7 @@ class DirectPaymentMonitor:
     def _get_blockchain_transactions(self, address):
         for url in [f"https://mempool.space/api/address/{address}/txs", f"https://blockstream.info/api/address/{address}/txs"]:
             try:
-                r = requests.get(url, timeout=10)
+                r = requests.get(url, timeout=5)
                 if r.status_code == 200: return r.json()
             except: continue
         return []

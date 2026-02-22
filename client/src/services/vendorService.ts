@@ -122,6 +122,19 @@ class VendorService {
     }
   }
 
+  /**
+   * Fetches fully aggregated dashboard data specifically optimized for speed.
+   */
+  async getDashboardAggregated() {
+    try {
+      const response = await api.get('/vendors/dashboard/aggregated/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching aggregated dashboard:', error);
+      return { success: false, message: 'Failed to fetch aggregated dashboard' };
+    }
+  }
+
   async getDashboardStats() {
     try {
       // Parallel fetches with individual error handling to prevent one failure from blocking everything

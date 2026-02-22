@@ -39,18 +39,16 @@ export default function AdminOrders() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [ordersData, dashboardData] = await Promise.all([
-        orderService.getOrders(),
-        orderService.getAdminDashboard()
-      ]);
+      // Use the new aggregated endpoint for much better performance
+      const data = await orderService.getOrdersAggregated(1, 1000); // Fetch a reasonable amount for client-side filtering
 
-      console.log('Orders data:', ordersData);
-      console.log('Dashboard data:', dashboardData);
+      console.log('Aggregated data received:', data);
 
-      // Handle paginated response from getOrders()
-      const ordersArray = ordersData.results || ordersData || [];
-      setOrders(ordersArray);
-      setDashboardData(dashboardData);
+      setOrders(data.results || []);
+      setDashboardData({
+        statistics: data.statistics_summary,
+        escrow_stats: data.escrow_summary
+      });
     } catch (error: any) {
       console.error('Error loading data:', error);
       toast({

@@ -109,189 +109,77 @@ export default function VendorOverview() {
     }
   };
 
-  // Fetch recent orders and calculate metrics with caching
-  const fetchRecentOrders = async () => {
-    if (ordersFetched) return;
-
-    // Try cache first
-    const cached = getCachedData(CACHE_KEYS.RECENT_ORDERS);
-    if (cached !== null) {
-      setRecentOrders(cached.slice(0, 5));
-      // setOrdersFetched(true); // Don't set yet, we might need stats
-    }
+  // Consolidated aggregated dashboard fetch
+  const fetchAggregatedData = async (force = false) => {
+    if (ordersFetched && !force) return;
 
     try {
       setIsLoadingOrders(true);
       setIsLoadingCards(true);
+      setIsLoadingTopProducts(true);
+      setIsLoadingMessages(true);
 
-      // Fetch Dashboard Stats (Parallel with orders usually, or replaces calculations)
-      const statsResponse = await vendorService.getDashboardStats();
-      if (statsResponse.success && statsResponse.data) {
-        const stats = statsResponse.data;
+      const response = await vendorService.getDashboardAggregated();
+      if (response.success && response.data) {
+        const { stats, recent_orders, top_products, recent_messages } = response.data;
 
+        // 1. Stats and Metrics
         setTotalRevenue(stats.revenue.total);
         setTotalSales(String(stats.sales.total)); // Show numeric count of orders
         setActiveListingsCount(stats.listings.active);
         setPendingOrdersCount(stats.listings.attention_required);
-        setEarnings(stats.revenue.total); // Numeric USD total
+        setEarnings(stats.balance.available); // Current balance
         setDisputes(stats.cases.active);
 
         // Update Trends
         setTrends({
-          salesChange: "Lifetime count",
-          listingsChange: "0 this week",
-          ordersChange: "0 from yesterday",
-          earningsChange: `+$${stats.revenue.total.toLocaleString()}`, // Show total as positive growth for now
-          disputesChange: "No change"
+          salesChange: "Last 30 days",
+          listingsChange: "Active now",
+          ordersChange: "Total orders",
+          earningsChange: `+$${stats.revenue.total.toLocaleString()}`,
+          disputesChange: "Active disputes"
         });
 
         // Calculate BTC estimate
-        const btcEstimate = stats.revenue.total / btcPrice;
+        const btcEstimate = stats.revenue.total / (btcPrice || 50000);
 
         setAdditionalStats({
           btcRevenue: `≈ ${btcEstimate.toFixed(8)} BTC`,
-          featuredListings: Math.floor(stats.listings.active / 2), // Mock logic from previous code, can be real later
+          featuredListings: stats.listings.active,
           ordersAttention: stats.listings.attention_required,
           disputesActive: stats.cases.active,
-          avgResponseTime: "N/A" // Will be calculated from messages if available
+          avgResponseTime: "N/A"
         });
+
+        // 2. Recent Orders
+        setRecentOrders(recent_orders);
+        setCachedData(CACHE_KEYS.RECENT_ORDERS, recent_orders);
+
+        // 3. Top Products - Map to frontend format
+        const mappedProducts = top_products.map((p: any) => ({
+          ...p,
+          revenue: `$${p.revenue.toFixed(2)}`,
+          status: 'Active',
+          stock: 'N/A' // Managed individually
+        }));
+        setTopProducts(mappedProducts);
+        setCachedData(CACHE_KEYS.TOP_PRODUCTS, mappedProducts);
+
+        // 4. Recent Messages
+        setRecentMessages(recent_messages);
+        setCachedData(CACHE_KEYS.RECENT_MESSAGES, recent_messages);
+
+        setOrdersFetched(true);
+        setProductsFetched(true);
+        setMessagesFetched(true);
       }
-
-      // Fetch Orders List
-      let ordersData: any = [];
-      try {
-        ordersData = await orderService.getVendorOrders();
-      } catch (e) {
-        // ignore
-      }
-      const ordersArray = Array.isArray(ordersData) ? ordersData : (ordersData as any)?.results || [];
-      const allOrders = ordersArray || [];
-
-      // Sort and set recent orders - Take 4 for better layout balance
-      const sortedOrders = allOrders
-        .sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 4);
-
-      setRecentOrders(sortedOrders);
-      setCachedData(CACHE_KEYS.RECENT_ORDERS, sortedOrders);
-
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error('Error fetching aggregated dashboard data:', error);
     } finally {
       setIsLoadingOrders(false);
       setIsLoadingCards(false);
-      setOrdersFetched(true);
-    }
-  };
-
-  const fetchActiveListings = async () => {
-    // Now handled by fetchRecentOrders / getDashboardStats
-  };
-
-  // Fetch top performing products with caching
-  const fetchTopProducts = async () => {
-    if (productsFetched) return;
-
-    // Try cache first
-    const cached = getCachedData(CACHE_KEYS.TOP_PRODUCTS);
-    if (cached !== null) {
-      setTopProducts(cached);
       setIsLoadingTopProducts(false);
-      setProductsFetched(true);
-      return;
-    }
-
-    try {
-      setIsLoadingTopProducts(true);
-
-      // Fetch both products and orders to calculate actual sales per product
-      const [productsRes, ordersRes] = await Promise.all([
-        productService.getVendorProducts(),
-        orderService.getVendorOrders().catch(() => []) // Fallback to empty array if fails
-      ]);
-
-      const products = (productsRes as any)?.data || [];
-      const orders = Array.isArray(ordersRes) ? ordersRes : (ordersRes as any)?.results || ordersRes || [];
-
-      // Count completed orders per product (including giveaways)
-      const validStatuses = ['paid', 'completed', 'delivered', 'shipped', 'confirmed', 'processing', 'payment_received'];
-      const completedOrders = orders.filter((o: any) =>
-        validStatuses.includes((o.order_status || '').toLowerCase())
-      );
-
-      // Create a map of product_id -> sales count (including giveaways)
-      const productSalesMap: { [key: string]: number } = {};
-      completedOrders.forEach((order: any) => {
-        // Try multiple ways to get product ID
-        const productId = order.product?.id ||
-          order.product_id ||
-          (order.product && typeof order.product === 'string' ? order.product : null);
-        if (productId) {
-          // Convert to string for consistent key matching
-          const key = String(productId);
-          productSalesMap[key] = (productSalesMap[key] || 0) + 1;
-        }
-      });
-
-      // Sort by actual sales count (not review_count) and take top 6
-      const topProductsList = products
-        .map((product: any) => {
-          // Match product ID (convert to string for consistent matching)
-          const productIdKey = String(product.id);
-          const salesCount = productSalesMap[productIdKey] || 0;
-
-          return {
-            id: product.id,
-            name: product.headline || product.listing_title || "Product",
-            sales: salesCount, // Use actual orders count (includes giveaways)
-            revenue: `$${Number(product.price || 0).toFixed(2)}`,
-            status: product.status === 'approved' ? 'Active' : 'Inactive',
-            stock: product.quantity_available || 0,
-            image: product.main_image || ''
-          };
-        })
-        .sort((a: any, b: any) => b.sales - a.sales) // Sort by sales count
-        .slice(0, 6);
-
-      setTopProducts(topProductsList);
-      setCachedData(CACHE_KEYS.TOP_PRODUCTS, topProductsList);
-    } catch (e) {
-      console.error('Error fetching top products:', e);
-      setTopProducts([]);
-    } finally {
-      setIsLoadingTopProducts(false);
-      setProductsFetched(true);
-    }
-  };
-
-  // Fetch recent messages with caching
-  const fetchRecentMessages = async () => {
-    if (messagesFetched) return;
-
-    // Try cache first
-    const cached = getCachedData(CACHE_KEYS.RECENT_MESSAGES);
-    if (cached !== null) {
-      setRecentMessages(cached);
       setIsLoadingMessages(false);
-      setMessagesFetched(true);
-      return;
-    }
-
-    try {
-      setIsLoadingMessages(true);
-      const messages = await messagingService.getRecentMessages();
-      setRecentMessages(messages);
-      setCachedData(CACHE_KEYS.RECENT_MESSAGES, messages);
-    } catch (error) {
-      console.error('Error fetching recent messages:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load recent messages",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingMessages(false);
-      setMessagesFetched(true);
     }
   };
 
@@ -427,9 +315,7 @@ export default function VendorOverview() {
       }
     }
 
-    fetchRecentOrders();
-    fetchTopProducts();
-    fetchRecentMessages();
+    fetchAggregatedData();
     fetchAnnouncements();
 
     // Subscribe to real-time updates

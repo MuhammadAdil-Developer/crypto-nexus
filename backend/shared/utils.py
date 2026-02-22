@@ -63,17 +63,23 @@ def validate_xmr_address(address):
 
 def is_admin_user(user):
     """Check if user is an admin"""
-    return user.is_authenticated and user.user_type == 'admin'
+    if not user.is_authenticated or not user.is_active or getattr(user, 'is_deleted', False):
+        return False
+    return user.user_type == 'admin'
 
 
 def is_vendor_user(user):
     """Check if user is a vendor"""
-    return user.is_authenticated and user.user_type == 'vendor'
+    if not user.is_authenticated or not user.is_active or getattr(user, 'is_deleted', False):
+        return False
+    return user.user_type == 'vendor'
 
 
 def is_buyer_user(user):
     """Check if user is a buyer"""
-    return user.is_authenticated and user.user_type == 'buyer'
+    if not user.is_authenticated or not user.is_active or getattr(user, 'is_deleted', False):
+        return False
+    return user.user_type == 'buyer'
 
 
 def get_user_type(user):

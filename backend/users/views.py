@@ -31,6 +31,10 @@ class IsAdminUser(BasePermission):
         # Check if user is authenticated
         if not request.user or not request.user.is_authenticated:
             return False
+            
+        # Check if user is active and NOT deleted
+        if not request.user.is_active or getattr(request.user, 'is_deleted', False):
+            return False
         
         # Check if user has admin user_type or is superuser/staff
         if (hasattr(request.user, 'user_type') and request.user.user_type == 'admin') or \
@@ -678,7 +682,7 @@ def user_detail(request, user_id):
         User = apps.get_model('users', 'User')
         Order = apps.get_model('orders', 'Order')
         
-        user = get_object_or_404(User, id=user_id, is_deleted=False)
+        user = get_object_or_404(User, id=user_id)
         user_data = UserSerializer(user).data
         
         # Add basic info not in serializer
@@ -729,7 +733,7 @@ def admin_update_user(request, user_id):
     """Update user information (admin only)"""
     try:
         from django.shortcuts import get_object_or_404
-        user = get_object_or_404(User, id=user_id, is_deleted=False)
+        user = get_object_or_404(User, id=user_id)
         
         if str(user.id) == str(request.user.id):
             # Check if attempting to deactivate or change role
@@ -777,7 +781,7 @@ def delete_user(request, user_id):
     """Soft delete a user (admin only)"""
     try:
         from django.shortcuts import get_object_or_404
-        user = get_object_or_404(User, id=user_id, is_deleted=False)
+        user = get_object_or_404(User, id=user_id)
         
         if str(user.id) == str(request.user.id):
             return Response({
@@ -808,7 +812,7 @@ def verify_user(request, user_id):
     """Verify a user account or unban user (admin only)"""
     try:
         from django.shortcuts import get_object_or_404
-        user = get_object_or_404(User, id=user_id, is_deleted=False)
+        user = get_object_or_404(User, id=user_id)
         
         # If user is banned (is_active=False), unban them and verify
         if not user.is_active:
@@ -839,7 +843,7 @@ def admin_reset_password(request, user_id):
     """Reset user password (admin only)"""
     try:
         from django.shortcuts import get_object_or_404
-        user = get_object_or_404(User, id=user_id, is_deleted=False)
+        user = get_object_or_404(User, id=user_id)
         new_password = request.data.get('new_password')
         
         if not new_password:
@@ -883,7 +887,7 @@ def user_activity(request, user_id):
         from wishlist.models import Wishlist
         from datetime import datetime
         
-        user = get_object_or_404(User, id=user_id, is_deleted=False)
+        user = get_object_or_404(User, id=user_id)
         
         activities = []
         
@@ -1091,7 +1095,7 @@ def list_users(request):
         global_stats = {
             'total_users': User.objects.filter(is_deleted=False).count(),
             'active_users': User.objects.filter(is_deleted=False, is_verified=True, is_active=True).count(),
-            'vendors': VendorApplication.objects.filter(status='approved').count(),
+            'vendors': VendorApplication.objects.filter(status='approved', user__is_active=True, user__is_deleted=False).count(),
             'banned_users': User.objects.filter(is_deleted=False, is_active=False).count()
         }
         

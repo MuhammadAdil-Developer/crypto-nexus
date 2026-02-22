@@ -16,6 +16,7 @@ from users.models import User
 from shared.models import Conversation, Message
 from django.db.models import Sum, F, Count, Max
 import logging
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def list_approved_vendors(request):
     try:
         from shared.utils.security import get_safe_int
         limit = get_safe_int(request.GET.get('limit'), default=8, min_val=1, max_val=50)
-        vendors = VendorApplication.objects.filter(status='approved').order_by('-updated_at')[:limit]
+        vendors = VendorApplication.objects.filter(status='approved', user__is_active=True, user__is_deleted=False).order_by('-updated_at')[:limit]
         data = []
         for v in vendors:
             # Safely build logo URL
@@ -89,8 +90,8 @@ def list_applications(request):
         page_size = get_safe_int(request.GET.get('page_size'), default=20, min_val=1, max_val=100)
         status_filter = request.GET.get('status', '')
         
-        # Build queryset
-        queryset = VendorApplication.objects.all()
+        # Build queryset - only applications for non-deleted users
+        queryset = VendorApplication.objects.filter(user__is_deleted=False)
         
         # If no applications exist, create sample data for testing
         if queryset.count() == 0:
@@ -129,7 +130,7 @@ def list_applications(request):
                 VendorApplication.objects.create(**app_data)
             
             # Refresh queryset
-            queryset = VendorApplication.objects.all()
+            queryset = VendorApplication.objects.filter(user__is_deleted=False)
         
         # Apply status filter
         if status_filter:

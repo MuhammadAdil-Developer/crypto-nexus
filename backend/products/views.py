@@ -78,23 +78,41 @@ class IsAdminUser(BasePermission):
     """Custom permission to only allow admin users"""
     
     def has_permission(self, request, view):
-        return (
-            request.user and 
-            request.user.is_authenticated and 
-            hasattr(request.user, 'user_type') and 
-            request.user.user_type == 'admin'
-        )
+        # Check if user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        # Check if user is active and NOT deleted
+        if not request.user.is_active or getattr(request.user, 'is_deleted', False):
+            return False
+            
+        # Check if user has admin user_type or is superuser/staff
+        if (hasattr(request.user, 'user_type') and request.user.user_type == 'admin') or \
+           request.user.is_superuser or \
+           request.user.is_staff:
+            return True
+        
+        return False
 
 class IsVendorOrAdmin(BasePermission):
     """Custom permission to allow vendor and admin users"""
     
     def has_permission(self, request, view):
-        return (
-            request.user and 
-            request.user.is_authenticated and 
-            hasattr(request.user, 'user_type') and 
-            request.user.user_type in ['vendor', 'admin']
-        )
+        # Check if user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        # Check if user is active and NOT deleted
+        if not request.user.is_active or getattr(request.user, 'is_deleted', False):
+            return False
+            
+        # Check if user has vendor/admin user_type or is superuser/staff
+        if (hasattr(request.user, 'user_type') and request.user.user_type in ['vendor', 'admin']) or \
+           request.user.is_superuser or \
+           request.user.is_staff:
+            return True
+            
+        return False
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -121,6 +139,8 @@ def list_products(request):
             status='approved',
             is_active=True,
             is_deleted=False,
+            vendor__is_active=True,
+            vendor__is_deleted=False,
             quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category')
         
@@ -201,6 +221,8 @@ def get_popular_searches(request):
             status='approved',
             is_active=True,
             is_deleted=False,
+            vendor__is_active=True,
+            vendor__is_deleted=False,
             quantity_available__gt=0
         ).order_by('-views_count', '-favorites_count', '-created_at')[:limit * 2]
         
@@ -295,6 +317,8 @@ def autocomplete_suggestions(request):
             status='approved',
             is_active=True,
             is_deleted=False,
+            vendor__is_active=True,
+            vendor__is_deleted=False,
             quantity_available__gt=0
         ).filter(
             Q(listing_title__icontains=query) | 
@@ -448,6 +472,8 @@ def get_vendor_public_products(request, vendor_username):
             status='approved',
             is_active=True,
             is_deleted=False,
+            vendor__is_active=True,
+            vendor__is_deleted=False,
             quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
         
@@ -492,6 +518,8 @@ def get_buyer_products(request):
             status='approved',
             is_active=True,
             is_deleted=False,
+            vendor__is_active=True,
+            vendor__is_deleted=False,
             quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category').order_by('-created_at')
         
@@ -1131,6 +1159,8 @@ def buyer_listings(request):
             status='approved',
             is_active=True,
             is_deleted=False,
+            vendor__is_active=True,
+            vendor__is_deleted=False,
             quantity_available__gt=0
         ).select_related('vendor', 'category', 'sub_category')
 

@@ -1046,8 +1046,18 @@ export default function AdminVendors() {
                         <th className="text-left p-4 text-sm font-medium text-gray-300">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
-                      {applications?.filter(app => {
+                    <tbody className="divide-y divide-border relative">
+                      {loading && (
+                        <tr>
+                          <td colSpan={6} className="py-20 text-center">
+                            <div className="flex flex-col items-center justify-center">
+                              <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
+                              <p className="text-gray-400">Loading vendors...</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {!loading && applications?.filter(app => {
                         if (app.status !== "approved") return false;
 
                         // Apply search filter
@@ -1114,7 +1124,7 @@ export default function AdminVendors() {
                         </tr>
                       ))}
 
-                      {applications?.filter(app => app.status === "approved").length === 0 && (
+                      {!loading && applications?.filter(app => app.status === "approved").length === 0 && (
                         <tr>
                           <td colSpan={6} className="text-center py-12">
                             <Store className="w-12 h-12 text-gray-500 mx-auto mb-4" />
@@ -1170,8 +1180,16 @@ export default function AdminVendors() {
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="space-y-4">
-                  {applications?.filter(app => {
+                <div className="space-y-4 relative">
+                  {loading && (
+                    <div className="py-20 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
+                        <p className="text-gray-400">Loading applications...</p>
+                      </div>
+                    </div>
+                  )}
+                  {!loading && applications?.filter(app => {
                     if (app.status !== "pending") return false;
 
                     // Apply search filter
@@ -1334,8 +1352,18 @@ export default function AdminVendors() {
                         <th className="text-left p-4 text-sm font-medium text-gray-300">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
-                      {applications?.filter(app => {
+                    <tbody className="divide-y divide-border relative">
+                      {loading && (
+                        <tr>
+                          <td colSpan={6} className="py-20 text-center">
+                            <div className="flex flex-col items-center justify-center">
+                              <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
+                              <p className="text-gray-400">Loading rejected applications...</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {!loading && applications?.filter(app => {
                         if (app.status !== "rejected") return false;
 
                         // Apply search filter
@@ -1401,7 +1429,7 @@ export default function AdminVendors() {
                         </tr>
                       ))}
 
-                      {applications?.filter(app => app.status === "rejected").length === 0 && (
+                      {!loading && applications?.filter(app => app.status === "rejected").length === 0 && (
                         <tr>
                           <td colSpan={6} className="text-center py-12">
                             <X className="w-12 h-12 text-gray-500 mx-auto mb-4" />

@@ -18,6 +18,7 @@ from .mock_services import get_payment_service
 from .models import PaymentAddress, EscrowPayment, Payout, DirectPayment
 from .commission_models import CommissionSettings, VendorFee
 from .direct_payment_monitor import direct_payment_monitor
+from .admin_views import IsAdmin
 from shared.models import CryptoCurrency
 
 logger = logging.getLogger(__name__)
@@ -462,7 +463,7 @@ class ExchangeRateView(APIView):
 
 class AdminEscrowView(APIView):
     """Admin API for escrow management"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def get(self, request):
         """Get all escrow payments with filtering"""
@@ -555,7 +556,7 @@ from shared.models import Notification  # Assuming it's in shared or wherever No
 
 class AdminEarningsAnalyticsView(APIView):
     """API for advanced profit and earnings analytics for admin"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         try:
@@ -770,7 +771,7 @@ class AdminEarningsAnalyticsView(APIView):
 
 class TriggerSecurityNotificationsView(APIView):
     """API to ensure admin has the latest security status notifications"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         try:
@@ -816,7 +817,7 @@ class TriggerSecurityNotificationsView(APIView):
 
 class PaymentAnalyticsView(APIView):
     """API for payment analytics"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def get(self, request):
         try:
@@ -859,7 +860,7 @@ class PaymentAnalyticsView(APIView):
 
 class AdminPayoutView(APIView):
     """Admin API for managing payouts"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def get(self, request):
         """Get all payouts with filtering"""
@@ -1112,8 +1113,9 @@ class AdminPayoutView(APIView):
                 })
             
             elif action == 'delete':
-                if not request.user.user_type == 'admin':
-                    return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+                is_admin = request.user.user_type == 'admin' or request.user.is_staff
+                if not is_admin:
+                    return Response({'error': 'Unauthorized: Administrator access required'}, status=status.HTTP_403_FORBIDDEN)
                 
                 # Find payout
                 from .models import Payout, DirectPayment
@@ -1167,7 +1169,7 @@ class AdminPayoutView(APIView):
 
 class PayoutStatsView(APIView):
     """API for payout statistics"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def get(self, request):
         """Get payout statistics"""
@@ -1212,7 +1214,7 @@ class PayoutStatsView(APIView):
 
 class CreateEscrowPayoutView(APIView):
     """API for manually creating escrow payouts (for testing)"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def post(self, request):
         """Create escrow payout for a specific order"""
@@ -1500,7 +1502,7 @@ class VendorPayoutsView(APIView):
 
 class TransactionHistoryView(APIView):
     """API view for comprehensive transaction history"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def get(self, request):
         """Get all transaction history for admin view"""
@@ -1787,7 +1789,7 @@ class VendorTransactionHistoryView(APIView):
 
 class DirectPaymentMonitorView(APIView):
     """API view for direct payment monitoring and testing"""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAdmin]
     
     def post(self, request):
         """Simulate payment detection for testing"""
@@ -1844,7 +1846,7 @@ class DirectPaymentMonitorView(APIView):
 
 class AdminCryptoStatusView(APIView):
     """Admin API for Real-Time Crypto Status (Prioritizing Local Nodes)"""
-    permission_classes = [IsAuthenticated] # Relaxed permissions for testing
+    permission_classes = [IsAdmin]
     
     def get(self, request):
         from django.core.cache import cache
@@ -2047,7 +2049,7 @@ class AdminCryptoStatusView(APIView):
 
 class AdminNodeActionView(APIView):
     """API for specialized node actions (Restart, Logs, Backup, etc.)"""
-    permission_classes = [IsAuthenticated] # Upgrade to IsAdmin in production
+    permission_classes = [IsAdmin]
 
     def get_service_info(self, symbol):
         """Map currency symbols to service/container/pm2 names and log paths matching user server"""
@@ -2308,7 +2310,7 @@ class AdminNodeActionView(APIView):
 
 class AdminBulkEscrowActionView(APIView):
     """API for bulk escrow management actions"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         action = request.data.get('action')
@@ -2346,7 +2348,7 @@ class AdminBulkEscrowActionView(APIView):
 
 class AdminReportDownloadView(APIView):
     """API to download generated reports"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     def get(self, request, filename):
         import csv
@@ -2366,7 +2368,7 @@ class AdminReportDownloadView(APIView):
 
 class AdminManualPayoutView(APIView):
     """API for administrators to send real BTC or XMR manually from platform wallet"""
-    permission_classes = [IsAuthenticated] # Should ideally be IsAdminUser but IsAuthenticated works for testing
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         try:
@@ -2485,7 +2487,7 @@ class AdminManualPayoutView(APIView):
 
 class AdminManualPayoutLookupsView(APIView):
     """API to provide autocomplete data for manual payouts (Order IDs and Addresses)"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         try:
@@ -2565,7 +2567,7 @@ class AdminManualPayoutLookupsView(APIView):
 
 class AdminOrderPayoutDetailsView(APIView):
     """API to fetch calculated payout details for a specific order"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def get(self, request, order_id):
         try:

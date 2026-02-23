@@ -407,6 +407,17 @@ class OrderService {
     }
   }
 
+  async deleteOrder(orderId: string, reason: string = ''): Promise<any> {
+    try {
+      const response = await api.post(`/orders/${orderId}/delete_order/`, {
+        reason
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(extractErrorMessage(error, 'Failed to delete order'));
+    }
+  }
+
 }
 
 export const orderService = new OrderService();

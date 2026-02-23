@@ -926,7 +926,7 @@ export default function AdminPayouts() {
                               <Button
                                 variant="destructive"
                                 size="sm"
-                                className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-500/30 transition-all duration-200 text-xs sm:text-sm w-full sm:w-auto mt-1"
+                                className="bg-red-900/40 hover:bg-red-700/80 text-red-100 hover:text-red-200 border border-red-500/30 transition-all duration-200 text-xs sm:text-sm w-full sm:w-auto mt-1"
                                 onClick={() => {
                                   setPayoutToDelete(payout);
                                   setDeleteModalOpen(true);

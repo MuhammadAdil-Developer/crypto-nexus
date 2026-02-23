@@ -141,15 +141,9 @@ export default function AdminOrders() {
 
     try {
       setIsDeletingOrder(true);
-      // We'll use the generic OrderViewSet destroy method (DELETE /api/v1/orders/{id}/)
-      // but passing reason in the body/query? DRF destroy doesn't usually take body.
-      // I'll implement a custom action for this if needed, or just use a custom endpoint.
-      // Let's use a POST to /api/v1/orders/{id}/delete/ for convenience.
-      const response = await api.post(`/orders/${orderToDelete.id}/delete_order/`, {
-        reason: orderDeleteReason
-      });
+      const response = await orderService.deleteOrder(orderToDelete.id, orderDeleteReason);
 
-      if (response.data.success) {
+      if (response.success) {
         toast({
           title: "Order Deleted",
           description: response.data.message || "The order has been deleted and participants notified."
@@ -752,7 +746,7 @@ export default function AdminOrders() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                              className="text-red-500 hover:text-red-600 hover:bg-red-500/20 transition-colors duration-200"
                               onClick={() => {
                                 setOrderToDelete(order);
                                 setDeleteOrderModalOpen(true);

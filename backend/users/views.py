@@ -262,6 +262,18 @@ def user_login(request):
                 new_failed_attempts = failed_attempts + 1
                 cache.set(failed_attempts_key, new_failed_attempts, 900)  # 15 minutes
                 
+                # Log failed activity
+                try:
+                    from shared.utils import log_user_activity
+                    log_user_activity(
+                        user=user if user else User.objects.filter(is_superuser=True).first(), # Associate with admin if user doesn't exist just to have some relation
+                        activity_type='login_failed',
+                        description=f"Failed login attempt for username: {username}",
+                        request=request
+                    )
+                except Exception as e:
+                    logger.error(f"Error logging failed activity: {e}")
+
                 # Notify admin if suspicious activity (3+ failed attempts)
                 if new_failed_attempts >= 3:
                     try:

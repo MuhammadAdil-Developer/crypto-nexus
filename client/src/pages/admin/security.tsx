@@ -7,143 +7,122 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Lock, AlertTriangle, Users, Eye, Ban, Key, Smartphone } from "lucide-react";
+import { Shield, Lock, AlertTriangle, Users, Eye, Ban, Key, Smartphone, Trash2, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "@/services/authService";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminSecurity() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    failed_logins_24h: 0,
+    active_sessions: 0,
+    two_fa_enabled_ratio: "0/0",
+    blocked_ips_count: 0
+  });
+  const [logs, setLogs] = useState([]);
+  const [twoFactorUsers, setTwoFactorUsers] = useState([]);
+  const [settings, setSettings] = useState({
+    enforce_2fa_admins: "true",
+    session_timeout: "60",
+    max_login_attempts: "5",
+    lockout_duration: "30",
+    password_expiry: "90",
+    audit_logging: "true"
+  });
+  const [restrictions, setRestrictions] = useState([]);
+  const [newIp, setNewIp] = useState("");
 
-  const securityLogs = [
-    {
-      id: 1,
-      type: "Failed Login",
-      user: "unknown_user",
-      ip: "192.168.1.45",
-      timestamp: "5 min ago",
-      status: "Blocked",
-      statusType: "danger" as const,
-      attempts: 5,
-      location: "Unknown"
-    },
-    {
-      id: 2,
-      type: "Successful Login",
-      user: "admin_user_1",
-      ip: "10.0.0.15",
-      timestamp: "1 hour ago",
-      status: "Success",
-      statusType: "success" as const,
-      attempts: 1,
-      location: "Office Network"
-    },
-    {
-      id: 3,
-      type: "Password Change",
-      user: "vendor_alpha",
-      ip: "203.45.67.89",
-      timestamp: "3 hours ago",
-      status: "Success",
-      statusType: "success" as const,
-      attempts: 1,
-      location: "VPN Connection"
-    },
-    {
-      id: 4,
-      type: "Failed Login",
-      user: "support_agent_2",
-      ip: "172.16.0.5",
-      timestamp: "6 hours ago",
-      status: "Locked",
-      statusType: "warning" as const,
-      attempts: 3,
-      location: "Office Network"
-    }
-  ];
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [statsRes, logsRes, usersRes, settingsRes, restrictionsRes] = await Promise.all([
+        api.get('/system/security/summary/'),
+        api.get('/system/security/logs/'),
+        api.get('/system/security/2fa-status/'),
+        api.get('/system/security/settings/'),
+        api.get('/system/ip-restrictions/')
+      ]);
 
-  const twoFactorUsers = [
-    {
-      id: 1,
-      username: "admin_user_1",
-      role: "Admin User",
-      twoFAEnabled: true,
-      lastLogin: "1 hour ago",
-      backupCodes: 8,
-      deviceTrust: "Trusted"
-    },
-    {
-      id: 2,
-      username: "admin_user_2",
-      role: "Administrator",
-      twoFAEnabled: true,
-      lastLogin: "2 days ago",
-      backupCodes: 10,
-      deviceTrust: "Trusted"
-    },
-    {
-      id: 3,
-      username: "vendor_alpha",
-      role: "Vendor",
-      twoFAEnabled: false,
-      lastLogin: "3 hours ago",
-      backupCodes: 0,
-      deviceTrust: "Unknown"
-    },
-    {
-      id: 4,
-      username: "support_agent_1",
-      role: "Support Agent",
-      twoFAEnabled: true,
-      lastLogin: "30 min ago",
-      backupCodes: 6,
-      deviceTrust: "Trusted"
+      if (statsRes.data.success) setStats(statsRes.data.data);
+      if (logsRes.data.success) setLogs(logsRes.data.data);
+      if (usersRes.data.success) setTwoFactorUsers(usersRes.data.data);
+      if (settingsRes.data.success) setSettings(settingsRes.data.data);
+      if (restrictionsRes.data.success) setRestrictions(restrictionsRes.data);
+    } catch (err) {
+      console.error("Failed to fetch security data", err);
+      toast({
+        title: "Error",
+        description: "Failed to load security data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const securitySettings = [
-    {
-      id: 1,
-      name: "Two-Factor Authentication",
-      description: "Require 2FA for admin accounts",
-      enabled: true,
-      category: "Authentication"
-    },
-    {
-      id: 2,
-      name: "Failed Login Protection",
-      description: "Lock accounts after failed attempts",
-      enabled: true,
-      category: "Authentication"
-    },
-    {
-      id: 3,
-      name: "IP Whitelist",
-      description: "Restrict admin access by IP address",
-      enabled: false,
-      category: "Access Control"
-    },
-    {
-      id: 4,
-      name: "Session Timeout",
-      description: "Auto-logout after inactivity",
-      enabled: true,
-      category: "Sessions"
-    },
-    {
-      id: 5,
-      name: "Audit Logging",
-      description: "Log all administrative actions",
-      enabled: true,
-      category: "Monitoring"
-    },
-    {
-      id: 6,
-      name: "Password Complexity",
-      description: "Enforce strong password requirements",
-      enabled: true,
-      category: "Authentication"
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleUpdateSetting = async (key: string, value: string) => {
+    try {
+      const updatedSettings = { ...settings, [key]: value };
+      const res = await api.post('/system/security/settings/', { [key]: value });
+      if (res.data.success) {
+        setSettings(updatedSettings);
+        toast({ title: "Updated", description: "Security setting saved." });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to update setting.", variant: "destructive" });
     }
-  ];
+  };
+
+  const handleAddRestriction = async (type: 'whitelist' | 'blacklist', label: string = 'Added via dashboard') => {
+    if (!newIp) return;
+    try {
+      const res = await api.post('/system/ip-restrictions/', {
+        ip_address: newIp,
+        restriction_type: type,
+        label: label
+      });
+      if (res.data.id) {
+        setRestrictions([...restrictions, res.data]);
+        setNewIp("");
+        toast({ title: "Success", description: `IP added to ${type}` });
+        fetchData(); // Refresh stats
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to add restriction", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteRestriction = async (id: number) => {
+    try {
+      await api.delete(`/system/ip-restrictions/${id}/`);
+      setRestrictions(restrictions.filter(r => r.id !== id));
+      toast({ title: "Success", description: "Restriction removed" });
+      fetchData(); // Refresh stats
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to remove restriction", variant: "destructive" });
+    }
+  };
+
+  const getStatusType = (type: string) => {
+    if (type === 'login_failed' || type === 'security_alert') return 'danger';
+    if (type === 'login' || type === 'password_changed') return 'success';
+    return 'outline';
+  };
+
+  const getStatusLabel = (type: string) => {
+    if (type === 'login_failed') return 'Failed';
+    if (type === 'login') return 'Success';
+    if (type === 'security_alert') return 'Alert';
+    return type;
+  };
 
   return (
-
     <main className="flex-1 overflow-y-auto bg-bg p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -151,10 +130,16 @@ export default function AdminSecurity() {
           <h1 className="text-2xl font-bold text-white">Security Management</h1>
           <p className="text-gray-300 mt-1">Monitor security events and configure access controls</p>
         </div>
-        <Button className="bg-accent text-bg hover:bg-accent-2">
-          <Shield className="w-4 h-4 mr-2" />
-          Security Report
-        </Button>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={fetchData} className="border-border text-gray-300">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button className="bg-accent text-bg hover:bg-accent-2">
+            <Shield className="w-4 h-4 mr-2" />
+            Security Report
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -165,7 +150,7 @@ export default function AdminSecurity() {
               <AlertTriangle className="w-8 h-8 text-danger mr-4" />
               <div>
                 <p className="text-sm text-gray-400">Failed Logins (24h)</p>
-                <p className="text-2xl font-bold text-white">23</p>
+                <p className="text-2xl font-bold text-white">{stats.failed_logins_24h}</p>
               </div>
             </div>
           </CardContent>
@@ -177,7 +162,7 @@ export default function AdminSecurity() {
               <Users className="w-8 h-8 text-success mr-4" />
               <div>
                 <p className="text-sm text-gray-400">Active Sessions</p>
-                <p className="text-2xl font-bold text-white">12</p>
+                <p className="text-2xl font-bold text-white">{stats.active_sessions}</p>
               </div>
             </div>
           </CardContent>
@@ -189,7 +174,7 @@ export default function AdminSecurity() {
               <Smartphone className="w-8 h-8 text-accent mr-4" />
               <div>
                 <p className="text-sm text-gray-400">2FA Enabled</p>
-                <p className="text-2xl font-bold text-white">8/12</p>
+                <p className="text-2xl font-bold text-white">{stats.two_fa_enabled_ratio}</p>
               </div>
             </div>
           </CardContent>
@@ -201,7 +186,7 @@ export default function AdminSecurity() {
               <Ban className="w-8 h-8 text-warning mr-4" />
               <div>
                 <p className="text-sm text-gray-400">Blocked IPs</p>
-                <p className="text-2xl font-bold text-white">156</p>
+                <p className="text-2xl font-bold text-white">{stats.blocked_ips_count}</p>
               </div>
             </div>
           </CardContent>
@@ -237,62 +222,51 @@ export default function AdminSecurity() {
                       <th className="text-left p-4 text-sm font-medium text-gray-300">Event Type</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">User</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">IP Address</th>
-                      <th className="text-left p-4 text-sm font-medium text-gray-300">Location</th>
+                      <th className="text-left p-4 text-sm font-medium text-gray-300">User Agent</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">Status</th>
-                      <th className="text-left p-4 text-sm font-medium text-gray-300">Attempts</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">Time</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {securityLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-surface-2/50" data-testid={`security-log-${log.id}`}>
+                    {logs.map((log: any) => (
+                      <tr key={log.id} className="hover:bg-surface-2/50">
                         <td className="p-4">
                           <div className="flex items-center">
-                            {log.type === "Failed Login" && <AlertTriangle className="w-4 h-4 text-danger mr-2" />}
-                            {log.type === "Successful Login" && <Users className="w-4 h-4 text-success mr-2" />}
-                            {log.type === "Password Change" && <Key className="w-4 h-4 text-accent mr-2" />}
-                            <span className="text-white">{log.type}</span>
+                            {log.activity_type === "login_failed" && <AlertTriangle className="w-4 h-4 text-danger mr-2" />}
+                            {log.activity_type === "login" && <Users className="w-4 h-4 text-success mr-2" />}
+                            {log.activity_type === "password_changed" && <Key className="w-4 h-4 text-accent mr-2" />}
+                            <span className="text-white">{log.activity_display}</span>
                           </div>
                         </td>
                         <td className="p-4">
                           <div className="flex items-center">
                             <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-accent text-sm">{log.user[0].toUpperCase()}</span>
+                              <span className="text-accent text-sm">{log.username?.[0]?.toUpperCase() || '?'}</span>
                             </div>
-                            <span className="text-white">{log.user}</span>
+                            <span className="text-white">{log.username || 'System/Guest'}</span>
                           </div>
                         </td>
                         <td className="p-4">
-                          <span className="font-mono text-gray-300">{log.ip}</span>
+                          <span className="font-mono text-gray-300">{log.ip_address || 'Internal'}</span>
                         </td>
-                        <td className="p-4 text-gray-300">{log.location}</td>
+                        <td className="p-4 text-gray-300 max-w-[200px] truncate" title={log.user_agent}>{log.user_agent || 'N/A'}</td>
                         <td className="p-4">
-                          <StatusBadge status={log.status} type={log.statusType} />
+                          <StatusBadge status={getStatusLabel(log.activity_type)} type={getStatusType(log.activity_type)} />
                         </td>
+                        <td className="p-4 text-gray-300">{new Date(log.created_at).toLocaleString()}</td>
                         <td className="p-4">
-                          <Badge
-                            variant={log.attempts > 3 ? "destructive" : log.attempts > 1 ? "secondary" : "outline"}
-                            className="text-xs"
-                          >
-                            {log.attempts}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-gray-300">{log.timestamp}</td>
-                        <td className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`view-log-${log.id}`}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {log.status === "Blocked" && (
-                              <Button variant="ghost" size="sm" className="text-danger hover:text-red-400" data-testid={`ban-ip-${log.id}`}>
-                                <Ban className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
+                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                            <Eye className="w-4 h-4" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
+                    {logs.length === 0 && !loading && (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-gray-400">No security logs found.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -321,12 +295,12 @@ export default function AdminSecurity() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {twoFactorUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-surface-2/50" data-testid={`2fa-user-${user.id}`}>
+                      {twoFactorUsers.map((user: any) => (
+                        <tr key={user.id} className="hover:bg-surface-2/50">
                           <td className="p-4">
                             <div className="flex items-center">
                               <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                                <span className="text-accent text-sm">{user.username[0].toUpperCase()}</span>
+                                <span className="text-accent text-sm">{user.username?.[0]?.toUpperCase()}</span>
                               </div>
                               <span className="text-white">{user.username}</span>
                             </div>
@@ -343,7 +317,7 @@ export default function AdminSecurity() {
                             />
                           </td>
                           <td className="p-4">
-                            <span className="text-white">{user.backupCodes}/10</span>
+                            <span className="text-white">{user.backupCodes || 0}/10</span>
                           </td>
                           <td className="p-4">
                             <Badge
@@ -356,15 +330,10 @@ export default function AdminSecurity() {
                           <td className="p-4 text-gray-300">{user.lastLogin}</td>
                           <td className="p-4">
                             <div className="flex items-center space-x-2">
-                              {!user.twoFAEnabled && (
-                                <Button variant="ghost" size="sm" className="text-accent hover:text-blue-400" data-testid={`enable-2fa-${user.id}`}>
-                                  <Smartphone className="w-4 h-4" />
-                                </Button>
-                              )}
-                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`reset-codes-${user.id}`}>
+                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
                                 <Key className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white" data-testid={`view-devices-${user.id}`}>
+                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
                                 <Eye className="w-4 h-4" />
                               </Button>
                             </div>
@@ -383,35 +352,16 @@ export default function AdminSecurity() {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="backupCodeLength" className="text-white">Backup Code Length</Label>
-                    <Input
-                      id="backupCodeLength"
-                      type="number"
-                      defaultValue="10"
-                      className="mt-2 bg-surface-2 border-border text-white"
-                      data-testid="backup-code-length"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="codeExpiry" className="text-white">Code Expiry (seconds)</Label>
-                    <Input
-                      id="codeExpiry"
-                      type="number"
-                      defaultValue="30"
-                      className="mt-2 bg-surface-2 border-border text-white"
-                      data-testid="code-expiry"
-                    />
-                  </div>
-
                   <div className="md:col-span-2">
                     <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
                       <div>
                         <p className="text-white font-medium">Enforce 2FA for Admins</p>
                         <p className="text-sm text-gray-400">Require all admin accounts to use 2FA</p>
                       </div>
-                      <Switch defaultChecked data-testid="enforce-2fa-toggle" />
+                      <Switch
+                        checked={settings.enforce_2fa_admins === 'true'}
+                        onCheckedChange={(checked) => handleUpdateSetting('enforce_2fa_admins', checked ? 'true' : 'false')}
+                      />
                     </div>
                   </div>
                 </div>
@@ -426,80 +376,63 @@ export default function AdminSecurity() {
               <CardTitle className="text-white">Security Configuration</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="space-y-6">
-                {securitySettings.map((setting) => (
-                  <div key={setting.id} className="border border-border rounded-lg p-4" data-testid={`security-setting-${setting.id}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-medium text-white">{setting.name}</h3>
-                          <Badge variant="outline" className="text-gray-300 text-xs">
-                            {setting.category}
-                          </Badge>
-                        </div>
-                        <p className="text-gray-300">{setting.description}</p>
-                      </div>
-                      <div className="ml-6">
-                        <Switch
-                          defaultChecked={setting.enabled}
-                          data-testid={`toggle-setting-${setting.id}`}
-                        />
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-white">Session Timeout (minutes)</Label>
+                  <Input
+                    type="number"
+                    value={settings.session_timeout}
+                    onChange={(e) => setSettings({ ...settings, session_timeout: e.target.value })}
+                    onBlur={(e) => handleUpdateSetting('session_timeout', e.target.value)}
+                    className="mt-2 bg-surface-2 border-border text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Max Failed Login Attempts</Label>
+                  <Input
+                    type="number"
+                    value={settings.max_login_attempts}
+                    onChange={(e) => setSettings({ ...settings, max_login_attempts: e.target.value })}
+                    onBlur={(e) => handleUpdateSetting('max_login_attempts', e.target.value)}
+                    className="mt-2 bg-surface-2 border-border text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Account Lockout Duration (minutes)</Label>
+                  <Input
+                    type="number"
+                    value={settings.lockout_duration}
+                    onChange={(e) => setSettings({ ...settings, lockout_duration: e.target.value })}
+                    onBlur={(e) => handleUpdateSetting('lockout_duration', e.target.value)}
+                    className="mt-2 bg-surface-2 border-border text-white"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Password Expiry (days)</Label>
+                  <Input
+                    type="number"
+                    value={settings.password_expiry}
+                    onChange={(e) => setSettings({ ...settings, password_expiry: e.target.value })}
+                    onBlur={(e) => handleUpdateSetting('password_expiry', e.target.value)}
+                    className="mt-2 bg-surface-2 border-border text-white"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
+                    <div>
+                      <p className="text-white font-medium">Audit Logging</p>
+                      <p className="text-sm text-gray-400">Log all administrative actions</p>
                     </div>
+                    <Switch
+                      checked={settings.audit_logging === 'true'}
+                      onCheckedChange={(checked) => handleUpdateSetting('audit_logging', checked ? 'true' : 'false')}
+                    />
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="sessionTimeout" className="text-white">Session Timeout (minutes)</Label>
-                  <Input
-                    id="sessionTimeout"
-                    type="number"
-                    defaultValue="60"
-                    className="mt-2 bg-surface-2 border-border text-white"
-                    data-testid="session-timeout"
-                  />
                 </div>
-
-                <div>
-                  <Label htmlFor="maxLoginAttempts" className="text-white">Max Failed Login Attempts</Label>
-                  <Input
-                    id="maxLoginAttempts"
-                    type="number"
-                    defaultValue="5"
-                    className="mt-2 bg-surface-2 border-border text-white"
-                    data-testid="max-login-attempts"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="lockoutDuration" className="text-white">Account Lockout Duration (minutes)</Label>
-                  <Input
-                    id="lockoutDuration"
-                    type="number"
-                    defaultValue="30"
-                    className="mt-2 bg-surface-2 border-border text-white"
-                    data-testid="lockout-duration"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="passwordExpiry" className="text-white">Password Expiry (days)</Label>
-                  <Input
-                    id="passwordExpiry"
-                    type="number"
-                    defaultValue="90"
-                    className="mt-2 bg-surface-2 border-border text-white"
-                    data-testid="password-expiry"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <Button className="bg-accent text-bg hover:bg-accent-2" data-testid="save-security-settings">
-                  Save Security Settings
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -515,35 +448,34 @@ export default function AdminSecurity() {
                 <div className="space-y-4">
                   <div className="flex space-x-2">
                     <Input
-                      placeholder="192.168.1.0/24"
+                      placeholder="e.g. 192.168.1.0/24"
+                      value={newIp}
+                      onChange={(e) => setNewIp(e.target.value)}
                       className="bg-surface-2 border-border text-white"
-                      data-testid="ip-whitelist-input"
                     />
-                    <Button className="bg-accent text-bg hover:bg-accent-2" data-testid="add-ip-button">
-                      Add
+                    <Button onClick={() => handleAddRestriction('whitelist')} className="bg-accent text-bg hover:bg-accent-2">
+                      Add to Whitelist
                     </Button>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                      <span className="font-mono text-white">10.0.0.0/8</span>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="default" className="text-xs">Office Network</Badge>
-                        <Button variant="ghost" size="sm" className="text-danger hover:text-red-400 h-6 w-6 p-0" data-testid="remove-ip-1">
-                          <Ban className="w-3 h-3" />
-                        </Button>
+                    {restrictions.filter(r => r.restriction_type === 'whitelist').map((res: any) => (
+                      <div key={res.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                        <span className="font-mono text-white">{res.ip_address}</span>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs">{res.label || 'Whitelisted'}</Badge>
+                          <Button
+                            onClick={() => handleDeleteRestriction(res.id)}
+                            variant="ghost" size="sm" className="text-danger hover:text-red-400 h-6 w-6 p-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                      <span className="font-mono text-white">192.168.1.0/24</span>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className="text-xs">Local Network</Badge>
-                        <Button variant="ghost" size="sm" className="text-danger hover:text-red-400 h-6 w-6 p-0" data-testid="remove-ip-2">
-                          <Ban className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
+                    ))}
+                    {restrictions.filter(r => r.restriction_type === 'whitelist').length === 0 && (
+                      <p className="text-sm text-gray-500 italic">No whitelisted IPs.</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -554,42 +486,38 @@ export default function AdminSecurity() {
                 <CardTitle className="text-white">Blocked IPs</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <span className="font-mono text-white">45.67.89.12</span>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="destructive" className="text-xs">Brute Force</Badge>
-                      <Button variant="ghost" size="sm" className="text-success hover:text-green-400 h-6 w-6 p-0" data-testid="unblock-ip-1">
-                        <Lock className="w-3 h-3" />
-                      </Button>
-                    </div>
+                <div className="space-y-4">
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="e.g. 45.67.89.12"
+                      value={newIp}
+                      onChange={(e) => setNewIp(e.target.value)}
+                      className="bg-surface-2 border-border text-white"
+                    />
+                    <Button onClick={() => handleAddRestriction('blacklist', 'Manual Block')} className="bg-red-600 text-white hover:bg-red-700">
+                      Block IP
+                    </Button>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <span className="font-mono text-white">123.45.67.89</span>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="destructive" className="text-xs">Suspicious Activity</Badge>
-                      <Button variant="ghost" size="sm" className="text-success hover:text-green-400 h-6 w-6 p-0" data-testid="unblock-ip-2">
-                        <Lock className="w-3 h-3" />
-                      </Button>
-                    </div>
+                  <div className="space-y-2">
+                    {restrictions.filter(r => r.restriction_type === 'blacklist').map((res: any) => (
+                      <div key={res.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                        <span className="font-mono text-white">{res.ip_address}</span>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="destructive" className="text-xs">{res.label || 'Blocked'}</Badge>
+                          <Button
+                            onClick={() => handleDeleteRestriction(res.id)}
+                            variant="ghost" size="sm" className="text-success hover:text-green-400 h-6 w-6 p-0"
+                          >
+                            <Lock className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {restrictions.filter(r => r.restriction_type === 'blacklist').length === 0 && (
+                      <p className="text-sm text-gray-500 italic">No blocked IPs.</p>
+                    )}
                   </div>
-
-                  <div className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <span className="font-mono text-white">98.76.54.32</span>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="destructive" className="text-xs">Failed Login</Badge>
-                      <Button variant="ghost" size="sm" className="text-success hover:text-green-400 h-6 w-6 p-0" data-testid="unblock-ip-3">
-                        <Lock className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <Button variant="outline" className="w-full border-border text-gray-300 hover:bg-surface-2" data-testid="clear-blocked-ips">
-                    Clear All Blocked IPs
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -597,6 +525,5 @@ export default function AdminSecurity() {
         </TabsContent>
       </Tabs>
     </main>
-
   );
 }

@@ -146,7 +146,7 @@ export default function AdminOrders() {
       if (response.success) {
         toast({
           title: "Order Deleted",
-          description: response.data.message || "The order has been deleted and participants notified."
+          description: response.message || "The order has been deleted and participants notified."
         });
         setDeleteOrderModalOpen(false);
         setOrderToDelete(null);

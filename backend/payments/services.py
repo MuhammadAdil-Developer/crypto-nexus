@@ -1100,25 +1100,7 @@ class PaymentService:
             
             payment_address.save()
 
-            # 4. Create DirectPayment records for ALL orders in the group
-            all_order_ids = [order_id] + linked_order_ids
-            from orders.models import Order
-            orders_to_sync = Order.objects.filter(order_id__in=all_order_ids)
-            
-            for o in orders_to_sync:
-                DirectPayment.objects.get_or_create(
-                    order=o,
-                    defaults={
-                        'vendor': o.vendor,
-                        'buyer': o.buyer,
-                        'crypto_currency': crypto_currency_obj,
-                        'amount': o.total_amount,
-                        'vendor_address': o.vendor_wallet_address or "MISSING_ADDRESS",
-                        'status': 'pending',
-                        'expires_at': expires_at
-                    }
-                )
-            
+            # 4. Update Order metadata for ALL orders in the group
             Order.objects.filter(order_id__in=all_order_ids).update(
                 payment_address=payment_address.payment_address,
                 payment_expires_at=payment_address.expires_at,

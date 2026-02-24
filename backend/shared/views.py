@@ -98,9 +98,13 @@ from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from django.utils import timezone
 from django.db.models import Q
-from shared.models import Announcement, Notification
-from shared.serializers import AnnouncementSerializer
+from shared.models import Announcement, Notification, UserActivity, IPRestriction, SystemConfiguration
+from shared.serializers import (
+    AnnouncementSerializer, UserActivitySerializer, 
+    IPRestrictionSerializer, SystemConfigurationSerializer
+)
 from users.models import User
+from rest_framework.views import APIView
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
     """
@@ -199,6 +203,138 @@ class AdminCommunicationView(viewsets.ViewSet):
         return Response({
             'success': True, 
             'message': f'Notification sent to {count} users'
+        })
+
+class SecuritySummaryAPIView(APIView):
+    """API for security dashboard stats"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        try:
+            now = timezone.now()
+            day_ago = now - timezone.timedelta(days=1)
+            
+            # Failed logins in last 24h
+            failed_logins = UserActivity.objects.filter(
+                activity_type='login_failed',
+                created_at__gte=day_ago
+            ).count()
+            
+            # Active sessions - This is a heuristic, counting active users in last 15 mins
+            active_sessions = User.objects.filter(
+                last_login__gte=now - timezone.timedelta(minutes=15),
+                is_active=True
+            ).count()
+            
+            # 2FA Stats
+            total_admins = User.objects.filter(user_type='admin').count()
+            admins_with_2fa = User.objects.filter(user_type='admin', two_factor_enabled=True).count()
+            
+            # Blocked IPs
+            blocked_ips_count = IPRestriction.objects.filter(restriction_type='blacklist').count()
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'failed_logins_24h': failed_logins,
+                    'active_sessions': active_sessions,
+                    'two_fa_enabled_ratio': f"{admins_with_2fa}/{total_admins}",
+                    'blocked_ips_count': blocked_ips_count
+                }
+            })
+        except Exception as e:
+            logger.error(f"Error in SecuritySummaryAPIView: {e}")
+            return Response({'error': str(e)}, status=500)
+
+class SecurityLogsAPIView(APIView):
+    """List security logs from UserActivity"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        try:
+            # We want specific security-related activities
+            security_types = ['login', 'logout', 'login_failed', 'password_changed', 'security_alert']
+            logs = UserActivity.objects.filter(activity_type__in=security_types).order_by('-created_at')[:100]
+            serializer = UserActivitySerializer(logs, many=True)
+            return Response({
+                'success': True,
+                'data': serializer.data
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+class IPRestrictionViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing IP whitelists and blacklists"""
+    serializer_class = IPRestrictionSerializer
+    permission_classes = [IsAdminUser]
+    queryset = IPRestriction.objects.all()
+
+    def get_queryset(self):
+        restriction_type = self.request.query_params.get('type')
+        if restriction_type:
+            return IPRestriction.objects.filter(restriction_type=restriction_type)
+        return IPRestriction.objects.all()
+
+class SecuritySettingsAPIView(APIView):
+    """Manage general security settings via SystemConfiguration"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        settings_keys = [
+            'enforce_2fa_admins', 'session_timeout', 'max_login_attempts', 
+            'lockout_duration', 'password_expiry', 'audit_logging'
+        ]
+        configs = SystemConfiguration.objects.filter(key__in=settings_keys)
+        # Create a dict of key:value
+        settings_dict = {c.key: c.value for c in configs}
+        
+        # Ensure all keys exist with defaults if not set
+        defaults = {
+            'enforce_2fa_admins': 'true',
+            'session_timeout': '60',
+            'max_login_attempts': '5',
+            'lockout_duration': '30',
+            'password_expiry': '90',
+            'audit_logging': 'true'
+        }
+        for key, val in defaults.items():
+            if key not in settings_dict:
+                settings_dict[key] = val
+                
+        return Response({
+            'success': True,
+            'data': settings_dict
+        })
+
+    def post(self, request):
+        try:
+            data = request.data
+            for key, value in data.items():
+                SystemConfiguration.set_value(key, value)
+            return Response({'success': True, 'message': 'Settings updated'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+class TwoFactorStatusAPIView(APIView):
+    """Get 2FA status for all admin/staff users"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        admins = User.objects.filter(Q(user_type='admin') | Q(is_staff=True))
+        data = []
+        for admin in admins:
+            data.append({
+                'id': admin.id,
+                'username': admin.username,
+                'role': admin.user_type.capitalize(),
+                'twoFAEnabled': admin.two_factor_enabled,
+                'lastLogin': admin.last_login.strftime('%Y-%m-%d %H:%M') if admin.last_login else 'Never',
+                'backupCodes': 0, # Placeholder
+                'deviceTrust': 'Trusted' if admin.is_verified else 'Unknown'
+            })
+        return Response({
+            'success': True,
+            'data': data
         })
 
 def handler404(request, exception=None):

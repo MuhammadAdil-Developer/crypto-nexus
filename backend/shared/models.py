@@ -354,6 +354,8 @@ class UserActivity(BaseModel):
         ('wallet_credited', 'Wallet Credited'),
         ('wallet_withdrawn', 'Wallet Withdrawn'),
         ('vendor_refund_processed', 'Vendor Refund Processed'),
+        ('login_failed', 'Failed Login Attempt'),
+        ('security_alert', 'Security Alert'),
     )
 
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='activities')
@@ -500,3 +502,21 @@ class WalletTransaction(BaseModel):
     
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.amount} {self.crypto_currency} - {self.created_at}"
+
+class IPRestriction(BaseModel):
+    """Manage allowed and blocked IP addresses/ranges"""
+    RESTRICTION_TYPES = (
+        ('whitelist', 'Whitelist'),
+        ('blacklist', 'Blacklist'),
+    )
+    ip_address = models.CharField(max_length=100)
+    restriction_type = models.CharField(max_length=20, choices=RESTRICTION_TYPES)
+    reason = models.TextField(blank=True)
+    label = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        db_table = 'ip_restrictions'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.restriction_type}: {self.ip_address} ({self.label})"

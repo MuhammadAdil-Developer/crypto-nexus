@@ -665,8 +665,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       </div>
                     </div>
                     <div className="space-y-3">
-                      {/* Hidden as requested: Vendor Rating */}
-                      {/* <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                         <span className="text-gray-400">Vendor Rating:</span>
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-400 fill-current" />
@@ -680,7 +679,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                             )}
                           </span>
                         </div>
-                      </div> */}
+                      </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Completion Rate:</span>
                         <span className="text-green-400 font-medium">
@@ -721,8 +720,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       </div>
                     </div>
                     <div className="space-y-3">
-                      {/* Hidden as requested: Product Rating */}
-                      {/* <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                         <span className="text-gray-400 flex items-center">
                           <Star className="w-4 h-4 mr-1" />
                           Rating:
@@ -732,7 +730,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                           <span className="text-white">{product.rating || '0.00'}</span>
                           <span className="text-gray-400">({product.review_count || 0})</span>
                         </div>
-                      </div> */}
+                      </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400 flex items-center">
                           <Calendar className="w-4 h-4 mr-1" />
@@ -837,12 +835,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   </div>
                 )}
 
-                {/* Hidden as requested: Reviews Section */}
-                {/* <div className="bg-surface-2/50 rounded-xl p-4 border border-gray-600/20">
+                {/* Reviews Section */}
+                <div className="bg-[#111C20] rounded-xl p-4 border border-white/5">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white flex items-center">
-                      <Star className="w-5 h-5 mr-2 text-yellow-400" />
-                      Reviews
+                    <h3 className="text-sm font-bold text-white flex items-center uppercase tracking-widest" style={{ fontFamily: "'Orbitron', sans-serif" }}>
+                      <Star className="w-4 h-4 mr-2 text-yellow-400" />
+                      Product Reviews
                       {loadingReviews && <Loader2 className="w-4 h-4 ml-2 animate-spin text-yellow-400" />}
                     </h3>
                     {productReviews && productReviews.reviews.length > 0 && (
@@ -850,9 +848,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                         variant="outline"
                         size="sm"
                         onClick={() => setShowReviews(!showReviews)}
-                        className="border-gray-600 text-gray-300 hover:bg-gray-700/50"
+                        className="border-gray-700 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-lg transition-all"
                       >
-                        {showReviews ? 'Hide Reviews' : 'Show Reviews'}
+                        {showReviews ? 'Hide' : 'Show'} Reviews
                       </Button>
                     )}
                   </div>
@@ -860,56 +858,68 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   {loadingReviews ? (
                     <div className="text-center py-8">
                       <DotLoader size="lg" color="text-yellow-400" />
-                      <p className="text-gray-400 mt-3">Loading reviews...</p>
+                      <p className="text-gray-500 mt-3 text-xs uppercase tracking-widest">Gathering feedback...</p>
                     </div>
                   ) : productReviews && productReviews.reviews.length > 0 ? (
-                    <div>
-                      <div className="mb-4 p-3 bg-gray-800/30 rounded-lg">
+                    <div className="space-y-4">
+                      <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                            <span className="text-white font-medium">
-                              {productReviews.product_stats.average_rating.toFixed(1)}
-                            </span>
-                            <span className="text-gray-400">
-                              ({productReviews.product_stats.total_reviews} reviews)
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-400/10 rounded-full border border-yellow-400/30">
+                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                              <span className="text-white font-black text-sm">
+                                {Number(productReviews.product_stats.average_rating).toFixed(1)}
+                              </span>
+                            </div>
+                            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">
+                              Based on {productReviews.product_stats.total_reviews} ratings
                             </span>
                           </div>
-                          <span className="text-gray-400 text-sm">
-                            {productReviews.pagination.total_count} total reviews
-                          </span>
+                          <div className="hidden sm:block">
+                            <Badge variant="secondary" className="bg-theme-cyan/10 text-theme-cyan border-theme-cyan/30 text-[9px] font-black uppercase">Verified Purchases</Badge>
+                          </div>
                         </div>
                       </div>
 
                       {showReviews && (
-                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                        <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                           {productReviews.reviews.map((review: any) => (
-                            <div key={review.id} className="p-3 bg-gray-800/30 rounded-lg border border-gray-600/20">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                  <div className="flex">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'
-                                          }`}
-                                      />
-                                    ))}
+                            <div key={review.id} className="p-4 bg-black/40 rounded-xl border border-white/5 hover:border-white/10 transition-all group">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-theme-cyan/20 to-theme-red/20 border border-white/10 flex items-center justify-center text-[10px] font-black text-white uppercase">
+                                    {(review.buyer_username || 'U').charAt(0)}
                                   </div>
-                                  <span className="text-white font-medium">{review.buyer_username}</span>
+                                  <div>
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="text-white text-xs font-black uppercase tracking-wider">{review.buyer_username}</span>
+                                      {review.is_verified && <CheckCircle className="w-3 h-3 text-theme-cyan" />}
+                                    </div>
+                                    <div className="flex">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`w-3 h-3 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-600'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
                                 </div>
-                                <span className="text-gray-400 text-sm">{review.time_ago}</span>
+                                <span className="text-gray-500 text-[9px] font-bold uppercase tracking-tighter">{review.time_ago}</span>
                               </div>
-                              <p className="text-gray-300 text-sm leading-relaxed">{review.comment}</p>
+                              <p className="text-gray-300 text-sm leading-relaxed font-medium italic opacity-90 group-hover:opacity-100 italic">
+                                "{review.comment}"
+                              </p>
                               {review.images && review.images.length > 0 && (
-                                <div className="mt-2 flex space-x-2">
+                                <div className="mt-3 flex gap-2">
                                   {review.images.map((image: string, index: number) => (
-                                    <img
-                                      key={index}
-                                      src={image}
-                                      alt={`Review image ${index + 1}`}
-                                      className="w-16 h-16 object-cover rounded border border-gray-600/20"
-                                    />
+                                    <div key={index} className="w-16 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-theme-cyan/50 transition-all cursor-zoom-in">
+                                      <img
+                                        src={image}
+                                        alt={`Review proof ${index + 1}`}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
                                   ))}
                                 </div>
                               )}
@@ -919,13 +929,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <Star className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-400 text-lg">No reviews yet</p>
-                      <p className="text-gray-500 text-sm">Be the first to review this product</p>
+                    <div className="text-center py-10 bg-white/5 rounded-xl border border-dashed border-white/10">
+                      <Star className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+                      <p className="text-white text-xs font-black uppercase tracking-widest">No Recon Data</p>
+                      <p className="text-gray-500 text-[10px] mt-1 font-bold">Be the first to leave a shadow trace.</p>
                     </div>
                   )}
-                </div> */}
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-2">

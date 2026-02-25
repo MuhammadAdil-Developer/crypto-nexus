@@ -192,12 +192,27 @@ def user_login(request):
         username = request_data.get('username', '')
         client_ip = request.META.get('REMOTE_ADDR', '')
         
-        # Check failed login attempts in last 15 minutes
+        # Check failed login attempts
         from django.core.cache import cache
         failed_attempts_key = f"failed_login_attempts_{client_ip}_{username}"
         failed_attempts = cache.get(failed_attempts_key, 0)
         
         print(f"🔍 Failed attempts: {failed_attempts}")
+        
+        # Get dynamic max attempts from SystemConfiguration
+        from shared.models import SystemConfiguration
+        max_attempts_str = SystemConfiguration.get_value('max_login_attempts', '5')
+        try:
+            max_attempts = int(max_attempts_str)
+        except ValueError:
+            max_attempts = 5
+            
+        if failed_attempts >= max_attempts:
+            return Response({
+                'success': False,
+                'message': f'Maximum login attempts exceeded. Your account is locked for {SystemConfiguration.get_value("lockout_duration", "30")} minutes.',
+                'error_code': 'MAX_ATTEMPTS_EXCEEDED'
+            }, status=status.HTTP_423_LOCKED)
         
         # Check if this is a 2FA verification (session_token present means first step already passed)
         session_token = request_data.get('session_token')
@@ -260,22 +275,31 @@ def user_login(request):
             if not user or not user.check_password(password):
                 # Increment failed attempts
                 new_failed_attempts = failed_attempts + 1
-                cache.set(failed_attempts_key, new_failed_attempts, 900)  # 15 minutes
                 
                 # Log failed activity
                 try:
                     from shared.utils import log_user_activity
                     log_user_activity(
-                        user=user if user else User.objects.filter(is_superuser=True).first(), # Associate with admin if user doesn't exist just to have some relation
+                        user=user if user else None,
                         activity_type='login_failed',
-                        description=f"Failed login attempt for username: {username}",
+                        description=f"Failed login attempt for username: {username}. Total failures: {new_failed_attempts}",
                         request=request
                     )
                 except Exception as e:
                     logger.error(f"Error logging failed activity: {e}")
 
-                # Notify admin if suspicious activity (3+ failed attempts)
-                if new_failed_attempts >= 3:
+                # Get lockout duration from settings
+                lockout_duration_str = SystemConfiguration.get_value('lockout_duration', '30')
+                try:
+                    lockout_duration_mins = int(lockout_duration_str)
+                except ValueError:
+                    lockout_duration_mins = 30
+                
+                # Update cache with dynamic expiry
+                cache.set(failed_attempts_key, new_failed_attempts, lockout_duration_mins * 60)
+
+                # Notify admin if suspicious activity (e.g., reaching max attempts)
+                if new_failed_attempts >= max_attempts:
                     try:
                         from shared.admin_notifications import notify_admin_suspicious_login
                         reason = f"Multiple failed login attempts ({new_failed_attempts})"

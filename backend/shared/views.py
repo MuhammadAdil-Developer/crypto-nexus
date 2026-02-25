@@ -103,7 +103,7 @@ from shared.serializers import (
     AnnouncementSerializer, UserActivitySerializer, 
     IPRestrictionSerializer, SystemConfigurationSerializer
 )
-from users.models import User
+from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
@@ -169,6 +169,7 @@ class AdminCommunicationView(viewsets.ViewSet):
         if not all([title, message, target_group]):
             return Response({'error': 'Missing required fields (title, message, target_group)'}, status=status.HTTP_400_BAD_REQUEST)
 
+        User = get_user_model()
         users_to_notify = User.objects.none()
         
         if target_group == 'all':
@@ -220,12 +221,14 @@ class SecuritySummaryAPIView(APIView):
                 created_at__gte=day_ago
             ).count()
             
+            User = get_user_model()
             # Active sessions - This is a heuristic, counting active users in last 15 mins
             active_sessions = User.objects.filter(
                 last_login__gte=now - timezone.timedelta(minutes=15),
                 is_active=True
             ).count()
             
+            User = get_user_model()
             # 2FA Stats
             total_admins = User.objects.filter(user_type='admin').count()
             admins_with_2fa = User.objects.filter(user_type='admin', two_factor_enabled=True).count()
@@ -320,7 +323,12 @@ class TwoFactorStatusAPIView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        admins = User.objects.filter(Q(user_type='admin') | Q(is_staff=True))
+        User = get_user_model()
+        admins = User.objects.filter(
+            Q(user_type='admin') | Q(is_staff=True),
+            is_deleted=False,
+            is_active=True
+        )
         data = []
         for admin in admins:
             data.append({

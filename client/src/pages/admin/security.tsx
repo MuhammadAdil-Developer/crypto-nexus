@@ -21,8 +21,8 @@ export default function AdminSecurity() {
     two_fa_enabled_ratio: "0/0",
     blocked_ips_count: 0
   });
-  const [logs, setLogs] = useState([]);
-  const [twoFactorUsers, setTwoFactorUsers] = useState([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [twoFactorUsers, setTwoFactorUsers] = useState<any[]>([]);
   const [settings, setSettings] = useState({
     enforce_2fa_admins: "true",
     session_timeout: "60",
@@ -31,7 +31,7 @@ export default function AdminSecurity() {
     password_expiry: "90",
     audit_logging: "true"
   });
-  const [restrictions, setRestrictions] = useState([]);
+  const [restrictions, setRestrictions] = useState<any[]>([]);
   const [newIp, setNewIp] = useState("");
 
   const fetchData = async () => {
@@ -49,7 +49,9 @@ export default function AdminSecurity() {
       if (logsRes.data.success) setLogs(logsRes.data.data);
       if (usersRes.data.success) setTwoFactorUsers(usersRes.data.data);
       if (settingsRes.data.success) setSettings(settingsRes.data.data);
-      if (restrictionsRes.data.success) setRestrictions(restrictionsRes.data);
+      if (Array.isArray(restrictionsRes.data)) setRestrictions(restrictionsRes.data);
+      else if (restrictionsRes.data.results) setRestrictions(restrictionsRes.data.results);
+      else if (restrictionsRes.data.success) setRestrictions(restrictionsRes.data.data);
     } catch (err) {
       console.error("Failed to fetch security data", err);
       toast({
@@ -83,7 +85,7 @@ export default function AdminSecurity() {
     if (!newIp) return;
     try {
       const res = await api.post('/system/ip-restrictions/', {
-        ip_address: newIp,
+        ip_address: newIp.trim(),
         restriction_type: type,
         label: label
       });
@@ -109,10 +111,10 @@ export default function AdminSecurity() {
     }
   };
 
-  const getStatusType = (type: string) => {
+  const getStatusType = (type: string): "danger" | "success" | "muted" => {
     if (type === 'login_failed' || type === 'security_alert') return 'danger';
     if (type === 'login' || type === 'password_changed') return 'success';
-    return 'outline';
+    return 'muted';
   };
 
   const getStatusLabel = (type: string) => {
@@ -194,7 +196,7 @@ export default function AdminSecurity() {
       </div>
 
       <Tabs defaultValue="logs" className="w-full">
-        <TabsList className="bg-surface-2 mb-6">
+        <TabsList className="bg-surface mb-6">
           <TabsTrigger value="logs" className="text-gray-300 data-[state=active]:text-white">
             Security Logs
           </TabsTrigger>
@@ -217,7 +219,7 @@ export default function AdminSecurity() {
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-surface-2">
+                  <thead className="bg-surface">
                     <tr>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">Event Type</th>
                       <th className="text-left p-4 text-sm font-medium text-gray-300">User</th>
@@ -283,7 +285,7 @@ export default function AdminSecurity() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-surface-2">
+                    <thead className="bg-surface">
                       <tr>
                         <th className="text-left p-4 text-sm font-medium text-gray-300">User</th>
                         <th className="text-left p-4 text-sm font-medium text-gray-300">Role</th>
@@ -296,7 +298,7 @@ export default function AdminSecurity() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {twoFactorUsers.map((user: any) => (
-                        <tr key={user.id} className="hover:bg-surface-2/50">
+                        <tr key={user.id} className="hover:bg-surface">
                           <td className="p-4">
                             <div className="flex items-center">
                               <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
@@ -353,7 +355,7 @@ export default function AdminSecurity() {
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
+                    <div className="flex items-center justify-between p-4 bg-surface rounded-lg">
                       <div>
                         <p className="text-white font-medium">Enforce 2FA for Admins</p>
                         <p className="text-sm text-gray-400">Require all admin accounts to use 2FA</p>
@@ -384,7 +386,7 @@ export default function AdminSecurity() {
                     value={settings.session_timeout}
                     onChange={(e) => setSettings({ ...settings, session_timeout: e.target.value })}
                     onBlur={(e) => handleUpdateSetting('session_timeout', e.target.value)}
-                    className="mt-2 bg-surface-2 border-border text-white"
+                    className="mt-2 !bg-[#0f172a] border-border text-white placeholder:text-gray-500"
                   />
                 </div>
 
@@ -395,7 +397,7 @@ export default function AdminSecurity() {
                     value={settings.max_login_attempts}
                     onChange={(e) => setSettings({ ...settings, max_login_attempts: e.target.value })}
                     onBlur={(e) => handleUpdateSetting('max_login_attempts', e.target.value)}
-                    className="mt-2 bg-surface-2 border-border text-white"
+                    className="mt-2 !bg-[#0f172a] border-border text-white placeholder:text-gray-500"
                   />
                 </div>
 
@@ -406,7 +408,7 @@ export default function AdminSecurity() {
                     value={settings.lockout_duration}
                     onChange={(e) => setSettings({ ...settings, lockout_duration: e.target.value })}
                     onBlur={(e) => handleUpdateSetting('lockout_duration', e.target.value)}
-                    className="mt-2 bg-surface-2 border-border text-white"
+                    className="mt-2 !bg-[#0f172a] border-border text-white placeholder:text-gray-500"
                   />
                 </div>
 
@@ -417,12 +419,12 @@ export default function AdminSecurity() {
                     value={settings.password_expiry}
                     onChange={(e) => setSettings({ ...settings, password_expiry: e.target.value })}
                     onBlur={(e) => handleUpdateSetting('password_expiry', e.target.value)}
-                    className="mt-2 bg-surface-2 border-border text-white"
+                    className="mt-2 !bg-[#0f172a] border-border text-white placeholder:text-gray-500"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <div className="flex items-center justify-between p-4 bg-surface-2 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-surface rounded-lg">
                     <div>
                       <p className="text-white font-medium">Audit Logging</p>
                       <p className="text-sm text-gray-400">Log all administrative actions</p>
@@ -451,7 +453,7 @@ export default function AdminSecurity() {
                       placeholder="e.g. 192.168.1.0/24"
                       value={newIp}
                       onChange={(e) => setNewIp(e.target.value)}
-                      className="bg-surface-2 border-border text-white"
+                      className="!bg-[#0f172a] border-border text-white placeholder:text-gray-500"
                     />
                     <Button onClick={() => handleAddRestriction('whitelist')} className="bg-accent text-bg hover:bg-accent-2">
                       Add to Whitelist
@@ -460,7 +462,7 @@ export default function AdminSecurity() {
 
                   <div className="space-y-2">
                     {restrictions.filter(r => r.restriction_type === 'whitelist').map((res: any) => (
-                      <div key={res.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                      <div key={res.id} className="flex items-center justify-between p-3 bg-surface rounded-lg">
                         <span className="font-mono text-white">{res.ip_address}</span>
                         <div className="flex items-center space-x-2">
                           <Badge variant="outline" className="text-xs">{res.label || 'Whitelisted'}</Badge>
@@ -492,7 +494,7 @@ export default function AdminSecurity() {
                       placeholder="e.g. 45.67.89.12"
                       value={newIp}
                       onChange={(e) => setNewIp(e.target.value)}
-                      className="bg-surface-2 border-border text-white"
+                      className="!bg-[#0f172a] border-border text-white placeholder:text-gray-500"
                     />
                     <Button onClick={() => handleAddRestriction('blacklist', 'Manual Block')} className="bg-red-600 text-white hover:bg-red-700">
                       Block IP
@@ -501,7 +503,7 @@ export default function AdminSecurity() {
 
                   <div className="space-y-2">
                     {restrictions.filter(r => r.restriction_type === 'blacklist').map((res: any) => (
-                      <div key={res.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                      <div key={res.id} className="flex items-center justify-between p-3 bg-surface rounded-lg">
                         <span className="font-mono text-white">{res.ip_address}</span>
                         <div className="flex items-center space-x-2">
                           <Badge variant="destructive" className="text-xs">{res.label || 'Blocked'}</Badge>

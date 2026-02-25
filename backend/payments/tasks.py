@@ -54,25 +54,30 @@ def check_direct_payment_status():
         from django.db.models import Q
         from datetime import datetime, timedelta
         
-        window = timezone.now() - timedelta(days=1)
+        window = timezone.now() - timedelta(hours=24) # Monitor last 24 hours as requested
+        cooldown = timezone.now() - timedelta(minutes=10) # Don't re-queue if checked in last 10 mins
         
         # 1. Trigger tasks for Direct Payments
         payments = DirectPayment.objects.filter(
-            Q(status__in=['pending', 'expired', 'confirmed', 'processing']),
+            Q(status__in=['pending', 'confirmed', 'processing']),
             created_at__gt=window
+        ).filter(
+            Q(updated_at__lt=cooldown) | Q(created_at__gt=timezone.now() - timedelta(minutes=5))
         )
         for p in payments:
             monitor_individual_payment.delay(p.id)
             
         # 2. Trigger tasks for Escrow/Subaddresses
         addresses = PaymentAddress.objects.filter(
-            status__in=['pending', 'expired', 'processing', 'partial'],
+            status__in=['pending', 'processing', 'partial'],
             created_at__gt=window
+        ).filter(
+            Q(updated_at__lt=cooldown) | Q(created_at__gt=timezone.now() - timedelta(minutes=5))
         )
         for pa in addresses:
             monitor_individual_address.delay(pa.id)
             
-        return f"Triggered {payments.count() + addresses.count()} individual monitor tasks"
+        return f"Triggered {payments.count() + addresses.count()} tasks (Capped by cooldown)"
     except Exception as e:
         logger.error(f"Error triggering monitor tasks: {e}")
         return str(e)
@@ -83,9 +88,24 @@ def monitor_individual_payment(payment_id):
     try:
         from .models import DirectPayment
         from .direct_payment_monitor import direct_payment_monitor
-        p = DirectPayment.objects.get(id=payment_id)
+        import uuid
+        
+        # Try finding by UUID (Primary Key)
+        p = DirectPayment.objects.filter(id=payment_id).first()
+        
+        # FALLBACK: If not found and input looks like an order_id, try searching by order__order_id
+        if not p and isinstance(payment_id, str) and payment_id.startswith('ORD-'):
+            p = DirectPayment.objects.filter(order__order_id=payment_id).first()
+            
+        if not p:
+            return f"Skipped: Payment record {payment_id} not found"
         
         if p.status in ['completed', 'failed']: return "Skipped completed"
+        
+        # Update the timestamp so the cooldown logic knows we just checked this
+        from django.utils import timezone
+        p.updated_at = timezone.now()
+        p.save(update_fields=['updated_at'])
         
         current_height = direct_payment_monitor._get_current_btc_height()
         if p.crypto_currency.symbol == 'BTC':
@@ -93,7 +113,7 @@ def monitor_individual_payment(payment_id):
         elif p.crypto_currency.symbol == 'XMR':
             direct_payment_monitor._monitor_xmr_payment(p)
             
-        return f"Monitored payment {p.id}"
+        return f"Finished monitoring {p.order.order_id}"
     except Exception as e:
         logger.error(f"Error in monitor_individual_payment: {e}")
         return str(e)
@@ -216,6 +236,7 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         from orders.models import Order
         from .models import DirectPayment, PaymentAddress
         
+        
         order = Order.objects.get(order_id=order_id)
         
         # CRITICAL SAFETY: If order is already refunded, STOP.
@@ -277,15 +298,15 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             def _is_valid_payout_hash(h):
                 if not h or len(h) < 10:
                     return False
+                # MUST start with our internal prefix. 
+                # Raw hex strings are ignored here because they are often accidentally set to the buyer's hash.
                 if h.startswith('btc_payout_') or h.startswith('xmr_payout_'):
-                    return True
-                # 64-char hex = outbound blockchain txid from vendor payout
-                if len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h):
                     return True
                 return False
             
             payout_hash = direct_payment.transaction_hash
             already_paid_out = direct_payment.status == 'completed' and _is_valid_payout_hash(payout_hash)
+            
             
             if already_paid_out:
                 logger.info(f"Order {order_id} already has valid payout hash ({payout_hash[:20]}...) - skipping")

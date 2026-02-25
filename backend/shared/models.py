@@ -358,7 +358,7 @@ class UserActivity(BaseModel):
         ('security_alert', 'Security Alert'),
     )
 
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='activities')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='activities', null=True, blank=True)
     activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES)
     description = models.TextField()
     ip_address = models.GenericIPAddressField(null=True, blank=True)

@@ -9,7 +9,7 @@ from django.utils import timezone
 from .models import PaymentAddress, EscrowPayment, PaymentWebhook, BlockchainTransaction, DirectPayment
 from shared.models import CryptoCurrency
 from typing import Optional
-from django.db.models import Q
+from django.db import transaction, Q
 import logging
 from requests.auth import HTTPDigestAuth
 
@@ -1620,7 +1620,9 @@ class PaymentService:
                     # Payout logic check
                     def _is_valid_payout_hash(h):
                         if not h or len(h) < 10: return False
-                        return h.startswith('btc_payout_') or h.startswith('xmr_payout_') or (len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h))
+                        # MUST start with our internal prefix or be a confirmed outbound TXID
+                        # We no longer accept raw 64-char hex strings here because they clash with buyer hashes
+                        return h.startswith('btc_payout_') or h.startswith('xmr_payout_')
 
                     if _is_valid_payout_hash(direct_payment.transaction_hash):
                         direct_payment.status = 'completed'
@@ -1675,8 +1677,10 @@ class PaymentService:
             from orders.models import Order, OrderStatus
             
             logger.info(f"Looking for order with order_id: {order_id}")
-            order = Order.objects.get(order_id=order_id)
-            logger.info(f"Found order: {order.id}, current status: {order.order_status}, payment_status: {order.payment_status}")
+            # Use select_for_update to avoid race conditions with multiple workers/webhooks
+            with transaction.atomic():
+                order = Order.objects.select_for_update().get(order_id=order_id)
+                logger.info(f"Found order: {order.id}, current status: {order.order_status}, payment_status: {order.payment_status}")
             
             # Map BTCPay status to our order status
             btcpay_to_order_status = {
@@ -1724,8 +1728,9 @@ class PaymentService:
             
             # Set payment confirmed timestamp if status is paid/settled
             if btcpay_status in ['Paid', 'Settled']:
+                # CRITICAL: Use the DB value, not the one in memory from before select_for_update
                 if order.payment_confirmed_at:
-                    logger.info(f"Notification already sent for order {order_id}. Skipping duplicate broadcast but proceeding with payout verification.")
+                    logger.info(f"Notification already sent for order {order_id}. Skipping duplicate broadcast.")
                     has_notified = True
                 else:
                     order.payment_confirmed_at = timezone.now()
@@ -1756,6 +1761,8 @@ class PaymentService:
                         from asgiref.sync import async_to_sync
                         from channels.layers import get_channel_layer
                         
+                        channel_layer = get_channel_layer()
+                        
                         # Get credentials location/details for notification
                         credentials_info = ""
                         if order.product_credentials:
@@ -1773,8 +1780,8 @@ class PaymentService:
                         send_user_notification(
                             user=order.buyer,
                             notification_type='payment_confirmed',
-                            title='Payment Confirmed',
-                            message=f'Payment confirmed for order {order.order_id} - "{order.product.headline}". {credentials_info}',
+                            title='Payment Received',
+                            message=f'Your payment for order {order.order_id} has been successfully received. {credentials_info}',
                             data={
                                 'order_id': order.order_id,
                                 'product_id': str(order.product.id),
@@ -1879,16 +1886,13 @@ class PaymentService:
                         logger.error(f"Failed to send real-time payment notifications: {str(e)}")
             
             order.save()
-            
-            logger.info(f"Order {order_id} status updated to {new_order_status} based on BTCPay status: {btcpay_status}")
-            
-            # Schedule review prompt for buyer if payment is confirmed
-            if btcpay_status in ['Paid', 'Settled']:
+            # Schedule review prompt for buyer if payment is NEWLY confirmed
+            if btcpay_status in ['Paid', 'Settled'] and not has_notified:
                 try:
                     from orders.tasks import send_review_prompt_task
                     send_review_prompt_task.apply_async(
                         args=[order.buyer.id, order.product.id, order.order_id],
-                        countdown=60  # 1 minute delay
+                        countdown=180  # Delay to give time for delivery/viewing
                     )
                     logger.info(f"Scheduled review prompt for order {order.order_id}")
                 except Exception as e:

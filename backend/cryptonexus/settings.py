@@ -298,9 +298,9 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
 # Isolate queue to avoid picking up tasks from other projects sharing this Redis
-CELERY_TASK_DEFAULT_QUEUE = 'crypto_nexus_tasks'
+CELERY_TASK_DEFAULT_QUEUE = 'crypto_nexus_tasks_v2'
 CELERY_BROKER_TRANSPORT_OPTIONS = {
-    'global_keyprefix': 'crypto_nexus:'
+    'global_keyprefix': 'crypto_nexus_v2:'
 }
 
 # Redis SSL Configuration for Celery
@@ -318,9 +318,10 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_RETRY = True
 CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
 
-# Windows-specific Celery configuration
-CELERY_WORKER_POOL = 'solo'  # Use solo pool for Windows to avoid multiprocessing issues
-CELERY_WORKER_CONCURRENCY = 1
+# Windows-specific Celery configuration (Only use solo if OS is Windows)
+if os.name == 'nt':
+    CELERY_WORKER_POOL = 'solo'
+    CELERY_WORKER_CONCURRENCY = 1
 
 # Logging Configuration
 LOGGING = {

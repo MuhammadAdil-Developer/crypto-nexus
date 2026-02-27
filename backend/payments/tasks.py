@@ -644,6 +644,36 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         
         logger.info(f"✅ FINAL VERIFICATION PASSED: Sending {net_amount} {crypto_symbol} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee})")
         
+        # ============================================================
+        # CRITICAL: FINAL ATOMIC IDEMPOTENCY LOCK BEFORE SENDING
+        # This is the last line of defense against double payouts.
+        # Two Celery workers can BOTH pass the earlier 'processing' check
+        # if they are dequeued simultaneously. This atomic lock ensures
+        # only ONE worker ever reaches _send_direct_payment_to_vendor.
+        # ============================================================
+        with transaction.atomic():
+            dp_final_check = DirectPayment.objects.select_for_update().get(id=direct_payment.id)
+            
+            if dp_final_check.status == 'completed' and _is_valid_payout_hash(dp_final_check.transaction_hash):
+                logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: payout already completed by another worker. ABORTING to prevent double payout. TX: {dp_final_check.transaction_hash[:40] if dp_final_check.transaction_hash else 'N/A'}")
+                return f"Order {order_id} — payout already completed (idempotency guard fired)"
+            
+            if _is_valid_payout_hash(dp_final_check.transaction_hash) and dp_final_check.status != 'completed':
+                # Has a valid outbound hash but status not yet updated — fix and abort
+                dp_final_check.status = 'completed'
+                dp_final_check.save(update_fields=['status'])
+                logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: valid payout hash found but status was {dp_final_check.status}. Fixed status and aborting retry.")
+                return f"Order {order_id} — payout hash found, status corrected to completed"
+            
+            # Re-check if another worker is processing within the last 30 seconds
+            if dp_final_check.status == 'processing' and dp_final_check.updated_at > timezone.now() - timedelta(seconds=30) and self.request.retries > 0:
+                logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: another worker started processing <30s ago (retry {self.request.retries}). Deferring.")
+                raise self.retry(exc=Exception("Deferred: another worker is processing"), countdown=60)
+            
+            # IMPORTANT: Re-stamp updated_at so other workers see this is being handled
+            dp_final_check.updated_at = timezone.now()
+            dp_final_check.save(update_fields=['updated_at'])
+        
         # Send to vendor
         payout_service = PayoutService()
         success = payout_service._send_direct_payment_to_vendor(direct_payment, net_amount)

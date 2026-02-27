@@ -9,7 +9,8 @@ from django.utils import timezone
 from .models import PaymentAddress, EscrowPayment, PaymentWebhook, BlockchainTransaction, DirectPayment
 from shared.models import CryptoCurrency
 from typing import Optional
-from django.db import transaction, Q
+from django.db import transaction
+from django.db.models import Q
 import logging
 from requests.auth import HTTPDigestAuth
 
@@ -1539,10 +1540,25 @@ class PaymentService:
                             self._update_escrow_payout_status(escrow.order.order_id if hasattr(escrow, 'order') else payment_address.order_id)
                 
                 # Process direct payment if applicable (only if paid/settled)
+                # CRITICAL FIX: Prevent double payout from both 'InvoiceConfirmed' + 'InvoiceSettled'.
+                # ONLY trigger payout on 'Settled' (fully confirmed) OR first-time 'Confirmed'
+                # (when payment_address wasn't already 'paid' before this webhook).
                 if mapped_status == 'paid':
-                    # Determine if settled (fully confirmed)
                     is_settled = (btcpay_status == 'Settled')
-                    self._process_direct_payment_webhook(payment_address, is_settled=is_settled)
+                    
+                    # Check if this order already had a DirectPayment payout queued/completed
+                    from .models import DirectPayment as _DirectPayment
+                    all_order_ids_for_check = [payment_address.order_id] + (payment_address.linked_order_ids or [])
+                    any_already_completed = _DirectPayment.objects.filter(
+                        order__order_id__in=all_order_ids_for_check,
+                        status='completed'
+                    ).exists()
+                    
+                    if any_already_completed and not is_settled:
+                        # Payout already done for a prior Confirmed webhook — skip duplicate
+                        logger.info(f"[WEBHOOK DEDUP] Skipping _process_direct_payment_webhook for {btcpay_status}: DirectPayment already completed for {all_order_ids_for_check}")
+                    else:
+                        self._process_direct_payment_webhook(payment_address, is_settled=is_settled)
                 # Mark webhook as processed
                 webhook.processed = True
                 webhook.processed_at = timezone.now()

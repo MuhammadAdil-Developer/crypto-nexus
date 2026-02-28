@@ -920,6 +920,9 @@ class AdminPayoutView(APIView):
             # Given the current implementation, let's keep it similar but add pagination.
             
             total_count = 0
+            payouts = []
+            direct_payments = []
+            
             if payout_type == 'escrow':
                 total_count = payouts_qs.count()
                 start = (page - 1) * limit

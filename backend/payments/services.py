@@ -13,6 +13,7 @@ from django.db import transaction
 from django.db.models import Q
 import logging
 from requests.auth import HTTPDigestAuth
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,20 @@ DEFAULT_BTC_TX_VBYTES = 250
 
 
 def get_btc_estimated_miner_fee_btc() -> Optional[Decimal]:
-    """Fetch current BTC miner fee estimate from mempool.space (sat/vB -> BTC for typical payout tx)."""
+    """Fetch current BTC miner fee estimate from mempool.space with caching."""
+    cache_key = 'btc_miner_fee_estimate_btc_value'
+    cached_fee = cache.get(cache_key)
+    if cached_fee is not None:
+        return cached_fee
+
     try:
-        r = requests.get("https://mempool.space/api/v1/fees/recommended", timeout=5)
+        r = requests.get("https://mempool.space/api/v1/fees/recommended", timeout=3)
         if r.status_code != 200:
             return None
         data = r.json()
-        # Use economyFee for low-cost payouts; fallback to hourFee then minimumFee
         sat_per_vb = data.get("economyFee") or data.get("hourFee") or data.get("minimumFee") or 1
-        # fee_btc = (sat_per_vb * vbytes) / 100_000_000
-        fee_btc = Decimal(sat_per_vb) * DEFAULT_BTC_TX_VBYTES / Decimal("100000000")
+        fee_btc = Decimal(str(sat_per_vb)) * Decimal(str(DEFAULT_BTC_TX_VBYTES)) / Decimal("100000000")
+        cache.set(cache_key, fee_btc, 300) # Buffer for 5 minutes
         return fee_btc
     except Exception as e:
         logger.warning(f"Failed to fetch BTC fee from mempool.space: {e}")
@@ -38,20 +43,24 @@ def get_btc_estimated_miner_fee_btc() -> Optional[Decimal]:
 
 
 def get_btc_fee_rate_sat_per_vb() -> Optional[int]:
-    """Fetch recommended BTC fee rate in sat/vB from mempool.space (for BTCPay feeRate).
-    ALWAYS tries API first - only returns None if API completely fails.
-    """
+    """Fetch recommended BTC fee rate in sat/vB from mempool.space with caching."""
+    cache_key = 'btc_miner_fee_rate_sat_vb_val'
+    cached_rate = cache.get(cache_key)
+    if cached_rate is not None:
+        return cached_rate
+
     try:
-        r = requests.get("https://mempool.space/api/v1/fees/recommended", timeout=8)
+        r = requests.get("https://mempool.space/api/v1/fees/recommended", timeout=3)
         if r.status_code != 200:
             logger.warning(f"mempool.space returned status {r.status_code}, cannot get fee rate")
             return None
         data = r.json()
         sat_per_vb = data.get("economyFee") or data.get("hourFee") or data.get("minimumFee") or 1
         logger.info(f"✅ BTC fee rate from mempool.space: {sat_per_vb} sat/vB")
+        cache.set(cache_key, sat_per_vb, 300) # Buffer for 5 minutes
         return sat_per_vb
     except Exception as e:
-        logger.error(f"❌ CRITICAL: Failed to fetch BTC fee rate from mempool.space: {e} - Will use minimal fallback")
+        logger.error(f"❌ CRITICAL: Failed to fetch BTC fee rate from mempool.space: {e}")
         return None
 
 
@@ -380,7 +389,7 @@ class BTCPayServerService:
                 
                 logger.info(f"Sending REAL Bitcoin transaction: {transaction_data}")
                 
-                send_response = requests.post(send_url, json=transaction_data, headers=self.headers)
+                send_response = requests.post(send_url, json=transaction_data, headers=self.headers, timeout=15)
                 
                 if send_response.status_code == 200:
                     tx_result = send_response.json()

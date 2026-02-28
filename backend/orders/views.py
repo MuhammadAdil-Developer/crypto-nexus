@@ -7,7 +7,7 @@ from django.db.models import Q
 from .models import Order, OrderDispute, OrderStatus
 from .serializers import (
     OrderSerializer, CreateOrderSerializer, UpdateOrderStatusSerializer,
-    OrderDisputeSerializer, AdminDashboardOrderSerializer
+    OrderDisputeSerializer, AdminDashboardOrderSerializer, OrderListSerializer
 )
 from django.core.cache import cache
 from payments.services import BTCPayServerService, MoneroRPCService
@@ -35,10 +35,17 @@ class OrderViewSet(viewsets.ModelViewSet):
     """ViewSet for order management"""
     
     queryset = Order.objects.all()
-    serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
     pagination_class = LargeResultsSetPagination
     
+    def get_serializer_class(self):
+        """Return different serializers for different actions"""
+        if self.action in ['list', 'orders_page_aggregated']:
+            return OrderListSerializer
+        if self.action == 'create':
+            return CreateOrderSerializer
+        if self.action == 'update' or self.action == 'partial_update':
+            return UpdateOrderStatusSerializer
+        return OrderSerializer    
     def get_queryset(self):
         """Filter orders based on user role with optimized database access"""
         user = self.request.user
@@ -837,13 +844,17 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def orders_page_aggregated(self, request):
-        """Aggregated endpoint for Admin Orders page: stats + orders list"""
+        """Aggregated endpoint for Admin Orders page: stats + orders list (optimized with cache)"""
         if not (request.user.is_staff or request.user.user_type == 'admin'):
             return Response({"error": "Admin access required"}, status=403)
             
         try:
-            # 1. Get stats
-            all_stats = self._get_admin_stats(30)
+            # 1. Get stats (Cached for 2 minutes to boost page speed)
+            cache_key = 'admin_orders_stats_aggregated'
+            all_stats = cache.get(cache_key)
+            if not all_stats:
+                all_stats = self._get_admin_stats(30)
+                cache.set(cache_key, all_stats, 120)
             
             # 2. Get filtered/paginated orders
             queryset = self.filter_queryset(self.get_queryset())
@@ -852,8 +863,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
                 response = self.get_paginated_response(serializer.data)
-                response.data['statistics_summary'] = all_stats['statistics']
-                response.data['escrow_summary'] = all_stats['escrow_stats']
+                response.data['statistics_summary'] = all_stats.get('statistics', {})
+                response.data['escrow_summary'] = all_stats.get('escrow_stats', {})
                 return response
 
             serializer = self.get_serializer(queryset, many=True)

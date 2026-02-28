@@ -299,7 +299,7 @@ def create_product_conversation(request):
                     'refund_id': refund_id,
                     'order_id': refund.order.order_id if refund.order else None
                 }
-                content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n📋 **Order:** {refund.order.order_id if refund.order else 'N/A'}\n👤 **Vendor:** {product.vendor.username}"
+                content = f"REFUND CHAT: {product.headline} | ORDER: {refund.order.order_id if refund.order else 'N/A'} | PRICE: ${product.price}"
             except Exception:
                 # Fallback if refund not found - still include product details
                 product_info = {
@@ -311,7 +311,7 @@ def create_product_conversation(request):
                     'vendor_id': str(product.vendor.id),
                     'refund_id': refund_id
                 }
-                content = f"🔄 **Refund Request Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
+                content = f"REFUND CHAT: {product.headline} | PRICE: ${product.price}"
         elif dispute_id:
             # Get dispute details for the message
             try:
@@ -327,7 +327,7 @@ def create_product_conversation(request):
                     'dispute_id': dispute_id,
                     'order_id': dispute.order.order_id if dispute.order else None
                 }
-                content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n📋 **Order:** {dispute.order.order_id if dispute.order else 'N/A'}\n👤 **Vendor:** {product.vendor.username}"
+                content = f"DISPUTE CHAT: {product.headline} | ORDER: {dispute.order.order_id if dispute.order else 'N/A'} | PRICE: ${product.price}"
             except Exception:
                 # Fallback if dispute not found - still include product details
                 product_info = {
@@ -339,7 +339,7 @@ def create_product_conversation(request):
                     'vendor_id': str(product.vendor.id),
                     'dispute_id': dispute_id
                 }
-                content = f"⚖️ **Dispute Chat**\n📦 **Product:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
+                content = f"DISPUTE CHAT: {product.headline} | PRICE: ${product.price}"
         else:
             # Regular product reference (shouldn't reach here, but just in case)
             product_info = {
@@ -350,7 +350,7 @@ def create_product_conversation(request):
                 'vendor_username': product.vendor.username,
                 'vendor_id': str(product.vendor.id)
             }
-            content = f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
+            content = f"PRODUCT INQUIRY: {product.headline} | PRICE: ${product.price}"
         
         # Create the product reference message
         message = Message.objects.create(
@@ -417,7 +417,7 @@ def create_product_conversation(request):
             'vendor_id': str(product.vendor.id)
         }
         
-        content = f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}"
+        content = f"PRODUCT INQUIRY: {product.headline} | PRICE: ${product.price}"
         
         message = Message.objects.create(
             conversation=conversation,
@@ -682,20 +682,20 @@ def get_recent_messages(request):
         
         recent_messages = []
         for conv in conversations:
-            # Get the other participant (buyer)
+            # Get the other participant (buyer/vendor)
             other_participant = conv.participants.exclude(id=user.id).first()
             
-            # Get the last message
+            # Use cached last_message if available from prefetch (prefetch_related 'messages' is small here as it's limited)
             last_message = conv.messages.order_by('-created_at').first()
             
-            # Calculate unread count for this conversation
-            unread_count = conv.messages.filter(recipient=user, is_read=False).count()
+            # Calculate unread count for this conversation (optimized query)
+            unread_count = Message.objects.filter(conversation=conv, recipient=user, is_read=False).count()
             
             if other_participant and last_message:
                 recent_messages.append({
                     'id': str(conv.id),
                     'buyer': other_participant.username,
-                    'product': conv.product.headline if conv.product and conv.product.headline else 'Product',
+                    'product': conv.product.headline if conv.product else 'Product Inquiry',
                     'lastMessage': last_message.content,
                     'time': get_time_ago(last_message.created_at),
                     'unread': unread_count > 0
@@ -857,14 +857,15 @@ def get_all_conversations_admin(request):
             status=status.HTTP_403_FORBIDDEN
         )
     
-    # Get all active conversations with related data
+    # Get all active conversations with related data (Optimized)
+    # Removing 'messages' prefetch as it loads the entire DB history for no reason
     conversations = Conversation.objects.filter(
         is_active=True
-    ).prefetch_related(
-        'participants', 
+    ).select_related(
         'product', 
-        'last_message',
-        'messages'
+        'last_message'
+    ).prefetch_related(
+        'participants'
     ).order_by('-updated_at')
     
     # Serialize the conversations

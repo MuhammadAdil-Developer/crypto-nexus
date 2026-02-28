@@ -1254,17 +1254,34 @@ class VendorPayoutsView(APIView):
         """Get vendor's payouts and pending earnings"""
         try:
             vendor = request.user
-            ps = PaymentService()
-            btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
-            xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
+            # Use Cache for rates to avoid repeat DB/API lookups
+            rates = cache.get('vendor_payout_rates')
+            if not rates:
+                ps = PaymentService()
+                btc_rate = float(ps.get_fiat_to_crypto_rate('BTC', 'USD') or Decimal('98000'))
+                xmr_rate = float(ps.get_fiat_to_crypto_rate('XMR', 'USD') or Decimal('165'))
+                network_fees = ps.get_network_fees()
+                rates = {
+                    'btc': btc_rate,
+                    'xmr': xmr_rate,
+                    'fees': {
+                        'BTC': float(network_fees.get('BTC', Decimal('0.00005000'))),
+                        'XMR': float(network_fees.get('XMR', Decimal('0.00020000')))
+                    }
+                }
+                cache.set('vendor_payout_rates', rates, 300) # 5 min cache
+            
+            btc_rate = rates['btc']
+            xmr_rate = rates['xmr']
+            BTC_NETWORK_FEE = Decimal(str(rates['fees']['BTC']))
+            XMR_NETWORK_FEE = Decimal(str(rates['fees']['XMR']))
             
             # Define excluded statuses
             excluded_order_status = ['cancelled', 'refunded', 'disputed', 'expired']
             excluded_payout_status = ['failed', 'cancelled', 'refunded', 'expired']
             
-            # Fetch Payouts (Escrow)
-            # Fetch Payouts (Escrow)
-            payout_records = Payout.objects.filter(
+            # Fetch Payouts (Escrow) - Optimized with select_related
+            payout_records = Payout.objects.select_related('order', 'crypto_currency').filter(
                 vendor=vendor
             ).exclude(
                 status__in=excluded_payout_status
@@ -1272,8 +1289,8 @@ class VendorPayoutsView(APIView):
                 order__order_status__in=excluded_order_status
             ).order_by('-created_at')
             
-            # Fetch Direct Payments
-            direct_records = DirectPayment.objects.filter(
+            # Fetch Direct Payments - Optimized with select_related
+            direct_records = DirectPayment.objects.select_related('order', 'crypto_currency').filter(
                 vendor=vendor
             ).exclude(
                 status__in=excluded_payout_status
@@ -1287,10 +1304,6 @@ class VendorPayoutsView(APIView):
             
             payout_data = []
             
-            # Network Fees (Dynamic)
-            network_fees = ps.get_network_fees()
-            BTC_NETWORK_FEE = network_fees.get('BTC', Decimal('0.00005000'))
-            XMR_NETWORK_FEE = network_fees.get('XMR', Decimal('0.00020000'))
 
             for payout in payouts:
                 platform_fee_rate = 0

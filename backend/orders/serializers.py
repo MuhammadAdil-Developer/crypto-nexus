@@ -265,17 +265,84 @@ class UpdateOrderStatusSerializer(serializers.ModelSerializer):
 class AdminDashboardOrderSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for admin dashboard's 'Recent Orders' list.
-    Performance critical - excludes heavy vendor stats and nested relations.
+    Maintains nested structure for UI compatibility but only includes essential fields.
     """
-    buyer_username = serializers.CharField(source='buyer.username', read_only=True)
-    vendor_username = serializers.CharField(source='vendor.username', read_only=True)
-    product_headline = serializers.CharField(source='product.headline', read_only=True)
+    buyer = serializers.SerializerMethodField()
+    vendor = serializers.SerializerMethodField()
+    product = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
         fields = [
-            'id', 'order_id', 'buyer_username', 'vendor_username', 'product_headline',
+            'id', 'order_id', 'buyer', 'vendor', 'product',
             'quantity', 'total_amount', 'crypto_currency', 'payment_status',
             'order_status', 'created_at'
         ]
+
+    def get_buyer(self, obj):
+        if obj.buyer:
+            return {'username': obj.buyer.username}
+        return {'username': 'Unknown'}
+
+    def get_vendor(self, obj):
+        if obj.vendor:
+            return {'username': obj.vendor.username}
+        return {'username': 'Unknown'}
+
+    def get_product(self, obj):
+        if obj.product:
+            return {'headline': obj.product.headline}
+        return {'headline': 'Deleted Product'}
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for order lists (Admin/Buyer/Vendor lists).
+    Removes expensive nested stats to prevent N+1 queries.
+    """
+    buyer = serializers.SerializerMethodField()
+    vendor = serializers.SerializerMethodField()
+    product = serializers.SerializerMethodField()
+    order_status_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_id', 'buyer', 'vendor', 'product', 'quantity',
+            'total_amount', 'crypto_currency', 'payment_status', 
+            'order_status', 'order_status_display', 'is_giveaway',
+            'created_at', 'updated_at'
+        ]
+
+    def get_order_status_display(self, obj):
+        from .models import Order
+        status = obj.order_status
+        status_map = {
+            'pending_payment': 'Pending Payment',
+            'payment_received': 'Payment Received',
+            'processing': 'Processing',
+            'paid': 'Paid',
+            'delivered': 'Completed',
+            'confirmed': 'Completed',
+            'disputed': 'Disputed',
+            'cancelled': 'Cancelled',
+            'refunded': 'Refunded',
+            'partial': 'Partial Payment',
+        }
+        if status == 'paid' and obj.product and obj.product.delivery_time == 'instant_auto':
+            return "Completed"
+        return status_map.get(status, status.replace('_', ' ').capitalize())
+
+    def get_buyer(self, obj):
+        if obj.buyer: return {'username': obj.buyer.username}
+        return {'username': 'Unknown'}
+
+    def get_vendor(self, obj):
+        if obj.vendor: return {'username': obj.vendor.username}
+        return {'username': 'Unknown'}
+
+    def get_product(self, obj):
+        if obj.product: return {'headline': obj.product.headline}
+        return {'headline': 'Deleted'}
+
  

@@ -309,7 +309,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         conversation=conversation,
                         sender=self.scope['user'],
                         recipient=recipient,
-                        content=f"💬 **Discussing:** {product.headline}\n💰 **Price:** ${product.price}\n👤 **Vendor:** {product.vendor.username}",
+                        content=f"PRODUCT INQUIRY: {product.headline} | PRICE: ${product.price}",
                         message_type='product_reference',
                         metadata=product_info
                     )

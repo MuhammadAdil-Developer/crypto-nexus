@@ -161,7 +161,7 @@ export default function VendorOverview() {
         const mappedProducts = top_products.map((p: any) => ({
           ...p,
           revenue: `$${p.revenue.toFixed(2)}`,
-          status: 'Active',
+          status: p.is_active ? 'Active' : 'Inactive',
           stock: p.stock ?? 0
         }));
         setTopProducts(mappedProducts);
@@ -719,7 +719,10 @@ export default function VendorOverview() {
                       </div>
                       <div className="text-left sm:text-right flex-shrink-0">
                         <div className="font-semibold text-theme-cyan text-sm sm:text-base">{product.revenue}</div>
-                        <Badge className={`mt-1 text-[10px] sm:text-xs ${product.status === 'Active' ? 'bg-theme-red text-white' : 'bg-gray-600'} border-none`}>
+                        <Badge className={`mt-1 text-[10px] sm:text-xs border-none ${product.status === 'Active'
+                            ? 'bg-green-500/10 text-green-400'
+                            : 'bg-red-500/10 text-red-400'
+                          }`}>
                           {product.status}
                         </Badge>
                       </div>

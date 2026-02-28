@@ -1540,23 +1540,44 @@ class PaymentService:
                             self._update_escrow_payout_status(escrow.order.order_id if hasattr(escrow, 'order') else payment_address.order_id)
                 
                 # Process direct payment if applicable (only if paid/settled)
-                # CRITICAL FIX: Prevent double payout from both 'InvoiceConfirmed' + 'InvoiceSettled'.
-                # ONLY trigger payout on 'Settled' (fully confirmed) OR first-time 'Confirmed'
-                # (when payment_address wasn't already 'paid' before this webhook).
+                # CRITICAL ROOT FIX: Prevent ANY double payout trigger from webhooks.
+                # If ANY bulk member is already 'completed', SKIP payout trigger.
                 if mapped_status == 'paid':
                     is_settled = (btcpay_status == 'Settled')
-                    
-                    # Check if this order already had a DirectPayment payout queued/completed
                     from .models import DirectPayment as _DirectPayment
-                    all_order_ids_for_check = [payment_address.order_id] + (payment_address.linked_order_ids or [])
-                    any_already_completed = _DirectPayment.objects.filter(
-                        order__order_id__in=all_order_ids_for_check,
-                        status='completed'
-                    ).exists()
                     
-                    if any_already_completed and not is_settled:
-                        # Payout already done for a prior Confirmed webhook — skip duplicate
-                        logger.info(f"[WEBHOOK DEDUP] Skipping _process_direct_payment_webhook for {btcpay_status}: DirectPayment already completed for {all_order_ids_for_check}")
+                    # 1. Recognize real blockchain TXIDs as valid payout hashes
+                    def _is_payout_hash_valid(h):
+                        if not h or len(h) < 10: return False
+                        if h.startswith('btc_payout_') or h.startswith('xmr_payout_'): return True
+                        # Real hex TXIDs are 64 characters long
+                        if len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h): return True
+                        return False
+
+                    # 2. Check if ANY related order is already done
+                    all_order_ids_for_check = [payment_address.order_id] + (payment_address.linked_order_ids or [])
+                    done_orders = _DirectPayment.objects.filter(
+                        order__order_id__in=all_order_ids_for_check
+                    ).filter(
+                        Q(status='completed') | Q(status='processing')
+                    )
+
+                    should_skip_trigger = False
+                    for dp in done_orders:
+                        if dp.status == 'completed' and _is_payout_hash_valid(dp.transaction_hash):
+                            logger.info(f"✅ Webhook Dedup: Order {dp.order.order_id} already has a VALID payout hash. Skipping trigger.")
+                            should_skip_trigger = True
+                            break
+                        if dp.status == 'processing':
+                            # Let it finish unless this is the 'Settled' webhook after 'Confirmed'
+                            # Actually, if it's processing, we don't need *another* task in the queue.
+                            logger.info(f"⏳ Webhook Dedup: Order {dp.order.order_id} is CURRENTLY processing. Skipping redundant trigger.")
+                            should_skip_trigger = True
+                            break
+
+                    if should_skip_trigger:
+                        logger.info(f"[WEBHOOK DEDUP] Skipping _process_direct_payment_webhook for {btcpay_status} on {all_order_ids_for_check}")
+                        # We still update payment confirmation counts below but don't call the sender logic
                     else:
                         self._process_direct_payment_webhook(payment_address, is_settled=is_settled)
                 # Mark webhook as processed
@@ -1634,17 +1655,22 @@ class PaymentService:
                     direct_payment.confirmed_at = timezone.now()
                     
                     # Payout logic check
-                    def _is_valid_payout_hash(h):
-                        if not h or len(h) < 10: return False
-                        # MUST start with our internal prefix or be a confirmed outbound TXID
-                        # We no longer accept raw 64-char hex strings here because they clash with buyer hashes
-                        return h.startswith('btc_payout_') or h.startswith('xmr_payout_')
+                    def _is_payout_hash_legit(h):
+                         if not h or len(h) < 10: return False
+                         if h.startswith('btc_payout_') or h.startswith('xmr_payout_'): return True
+                         # Standard 64-char blockchain TXID
+                         if len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h): return True
+                         return False
 
-                    if _is_valid_payout_hash(direct_payment.transaction_hash):
+                    # PROTECT COMPLETED / PROCESSING STATUS
+                    if direct_payment.status == 'completed' or _is_payout_hash_legit(direct_payment.transaction_hash):
+                        logger.info(f"✅ Bulk Member {oid}: Payout already COMPLETED. Protecting status.")
                         direct_payment.status = 'completed'
-                    elif is_settled and direct_payment.status == 'processing':
-                        direct_payment.status = 'confirmed'
-                    elif direct_payment.status not in ['processing', 'completed', 'failed']:
+                    elif direct_payment.status == 'processing':
+                        logger.info(f"⏳ Bulk Member {oid}: Payout currently PROCESSING. Protecting status.")
+                        # Keep it as processing
+                    else:
+                        # Only set to confirmed if it hasn't started yet
                         direct_payment.status = 'confirmed'
                     
                     direct_payment.save()
@@ -2744,15 +2770,22 @@ class PayoutService:
             # logger.info(f"✅ VERIFIED: Sending net_amount = {net_amount} (gross: {direct_payment.amount}, platform_fee: {direct_payment.platform_fee}, escrow_fee: {direct_payment.escrow_fee})")
             # logger.info(f"   Platform fee WAS deducted: {direct_payment.amount} - {direct_payment.platform_fee} - {direct_payment.escrow_fee} = {net_amount}")
             
-            # CRITICAL: Reload from DB to ensure we have latest values
-            direct_payment.refresh_from_db()
-            
-            # Recalculate net_amount from latest DB values to be 100% sure
-            calculated_net = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
-            # if abs(net_amount - calculated_net) > Decimal('0.00000001'):
-            #     logger.warning(f"⚠️ net_amount parameter ({net_amount}) != calculated from DB ({calculated_net})")
-            #     logger.warning(f"Using calculated value from DB: {calculated_net}")
-            net_amount = calculated_net
+            # CRITICAL: Reload from DB with EXCLUSIVE LOCK to ensure no one else finished while we calculated
+            with transaction.atomic():
+                dp_locked = DirectPayment.objects.select_for_update().get(id=direct_payment.id)
+                # If it's already completed or has a real TX hash, ABORT.
+                if dp_locked.status == 'completed' or (dp_locked.transaction_hash and not dp_locked.transaction_hash.startswith('processing_task_')):
+                    logger.warning(f"🚨 [SERVICE IDEMPOTENCY] Order {dp_locked.order.order_id}: Already processed! Aborting double send.")
+                    return False
+                
+                # Check if we were superseded by another task while calculating
+                if dp_locked.transaction_hash != direct_payment.transaction_hash:
+                    logger.warning(f"🚨 [SERVICE IDEMPOTENCY] Order {dp_locked.order.order_id}: Superseded! DB={dp_locked.transaction_hash}, Our={direct_payment.transaction_hash}. Aborting.")
+                    return False
+                
+                # Update our local reference and continue
+                direct_payment = dp_locked
+                net_amount = direct_payment.amount - direct_payment.platform_fee - direct_payment.escrow_fee
             
             # logger.info("=== DIRECT PAYOUT EXECUTION ===")
             # logger.info(f"Order: {direct_payment.order.order_id}")
@@ -3003,18 +3036,19 @@ class PayoutService:
         try:
             from .models import Payout
             
-            payout = Payout.objects.get(id=payout_id)
-            
-            if payout.status not in ['pending', 'ready', 'failed']:
-                logger.warning(f"Payout {payout_id} is not pending, ready, or failed (status: {payout.status})")
-                return False
-            
-            # Update status to processing
-            previous_status = payout.status
-            payout.status = 'processing'
-            payout.processed_at = timezone.now()
-            payout.processed_by = admin_user
-            payout.save()
+            with transaction.atomic():
+                payout = Payout.objects.select_for_update().get(id=payout_id)
+                
+                if payout.status not in ['pending', 'ready', 'failed']:
+                    logger.warning(f"Payout {payout_id} is not pending, ready, or failed (status: {payout.status})")
+                    return False
+                
+                # Update status to processing
+                previous_status = payout.status
+                payout.status = 'processing'
+                payout.processed_at = timezone.now()
+                payout.processed_by = admin_user
+                payout.save()
             
             # Notify about status change to processing
             try:
@@ -3049,6 +3083,13 @@ class PayoutService:
                 payout.save()
             
             logger.info(f"✅ Dynamic fee verification passed: Gross={payout.gross_amount}, Platform={payout.platform_fee} ({p_rate*100}%), Escrow={payout.escrow_fee} ({e_rate*100}%), Net={payout.net_amount}")
+            
+            # Final idempotency guard before send
+            with transaction.atomic():
+                p_final = Payout.objects.select_for_update().get(id=payout_id)
+                if p_final.status == 'completed' or (p_final.transaction_hash and not p_final.transaction_hash.startswith('processing_task_')):
+                     logger.warning(f"🚨 [ESCROW IDEMPOTENCY] Payout {payout_id} already marked completed in DB just before send. Aborting.")
+                     return True # Already done, so "success"
             
             # Send coins to vendor
             success = False

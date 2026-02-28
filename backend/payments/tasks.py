@@ -11,6 +11,28 @@ from .direct_payment_monitor import direct_payment_monitor
 
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# PAYOUT HELPER FUNCTIONS
+# ============================================================
+def _is_valid_payout_hash(h):
+    """Check if a string is a valid outbound payout hash (vs an internal anchor)"""
+    if not h or len(h) < 10:
+        return False
+    # 1. Internal fallback prefixes (fallback hashes we generated)
+    if h.startswith('btc_payout_') or h.startswith('xmr_payout_'):
+        return True
+    # 2. Blockchain TXIDs (64-character hex strings)
+    # This is standard for BTC and XMR transaction IDs.
+    if len(h) == 64 and all(c in '0123456789abcdefABCDEF' for c in h):
+        return True
+    # Task ID anchor for processing
+    if h.startswith('processing_task_'):
+        return False # Not a finished payout hash
+    return False
+
+def _is_task_anchor(h):
+    """Check if a string is a temporary task processing anchor"""
+    return h and h.startswith('processing_task_')
 
 @shared_task
 def auto_release_escrow_payouts():
@@ -273,15 +295,23 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         if not vendor_payout_address:
             logger.error(f"Vendor {vendor.username} has no {crypto_symbol} payout address configured.")
             
-        # Get or create direct payment in atomic transaction with lock
+        # ============================================================
+        # EXCLUSIVE IDEMPOTENCY LOCK: Start with a strict atomic block
+        # ============================================================
         with transaction.atomic():
-            direct_payment, created = DirectPayment.objects.select_for_update().get_or_create(
+            # 1. Acquire an exclusive lock on the ORDER first. 
+            # This prevents any other task for the same order from proceeding past this point.
+            # Using select_for_update ensures we wait for any existing transaction on this order to finish.
+            order = Order.objects.select_for_update().get(order_id=order_id)
+            
+            # 2. Get or create the DirectPayment record
+            direct_payment, created = DirectPayment.objects.get_or_create(
                 order=order,
                 defaults={
                     'vendor': vendor,
                     'buyer': order.buyer,
                     'crypto_currency': payment_address.crypto_currency,
-                    'amount': order.total_amount, # Use individual order amount, pro-rating happens below
+                    'amount': order.total_amount,
                     'vendor_address': vendor_payout_address or "MISSING_ADDRESS",
                     'status': 'pending',
                     'platform_fee': Decimal('0'),
@@ -290,62 +320,35 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 }
             )
             
-            # If address was missing originally but now exists, update it
-            if direct_payment.vendor_address == "MISSING_ADDRESS" and vendor_payout_address:
-                direct_payment.vendor_address = vendor_payout_address
-                direct_payment.save()
+            # 3. Lock the DirectPayment record specifically and fetch fresh state
+            direct_payment = DirectPayment.objects.select_for_update().get(id=direct_payment.id)
             
-            # CRITICAL: DEBOUNCE / CONCURRENCY CHECK
-            # CRITICAL SAFETY: Only block if this order already has a valid OUTBOUND vendor payout hash.
-            # NEVER block based on the buyer's incoming txid — that hash belongs on payment_address, NOT here.
-            # A valid payout hash looks like: 'btc_payout_<txhash>' OR a 64-char hex blockchain txid.
-            def _is_valid_payout_hash(h):
-                if not h or len(h) < 10:
-                    return False
-                # MUST start with our internal prefix. 
-                # Raw hex strings are ignored here because they are often accidentally set to the buyer's hash.
-                if h.startswith('btc_payout_') or h.startswith('xmr_payout_'):
-                    return True
-                # Task ID anchor for processing
-                if h.startswith('processing_task_'):
-                    return False # Not a finished payout hash
-                return False
+            status_at_start = direct_payment.status
+            my_anchor = f"processing_task_{self.request.id}" if self.request.id else "processing_task_manual"
             
-            # Helper to check if a hash is a task anchor
-            def _is_task_anchor(h):
-                return h and h.startswith('processing_task_')
+            # 4. CRITICAL STATE CHECKS
+            # If already completed, STOP IMMEDIATELY.
+            if direct_payment.status == 'completed' or (direct_payment.transaction_hash and not direct_payment.transaction_hash.startswith('processing_task_')):
+                logger.info(f"✅ IDEMPOTENCY: Order {order_id} already PAID (status: {direct_payment.status}, TX: {direct_payment.transaction_hash[:10]}...). Aborting.")
+                return f"Order {order_id} - already completed"
             
-            payout_hash = direct_payment.transaction_hash
-            already_paid_out = direct_payment.status == 'completed' and _is_valid_payout_hash(payout_hash)
-            
-            
-            if already_paid_out:
-                logger.info(f"Order {order_id} already has valid payout hash ({payout_hash[:20]}...) - skipping")
-                return f"Order {order_id} - payout already completed"
-            
-            if _is_valid_payout_hash(payout_hash) and direct_payment.status != 'completed':
-                # Has a payout hash but status not completed — treat as completed (edge case)
-                logger.warning(f"Order {order_id} has payout hash but status={direct_payment.status}. Marking completed.")
-                direct_payment.status = 'completed'
-                direct_payment.save(update_fields=['status'])
-                return f"Order {order_id} - payout hash found, status fixed to completed"
-            
-            # If already processing by another worker recently, skip
+            # If currently processing by another task
             if direct_payment.status == 'processing':
-                 # If it has a recent task anchor, wait. 
-                 # If the anchor is old (>10 mins), we can overwrite it.
-                 if _is_task_anchor(direct_payment.transaction_hash) and direct_payment.updated_at > timezone.now() - timedelta(minutes=10):
-                     if self.request.id and f"processing_task_{self.request.id}" == direct_payment.transaction_hash:
-                         # It's US (e.g. a retry) - continue
-                         pass
-                     else:
-                         return f"Already in progress (Task Anchor active)"
-
-            # Mark as processing IMMEDIATELY inside the lock with our TASK ID anchor
+                anchor = direct_payment.transaction_hash
+                if anchor and anchor.startswith('processing_task_'):
+                    if anchor != my_anchor:
+                        # Only allow overwrite if the anchor is very old (15 mins)
+                        if _is_task_anchor(anchor) and direct_payment.updated_at > timezone.now() - timedelta(minutes=15):
+                            logger.warning(f"⏳ CONCURRENCY: Order {order_id} is being handled by Task {anchor}. We are {my_anchor}. Aborting.")
+                            return f"Order {order_id} - already in progress (Task {anchor})"
+                
+            # 5. Mark as processing with our anchor
             direct_payment.status = 'processing'
-            direct_payment.transaction_hash = f"processing_task_{self.request.id}" if self.request.id else "processing_task_manual"
-            direct_payment.updated_at = timezone.now() # BaseModel will also update this on save
+            direct_payment.transaction_hash = my_anchor
+            direct_payment.updated_at = timezone.now()
             direct_payment.save(update_fields=['status', 'transaction_hash', 'updated_at'])
+            
+            logger.info(f"🔒 [LOCK ACQUIRED] Order {order_id}: Task {my_anchor} now owns the payout process. Status at start was {status_at_start}.")
         
         # CRITICAL: If this is an existing payment, verify fees were calculated correctly
         if not created:

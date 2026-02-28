@@ -760,57 +760,41 @@ def get_vendor_dashboard_aggregated(request):
             })
 
         # 4. Top Products (By sales count)
-        # Filter for truly active products (approved, in-stock, not deleted, and active)
-        # This matches the "Active Listings" count criteria
-        active_completed_orders = completed_orders.filter(
-            product__is_deleted=False,
-            product__is_active=True,
-            product__status='approved',
-            product__quantity_available__gt=0
-        )
-
-        top_products_qs = active_completed_orders.values(
+        # Show all top products but dynamically calculate their active status & actual revenue
+        top_products_qs = completed_orders.values(
             'product__id', 'product__headline', 'product__price', 
-            'product__quantity_available', 'product__main_image', 'product__main_images'
+            'product__quantity_available', 'product__main_image', 'product__main_images',
+            'product__is_active', 'product__is_deleted', 'product__status'
         ).annotate(
-            sales_count=Count('id')
+            sales_count=Count('id'),
+            # Sum actual funds received per currency for accuracy
+            sum_btc=Sum('total_amount', filter=Q(crypto_currency='BTC')),
+            sum_xmr=Sum('total_amount', filter=Q(crypto_currency='XMR'))
         ).filter(sales_count__gt=0).order_by('-sales_count')[:10]
         
         top_products = []
         for tp in top_products_qs:
-            # Pricing logic: Calculate revenue based on current product price * sales count
-            # This is more accurate for a dashboard overview than mixing crypto amounts
-            product_price = float(tp['product__price'] or 0)
-            sales_count = tp['sales_count']
-            product_revenue_usd = product_price * sales_count
+            # Pricing logic: SUM OF ACTUAL REVENUE (Converted to USD)
+            # This is more accurate than Price * Count if currency rates fluctuated or product price changed.
+            rev_btc = Decimal(str(tp['sum_btc'] or 0)) * btc_rate
+            rev_xmr = Decimal(str(tp['sum_xmr'] or 0)) * xmr_rate
+            product_revenue_usd = float(rev_btc + rev_xmr)
             
-            # --- Robust/Smart Image Logic ---
+            # --- Smart Image Logic ---
             image_path = tp['product__main_image']
             
-            # Identify legacy broken paths (missing 'media/' prefix in a Cloudinary-centric setup)
-            # Expanded to cover all common image extensions
-            is_legacy_broken = False
-            image_path_str = str(image_path).lower() if image_path else ""
+            # Identify legacy broken paths (ONLY if really needed, but Cloudinary often doesn't need 'media/' in DB field)
+            # We will try to resolve the path directly.
+            
+            # Fallback for empty/broken main_image
             img_exts = ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.bmp', '.tiff', '.svg']
+            if not image_path or not any(ext in str(image_path).lower() for ext in img_exts):
+                if tp['product__main_images']:
+                    m_images = tp['product__main_images']
+                    if isinstance(m_images, list) and len(m_images) > 0:
+                        image_path = m_images[0]
             
-            if image_path_str and any(ext in image_path_str for ext in img_exts):
-                if not image_path_str.startswith('media/'):
-                    is_legacy_broken = True
-            
-            if is_legacy_broken:
-                image_path = None # Force fallback or placeholder icon
-            
-            # Fallback to main_images list if main_image is empty or legacy broken
-            if not image_path and tp['product__main_images']:
-                m_images = tp['product__main_images']
-                if isinstance(m_images, list) and len(m_images) > 0:
-                    first_m = str(m_images[0])
-                    first_m_lower = first_m.lower()
-                    m_is_broken = any(ext in first_m_lower for ext in img_exts) and not first_m_lower.startswith('media/')
-                    if not m_is_broken:
-                        image_path = first_m
-            
-            # Final URL calculation using default_storage (Cloudinary)
+            # Final URL using default_storage
             final_image_url = None
             if image_path:
                 image_path_str = str(image_path)
@@ -819,19 +803,34 @@ def get_vendor_dashboard_aggregated(request):
                 else:
                     from django.core.files.storage import default_storage
                     try:
-                        final_image_url = default_storage.url(image_path_str)
+                        # Ensure path doesn't have leading slash which can break some storages
+                        clean_path = image_path_str.lstrip('/')
+                        final_image_url = default_storage.url(clean_path)
                     except Exception:
                         final_image_url = None
+            
+            # --- Dynamic Status Logic ---
+            # A product is "Active" ONLY if it meets ALL these criteria:
+            # 1. Not deleted
+            # 2. Status is 'approved' (not reserved/reversed/pending)
+            # 3. Stock is > 0
+            # 4. is_active is True
+            is_truly_active = (
+                tp['product__is_active'] and 
+                not tp['product__is_deleted'] and 
+                tp['product__status'] == 'approved' and 
+                (tp['product__quantity_available'] or 0) > 0
+            )
             
             top_products.append({
                 'id': str(tp['product__id']),
                 'name': tp['product__headline'],
-                'sales': sales_count,
+                'sales': tp['sales_count'],
                 'revenue': product_revenue_usd,
-                'price': product_price,
+                'price': float(tp['product__price'] or 0),
                 'stock': tp['product__quantity_available'],
                 'image': final_image_url,
-                'is_active': True # Only active products are in this list now
+                'is_active': is_truly_active # UI mapping: True -> Active, False -> Inactive
             })
             
             if len(top_products) >= 5:

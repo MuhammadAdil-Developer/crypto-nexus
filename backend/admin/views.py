@@ -65,10 +65,8 @@ def admin_counts(request):
         # Disputes: Open disputes
         disputes_count = Dispute.objects.filter(status='open').count()
         
-        # Messages: Unread conversations (Optimized query)
-        messages_count = Conversation.objects.filter(
-            messages__is_read=False
-        ).distinct().count()
+        # Messages: Unread conversations (Switch to faster count)
+        messages_count = Message.objects.filter(is_read=False).values('conversation').distinct().count()
         
         # Tickets: Open and in-progress tickets
         tickets_count = Ticket.objects.filter(status__in=['open', 'in_progress']).count()

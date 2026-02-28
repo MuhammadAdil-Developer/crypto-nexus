@@ -42,6 +42,33 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url', 'is_flagged']
         read_only_fields = ['id', 'created_at']
+
+    def to_representation(self, instance):
+        """Clean up raw message content for professional display (handles old data)"""
+        data = super().to_representation(instance)
+        content = data.get('content', '')
+        
+        # Detect and clean old messy format: "💬 **Discussing:** ... 💰 **Price:** ... 👤 **Vendor:** ..."
+        # Only do this for messages that look like our old product reference template
+        if content and ('Discussing:' in content or 'Price:' in content) and 'Vendor:' in content:
+            # Step 1: Strip all markdown and emojis for a clean base
+            clean_text = content.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()
+            
+            try:
+                # Step 2: Try to extract Title and Price for a premium label
+                if 'Discussing:' in clean_text and 'Price:' in clean_text:
+                    parts = clean_text.split('Price:')
+                    title = parts[0].replace('Discussing:', '').replace(':', '').strip()
+                    # Get price, stopping before Vendor label
+                    price_and_vendor = parts[1]
+                    price = price_and_vendor.split('Vendor:')[0].replace('$', '').replace(':', '').strip()
+                    data['content'] = f"PRODUCT INQUIRY: {title} | PRICE: ${price}"
+                else:
+                    data['content'] = clean_text
+            except Exception:
+                data['content'] = clean_text
+        
+        return data
     
     def get_attachment_url(self, obj):
         """Get the full URL for the attachment if it exists"""

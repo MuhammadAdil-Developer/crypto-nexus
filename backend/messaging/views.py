@@ -676,28 +676,47 @@ def get_recent_messages(request):
         user = request.user
         
         # Get conversations where user is a participant - at least 3 messages
+        # Get recent conversations with participant and product info joined
         conversations = Conversation.objects.filter(
             participants=user
-        ).prefetch_related('participants', 'product').order_by('-updated_at')[:3]
+        ).select_related('product').prefetch_related('participants').order_by('-updated_at')[:3]
         
+        def clean_content(content):
+            """Clean old raw data for previews (robust version)"""
+            if not content: return ""
+            if ('Discussing:' in content or 'Price:' in content) and 'Vendor:' in content:
+                # Step 1: Strip markdown and emojis
+                clean = content.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()
+                try:
+                    # Step 2: Extract key info
+                    if 'Discussing:' in clean and 'Price:' in clean:
+                        parts = clean.split('Price:')
+                        title = parts[0].replace('Discussing:', '').replace(':', '').strip()
+                        price = parts[1].split('Vendor:')[0].replace('$', '').replace(':', '').strip()
+                        return f"PRODUCT INQUIRY: {title} | PRICE: ${price}"
+                    return clean
+                except:
+                    return clean
+            return content.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()
+
         recent_messages = []
         for conv in conversations:
             # Get the other participant (buyer/vendor)
             other_participant = conv.participants.exclude(id=user.id).first()
             
-            # Use cached last_message if available from prefetch (prefetch_related 'messages' is small here as it's limited)
-            last_message = conv.messages.order_by('-created_at').first()
+            # Get the last message - using .last_message field if it exists, else fetch
+            last_msg_obj = conv.last_message or conv.messages.order_by('-created_at').first()
             
-            # Calculate unread count for this conversation (optimized query)
+            # Calculate unread count (optimized)
             unread_count = Message.objects.filter(conversation=conv, recipient=user, is_read=False).count()
             
-            if other_participant and last_message:
+            if other_participant and last_msg_obj:
                 recent_messages.append({
                     'id': str(conv.id),
                     'buyer': other_participant.username,
                     'product': conv.product.headline if conv.product else 'Product Inquiry',
-                    'lastMessage': last_message.content,
-                    'time': get_time_ago(last_message.created_at),
+                    'lastMessage': clean_content(last_msg_obj.content),
+                    'time': get_time_ago(last_msg_obj.created_at),
                     'unread': unread_count > 0
                 })
         

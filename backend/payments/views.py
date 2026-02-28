@@ -873,6 +873,7 @@ class AdminPayoutView(APIView):
         """Get all payouts with filtering"""
         try:
             from .models import Payout, DirectPayment
+            from .services import get_btc_estimated_miner_fee_btc
             
             # Get query parameters
             payout_type = request.query_params.get('type', 'all')  # escrow, direct, all
@@ -951,6 +952,8 @@ class AdminPayoutView(APIView):
                 payouts = [i for i in paginated_list if isinstance(i, Payout)]
                 direct_payments = [i for i in paginated_list if isinstance(i, DirectPayment)]
 
+            btc_live_fee = get_btc_estimated_miner_fee_btc() or Decimal('0.00002')
+
             for payout in payouts:
                 # Calculate commission percentages
                 platform_fee_rate = 0
@@ -962,7 +965,7 @@ class AdminPayoutView(APIView):
                 currency_symbol = payout.crypto_currency.symbol.upper().strip()
                 
                 # Force net calculation for display
-                network_fee = Decimal('0.0000025') if currency_symbol == 'BTC' else Decimal('0.0001')
+                network_fee = btc_live_fee if currency_symbol == 'BTC' else Decimal('0.0001')
                 p_fee = payout.platform_fee
                 if p_fee <= 0 and payout.gross_amount > 0:
                     p_fee = payout.gross_amount * Decimal('0.04')
@@ -989,7 +992,7 @@ class AdminPayoutView(APIView):
                     'gross_amount': format(payout.gross_amount, 'f').rstrip('0').rstrip('.') if payout.gross_amount > 0 else '0.00',
                     'platform_fee': format(payout.platform_fee, 'f').rstrip('0').rstrip('.') if payout.platform_fee > 0 else '0.00',
                     'escrow_fee': format(payout.escrow_fee, 'f').rstrip('0').rstrip('.') if payout.escrow_fee > 0 else '0.00',
-                    'network_fee': '0.0000025 BTC' if currency_symbol == 'BTC' else '0.0001 XMR',
+                    'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                     'vendor_address': payout.vendor_address,
@@ -1011,7 +1014,7 @@ class AdminPayoutView(APIView):
                     platform_fee_rate = (direct.platform_fee / direct.amount) * 100
                 
                 # Force net calculation for display
-                network_fee = Decimal('0.0000025') if currency_symbol == 'BTC' else Decimal('0.0001')
+                network_fee = btc_live_fee if currency_symbol == 'BTC' else Decimal('0.0001')
                 p_fee = direct.platform_fee
                 if p_fee <= 0 and direct.amount > 0:
                     p_fee = direct.amount * Decimal('0.05')
@@ -1033,7 +1036,7 @@ class AdminPayoutView(APIView):
                     'gross_amount': format(direct.amount, 'f').rstrip('0').rstrip('.') if direct.amount > 0 else '0.00',
                     'platform_fee': format(direct.platform_fee, 'f').rstrip('0').rstrip('.') if direct.platform_fee > 0 else '0.00',
                     'escrow_fee': '0.00',
-                    'network_fee': '0.0000025 BTC' if currency_symbol == 'BTC' else '0.0001 XMR',
+                    'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
                     'vendor_address': direct.vendor_address,
                     'transaction_hash': direct.transaction_hash,
@@ -2676,15 +2679,15 @@ class AdminOrderPayoutDetailsView(APIView):
             
             # Build payment info list
             payment_info = []
-            if dp: payment_info.append({'title': 'Direct Payment', 'status': dp.status, 'amount': str(dp.amount)})
-            if ep: payment_info.append({'title': 'Escrow Payment', 'status': ep.status, 'amount': str(ep.amount)})
+            if dp: payment_info.append({'title': 'Direct Payment', 'status': dp.status, 'amount': f"{dp.amount:.8f}"})
+            if ep: payment_info.append({'title': 'Escrow Payment', 'status': ep.status, 'amount': f"{ep.amount:.8f}"})
             
             return Response({
                 'success': True,
                 'order': {
                     'order_id': order.order_id,
-                    'total_amount': str(order.total_amount),
-                    'received_amount': str(received),
+                    'total_amount': f"{order.total_amount:.8f}",
+                    'received_amount': f"{received:.8f}",
                     'currency': currency,
                     'buyer': order.buyer.username,
                     'vendor': order.vendor.username,
@@ -2695,16 +2698,16 @@ class AdminOrderPayoutDetailsView(APIView):
                     'refund_address': order.refund_address
                 },
                 'payout_status': [
-                    {'type': p.payout_type, 'status': p.status, 'amount': str(p.net_amount), 'created_at': p.created_at}
+                    {'type': p.payout_type, 'status': p.status, 'amount': f"{p.net_amount:.8f}", 'created_at': p.created_at}
                     for p in payouts
                 ],
                 'original_payments': payment_info,
                 'calculations': {
-                    'gross': str(received),
-                    'platform_fee': str(platform_fee),
-                    'miner_fee_est': str(miner_fee),
-                    'net_amount': str(net_amount),
-                    'vendor_receives': str(net_amount - miner_fee)
+                    'gross': f"{received:.8f}",
+                    'platform_fee': f"{platform_fee:.8f}",
+                    'miner_fee_est': f"{miner_fee:.8f}",
+                    'net_amount': f"{net_amount:.8f}",
+                    'vendor_receives': f"{(net_amount - miner_fee):.8f}"
                 }
             })
         except Order.DoesNotExist:

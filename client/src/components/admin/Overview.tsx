@@ -193,19 +193,35 @@ export function Overview() {
 
       setError(null);
 
-      // Parallel fetch main stats and crypto prices
+      // Parallel fetch main stats, crypto prices, and node status
       const parallelStart = performance.now();
-      const [statsData, _] = await Promise.all([
+      const [statsData, _, cryptoData] = await Promise.all([
         orderService.getAdminDashboard(timeRange, isRefreshing),
-        refreshCryptoPrices()
+        refreshCryptoPrices(),
+        (async () => {
+          try {
+            const nodeStart = performance.now();
+            const data = await paymentService.getAdminCryptoStatus();
+            console.log(`[PERF] Crypto node status took: ${(performance.now() - nodeStart).toFixed(2)}ms`);
+            return data;
+          } catch (err) {
+            console.error('Error fetching crypto node status:', err);
+            return null;
+          }
+        })()
       ]);
-      console.log(`[PERF] Dashboard parallel fetch took: ${(performance.now() - parallelStart).toFixed(2)}ms`);
+
+      console.log(`[PERF] Dashboard full parallel block took: ${(performance.now() - parallelStart).toFixed(2)}ms`);
       if (statsData?.execution_time) {
-        console.log(`[PERF] Server reported processing time: ${statsData.execution_time}`);
+        console.log(`[PERF] Server reported stats time: ${statsData.execution_time}`);
+      }
+      if (cryptoData?.execution_time) {
+        console.log(`[PERF] Server reported crypto status time: ${cryptoData.execution_time}`);
       }
 
-      // Update local price state to trigger re-render
+      // Update states
       setPrices({ ...CRYPTO_PRICES });
+      if (cryptoData) setCryptoStatus(cryptoData);
 
       if (statsData) {
         // Transform recent orders
@@ -216,18 +232,6 @@ export function Overview() {
         setDashboardStats(statsData);
       } else {
         setError('No dashboard data returned');
-      }
-
-      // Fetch crypto status independently
-      try {
-        const nodeStart = performance.now();
-        const cryptoData = await paymentService.getAdminCryptoStatus();
-        if (cryptoData) {
-          setCryptoStatus(cryptoData);
-          console.log(`[PERF] Crypto node status took: ${(performance.now() - nodeStart).toFixed(2)}ms`);
-        }
-      } catch (err) {
-        console.error('Error fetching crypto node status:', err);
       }
 
     } catch (error: any) {

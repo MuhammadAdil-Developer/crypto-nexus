@@ -1921,18 +1921,28 @@ class AdminCryptoStatusView(APIView):
 
             # Execute parallel checks
             results = {}
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            # Execute parallel checks with non-blocking shutdown
+            results = {}
+            executor = ThreadPoolExecutor(max_workers=4)
+            try:
                 futures = [
                     executor.submit(get_btc_data),
                     executor.submit(get_xmr_data),
                     executor.submit(get_mempool_btc),
                     executor.submit(get_mempool_xmr)
                 ]
-                for future in as_completed(futures):
+                # We only wait up to 4s total for all tasks
+                for future in as_completed(futures, timeout=4.5):
                     try:
-                        key, val = future.result(timeout=4)
+                        key, val = future.result(timeout=0.1) # Result is already ready if yielded by as_completed
                         results[key] = val
-                    except: pass
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.warning(f"Parallel fetch timeout or error: {e}")
+            finally:
+                # CRITICAL: shutdown(wait=False) prevents hanging on zombies
+                executor.shutdown(wait=False)
 
             # --- 1. Process BTC ---
             btc_wallet = results.get('btc')

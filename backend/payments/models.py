@@ -156,7 +156,7 @@ class PaymentAddress(BaseModel):
     ], default='pending')
     
     expires_at = models.DateTimeField()
-    confirmed_at = models.DateTimeField(blank=True, null=True)
+    confirmed_at = models.DateTimeField(blank=True, null=True, db_index=True)
     
     # Transaction details
     transaction_hash = models.CharField(max_length=255, blank=True, null=True)

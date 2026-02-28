@@ -434,6 +434,8 @@ class ExchangeRateView(APIView):
     """API for getting exchange rates"""
     
     def get(self, request):
+        import time
+        start_time = time.time()
         try:
             crypto = request.query_params.get('crypto', 'BTC')
             fiat = request.query_params.get('fiat', 'USD')
@@ -441,13 +443,17 @@ class ExchangeRateView(APIView):
             payment_service = PaymentService()
             rate = payment_service.get_fiat_to_crypto_rate(crypto, fiat)
             
+            duration = time.time() - start_time
             if rate:
+                logger.info(f"[PERF] ExchangeRate lookup for {crypto} took: {duration:.4f}s")
                 return Response({
                     'crypto': crypto,
                     'fiat': fiat,
-                    'rate': str(rate)
+                    'rate': str(rate),
+                    'execution_time': f"{duration:.4f}s"
                 })
             else:
+                logger.error(f"[PERF] ExchangeRate lookup for {crypto} FAILED in {duration:.4f}s")
                 return Response(
                     {'error': 'Failed to fetch rate'}, 
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
@@ -1863,6 +1869,8 @@ class AdminCryptoStatusView(APIView):
     permission_classes = [IsAdmin]
     
     def get(self, request):
+        import time
+        start_time = time.time()
         from django.core.cache import cache
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
@@ -1878,17 +1886,25 @@ class AdminCryptoStatusView(APIView):
 
             # Define functions for parallel execution with strict timeouts
             def get_btc_data():
+                task_start = time.time()
                 try:
                     res = payment_service.btcpay.get_wallet_balance()
+                    logger.info(f"[PERF] CryptoStatus BTC Wallet: {time.time() - task_start:.4f}s")
                     return ('btc', res)
-                except: return ('btc', None)
+                except Exception as e:
+                    logger.error(f"[PERF] CryptoStatus BTC Wallet FAILED in {time.time() - task_start:.4f}s: {e}")
+                    return ('btc', None)
 
             def get_xmr_data():
+                task_start = time.time()
                 try:
                     node = payment_service.monero.get_node_info()
                     bal = payment_service.monero.get_balance()
+                    logger.info(f"[PERF] CryptoStatus XMR Node/Wallet: {time.time() - task_start:.4f}s")
                     return ('xmr', (node, bal))
-                except: return ('xmr', (None, None))
+                except Exception as e:
+                    logger.error(f"[PERF] CryptoStatus XMR Node/Wallet FAILED in {time.time() - task_start:.4f}s: {e}")
+                    return ('xmr', (None, None))
 
             def get_mempool_btc():
                 try:
@@ -2053,14 +2069,19 @@ class AdminCryptoStatusView(APIView):
                     'type': "success"
                 }
             ]
-                
+            
+            total_duration = time.time() - start_time
+            logger.info(f"[PERF] AdminCryptoStatus total processing time: {total_duration:.4f}s")
+            
+            # Keep original structure for frontend compatibility
             response_data = {
                 'nodes': nodes,
                 'wallets': wallets,
                 'transactions': recent_txs,
-                'security': security_status
+                'security': security_status,
+                'execution_time': f"{total_duration:.4f}s"
             }
-            cache.set(cache_key, response_data, 30) # Cache for 30 seconds
+            cache.set(cache_key, response_data, 20) # 20s cache is safer
             return Response(response_data)
             
         except Exception as e:

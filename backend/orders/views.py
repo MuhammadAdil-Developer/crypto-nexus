@@ -19,6 +19,7 @@ from payments.models import RefundRequest
 from django.db.models import Sum
 
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -706,20 +707,23 @@ class OrderViewSet(viewsets.ModelViewSet):
         Product = apps.get_model('products', 'Product')
         
         now = timezone.now()
+        start_total = time.time()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         yesterday_start = today_start - timedelta(days=1)
         last_month_start = today_start - timedelta(days=30)
         prev_month_start = last_month_start - timedelta(days=30)
 
-        def run_query(func):
+        def run_query(func, label=""):
+            q_start = time.time()
             try:
                 res = func()
-                # Use close_old_connections for cleaner thread-safe management
                 from django.db import close_old_connections
                 close_old_connections()
+                duration = time.time() - q_start
+                logger.info(f"[PERF] Dashboard Query {label}: {duration:.4f}s")
                 return res
             except Exception as e:
-                logger.error(f"Threaded query error: {str(e)}")
+                logger.error(f"[PERF] Dashboard Query {label} FAILED: {str(e)}")
                 from django.db import close_old_connections
                 close_old_connections()
                 return {}
@@ -766,7 +770,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                         OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PAID.value
                     ]))
                 ))
-            ))
+            ), "Orders")
 
             # 5. Escrow Volume (Highly Optimized SQL-only version)
             from payments.models import Payout, DirectPayment
@@ -787,7 +791,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 except:
                     return []
 
-            f5 = executor.submit(run_query, get_escrow_volume)
+            f5 = executor.submit(run_query, get_escrow_volume, "EscrowVol")
 
             # 6. Escrow Pipeline Counts (Optimized SQL-only version)
             def get_pipeline_counts():
@@ -808,9 +812,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 except:
                     return {'pending': 0, 'auto': 0}
 
-            f6 = executor.submit(run_query, get_pipeline_counts)
-
-            f6 = executor.submit(run_query, get_pipeline_counts)
+            f6 = executor.submit(run_query, get_pipeline_counts, "Pipeline")
 
             user_stats = f1.result()
             vendor_stats = f2.result()
@@ -818,6 +820,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             order_stats_agg = f4.result()
             escrow_totals = f5.result()
             pipeline_counts = f6.result()
+
+        logger.info(f"[PERF] Dashboard parallel block took: {time.time() - start_total:.4f}s")
 
         # Growth calculations
         user_growth = ((user_stats.get('last_month', 0) - user_stats.get('prev_month', 0)) / user_stats.get('prev_month', 1)) * 100 if user_stats.get('prev_month', 0) > 0 else 100
@@ -855,6 +859,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
         
         try:
+            full_start = time.time()
             from django.apps import apps
             from django.db.models import Sum, Count, F
             from django.db.models.functions import TruncDate
@@ -885,15 +890,20 @@ class OrderViewSet(viewsets.ModelViewSet):
             from django.db import connection
 
             def get_daily_counts(model_class, date_field):
+                q_start = time.time()
                 try:
                     res = model_class.objects.filter(**{f"{date_field}__gte": chart_start_date}).annotate(
                         date=TruncDate(date_field)
                     ).values('date').annotate(count=Count('id')).order_by('date')
                     res_list = list(res)
-                    connection.close()
+                    from django.db import close_old_connections
+                    close_old_connections()
+                    logger.info(f"[PERF] Chart Query {model_class.__name__}: {time.time() - q_start:.4f}s")
                     return res_list
-                except:
-                    connection.close()
+                except Exception as e:
+                    logger.error(f"[PERF] Chart Query {model_class.__name__} FAILED: {str(e)}")
+                    from django.db import close_old_connections
+                    close_old_connections()
                     return []
 
             User = apps.get_model('users', 'User')
@@ -907,6 +917,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order_dict = {str(s['date']): s['count'] for s in f_orders.result()}
                 user_dict = {str(s['date']): s['count'] for s in f_users.result()}
                 product_dict = {str(s['date']): s['count'] for s in f_products.result()}
+            
+            logger.info(f"[PERF] Dashboard chart block took: {time.time() - full_start:.4f}s")
             
             chart_data = []
             for i in range(days_range - 1, -1, -1):
@@ -928,6 +940,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             # 6. Recent Orders (Live & Optimized)
             recent_orders = self.get_queryset()[:6]
             full_response['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
+            
+            total_duration = time.time() - full_start
+            logger.info(f"[PERF] Dashboard total processing time: {total_duration:.4f}s")
+            full_response['execution_time'] = f"{total_duration:.4f}s"
             
             return Response(full_response)
         except Exception as e:

@@ -96,10 +96,17 @@ class MessageListCreateView(generics.ListCreateAPIView):
     
     def create(self, request, *args, **kwargs):
         conversation_id = self.kwargs.get('conversation_id')
-        conversation = get_object_or_404(
-            Conversation.objects.filter(participants=request.user),
-            id=conversation_id
-        )
+        is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+        
+        if is_admin:
+            # Admins can send messages to any conversation
+            conversation = get_object_or_404(Conversation, id=conversation_id)
+        else:
+            # Regular users must be participants
+            conversation = get_object_or_404(
+                Conversation.objects.filter(participants=request.user),
+                id=conversation_id
+            )
         
         # Check if conversation is locked
         if not conversation.is_active:
@@ -350,7 +357,7 @@ def create_product_conversation(request):
                 'vendor_username': product.vendor.username,
                 'vendor_id': str(product.vendor.id)
             }
-            content = f"PRODUCT INQUIRY: {product.headline} | PRICE: ${product.price}"
+            content = f"PRODUCT INQUIRY: {product.headline} | PRICE: ${float(product.price):.2f}"
         
         # Create the product reference message
         message = Message.objects.create(
@@ -417,7 +424,7 @@ def create_product_conversation(request):
             'vendor_id': str(product.vendor.id)
         }
         
-        content = f"PRODUCT INQUIRY: {product.headline} | PRICE: ${product.price}"
+        content = f"PRODUCT INQUIRY: {product.headline} | PRICE: ${float(product.price):.2f}"
         
         message = Message.objects.create(
             conversation=conversation,
@@ -684,16 +691,18 @@ def get_recent_messages(request):
         def clean_content(content):
             """Clean old raw data for previews (robust version)"""
             if not content: return ""
-            if ('Discussing:' in content or 'Price:' in content) and 'Vendor:' in content:
-                # Step 1: Strip markdown and emojis
+            # Handle both old raw format and new format with too many decimals
+            if ('Discussing:' in content or 'Price:' in content) or 'PRODUCT INQUIRY:' in content:
+                # Strip markdown/emojis
                 clean = content.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()
                 try:
-                    # Step 2: Extract key info
-                    if 'Discussing:' in clean and 'Price:' in clean:
-                        parts = clean.split('Price:')
-                        title = parts[0].replace('Discussing:', '').replace(':', '').strip()
-                        price = parts[1].split('Vendor:')[0].replace('$', '').replace(':', '').strip()
-                        return f"PRODUCT INQUIRY: {title} | PRICE: ${price}"
+                    if 'Price:' in clean or 'PRICE:' in clean:
+                        price_marker = 'Price:' if 'Price:' in clean else 'PRICE:'
+                        parts = clean.split(price_marker)
+                        title = parts[0].replace('Discussing:', '').replace('PRODUCT INQUIRY:', '').replace(':', '').strip()
+                        # Extract price, stopping at Vendor or end of string
+                        raw_price = parts[1].split('Vendor:')[0].replace('$', '').replace(':', '').strip()
+                        return f"PRODUCT INQUIRY: {title} | PRICE: ${float(raw_price):.2f}"
                     return clean
                 except:
                     return clean

@@ -854,7 +854,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             all_stats = cache.get(cache_key)
             if not all_stats:
                 all_stats = self._get_admin_stats(30)
-                cache.set(cache_key, all_stats, 120)
+                cache.set(cache_key, all_stats, 300)
             
             # 2. Get filtered/paginated orders
             queryset = self.filter_queryset(self.get_queryset())

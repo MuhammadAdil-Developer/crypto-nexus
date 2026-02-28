@@ -50,19 +50,21 @@ class MessageSerializer(serializers.ModelSerializer):
         
         # Detect and clean old messy format: "💬 **Discussing:** ... 💰 **Price:** ... 👤 **Vendor:** ..."
         # Only do this for messages that look like our old product reference template
-        if content and ('Discussing:' in content or 'Price:' in content) and 'Vendor:' in content:
+        # Detect and clean old messy format OR new format with too many decimals
+        if content and (('Discussing:' in content or 'Price:' in content) or 'PRODUCT INQUIRY:' in content):
             # Step 1: Strip all markdown and emojis for a clean base
             clean_text = content.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()
             
             try:
                 # Step 2: Try to extract Title and Price for a premium label
-                if 'Discussing:' in clean_text and 'Price:' in clean_text:
-                    parts = clean_text.split('Price:')
-                    title = parts[0].replace('Discussing:', '').replace(':', '').strip()
+                if 'Price:' in clean_text or 'PRICE:' in clean_text:
+                    price_marker = 'Price:' if 'Price:' in clean_text else 'PRICE:'
+                    parts = clean_text.split(price_marker)
+                    title = parts[0].replace('Discussing:', '').replace('PRODUCT INQUIRY:', '').replace(':', '').strip()
                     # Get price, stopping before Vendor label
                     price_and_vendor = parts[1]
-                    price = price_and_vendor.split('Vendor:')[0].replace('$', '').replace(':', '').strip()
-                    data['content'] = f"PRODUCT INQUIRY: {title} | PRICE: ${price}"
+                    raw_price = price_and_vendor.split('Vendor:')[0].replace('$', '').replace(':', '').strip()
+                    data['content'] = f"PRODUCT INQUIRY: {title} | PRICE: ${float(raw_price):.2f}"
                 else:
                     data['content'] = clean_text
             except Exception:

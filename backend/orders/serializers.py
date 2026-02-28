@@ -315,7 +315,6 @@ class OrderListSerializer(serializers.ModelSerializer):
         ]
 
     def get_order_status_display(self, obj):
-        from .models import Order
         status = obj.order_status
         status_map = {
             'pending_payment': 'Pending Payment',

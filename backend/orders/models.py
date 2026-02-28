@@ -50,14 +50,16 @@ class Order(BaseModel):
     payment_status = models.CharField(
         max_length=20,
         choices=[(status.value, status.name) for status in PaymentStatus],
-        default=PaymentStatus.PENDING.value
+        default=PaymentStatus.PENDING.value,
+        db_index=True
     )
     
     # Order status
     order_status = models.CharField(
         max_length=20,
         choices=[(status.value, status.name) for status in OrderStatus],
-        default=OrderStatus.PENDING_PAYMENT.value
+        default=OrderStatus.PENDING_PAYMENT.value,
+        db_index=True
     )
     
     # Escrow and dispute

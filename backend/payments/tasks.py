@@ -58,11 +58,13 @@ def check_direct_payment_status():
         cooldown = timezone.now() - timedelta(minutes=10) # Don't re-queue if checked in last 10 mins
         
         # 1. Trigger tasks for Direct Payments
+        # ONLY if status is NOT 'processing' (someone else is busy) 
+        # AND (it's older than cooldown OR very new but hasn't been updated yet)
         payments = DirectPayment.objects.filter(
-            Q(status__in=['pending', 'confirmed', 'processing']),
+            Q(status__in=['pending', 'confirmed']), # Skip 'processing' and 'completed'
             created_at__gt=window
         ).filter(
-            Q(updated_at__lt=cooldown) | Q(created_at__gt=timezone.now() - timedelta(minutes=5))
+            Q(updated_at__lt=cooldown) | Q(updated_at=models.F('created_at')) 
         )
         for p in payments:
             monitor_individual_payment.delay(p.id)
@@ -239,6 +241,8 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         
         order = Order.objects.get(order_id=order_id)
         
+        task_start_time = timezone.now()
+        
         # CRITICAL SAFETY: If order is already refunded, STOP.
         if order.order_status == 'refunded' or order.payment_status == 'refunded':
             logger.warning(f"Aborting payout for order {order_id}: Already marked as REFUNDED.")
@@ -324,9 +328,9 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                  if direct_payment.updated_at > timezone.now() - timedelta(minutes=5):
                      return f"Already in progress"
 
-            # Mark as processing IMMEDIATELY inside the lock
+            # Mark as processing IMMEDIATELY inside the lock with our anchor time
             direct_payment.status = 'processing'
-            direct_payment.updated_at = timezone.now()
+            direct_payment.updated_at = task_start_time
             direct_payment.save(update_fields=['status', 'updated_at'])
         
         # CRITICAL: If this is an existing payment, verify fees were calculated correctly
@@ -665,12 +669,24 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: valid payout hash found but status was {dp_final_check.status}. Fixed status and aborting retry.")
                 return f"Order {order_id} — payout hash found, status corrected to completed"
             
-            # Re-check if another worker is processing within the last 30 seconds
-            if dp_final_check.status == 'processing' and dp_final_check.updated_at > timezone.now() - timedelta(seconds=30) and self.request.retries > 0:
-                logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: another worker started processing <30s ago (retry {self.request.retries}). Deferring.")
-                raise self.retry(exc=Exception("Deferred: another worker is processing"), countdown=60)
+            # Re-check if another worker is CURRENTLY processing or has finished
+            # We compare with our task_start_time anchor. If the DB time has changed,
+            # it means ANOTHER worker entered the start block after we committed it,
+            # or finished while we were calculating fees.
+            if dp_final_check.status == 'processing' and dp_final_check.updated_at != task_start_time:
+                logger.warning(
+                    f"[IDEMPOTENCY GUARD] Order {order_id}: Interference detected! "
+                    f"DB updated_at ({dp_final_check.updated_at}) != our anchor ({task_start_time}). "
+                    f"ABORTING to prevent duplicate send."
+                )
+                return f"Order {order_id} — interference detected (aborting)"
             
-            # IMPORTANT: Re-stamp updated_at so other workers see this is being handled
+            # If status is NOT 'processing' (e.g. someone else just finished), abort
+            if dp_final_check.status != 'processing':
+                logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: status changed to {dp_final_check.status} while we were preparing. Aborting.")
+                return f"Order {order_id} — status no longer processing (aborting)"
+            
+            # Re-stamp with a slightly offset time so subsequent workers see our 'final commit' stage
             dp_final_check.updated_at = timezone.now()
             dp_final_check.save(update_fields=['updated_at'])
         

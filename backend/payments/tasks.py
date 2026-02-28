@@ -51,7 +51,7 @@ def check_direct_payment_status():
     """Trigger background monitoring tasks for all pending orders"""
     try:
         from .models import DirectPayment, PaymentAddress
-        from django.db.models import Q
+        from django.db.models import Q, F
         from datetime import datetime, timedelta
         
         window = timezone.now() - timedelta(hours=24) # Monitor last 24 hours as requested
@@ -64,7 +64,7 @@ def check_direct_payment_status():
             Q(status__in=['pending', 'confirmed']), # Skip 'processing' and 'completed'
             created_at__gt=window
         ).filter(
-            Q(updated_at__lt=cooldown) | Q(updated_at=models.F('created_at')) 
+            Q(updated_at__lt=cooldown) | Q(updated_at=F('created_at')) 
         )
         for p in payments:
             monitor_individual_payment.delay(p.id)
@@ -306,7 +306,14 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 # Raw hex strings are ignored here because they are often accidentally set to the buyer's hash.
                 if h.startswith('btc_payout_') or h.startswith('xmr_payout_'):
                     return True
+                # Task ID anchor for processing
+                if h.startswith('processing_task_'):
+                    return False # Not a finished payout hash
                 return False
+            
+            # Helper to check if a hash is a task anchor
+            def _is_task_anchor(h):
+                return h and h.startswith('processing_task_')
             
             payout_hash = direct_payment.transaction_hash
             already_paid_out = direct_payment.status == 'completed' and _is_valid_payout_hash(payout_hash)
@@ -324,23 +331,29 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 return f"Order {order_id} - payout hash found, status fixed to completed"
             
             # If already processing by another worker recently, skip
-            if direct_payment.status == 'processing' and self.request.retries == 0:
-                 if direct_payment.updated_at > timezone.now() - timedelta(minutes=5):
-                     return f"Already in progress"
+            if direct_payment.status == 'processing':
+                 # If it has a recent task anchor, wait. 
+                 # If the anchor is old (>10 mins), we can overwrite it.
+                 if _is_task_anchor(direct_payment.transaction_hash) and direct_payment.updated_at > timezone.now() - timedelta(minutes=10):
+                     if self.request.id and f"processing_task_{self.request.id}" == direct_payment.transaction_hash:
+                         # It's US (e.g. a retry) - continue
+                         pass
+                     else:
+                         return f"Already in progress (Task Anchor active)"
 
-            # Mark as processing IMMEDIATELY inside the lock with our anchor time
+            # Mark as processing IMMEDIATELY inside the lock with our TASK ID anchor
             direct_payment.status = 'processing'
-            direct_payment.updated_at = task_start_time
-            direct_payment.save(update_fields=['status', 'updated_at'])
+            direct_payment.transaction_hash = f"processing_task_{self.request.id}" if self.request.id else "processing_task_manual"
+            direct_payment.updated_at = timezone.now() # BaseModel will also update this on save
+            direct_payment.save(update_fields=['status', 'transaction_hash', 'updated_at'])
         
         # CRITICAL: If this is an existing payment, verify fees were calculated correctly
         if not created:
             # Check if fees were already calculated by webhook
             if direct_payment.platform_fee > 0 and direct_payment.net_amount < direct_payment.amount:
-                # logger.info(f"✅ Fees already calculated: platform_fee={direct_payment.platform_fee}, net_amount={direct_payment.net_amount}")
                 # Verify amount is received_amount, not expected_amount
                 if direct_payment.amount > payment_address.received_amount > 0:
-                    logger.warning(f"⚠️ Updating to received_amount and recalculating fees...")
+                    logger.warning(f"Updating to received_amount and recalculating fees...")
                     direct_payment.amount = payment_address.received_amount
                     created = False  # Force recalculation with correct amount
                 else:
@@ -670,23 +683,29 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
                 return f"Order {order_id} — payout hash found, status corrected to completed"
             
             # Re-check if another worker is CURRENTLY processing or has finished
-            # We compare with our task_start_time anchor. If the DB time has changed,
-            # it means ANOTHER worker entered the start block after we committed it,
-            # or finished while we were calculating fees.
-            if dp_final_check.status == 'processing' and dp_final_check.updated_at != task_start_time:
+            # We compare with our TASK ID anchor. 
+            my_anchor = f"processing_task_{self.request.id}" if self.request.id else "processing_task_manual"
+            
+            if dp_final_check.transaction_hash != my_anchor:
+                # If it's a valid payout hash, someone finished!
+                if _is_valid_payout_hash(dp_final_check.transaction_hash):
+                     logger.warning(f"[IDEMPOTENCY] Order {order_id}: Payout ALREADY COMPLETED by another worker ({dp_final_check.transaction_hash[:20]}). Aborting.")
+                     return f"Order {order_id} — already completed"
+                
+                # If it's another task's anchor, we've been superseded
                 logger.warning(
-                    f"[IDEMPOTENCY GUARD] Order {order_id}: Interference detected! "
-                    f"DB updated_at ({dp_final_check.updated_at}) != our anchor ({task_start_time}). "
+                    f"[IDEMPOTENCY GUARD] Order {order_id}: Superseded! "
+                    f"DB Anchor ({dp_final_check.transaction_hash}) != our anchor ({my_anchor}). "
                     f"ABORTING to prevent duplicate send."
                 )
-                return f"Order {order_id} — interference detected (aborting)"
+                return f"Order {order_id} — superseded by another task (aborting)"
             
             # If status is NOT 'processing' (e.g. someone else just finished), abort
             if dp_final_check.status != 'processing':
                 logger.warning(f"[IDEMPOTENCY GUARD] Order {order_id}: status changed to {dp_final_check.status} while we were preparing. Aborting.")
                 return f"Order {order_id} — status no longer processing (aborting)"
             
-            # Re-stamp with a slightly offset time so subsequent workers see our 'final commit' stage
+            # Re-stamp with a slightly offset time so other workers see activity
             dp_final_check.updated_at = timezone.now()
             dp_final_check.save(update_fields=['updated_at'])
         

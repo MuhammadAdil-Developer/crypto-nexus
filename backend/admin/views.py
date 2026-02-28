@@ -8,6 +8,7 @@ from rest_framework import status
 from django.db.models import Q, Count
 from django.contrib.auth import get_user_model
 from shared.utils import is_admin_user
+from django.core.cache import cache
 import logging
 
 from orders.models import Order
@@ -32,6 +33,12 @@ def admin_counts(request):
                 'message': 'Admin access required'
             }, status=status.HTTP_403_FORBIDDEN)
         
+        # Use Caching for counts to prevent heavy DB load on every sidebar refresh
+        cache_key = 'admin_sidebar_counts'
+        cached_counts = cache.get(cache_key)
+        if cached_counts:
+            return Response({'success': True, 'data': cached_counts})
+
         # Get counts for each section
         # Users: All non-admin users
         users_count = User.objects.filter(is_deleted=False).exclude(user_type='admin').count()
@@ -58,7 +65,7 @@ def admin_counts(request):
         # Disputes: Open disputes
         disputes_count = Dispute.objects.filter(status='open').count()
         
-        # Messages: Unread conversations (conversations with unread messages)
+        # Messages: Unread conversations (Optimized query)
         messages_count = Conversation.objects.filter(
             messages__is_read=False
         ).distinct().count()
@@ -84,6 +91,9 @@ def admin_counts(request):
             'payouts': payouts_count,
             'commissions': commissions_count,
         }
+        
+        # Cache results for 60 seconds
+        cache.set(cache_key, counts, 60)
         
         return Response({
             'success': True,

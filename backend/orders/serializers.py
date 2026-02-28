@@ -259,4 +259,23 @@ class UpdateOrderStatusSerializer(serializers.ModelSerializer):
                 f"Cannot transition from {current_status} to {value}"
             )
         
-        return value 
+        return value
+
+
+class AdminDashboardOrderSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for admin dashboard's 'Recent Orders' list.
+    Performance critical - excludes heavy vendor stats and nested relations.
+    """
+    buyer_username = serializers.CharField(source='buyer.username', read_only=True)
+    vendor_username = serializers.CharField(source='vendor.username', read_only=True)
+    product_headline = serializers.CharField(source='product.headline', read_only=True)
+    
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_id', 'buyer_username', 'vendor_username', 'product_headline',
+            'quantity', 'total_amount', 'crypto_currency', 'payment_status',
+            'order_status', 'created_at'
+        ]
+ 

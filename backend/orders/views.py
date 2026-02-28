@@ -7,8 +7,9 @@ from django.db.models import Q
 from .models import Order, OrderDispute, OrderStatus
 from .serializers import (
     OrderSerializer, CreateOrderSerializer, UpdateOrderStatusSerializer,
-    OrderDisputeSerializer
+    OrderDisputeSerializer, AdminDashboardOrderSerializer
 )
+from django.core.cache import cache
 from payments.services import BTCPayServerService, MoneroRPCService
 from payments.models import PaymentStatus, PaymentAddress, RefundRequest
 from rest_framework.views import APIView
@@ -766,7 +767,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def admin_dashboard(self, request):
-        """Admin dashboard with comprehensive statistics (optimized)"""
+        """Admin dashboard with comprehensive statistics (optimized with caching)"""
         if not (request.user.is_staff or request.user.user_type == 'admin'):
             return Response({"error": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
         
@@ -775,13 +776,22 @@ class OrderViewSet(viewsets.ModelViewSet):
             from django.db.models import Sum, Count, F
             from django.db.models.functions import TruncDate
             
-            # 1. Get stats from helper
+            # 1. Check Cache
             days_range = int(request.query_params.get('days', 30))
             if days_range not in [7, 30, 90]: days_range = 30
             
+            cache_key = f"admin_dashboard_stats_{days_range}"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                # Still fetch RECENT orders live so it's fresh
+                recent_orders = Order.objects.select_related('buyer', 'vendor', 'product').order_by('-created_at')[:6]
+                cached_data['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
+                return Response(cached_data)
+
+            # 2. Get stats from helper
             all_stats = self._get_admin_stats(days_range)
             
-            # 2. Chart Data
+            # 3. Chart Data
             today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
             chart_start_date = today_start - timedelta(days=days_range - 1)
             
@@ -807,14 +817,20 @@ class OrderViewSet(viewsets.ModelViewSet):
                     'listings': product_dict.get(date_str, 0)
                 })
             
-            # 3. Recent Orders
-            recent_orders = Order.objects.select_related('buyer', 'vendor', 'product').order_by('-created_at')[:6]
-            
-            return Response({
+            # 4. Prepare Full Response
+            full_response = {
                 **all_stats,
                 'chart_data': chart_data,
-                'recent_orders': OrderSerializer(recent_orders, many=True).data
-            })
+            }
+            
+            # 5. Cache for 5 minutes (except recent_orders)
+            cache.set(cache_key, full_response, 300)
+            
+            # 6. Recent Orders (Live)
+            recent_orders = Order.objects.select_related('buyer', 'vendor', 'product').order_by('-created_at')[:6]
+            full_response['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
+            
+            return Response(full_response)
         except Exception as e:
             logger.error(f"Error generating admin dashboard: {str(e)}")
             return Response({"error": str(e)}, status=500)

@@ -47,20 +47,13 @@ class OrderViewSet(viewsets.ModelViewSet):
             return UpdateOrderStatusSerializer
         return OrderSerializer    
     def get_queryset(self):
-        """Filter orders based on user role with EXTREME optimization (loading only list fields)"""
+        """Filter orders with SMART deferring (only skips heavy JSON fields)"""
         user = self.request.user
         
-        # DEFINING FIELDS TO LOAD: This prevents loading heavy JSON credentials/meta during listing
-        # This is the single biggest speed boost for large order tables
-        list_fields = [
-            'id', 'order_id', 'buyer_id', 'vendor_id', 'product_id', 
-            'quantity', 'total_amount', 'crypto_currency', 'payment_status', 
-            'order_status', 'is_giveaway', 'created_at', 'updated_at',
-            'buyer__username', 'vendor__username', 'product__headline'
-        ]
-        
-        base_qs = Order.objects.select_related('buyer', 'vendor', 'product').only(
-            *list_fields
+        # Deferring ONLY the heavy fields that slow down lists
+        # This fixes the N+1 problem while keeping the query fast
+        base_qs = Order.objects.select_related('buyer', 'vendor', 'product').defer(
+            'product_credentials'
         ).order_by('-created_at')
         
         if user.is_staff or user.user_type == 'admin':
@@ -795,11 +788,19 @@ class OrderViewSet(viewsets.ModelViewSet):
             from django.db.models import Sum, Count, F
             from django.db.models.functions import TruncDate
             
-            # 1. Get stats FRESHly (Cache removed for Real-Time data)
+            # 1. Debounce Cache (15s TTL for Real-Time feel with protection)
             days_range = int(request.query_params.get('days', 30))
             if days_range not in [7, 30, 90]: days_range = 30
             
-            # Get stats from helper
+            cache_key = f"admin_dashboard_realtime_{days_range}"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                # Add live orders to cached stats
+                recent_orders = self.get_queryset()[:6]
+                cached_data['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
+                return Response(cached_data)
+
+            # Get stats from helper if cache expired
             all_stats = self._get_admin_stats(days_range)
             
             # 3. Chart Data
@@ -828,18 +829,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                     'listings': product_dict.get(date_str, 0)
                 })
             
-            # Prepare Full Response
+            # Prepare Full Response & Save to 15s cache
             full_response = {
                 **all_stats,
                 'chart_data': chart_data,
             }
+            cache.set(cache_key, full_response, 15)
             
-            # 6. Recent Orders (Live & Lightweight)
-            recent_orders = Order.objects.select_related('buyer', 'vendor', 'product').only(
-                'id', 'order_id', 'buyer_id', 'vendor_id', 'product_id', 
-                'total_amount', 'crypto_currency', 'order_status', 'payment_status', 'created_at',
-                'buyer__username', 'vendor__username', 'product__headline'
-            ).order_by('-created_at')[:6]
+            # 6. Recent Orders (Live & Optimized)
+            recent_orders = self.get_queryset()[:6]
             full_response['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
             
             return Response(full_response)
@@ -854,8 +852,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Admin access required"}, status=403)
             
         try:
-            # 1. Get stats FRESHly (Cache removed)
-            all_stats = self._get_admin_stats(30)
+            # 1. Get stats (Small 15s debounce for performance)
+            cache_key = 'admin_orders_stats_realtime_debu'
+            all_stats = cache.get(cache_key)
+            if not all_stats:
+                all_stats = self._get_admin_stats(30)
+                cache.set(cache_key, all_stats, 15)
             
             # 2. Get filtered/paginated orders
             queryset = self.filter_queryset(self.get_queryset())

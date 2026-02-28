@@ -714,10 +714,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         def run_query(func):
             try:
                 res = func()
-                connection.close() # Important for threads
+                # Use close_old_connections for cleaner thread-safe management
+                from django.db import close_old_connections
+                close_old_connections()
                 return res
-            except:
-                connection.close()
+            except Exception as e:
+                logger.error(f"Threaded query error: {str(e)}")
+                from django.db import close_old_connections
+                close_old_connections()
                 return {}
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -764,16 +768,56 @@ class OrderViewSet(viewsets.ModelViewSet):
                 ))
             ))
 
-            # 5. Escrow Totals
-            f5 = executor.submit(run_query, lambda: list(Order.objects.filter(use_escrow=True).exclude(
-                order_status__in=[OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PENDING_PAYMENT.value]
-            ).values('crypto_currency').annotate(total=Sum('total_amount'))))
+            # 5. Escrow Volume (Highly Optimized SQL-only version)
+            from payments.models import Payout, DirectPayment
+            
+            def get_escrow_volume():
+                try:
+                    # Orders in system but payout not finished
+                    # Only calculate on the currency we care about
+                    active_escrow_orders = Order.objects.filter(use_escrow=True).exclude(
+                        order_status__in=[OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PENDING_PAYMENT.value]
+                    ).exclude(
+                        Q(order_status=OrderStatus.CONFIRMED.value) &
+                        (Q(payouts__status='completed') | Q(direct_payment__status='completed'))
+                    ).distinct()
+                    
+                    totals = list(active_escrow_orders.values('crypto_currency__symbol').annotate(total=Sum('total_amount')))
+                    return totals
+                except:
+                    return []
+
+            f5 = executor.submit(run_query, get_escrow_volume)
+
+            # 6. Escrow Pipeline Counts (Optimized SQL-only version)
+            def get_pipeline_counts():
+                try:
+                    # Pending Releases
+                    pending_releases = Order.objects.filter(
+                        order_status=OrderStatus.CONFIRMED.value, 
+                        use_escrow=True
+                    ).exclude(
+                        Q(payouts__status='completed') | 
+                        Q(direct_payment__status='completed')
+                    ).distinct().count()
+                    
+                    # Auto-Release
+                    auto_release = Order.objects.filter(order_status=OrderStatus.DELIVERED.value, use_escrow=True).count()
+                    
+                    return {'pending': pending_releases, 'auto': auto_release}
+                except:
+                    return {'pending': 0, 'auto': 0}
+
+            f6 = executor.submit(run_query, get_pipeline_counts)
+
+            f6 = executor.submit(run_query, get_pipeline_counts)
 
             user_stats = f1.result()
             vendor_stats = f2.result()
             listing_stats = f3.result()
             order_stats_agg = f4.result()
             escrow_totals = f5.result()
+            pipeline_counts = f6.result()
 
         # Growth calculations
         user_growth = ((user_stats.get('last_month', 0) - user_stats.get('prev_month', 0)) / user_stats.get('prev_month', 1)) * 100 if user_stats.get('prev_month', 0) > 0 else 100
@@ -781,8 +825,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         listing_growth = ((listing_stats.get('last_month', 0) - listing_stats.get('prev_month', 0)) / listing_stats.get('prev_month', 1)) * 100 if listing_stats.get('prev_month', 0) > 0 else 100
         order_growth_daily = ((order_stats_agg.get('today', 0) - order_stats_agg.get('yesterday', 0)) / order_stats_agg.get('yesterday', 1)) * 100 if order_stats_agg.get('yesterday', 0) > 0 else 100
 
-        total_escrow_btc = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency'] == 'BTC'), 0.0)
-        total_escrow_xmr = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency'] == 'XMR'), 0.0)
+        total_escrow_btc = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency__symbol'] == 'BTC'), 0.0)
+        total_escrow_xmr = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency__symbol'] == 'XMR'), 0.0)
 
         return {
             'statistics': {
@@ -798,8 +842,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             'escrow_stats': {
                 'btc_total': total_escrow_btc,
                 'xmr_total': total_escrow_xmr,
-                'pending_releases': Order.objects.filter(order_status=OrderStatus.CONFIRMED.value).count(),
-                'auto_release_orders': Order.objects.filter(order_status=OrderStatus.DELIVERED.value).count(),
+                'pending_releases': pipeline_counts.get('pending', 0),
+                'auto_release_orders': pipeline_counts.get('auto', 0),
                 'disputed_orders': order_stats_agg.get('disputed', 0)
             }
         }
@@ -815,17 +859,20 @@ class OrderViewSet(viewsets.ModelViewSet):
             from django.db.models import Sum, Count, F
             from django.db.models.functions import TruncDate
             
-            # 1. Debounce Cache (15s TTL for Real-Time feel with protection)
+            # 1. Cache with Bypass support (300s TTL for production)
             days_range = int(request.query_params.get('days', 30))
             if days_range not in [7, 30, 90]: days_range = 30
             
+            force_refresh = request.query_params.get('refresh') == 'true'
+            
             cache_key = f"admin_dashboard_realtime_{days_range}"
-            cached_data = cache.get(cache_key)
-            if cached_data:
-                # Add live orders to cached stats
-                recent_orders = self.get_queryset()[:6]
-                cached_data['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
-                return Response(cached_data)
+            if not force_refresh:
+                cached_data = cache.get(cache_key)
+                if cached_data:
+                    # Add live orders to cached stats for freshness
+                    recent_orders = self.get_queryset()[:6]
+                    cached_data['recent_orders'] = AdminDashboardOrderSerializer(recent_orders, many=True).data
+                    return Response(cached_data)
 
             # Get stats from helper if cache expired
             all_stats = self._get_admin_stats(days_range)
@@ -871,12 +918,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                     'listings': product_dict.get(date_str, 0)
                 })
             
-            # Prepare Full Response & Save to 15s cache
+            # Prepare Full Response & Save to 5-minute cache
             full_response = {
                 **all_stats,
                 'chart_data': chart_data,
             }
-            cache.set(cache_key, full_response, 15)
+            cache.set(cache_key, full_response, 300)
             
             # 6. Recent Orders (Live & Optimized)
             recent_orders = self.get_queryset()[:6]

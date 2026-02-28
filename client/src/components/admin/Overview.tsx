@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Bitcoin, Wallet, Lock, CheckCircle, Bell, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Bitcoin, Wallet, Lock, CheckCircle, Bell, X, RefreshCw } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMessaging } from "@/contexts/MessagingContext";
 import { getApiUrl } from "@/config/api";
 import paymentService from "@/services/paymentService";
+import { CRYPTO_PRICES, refreshCryptoPrices } from "@/lib/priceUtils";
 
 // Skeleton Loader Component
 const SkeletonLoader = () => (
@@ -67,6 +68,10 @@ interface DashboardStats {
     vendors: { total: number; growth_pct: number };
     listings: { total: number; growth_pct: number };
     orders: { today: number; yesterday: number; growth_pct: number };
+    total_orders: number;
+    paid_orders: number;
+    pending_payments: number;
+    disputed_orders: number;
   };
   chart_data: Array<{
     date: string;
@@ -99,74 +104,40 @@ interface UIOrder {
   confirmed_at?: string;
 }
 
-const transformApiOrderToUIOrder = (apiOrder: Order): UIOrder => {
-  // Determine status badge type based on order status
-  const getStatusType = (status: string): 'success' | 'warning' | 'danger' | 'accent' => {
-    if (typeof status !== 'string') return 'warning';
+const safeString = (val: any) => (val === null || val === undefined ? '' : String(val));
 
-    switch (status.toLowerCase()) {
-      case 'completed':
-      case 'confirmed':
-      case 'paid':
-        return 'success';
-      case 'pending_payment':
-      case 'pending':
-        return 'warning';
-      case 'cancelled':
-      case 'disputed':
-      case 'failed':
-        return 'danger';
-      case 'delivered':
-      case 'processing':
-        return 'accent';
-      default:
-        return 'warning';
-    }
-  };
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-  // Format date to readable string
-  const formatDate = (dateString: string): string => {
-    try {
-      if (!dateString || typeof dateString !== 'string') return 'N/A';
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'N/A';
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return 'N/A';
-    }
-  };
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hr ago`;
+    return `${diffDays} d ago`;
+  } catch (e) {
+    return 'N/A';
+  }
+};
 
-  // Safe string conversion helper
-  const safeString = (value: any): string => {
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return value.toString();
-    if (value && typeof value === 'object') {
-      // If it's an object, try to get a meaningful string representation
-      if (value.username) return value.username;
-      if (value.email) return value.email;
-      if (value.first_name) return value.first_name;
-      if (value.headline) return value.headline;
-      if (value.listing_title) return value.listing_title;
-      if (value.name) return value.name;
-      return 'Unknown';
-    }
-    return 'Unknown';
-  };
+const getStatusType = (status: string): 'success' | 'warning' | 'danger' | 'accent' => {
+  const s = status.toLowerCase();
+  if (s.includes('delivered') || s.includes('confirmed') || s.includes('success') || s.includes('paid')) return 'success';
+  if (s.includes('pending') || s.includes('awaiting') || s.includes('processing')) return 'warning';
+  if (s.includes('disputed') || s.includes('cancelled') || s.includes('failed') || s.includes('rejected')) return 'danger';
+  return 'accent';
+};
 
-  // Extract display names safely with robust error handling
-  const buyerName = safeString(apiOrder.buyer);
-  const vendorName = safeString(apiOrder.vendor);
-  const productName = safeString(apiOrder.product);
-
-  // Safe amount formatting
-  const totalAmount = typeof apiOrder.total_amount === 'number' ? apiOrder.total_amount :
-    typeof apiOrder.total_amount === 'string' ? parseFloat(apiOrder.total_amount) || 0 : 0;
-  const cryptoCurrency = typeof apiOrder.crypto_currency === 'string' ? apiOrder.crypto_currency : 'BTC';
+const transformApiOrderToUIOrder = (apiOrder: any): UIOrder => {
+  const buyerName = apiOrder.buyer?.username || 'System';
+  const vendorName = apiOrder.vendor?.username || (apiOrder.product?.vendor_username || 'Unknown');
+  const productName = apiOrder.product?.headline || 'Unknown Product';
+  const totalAmount = apiOrder.total_amount || '0.00';
+  const cryptoCurrency = apiOrder.crypto_currency || 'BTC';
   const amountString = `${totalAmount} ${cryptoCurrency}`;
 
   // Safe status handling
@@ -198,6 +169,7 @@ export function Overview() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [cryptoStatus, setCryptoStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const [timeRange, setTimeRange] = useState<number>(30); // 30 or 90
@@ -209,28 +181,35 @@ export function Overview() {
   // Get latest unread notification for banner
   const latestNotification = notifications.find(n => n.unread && !dismissedNotifications.has(n.id));
 
+  // Rate refresh - Ensure UI uses real-time USD equivalent
+  const [prices, setPrices] = useState(CRYPTO_PRICES);
+
   // API Functions
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (isRefreshing = false) => {
     try {
-      setLoading(true);
+      if (isRefreshing) setRefreshing(true);
+      else setLoading(true);
+
       setError(null);
 
-      // Fetch dashboard stats first
-      try {
-        const statsData = await orderService.getAdminDashboard(timeRange);
-        if (statsData) {
-          // Transform recent orders
-          if (statsData.recent_orders) {
-            statsData.recent_orders = statsData.recent_orders.map((order: any) => transformApiOrderToUIOrder(order));
-            setRecentOrders(statsData.recent_orders);
-          }
-          setDashboardStats(statsData);
-        } else {
-          setError('No dashboard data returned');
+      // Parallel fetch main stats and crypto prices
+      const [statsData, _] = await Promise.all([
+        orderService.getAdminDashboard(timeRange, isRefreshing),
+        refreshCryptoPrices()
+      ]);
+
+      // Update local price state to trigger re-render
+      setPrices({ ...CRYPTO_PRICES });
+
+      if (statsData) {
+        // Transform recent orders
+        if (statsData.recent_orders) {
+          statsData.recent_orders = statsData.recent_orders.map((order: any) => transformApiOrderToUIOrder(order));
+          setRecentOrders(statsData.recent_orders);
         }
-      } catch (err: any) {
-        console.error('Error fetching main dashboard stats:', err);
-        setError(err.message || 'Failed to fetch dashboard statistics');
+        setDashboardStats(statsData);
+      } else {
+        setError('No dashboard data returned');
       }
 
       // Fetch crypto status independently
@@ -241,7 +220,6 @@ export function Overview() {
         }
       } catch (err) {
         console.error('Error fetching crypto node status:', err);
-        // We don't set global error for this as it's secondary
       }
 
     } catch (error: any) {
@@ -249,6 +227,7 @@ export function Overview() {
       setError('System initialization failed');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -700,26 +679,40 @@ export function Overview() {
         {/* Escrow Overview */}
         <Card className="crypto-card">
           <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-text mb-3">Escrow Overview</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-text">Escrow Overview</h3>
+              <button
+                onClick={() => fetchDashboardData(true)}
+                disabled={refreshing || loading}
+                className={`p-1.5 hover:bg-surface-2 rounded-full transition-all duration-200 ${refreshing ? 'animate-spin text-accent' : 'text-gray-400'}`}
+                title="Refresh escrow data"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="text-center p-3 bg-surface-2 rounded-lg">
+              <div className={`text-center p-3 bg-surface-2 rounded-lg transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
                 <p className="text-xl font-bold text-text font-mono">
                   {loading ? "..." : dashboardStats?.escrow_stats.btc_total.toFixed(5) || "0.00000"}
                 </p>
                 <p className="text-xs">BTC in Escrow</p>
-                <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_stats.btc_total || 0) * 105000).toLocaleString()}</p>
+                <p className="text-xs mt-1 text-gray-400">
+                  ~${((dashboardStats?.escrow_stats.btc_total || 0) * prices.BTC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
-              <div className="text-center p-3 bg-surface-2 rounded-lg">
+              <div className={`text-center p-3 bg-surface-2 rounded-lg transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
                 <p className="text-xl font-bold text-text font-mono">
                   {loading ? "..." : dashboardStats?.escrow_stats.xmr_total.toFixed(3) || "0.000"}
                 </p>
                 <p className="text-xs">XMR in Escrow</p>
-                <p className="text-xs mt-1 text-gray-400">~${((dashboardStats?.escrow_stats.xmr_total || 0) * 350).toLocaleString()}</p>
+                <p className="text-xs mt-1 text-gray-400">
+                  ~${((dashboardStats?.escrow_stats.xmr_total || 0) * prices.XMR).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
             </div>
 
-            <div className="mt-3 space-y-1">
+            <div className={`mt-3 space-y-1 transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">Pending Releases</span>
                 <span className="text-text">{dashboardStats?.escrow_stats.pending_releases || 0} orders</span>
@@ -730,7 +723,7 @@ export function Overview() {
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">Disputed</span>
-                <span className="text-danger">{dashboardStats?.escrow_stats.disputed_orders || 0} orders</span>
+                <span className="text-danger font-medium">{dashboardStats?.escrow_stats.disputed_orders || 0} orders</span>
               </div>
             </div>
           </CardContent>

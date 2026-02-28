@@ -184,33 +184,35 @@ export async function refreshCryptoPrices(): Promise<void> {
     try {
         const { api } = await import('@/services/authService');
 
-        // Fetch BTC Rate
-        try {
-            const btcResponse = await api.get('/payments/rates/?crypto=BTC&fiat=USD');
-            if (btcResponse.data && btcResponse.data.rate) {
-                const rate = parseFloat(btcResponse.data.rate);
-                if (!isNaN(rate) && rate > 0) {
-                    CRYPTO_PRICES.BTC = rate;
-                    console.log(`Updated BTC Price: $${rate}`);
+        // Parallel fetch for speed
+        await Promise.all([
+            // BTC Rate
+            (async () => {
+                try {
+                    const btcResponse = await api.get('/payments/rates/?crypto=BTC&fiat=USD');
+                    const rate = parseFloat(btcResponse.data?.rate);
+                    if (!isNaN(rate) && rate > 0) {
+                        CRYPTO_PRICES.BTC = rate;
+                        console.log(`Updated BTC Price: $${rate}`);
+                    }
+                } catch (e: any) {
+                    console.error('Failed to fetch BTC rate:', e.message);
                 }
-            }
-        } catch (e: any) {
-            console.error('Failed to fetch BTC rate:', e.message);
-        }
-
-        // Fetch XMR Rate
-        try {
-            const xmrResponse = await api.get('/payments/rates/?crypto=XMR&fiat=USD');
-            if (xmrResponse.data && xmrResponse.data.rate) {
-                const rate = parseFloat(xmrResponse.data.rate);
-                if (!isNaN(rate) && rate > 0) {
-                    CRYPTO_PRICES.XMR = rate;
-                    console.log(`Updated XMR Price: $${rate}`);
+            })(),
+            // XMR Rate
+            (async () => {
+                try {
+                    const xmrResponse = await api.get('/payments/rates/?crypto=XMR&fiat=USD');
+                    const rate = parseFloat(xmrResponse.data?.rate);
+                    if (!isNaN(rate) && rate > 0) {
+                        CRYPTO_PRICES.XMR = rate;
+                        console.log(`Updated XMR Price: $${rate}`);
+                    }
+                } catch (e: any) {
+                    console.error('Failed to fetch XMR rate:', e.message);
                 }
-            }
-        } catch (e: any) {
-            console.error('Failed to fetch XMR rate:', e.message);
-        }
+            })()
+        ]);
 
     } catch (error) {
         console.error('Error updating crypto prices:', error);

@@ -379,9 +379,9 @@ class OrderService {
     }
   }
 
-  async getAdminDashboard(days: number = 30): Promise<any> {
+  async getAdminDashboard(days: number = 30, refresh: boolean = false): Promise<any> {
     try {
-      const response = await api.get(`/orders/admin_dashboard/?days=${days}`);
+      const response = await api.get(`/orders/admin_dashboard/?days=${days}${refresh ? '&refresh=true' : ''}`);
       return response.data;
     } catch (error: any) {
       throw new Error(extractErrorMessage(error, 'Failed to fetch admin dashboard data'));

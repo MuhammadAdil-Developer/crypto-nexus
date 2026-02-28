@@ -1863,76 +1863,82 @@ class AdminCryptoStatusView(APIView):
     permission_classes = [IsAdmin]
     
     def get(self, request):
-        from django.core.cache import cache
-        cache_key = 'admin_crypto_status'
-        cached_response = cache.get(cache_key)
-        if cached_response:
-            logger.info("AdminCryptoStatus: Returning cached response")
-            return Response(cached_response)
-
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         try:
-            logger.info("AdminCryptoStatus: Starting fetch")
+            logger.info("AdminCryptoStatus: Starting PARALLEL fresh fetch")
             payment_service = PaymentService()
             import requests
 
-            # --- 1. Check Local Node Status ---
-            logger.info("AdminCryptoStatus: Checking BTC wallet")
-            btc_wallet = payment_service.btcpay.get_wallet_balance()
+            # Define functions for parallel execution
+            def get_btc_data():
+                try:
+                    res = payment_service.btcpay.get_wallet_balance()
+                    return ('btc', res)
+                except: return ('btc', None)
+
+            def get_xmr_data():
+                try:
+                    node = payment_service.monero.get_node_info()
+                    bal = payment_service.monero.get_balance()
+                    return ('xmr', (node, bal))
+                except: return ('xmr', (None, None))
+
+            def get_mempool_btc():
+                try:
+                    h = requests.get("https://mempool.space/api/blocks/tip/height", timeout=3).text
+                    m = requests.get("https://mempool.space/api/mempool", timeout=3).json()
+                    return ('mempool_btc', (h, m))
+                except: return ('mempool_btc', None)
+
+            def get_mempool_xmr():
+                try:
+                    x = requests.get("https://localmonero.co/blocks/api/get_stats", timeout=3).json()
+                    return ('mempool_xmr', x)
+                except: return ('mempool_xmr', None)
+
+            # Execute parallel checks
+            results = {}
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    executor.submit(get_btc_data),
+                    executor.submit(get_xmr_data),
+                    executor.submit(get_mempool_btc),
+                    executor.submit(get_mempool_xmr)
+                ]
+                for future in as_completed(futures):
+                    key, val = future.result()
+                    results[key] = val
+
+            # --- 1. Process BTC ---
+            btc_wallet = results.get('btc')
             btc_balance_total = 0.0
             if btc_wallet:
-                btc_balance_confirmed = float(btc_wallet.get('confirmedBalance') or 0)
-                btc_balance_unconfirmed = float(btc_wallet.get('unconfirmedBalance') or 0)
-                btc_balance_total = btc_balance_confirmed + btc_balance_unconfirmed
-            btc_connected = btc_wallet is not None
-            btc_status = "Connected" if btc_connected else "Public Node"
-            btc_status_type = "success" if btc_connected else "warning"
+                btc_balance_total = float(btc_wallet.get('confirmedBalance', 0)) + float(btc_wallet.get('unconfirmedBalance', 0))
             
-            logger.info("AdminCryptoStatus: Checking XMR node and wallet")
-            xmr_node_info = payment_service.monero.get_node_info()
-            xmr_wallet = payment_service.monero.get_balance()
+            btc_connected = btc_wallet is not None
+            btc_status = "Connected" if btc_connected else "Node Offline"
+            btc_status_type = "success" if btc_connected else "error"
+            
+            mempool_btc = results.get('mempool_btc')
+            btc_height = f"{int(mempool_btc[0]):,}" if mempool_btc else "Unknown"
+            btc_mempool = f"{mempool_btc[1].get('vbytes_per_second', 0) / 1000:.2f} MB" if mempool_btc else "Unknown"
+
+            # --- 2. Process XMR ---
+            xmr_node_info, xmr_wallet = results.get('xmr', ({}, None))
             xmr_balance_view = 0.0
             if xmr_wallet:
-               xmr_balance_atomic = xmr_wallet.get('balance') or 0
-               xmr_balance_view = float(xmr_balance_atomic) / 1000000000000.0
-            xmr_connected = xmr_node_info.get('status') == 'Connected'
-            xmr_status = "Connected" if xmr_connected else "Public Node"
-            xmr_status_type = "success" if xmr_connected else "warning"
+               xmr_balance_view = float(xmr_wallet.get('balance', 0)) / 1000000000000.0
+            
+            xmr_connected = xmr_node_info and xmr_node_info.get('status') == 'Connected'
+            xmr_status = "Connected" if xmr_connected else "Node Offline"
+            xmr_status_type = "success" if xmr_connected else "error"
 
-            # --- 2. Enrich with Data ---
-            logger.info("AdminCryptoStatus: Enriching with public metadata")
-            btc_height = "Syncing..."
-            btc_peers = 8 
-            btc_mempool = "Unknown"
-            
-            try:
-                h_resp = requests.get("https://mempool.space/api/blocks/tip/height", timeout=3)
-                if h_resp.status_code == 200:
-                    btc_height = f"{int(h_resp.text):,}"
-                
-                m_resp = requests.get("https://mempool.space/api/mempool", timeout=3)
-                if m_resp.status_code == 200:
-                    m_data = m_resp.json()
-                    btc_mempool = f"{m_data.get('vbytes_per_second', 0) / 1000:.2f} MB"
-            except:
-                if btc_connected: btc_height = "Unknown (Local)"
-
-            xmr_height = "Syncing..."
-            xmr_peers = 12
-            
-            if xmr_connected:
-                h = xmr_node_info.get('height', 0)
-                if h > 0:
-                    xmr_height = f"{h:,}"
-                    xmr_status = "Connected (Local)"
-            
-            if xmr_height == "Syncing...":
-                try:
-                    x_resp = requests.get("https://localmonero.co/blocks/api/get_stats", timeout=3)
-                    if x_resp.status_code == 200:
-                        x_data = x_resp.json()
-                        xmr_height = f"{x_data.get('height', 0):,}"
-                except:
-                    pass
+            mempool_xmr = results.get('mempool_xmr')
+            xmr_height = "Unknown"
+            if xmr_connected and xmr_node_info.get('height'):
+                xmr_height = f"{xmr_node_info['height']:,}"
+            elif mempool_xmr:
+                xmr_height = f"{mempool_xmr.get('height', 0):,}"
 
             # --- 3. Construct Nodes Response ---
             logger.info("AdminCryptoStatus: Querying database counts")

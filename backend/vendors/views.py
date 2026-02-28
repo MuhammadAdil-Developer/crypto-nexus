@@ -760,30 +760,82 @@ def get_vendor_dashboard_aggregated(request):
             })
 
         # 4. Top Products (By sales count)
-        top_products_qs = completed_orders.values(
+        # Filter for truly active products (approved, in-stock, not deleted, and active)
+        # This matches the "Active Listings" count criteria
+        active_completed_orders = completed_orders.filter(
+            product__is_deleted=False,
+            product__is_active=True,
+            product__status='approved',
+            product__quantity_available__gt=0
+        )
+
+        top_products_qs = active_completed_orders.values(
             'product__id', 'product__headline', 'product__price', 
-            'product__quantity_available', 'product__main_image'
+            'product__quantity_available', 'product__main_image', 'product__main_images'
         ).annotate(
-            sales_count=Count('id'),
-            revenue_crypto=Sum('total_amount')
-        ).order_by('-sales_count')[:5]
+            sales_count=Count('id')
+        ).filter(sales_count__gt=0).order_by('-sales_count')[:10]
         
         top_products = []
         for tp in top_products_qs:
-            # Note: revenue here is technically crypto sum, but we'll return the USD equivalent for UI
-            # For simplicity in Top Products, we'll use the price * sales_count if many currencies exist, 
-            # but since top_products.revenue usually reflects USD in UI, we convert.
-            product_revenue_usd = float(tp['revenue_crypto']) * float(btc_rate) # Simplified to BTC rate if mixed, or we could be precise
+            # Pricing logic: Calculate revenue based on current product price * sales count
+            # This is more accurate for a dashboard overview than mixing crypto amounts
+            product_price = float(tp['product__price'] or 0)
+            sales_count = tp['sales_count']
+            product_revenue_usd = product_price * sales_count
+            
+            # --- Robust/Smart Image Logic ---
+            image_path = tp['product__main_image']
+            
+            # Identify legacy broken paths (missing 'media/' prefix in a Cloudinary-centric setup)
+            # Expanded to cover all common image extensions
+            is_legacy_broken = False
+            image_path_str = str(image_path).lower() if image_path else ""
+            img_exts = ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.bmp', '.tiff', '.svg']
+            
+            if image_path_str and any(ext in image_path_str for ext in img_exts):
+                if not image_path_str.startswith('media/'):
+                    is_legacy_broken = True
+            
+            if is_legacy_broken:
+                image_path = None # Force fallback or placeholder icon
+            
+            # Fallback to main_images list if main_image is empty or legacy broken
+            if not image_path and tp['product__main_images']:
+                m_images = tp['product__main_images']
+                if isinstance(m_images, list) and len(m_images) > 0:
+                    first_m = str(m_images[0])
+                    first_m_lower = first_m.lower()
+                    m_is_broken = any(ext in first_m_lower for ext in img_exts) and not first_m_lower.startswith('media/')
+                    if not m_is_broken:
+                        image_path = first_m
+            
+            # Final URL calculation using default_storage (Cloudinary)
+            final_image_url = None
+            if image_path:
+                image_path_str = str(image_path)
+                if image_path_str.startswith('http'):
+                    final_image_url = image_path_str
+                else:
+                    from django.core.files.storage import default_storage
+                    try:
+                        final_image_url = default_storage.url(image_path_str)
+                    except Exception:
+                        final_image_url = None
             
             top_products.append({
                 'id': str(tp['product__id']),
                 'name': tp['product__headline'],
-                'sales': tp['sales_count'],
+                'sales': sales_count,
                 'revenue': product_revenue_usd,
-                'price': float(tp['product__price']),
+                'price': product_price,
                 'stock': tp['product__quantity_available'],
-                'image': tp['product__main_image']
+                'image': final_image_url,
+                'is_active': True # Only active products are in this list now
             })
+            
+            if len(top_products) >= 5:
+                break
 
         # 5. Recent Messages
         conversations = Conversation.objects.filter(

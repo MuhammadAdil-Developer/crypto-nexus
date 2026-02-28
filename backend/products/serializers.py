@@ -63,17 +63,47 @@ class ProductSerializer(serializers.ModelSerializer):
         return None
     
     def get_main_image(self, obj):
-        """Return absolute URL for main image"""
-        if not obj.main_image:
+        """Return absolute URL for main image with fallback to main_images list"""
+        url = None
+        if obj.main_image:
+            try:
+                # Check for legacy broken paths (missing 'media/' prefix in Cloudinary setup)
+                # Valid items in DB for Cloudinary storage MUST be prefixed with 'media/' 
+                path_str = str(obj.main_image).lower()
+                is_legacy = any(ext in path_str for ext in ['.jpg', '.png', '.jpeg', '.webp', '.gif']) and not path_str.startswith('media/')
+                if is_legacy:
+                     # Likely a broken legacy path that exists only in DB, force fallback
+                     url = None
+                else:
+                    url = obj.main_image.url
+            except Exception:
+                url = None
+        
+        # Fallback to main_images list if primary field is empty or broken
+        if not url and hasattr(obj, 'main_images') and obj.main_images:
+            if isinstance(obj.main_images, list) and len(obj.main_images) > 0:
+                first_img = str(obj.main_images[0])
+                first_img_lower = first_img.lower()
+                img_exts = ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.bmp', '.tiff', '.svg']
+                # Check if fallback is also a legacy broken path
+                is_m_broken = any(ext in first_img_lower for ext in img_exts) and not first_m_lower.startswith('media/') if 'first_m_lower' in locals() else any(ext in first_img_lower for ext in img_exts) and not first_img_lower.startswith('media/')
+                if first_img and not is_m_broken:
+                    from django.core.files.storage import default_storage
+                    try:
+                        url = default_storage.url(first_img)
+                    except Exception:
+                        url = None
+        
+        if not url:
             return None
+
         request = self.context.get('request')
         try:
-            url = obj.main_image.url
-            if request and not url.startswith('http'):
+            if request and not str(url).startswith('http'):
                 return request.build_absolute_uri(url)
             return url
         except Exception:
-            return None
+            return url
 
     def get_gallery_images(self, obj):
         """Return absolute URLs for gallery images"""
@@ -175,17 +205,45 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         return obj.price
     
     def get_main_image(self, obj):
-        """Return absolute URL for main image"""
-        if not obj.main_image:
+        """Return absolute URL for main image with fallback to main_images list"""
+        url = None
+        if obj.main_image:
+            try:
+                # Check for legacy broken paths (missing 'media/' prefix)
+                path_str = str(obj.main_image).lower()
+                img_exts = ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.bmp', '.tiff', '.svg']
+                if any(ext in path_str for ext in img_exts) and not path_str.startswith('media/'):
+                     # Likely a broken legacy path, force fallback
+                     url = None
+                else:
+                    url = obj.main_image.url
+            except Exception:
+                url = None
+        
+        # Fallback to main_images list if primary field is empty or broken
+        if not url and hasattr(obj, 'main_images') and obj.main_images:
+            if isinstance(obj.main_images, list) and len(obj.main_images) > 0:
+                first_img = str(obj.main_images[0])
+                first_img_lower = first_img.lower()
+                img_exts = ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.bmp', '.tiff', '.svg']
+                is_m_broken = any(ext in first_img_lower for ext in img_exts) and not first_img_lower.startswith('media/')
+                if first_img and not is_m_broken:
+                    from django.core.files.storage import default_storage
+                    try:
+                        url = default_storage.url(first_img)
+                    except Exception:
+                        url = None
+        
+        if not url:
             return None
+
         request = self.context.get('request')
         try:
-            url = obj.main_image.url
-            if request and not url.startswith('http'):
+            if request and not str(url).startswith('http'):
                 return request.build_absolute_uri(url)
             return url
         except Exception:
-            return None
+            return url
     
     def get_gallery_images(self, obj):
         """Return absolute URLs for gallery images"""

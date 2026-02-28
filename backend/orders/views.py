@@ -30,12 +30,47 @@ class LargeResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 10000
 
+class CachedCountPagination(LargeResultsSetPagination):
+    """Optimized pagination that caches the total count to speed up large table listings"""
+    def paginate_queryset(self, queryset, request, view=None):
+        # We cache the total count for 60 seconds to avoid heavy COUNT(*) queries
+        cache_key = f"count_cache_{queryset.model._meta.db_table}_{request.user.id}"
+        cached_count = cache.get(cache_key)
+        
+        if cached_count is not None:
+            self.display_page_controls = True
+            self.request = request
+            # Manually set the count on the paginator
+            from django.core.paginator import Paginator
+            class FastPaginator(Paginator):
+                @property
+                def count(self):
+                    return cached_count
+            
+            page_size = self.get_page_size(request)
+            if not page_size:
+                return None
+                
+            paginator = FastPaginator(queryset, page_size)
+            page_number = request.query_params.get(self.page_query_param, 1)
+            
+            try:
+                self.page = paginator.page(page_number)
+            except Exception:
+                return None
+                
+            return list(self.page)
+            
+        # If not cached, do normal pagination but save the count
+        result = super().paginate_queryset(queryset, request, view)
+        if hasattr(self, 'page') and self.page is not None:
+            cache.set(cache_key, self.page.paginator.count, 60)
+        return result
+
 
 class OrderViewSet(viewsets.ModelViewSet):
-    """ViewSet for order management"""
-    
     queryset = Order.objects.all()
-    pagination_class = LargeResultsSetPagination
+    pagination_class = CachedCountPagination
     
     def get_serializer_class(self):
         """Return different serializers for different actions"""
@@ -660,10 +695,11 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
 
     def _get_admin_stats(self, days_range=30):
-        """Helper to get comprehensive admin statistics (High Performance)"""
+        """Helper to get comprehensive admin statistics with PARALLEL execution"""
         from django.apps import apps
-        from django.db.models import Sum, Count, Q, Case, When, IntegerField, DecimalField
-        from django.db.models.functions import Coalesce
+        from django.db.models import Sum, Count, Q
+        from concurrent.futures import ThreadPoolExecutor
+        from django.db import connection
         
         User = apps.get_model('users', 'User')
         VendorApplication = apps.get_model('vendors', 'VendorApplication')
@@ -674,106 +710,97 @@ class OrderViewSet(viewsets.ModelViewSet):
         yesterday_start = today_start - timedelta(days=1)
         last_month_start = today_start - timedelta(days=30)
         prev_month_start = last_month_start - timedelta(days=30)
-        
-        # 1. Grouped User Stats
-        user_stats = User.objects.filter(is_deleted=False).aggregate(
-            total=Count('id'),
-            total_buyers=Count('id', filter=Q(user_type='buyer')),
-            total_vendors=Count('id', filter=Q(user_type='vendor')),
-            last_month=Count('id', filter=Q(date_joined__gte=last_month_start)),
-            prev_month=Count('id', filter=Q(date_joined__gte=prev_month_start, date_joined__lt=last_month_start))
-        )
-        user_growth = 0
-        if user_stats['prev_month'] > 0:
-            user_growth = ((user_stats['last_month'] - user_stats['prev_month']) / user_stats['prev_month']) * 100
-        elif user_stats['last_month'] > 0: user_growth = 100
-            
-        # 2. Grouped Vendor Stats
-        vendor_stats = VendorApplication.objects.aggregate(
-            active=Count('id', filter=Q(status='approved')),
-            last_month=Count('id', filter=Q(status='approved', updated_at__gte=last_month_start)),
-            prev_month=Count('id', filter=Q(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start))
-        )
-        vendor_growth = 0
-        if vendor_stats['prev_month'] > 0:
-            vendor_growth = ((vendor_stats['last_month'] - vendor_stats['prev_month']) / vendor_stats['prev_month']) * 100
-        elif vendor_stats['last_month'] > 0: vendor_growth = 100
 
-        # 3. Grouped Listing Stats
-        listing_stats = Product.objects.filter(is_deleted=False).aggregate(
-            live=Count('id', filter=Q(status='approved', is_active=True)),
-            last_month=Count('id', filter=Q(status='approved', created_at__gte=last_month_start)),
-            prev_month=Count('id', filter=Q(status='approved', created_at__gte=prev_month_start, created_at__lt=last_month_start))
-        )
-        listing_growth = 0
-        if listing_stats['prev_month'] > 0:
-            listing_growth = ((listing_stats['last_month'] - listing_stats['prev_month']) / listing_stats['prev_month']) * 100
-        elif listing_stats['last_month'] > 0: listing_growth = 100
-            
-        # 4. Grouped Order Stats
-        order_stats_agg = Order.objects.aggregate(
-            total=Count('id'),
-            today=Count('id', filter=Q(created_at__gte=today_start)),
-            yesterday=Count('id', filter=Q(created_at__gte=yesterday_start, created_at__lt=today_start)),
-            completed_today=Count('id', filter=Q(
-                Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
-                Q(payment_status='paid'),
-                created_at__gte=today_start
-            )),
-            disputed=Count('id', filter=Q(order_status=OrderStatus.DISPUTED.value)),
-            pending_payments=Count('id', filter=Q(
-                Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
-                Q(payment_status='pending') |
-                (Q(use_escrow=True) & ~Q(order_status__in=[
-                    OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PAID.value
-                ]))
+        def run_query(func):
+            try:
+                res = func()
+                connection.close() # Important for threads
+                return res
+            except:
+                connection.close()
+                return {}
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # 1. User Stats
+            f1 = executor.submit(run_query, lambda: User.objects.filter(is_deleted=False).aggregate(
+                total=Count('id'),
+                total_buyers=Count('id', filter=Q(user_type='buyer')),
+                total_vendors=Count('id', filter=Q(user_type='vendor')),
+                last_month=Count('id', filter=Q(date_joined__gte=last_month_start)),
+                prev_month=Count('id', filter=Q(date_joined__gte=prev_month_start, date_joined__lt=last_month_start))
             ))
-        )
-        order_growth_daily = 0
-        if order_stats_agg['yesterday'] > 0:
-            order_growth_daily = ((order_stats_agg['today'] - order_stats_agg['yesterday']) / order_stats_agg['yesterday']) * 100
-        elif order_stats_agg['today'] > 0: order_growth_daily = 100
+            
+            # 2. Vendor Stats
+            f2 = executor.submit(run_query, lambda: VendorApplication.objects.aggregate(
+                active=Count('id', filter=Q(status='approved')),
+                last_month=Count('id', filter=Q(status='approved', updated_at__gte=last_month_start)),
+                prev_month=Count('id', filter=Q(status='approved', updated_at__gte=prev_month_start, updated_at__lt=last_month_start))
+            ))
 
-        # 5. Optimized Escrow
-        escrow_totals = Order.objects.filter(
-            use_escrow=True
-        ).exclude(
-            order_status__in=[
-                OrderStatus.CONFIRMED.value, 
-                OrderStatus.CANCELLED.value, 
-                OrderStatus.REFUNDED.value,
-                OrderStatus.PENDING_PAYMENT.value
-            ]
-        ).values('crypto_currency').annotate(total=Sum('total_amount'))
-        
-        total_escrow_btc = 0.0
-        total_escrow_xmr = 0.0
-        for t in escrow_totals:
-            if t['crypto_currency'] == 'BTC': total_escrow_btc = float(t['total'] or 0)
-            elif t['crypto_currency'] == 'XMR': total_escrow_xmr = float(t['total'] or 0)
-                
-        escrow_extra = Order.objects.filter(use_escrow=True).aggregate(
-            pending_releases=Count('id', filter=Q(order_status=OrderStatus.CONFIRMED.value)),
-            auto_release=Count('id', filter=Q(order_status=OrderStatus.DELIVERED.value))
-        )
+            # 3. Listing Stats
+            f3 = executor.submit(run_query, lambda: Product.objects.filter(is_deleted=False).aggregate(
+                live=Count('id', filter=Q(status='approved', is_active=True)),
+                last_month=Count('id', filter=Q(status='approved', created_at__gte=last_month_start)),
+                prev_month=Count('id', filter=Q(status='approved', created_at__gte=prev_month_start, created_at__lt=last_month_start))
+            ))
+
+            # 4. Order Stats
+            f4 = executor.submit(run_query, lambda: Order.objects.aggregate(
+                total=Count('id'),
+                today=Count('id', filter=Q(created_at__gte=today_start)),
+                yesterday=Count('id', filter=Q(created_at__gte=yesterday_start, created_at__lt=today_start)),
+                completed_today=Count('id', filter=Q(
+                    Q(order_status__in=[OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.CONFIRMED.value]) |
+                    Q(payment_status='paid'),
+                    created_at__gte=today_start
+                )),
+                disputed=Count('id', filter=Q(order_status=OrderStatus.DISPUTED.value)),
+                pending_payments=Count('id', filter=Q(
+                    Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
+                    Q(payment_status='pending') |
+                    (Q(use_escrow=True) & ~Q(order_status__in=[
+                        OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PAID.value
+                    ]))
+                ))
+            ))
+
+            # 5. Escrow Totals
+            f5 = executor.submit(run_query, lambda: list(Order.objects.filter(use_escrow=True).exclude(
+                order_status__in=[OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PENDING_PAYMENT.value]
+            ).values('crypto_currency').annotate(total=Sum('total_amount'))))
+
+            user_stats = f1.result()
+            vendor_stats = f2.result()
+            listing_stats = f3.result()
+            order_stats_agg = f4.result()
+            escrow_totals = f5.result()
+
+        # Growth calculations
+        user_growth = ((user_stats.get('last_month', 0) - user_stats.get('prev_month', 0)) / user_stats.get('prev_month', 1)) * 100 if user_stats.get('prev_month', 0) > 0 else 100
+        vendor_growth = ((vendor_stats.get('last_month', 0) - vendor_stats.get('prev_month', 0)) / vendor_stats.get('prev_month', 1)) * 100 if vendor_stats.get('prev_month', 0) > 0 else 100
+        listing_growth = ((listing_stats.get('last_month', 0) - listing_stats.get('prev_month', 0)) / listing_stats.get('prev_month', 1)) * 100 if listing_stats.get('prev_month', 0) > 0 else 100
+        order_growth_daily = ((order_stats_agg.get('today', 0) - order_stats_agg.get('yesterday', 0)) / order_stats_agg.get('yesterday', 1)) * 100 if order_stats_agg.get('yesterday', 0) > 0 else 100
+
+        total_escrow_btc = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency'] == 'BTC'), 0.0)
+        total_escrow_xmr = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency'] == 'XMR'), 0.0)
 
         return {
             'statistics': {
-                'users': {'total': user_stats['total'], 'buyers': user_stats['total_buyers'], 'vendors': user_stats['total_vendors'], 'growth_pct': round(user_growth, 1)},
-                'vendors': {'total': vendor_stats['active'], 'growth_pct': round(vendor_growth, 1)},
-                'listings': {'total': listing_stats['live'], 'growth_pct': round(listing_growth, 1)},
-                'orders': {'today': order_stats_agg['today'], 'yesterday': order_stats_agg['yesterday'], 'growth_pct': round(order_growth_daily, 1)},
-                'total_orders': order_stats_agg['total'],
-                'paid_orders': order_stats_agg['completed_today'],
-                'pending_payments': order_stats_agg['pending_payments'],
-                'disputed_orders': order_stats_agg['disputed']
+                'users': {'total': user_stats.get('total', 0), 'buyers': user_stats.get('total_buyers', 0), 'vendors': user_stats.get('total_vendors', 0), 'growth_pct': round(user_growth, 1)},
+                'vendors': {'total': vendor_stats.get('active', 0), 'growth_pct': round(vendor_growth, 1)},
+                'listings': {'total': listing_stats.get('live', 0), 'growth_pct': round(listing_growth, 1)},
+                'orders': {'today': order_stats_agg.get('today', 0), 'yesterday': order_stats_agg.get('yesterday', 0), 'growth_pct': round(order_growth_daily, 1)},
+                'total_orders': order_stats_agg.get('total', 0),
+                'paid_orders': order_stats_agg.get('completed_today', 0),
+                'pending_payments': order_stats_agg.get('pending_payments', 0),
+                'disputed_orders': order_stats_agg.get('disputed', 0)
             },
             'escrow_stats': {
                 'btc_total': total_escrow_btc,
                 'xmr_total': total_escrow_xmr,
-                'pending_releases': escrow_extra['pending_releases'],
-                'auto_release_orders': escrow_extra['auto_release'],
-                'disputed_orders': order_stats_agg['disputed']
+                'pending_releases': Order.objects.filter(order_status=OrderStatus.CONFIRMED.value).count(),
+                'auto_release_orders': Order.objects.filter(order_status=OrderStatus.DELIVERED.value).count(),
+                'disputed_orders': order_stats_agg.get('disputed', 0)
             }
         }
 
@@ -803,21 +830,36 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Get stats from helper if cache expired
             all_stats = self._get_admin_stats(days_range)
             
-            # 3. Chart Data
+            # 3. Chart Data (Parallelized for Speed)
             today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
             chart_start_date = today_start - timedelta(days=days_range - 1)
             
+            from concurrent.futures import ThreadPoolExecutor
+            from django.db import connection
+
             def get_daily_counts(model_class, date_field):
-                return model_class.objects.filter(**{f"{date_field}__gte": chart_start_date}).annotate(
-                    date=TruncDate(date_field)
-                ).values('date').annotate(count=Count('id')).order_by('date')
+                try:
+                    res = model_class.objects.filter(**{f"{date_field}__gte": chart_start_date}).annotate(
+                        date=TruncDate(date_field)
+                    ).values('date').annotate(count=Count('id')).order_by('date')
+                    res_list = list(res)
+                    connection.close()
+                    return res_list
+                except:
+                    connection.close()
+                    return []
 
             User = apps.get_model('users', 'User')
             Product = apps.get_model('products', 'Product')
-            
-            order_dict = {str(s['date']): s['count'] for s in get_daily_counts(Order, 'created_at')}
-            user_dict = {str(s['date']): s['count'] for s in get_daily_counts(User, 'date_joined')}
-            product_dict = {str(s['date']): s['count'] for s in get_daily_counts(Product, 'created_at')}
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                f_orders = executor.submit(get_daily_counts, Order, 'created_at')
+                f_users = executor.submit(get_daily_counts, User, 'date_joined')
+                f_products = executor.submit(get_daily_counts, Product, 'created_at')
+                
+                order_dict = {str(s['date']): s['count'] for s in f_orders.result()}
+                user_dict = {str(s['date']): s['count'] for s in f_users.result()}
+                product_dict = {str(s['date']): s['count'] for s in f_products.result()}
             
             chart_data = []
             for i in range(days_range - 1, -1, -1):

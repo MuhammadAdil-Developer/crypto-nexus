@@ -786,7 +786,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                         (Q(payouts__status='completed') | Q(direct_payment__status='completed'))
                     ).distinct()
                     
-                    totals = list(active_escrow_orders.values('crypto_currency__symbol').annotate(total=Sum('total_amount')))
+                    totals = list(active_escrow_orders.values('crypto_currency').annotate(total=Sum('total_amount')))
                     return totals
                 except:
                     return []
@@ -829,8 +829,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         listing_growth = ((listing_stats.get('last_month', 0) - listing_stats.get('prev_month', 0)) / listing_stats.get('prev_month', 1)) * 100 if listing_stats.get('prev_month', 0) > 0 else 100
         order_growth_daily = ((order_stats_agg.get('today', 0) - order_stats_agg.get('yesterday', 0)) / order_stats_agg.get('yesterday', 1)) * 100 if order_stats_agg.get('yesterday', 0) > 0 else 100
 
-        total_escrow_btc = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency__symbol'] == 'BTC'), 0.0)
-        total_escrow_xmr = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency__symbol'] == 'XMR'), 0.0)
+        total_escrow_btc = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency'] == 'BTC'), 0.0)
+        total_escrow_xmr = next((float(t['total'] or 0) for t in escrow_totals if t['crypto_currency'] == 'XMR'), 0.0)
 
         return {
             'statistics': {

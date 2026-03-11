@@ -23,6 +23,7 @@ is_vendor_user = shared_utils.is_vendor_user
 is_buyer_user = shared_utils.is_buyer_user
 get_user_type = shared_utils.get_user_type
 log_user_activity = shared_utils.log_user_activity
+get_client_ip = shared_utils.get_client_ip
 
 __all__ = [
     # From security.py
@@ -35,7 +36,7 @@ __all__ = [
     'validate_xmr_address',
     'is_admin_user',
     'is_vendor_user',
-    'is_buyer_user',
     'get_user_type',
-    'log_user_activity'
+    'log_user_activity',
+    'get_client_ip'
 ]

@@ -86,8 +86,8 @@ class UserSerializer(serializers.ModelSerializer):
         
         # Fallback for individual lookups
         if obj.user_type == 'vendor':
-            return getattr(obj, 'vendor_orders_new', obj.vendor_orders_new.get_queryset() if hasattr(obj, 'vendor_orders_new') else None).count() if hasattr(obj, 'vendor_orders_new') else 0
-        return getattr(obj, 'buyer_orders', obj.buyer_orders.get_queryset() if hasattr(obj, 'buyer_orders') else None).count() if hasattr(obj, 'buyer_orders') else 0
+            return getattr(obj, 'vendor_orders_new', obj.vendor_orders_new.get_queryset() if hasattr(obj, 'vendor_orders_new') else None).exclude(order_status='cancelled').count() if hasattr(obj, 'vendor_orders_new') else 0
+        return getattr(obj, 'buyer_orders', obj.buyer_orders.get_queryset() if hasattr(obj, 'buyer_orders') else None).exclude(order_status='cancelled').count() if hasattr(obj, 'buyer_orders') else 0
     
     class Meta:
         model = User

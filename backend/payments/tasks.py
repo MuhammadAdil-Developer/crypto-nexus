@@ -7,9 +7,20 @@ import logging
 
 from .services import PayoutService, get_btc_estimated_miner_fee_btc, PaymentService
 from .models import DirectPayment
-from .direct_payment_monitor import direct_payment_monitor
 
 logger = logging.getLogger(__name__)
+
+@shared_task
+def daily_profit_sweep_task():
+    """Daily task to sweep platform earnings to admin personal wallets"""
+    from django.core.management import call_command
+    try:
+        logger.info("🚀 Starting daily profit sweep task...")
+        call_command('profit_sweep')
+        return "Profit sweep command executed successfully"
+    except Exception as e:
+        logger.error(f"❌ Error in daily_profit_sweep_task: {e}")
+        return f"Error: {str(e)}"
 
 # ============================================================
 # PAYOUT HELPER FUNCTIONS

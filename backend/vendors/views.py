@@ -556,7 +556,7 @@ def get_vendor_statistics(request, vendor_username):
         total_reviews = vendor_reviews.count()
         
         # Calculate completion rate (completed orders / total orders)
-        vendor_orders = Order.objects.filter(product__vendor=vendor_user)
+        vendor_orders = Order.objects.filter(product__vendor=vendor_user).exclude(order_status='cancelled')
         total_orders = vendor_orders.count()
         # Include all completed orders - both regular and giveaway orders
         # Giveaway orders are marked as 'paid' immediately, so they should be counted

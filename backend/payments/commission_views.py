@@ -9,6 +9,8 @@ import logging
 from .commission_models import CommissionSettings, VendorFee
 from .services import PaymentService
 from shared.models import CryptoCurrency
+from shared.utils import get_client_ip
+from .models import AdminWithdrawal
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,12 @@ class CommissionSettingsView(APIView):
                     'default_commission_rate': float(settings.default_commission_rate),
                     'min_commission_rate': float(settings.min_commission_rate),
                     'max_commission_rate': float(settings.max_commission_rate),
+                    'auto_sweep_enabled': settings.auto_sweep_enabled,
+                    'auto_sweep_btc_address': settings.auto_sweep_btc_address,
+                    'auto_sweep_xmr_address': settings.auto_sweep_xmr_address,
+                    'auto_sweep_time': settings.auto_sweep_time.strftime('%H:%M'),
+                    'auto_sweep_whatsapp_number': settings.auto_sweep_whatsapp_number,
+                    'auto_sweep_min_buffer': float(settings.auto_sweep_min_buffer),
                     'updated_at': settings.updated_at.isoformat(),
                 }
             }, status=status.HTTP_200_OK)
@@ -69,6 +77,20 @@ class CommissionSettingsView(APIView):
             if 'max_commission_rate' in request.data:
                 settings.max_commission_rate = Decimal(str(request.data['max_commission_rate']))
             
+            # Auto-sweep updates
+            if 'auto_sweep_enabled' in request.data:
+                settings.auto_sweep_enabled = request.data['auto_sweep_enabled']
+            if 'auto_sweep_btc_address' in request.data:
+                settings.auto_sweep_btc_address = request.data['auto_sweep_btc_address']
+            if 'auto_sweep_xmr_address' in request.data:
+                settings.auto_sweep_xmr_address = request.data['auto_sweep_xmr_address']
+            if 'auto_sweep_time' in request.data:
+                settings.auto_sweep_time = request.data['auto_sweep_time']
+            if 'auto_sweep_whatsapp_number' in request.data:
+                settings.auto_sweep_whatsapp_number = request.data['auto_sweep_whatsapp_number']
+            if 'auto_sweep_min_buffer' in request.data:
+                settings.auto_sweep_min_buffer = Decimal(str(request.data['auto_sweep_min_buffer']))
+            
             settings.save()
             
             logger.info(f"Commission settings updated by {request.user.username}")
@@ -86,6 +108,12 @@ class CommissionSettingsView(APIView):
                     'default_commission_rate': float(settings.default_commission_rate),
                     'min_commission_rate': float(settings.min_commission_rate),
                     'max_commission_rate': float(settings.max_commission_rate),
+                    'auto_sweep_enabled': settings.auto_sweep_enabled,
+                    'auto_sweep_btc_address': settings.auto_sweep_btc_address,
+                    'auto_sweep_xmr_address': settings.auto_sweep_xmr_address,
+                    'auto_sweep_time': settings.auto_sweep_time.strftime('%H:%M'),
+                    'auto_sweep_whatsapp_number': settings.auto_sweep_whatsapp_number,
+                    'auto_sweep_min_buffer': float(settings.auto_sweep_min_buffer),
                     'updated_at': settings.updated_at.isoformat(),
                 }
             }, status=status.HTTP_200_OK)
@@ -161,6 +189,10 @@ class CommissionHistoryView(APIView):
             total_earnings_usd = Decimal('0')
             total_sales_vol_usd = Decimal('0')
             total_commissions_usd = Decimal('0')
+            total_withdrawn_usd = Decimal('0')
+            
+            from .models import AdminWithdrawal
+            withdrawals = AdminWithdrawal.objects.all()
             
             # Get dynamic settings
             settings = CommissionSettings.get_settings()
@@ -177,64 +209,97 @@ class CommissionHistoryView(APIView):
             
             # For breakdown
             breakdown_items = []
-            
-            for crypto in supported_cryptos:
+            platform_commissions_crypto = {crypto.id: Decimal('0') for crypto in supported_cryptos}
+            processed_order_ids = set()
+
+            # 1. Process Payouts (completed)
+            for payout in active_payouts:
+                if payout.order_id and payout.order_id in processed_order_ids:
+                    continue
+                if payout.order_id:
+                    processed_order_ids.add(payout.order_id)
+                
+                crypto = payout.crypto_currency
                 rate = rates.get(crypto.symbol, Decimal('0'))
-                sym = crypto.symbol.upper().strip()
                 
-                # Use iteration instead of simple aggregate to apply estimation logic for total stats
-                p_items = active_payouts.filter(crypto_currency=crypto).values('platform_fee', 'escrow_fee', 'gross_amount', 'vendor_id')
-                d_items = active_directs.filter(crypto_currency=crypto).values('platform_fee', 'escrow_fee', 'amount', 'vendor_id')
+                # Sales volume
+                total_sales_vol_usd += payout.gross_amount * rate
                 
-                curr_fees = Decimal('0')
-                curr_sales = Decimal('0')
+                # Commissions (using recorded platform_fee)
+                total_commissions_usd += payout.platform_fee * rate
+                platform_commissions_crypto[crypto.id] += payout.platform_fee
+
+            # 2. Process Direct Payments (completed)
+            for direct in active_directs:
+                if direct.order_id and direct.order_id in processed_order_ids:
+                    continue
+                if direct.order_id:
+                    processed_order_ids.add(direct.order_id)
+
+                crypto = direct.crypto_currency
+                rate = rates.get(crypto.symbol, Decimal('0'))
                 
-                for item in p_items:
-                    f_plat = item['platform_fee'] or Decimal('0')
-                    f_esc = item['escrow_fee'] or Decimal('0')
-                    s = item['gross_amount'] or Decimal('0')
-                    v_id = item['vendor_id']
-                    
-                    # Get dynamic rates
-                    v_p_override = vendor_fees.get(v_id)
-                    v_p_rate = (v_p_override / Decimal('100')) if v_p_override is not None else global_plat_rate
-                    
-                    # Estimate if zero
-                    if f_plat <= 0 and s > 0: f_plat = s * v_p_rate
-                    if f_esc <= 0 and s > 0: f_esc = s * global_esc_rate
-                    
-                    curr_fees += (f_plat + f_esc)
-                    curr_sales += s
-                    
-                for item in d_items:
-                    f_plat = item['platform_fee'] or Decimal('0')
-                    f_esc = item['escrow_fee'] or Decimal('0')
-                    s = item['amount'] or Decimal('0')
-                    v_id = item['vendor_id']
-                    
-                    # Get dynamic rates
-                    v_p_override = vendor_fees.get(v_id)
-                    v_p_rate = (v_p_override / Decimal('100')) if v_p_override is not None else global_plat_rate
-                    
-                    # Estimate if zero
-                    if f_plat <= 0 and s > 0: f_plat = s * v_p_rate
-                    if f_esc <= 0 and s > 0: f_esc = s * global_esc_rate
-                    
-                    curr_fees += (f_plat + f_esc)
-                    curr_sales += s
+                # Sales volume
+                total_sales_vol_usd += direct.amount * rate
                 
-                if curr_sales > 0 or curr_fees > 0:
-                    total_earnings_usd += curr_fees * rate
-                    total_sales_vol_usd += curr_sales * rate
-                    total_commissions_usd += curr_fees * rate
-                    
-                    breakdown_items.append(f"{curr_fees.normalize()} {crypto.symbol}")
+                # Commissions logic fix:
+                # Use vendor-specific rate if available, otherwise global defaults
+                v_id = direct.vendor_id
+                v_rate_override = vendor_fees.get(v_id)
+                
+                if v_rate_override is not None:
+                    # User said they saved 9%, so we use that directly
+                    final_rate_pct = Decimal(str(v_rate_override))
+                else:
+                    # Default is Platform + Escrow combined
+                    final_rate_pct = (global_plat_rate + global_esc_rate) * Decimal('100')
+                
+                comm_amount = (direct.amount * final_rate_pct) / Decimal('100')
+                total_commissions_usd += comm_amount * rate
+                platform_commissions_crypto[crypto.id] += comm_amount
+            
+            # Update breakdown_items based on commissions
+            for crypto in supported_cryptos:
+                if platform_commissions_crypto[crypto.id] > 0:
+                    breakdown_items.append(f"{platform_commissions_crypto[crypto.id].normalize()} {crypto.symbol}")
+
+            # 3. Calculate Pending Obligations (Money in wallet that belongs to vendors)
+            from .models import Payout
+            pending_payouts = Payout.objects.filter(status__in=['pending', 'failed'])
+            pending_obligations_usd = Decimal('0')
+            for p in pending_payouts:
+                p_rate = rates.get(p.crypto_currency.symbol, Decimal('0'))
+                pending_obligations_usd += p.net_amount * p_rate
+
+            # 4. Calculate Total Manual Withdrawals
+            for w in withdrawals:
+                w_rate = rates.get(w.crypto_currency.symbol, Decimal('0'))
+                total_withdrawn_usd += w.amount * w_rate
+
+            # 5. Fetch Real-time Wallet Balances
+            wallet_balances = ps.get_realtime_balances()
+            btc_wallet = wallet_balances.get('BTC', Decimal('0'))
+            xmr_wallet = wallet_balances.get('XMR', Decimal('0'))
+            
+            wallet_total_usd = (btc_wallet * rates.get('BTC', Decimal('0'))) + (xmr_wallet * rates.get('XMR', Decimal('0')))
+            
+            # Available Profit (Net) = Total Wallet - Vendor Obligations
+            # (Admin withdrawals already reduced the wallet total)
+            available_profit_usd = max(Decimal('0'), wallet_total_usd - pending_obligations_usd)
+            
+            # Lifetime Earnings = Available Profit + Current Obligations (that are actually commissions) + Everything ever withdrawn
+            # But let's keep it simple: "Total Commissions" = Lifetime processed commissions
             
             stats = {
-                'total_earnings_usd': float(total_earnings_usd),
+                'total_earnings_usd': float(total_commissions_usd), # Lifetime Earnings
                 'total_sales_vol': float(total_sales_vol_usd), 
-                'total_commissions': float(total_commissions_usd),
-                'commissions_breakdown': ", ".join(breakdown_items) if breakdown_items else "0"
+                'total_commissions': float(available_profit_usd), # Available to withdraw now
+                'commissions_breakdown': f"{btc_wallet.normalize()} BTC, {xmr_wallet.normalize()} XMR",
+                'realtime_btc': float(btc_wallet),
+                'realtime_xmr': float(xmr_wallet),
+                'pending_obligations_usd': float(pending_obligations_usd),
+                'total_withdrawn_usd': float(total_withdrawn_usd),
+                'sales_volume_explanation': "Gross Sales Volume (GMV) of all completed orders across the platform."
             }
 
             if mode == 'detailed':
@@ -282,9 +347,10 @@ class CommissionHistoryView(APIView):
                         'total_sales': f"{gross:.8f} {sym}",
                         'commission_rate': f"{rate:.2f}%",
                         'platform_earnings': f"{fee:.8f} {sym}",
-                        'vendor_earnings': f"{net:.8f} {sym}",
+                        'vendor_earnings': f"-{net:.8f} {sym}",
                         'status': p['status'].replace('_', ' ').title(),
-                        'sort_date': p['created_at']
+                        'sort_date': p['created_at'],
+                        'is_payout': True
                     })
                 
                 # 2. Direct transactions (Only those not in payouts)
@@ -303,23 +369,20 @@ class CommissionHistoryView(APIView):
                     sym = d['crypto_currency__symbol']
                     v_id = d['vendor__id']
                     
-                    # Get dynamic rates
+                    # Commissions logic fix:
+                    # Use vendor-specific rate if available, otherwise global defaults
                     v_p_override = vendor_fees.get(v_id)
-                    v_p_rate = (v_p_override / Decimal('100')) if v_p_override is not None else global_plat_rate
                     
-                    # Force calculation for display if zero
-                    if f_plat <= 0 and amount > 0: f_plat = amount * v_p_rate
-                    if f_esc <= 0 and amount > 0: f_esc = amount * global_esc_rate
-                    
-                    fee = f_plat + f_esc
-                    
-                    if net <= 0 and amount > 0:
-                        nw_fee = Decimal('0.0000025') if sym == 'BTC' else Decimal('0.0001')
-                        net = amount - fee - nw_fee
-                        if net < 0: net = Decimal('0')
+                    if v_p_override is not None:
+                        # User said they saved 9%, so we use that directly for EVERYTHING (no extra escrow fee)
+                        v_rate_pct = Decimal(str(v_p_override))
+                        fee = (amount * v_rate_pct) / Decimal('100')
+                    else:
+                        # Fallback to Platform + Escrow combined
+                        total_rate_pct = (global_plat_rate + global_esc_rate) * Decimal('100')
+                        fee = (amount * total_rate_pct) / Decimal('100')
                         
                     rate = (fee / amount * 100) if amount > 0 else Decimal('0')
-                    
                     transaction_history.append({
                         'date': d['created_at'].isoformat(),
                         'order_id': d['order__order_id'],
@@ -328,9 +391,29 @@ class CommissionHistoryView(APIView):
                         'total_sales': f"{amount:.8f} {sym}",
                         'commission_rate': f"{rate:.2f}%",
                         'platform_earnings': f"{fee:.8f} {sym}",
-                        'vendor_earnings': f"{net:.8f} {sym}",
+                        'vendor_earnings': f"-{net:.8f} {sym}", # Show as negative/deduction for clarity
                         'status': d['status'].replace('_', ' ').title(),
-                        'sort_date': d['created_at']
+                        'sort_date': d['created_at'],
+                        'is_payout': True 
+                    })
+                    
+                # 3. Manual Withdrawals (Admin)
+                for w in withdrawals:
+                    sym = w.crypto_currency.symbol
+                    transaction_history.append({
+                        'date': w.created_at.isoformat(),
+                        'order_id': 'WITHDRAWAL',
+                        'vendor': f"Internal ({w.admin.username})",
+                        'type': 'Manual Withdrawal',
+                        'total_sales': f"-{w.amount:.8f} {sym}",
+                        'commission_rate': 'N/A',
+                        'platform_earnings': f"-{w.amount:.8f} {sym}",
+                        'vendor_earnings': f"0.00 {sym}",
+                        'status': 'Withdrawal Logged',
+                        'sort_date': w.created_at,
+                        'ip_address': w.ip_address,
+                        'notes': w.notes,
+                        'is_withdrawal': True
                     })
 
                 # Sort by date
@@ -387,16 +470,19 @@ class CommissionHistoryView(APIView):
                     net = item['net_amount'] or Decimal('0')
                     v_id = item['vendor__id']
                     
-                    # Get dynamic rates
+                    # Commissions logic fix
                     v_p_override = vendor_fees.get(v_id)
-                    v_p_rate = (v_p_override / Decimal('100')) if v_p_override is not None else global_plat_rate
+                    if v_p_override is not None:
+                        # User said they saved 9%, so we use that directly for EVERYTHING
+                        v_rate_pct = Decimal(str(v_p_override))
+                        fee = (sales * v_rate_pct) / Decimal('100')
+                    else:
+                        # Fallback to Platform + Escrow combined
+                        total_rate_pct = (global_plat_rate + global_esc_rate) * Decimal('100')
+                        fee = (sales * total_rate_pct) / Decimal('100')
                     
-                    # Estimate if zero
-                    if f_plat <= 0 and sales > 0: f_plat = sales * v_p_rate
-                    if f_esc <= 0 and sales > 0: f_esc = sales * global_esc_rate
-                    
-                    fee = f_plat + f_esc
-                    if net <= 0 and sales > 0: net = sales - fee - Decimal('0.0000025')
+                    if net <= 0 and sales > 0: 
+                        net = sales - fee - Decimal('0.0000025')
                     if net < 0: net = Decimal('0')
                     
                     if key not in merged_data:
@@ -415,16 +501,19 @@ class CommissionHistoryView(APIView):
                     net = item['net_amount'] or Decimal('0')
                     v_id = item['vendor__id']
                     
-                    # Get dynamic rates
+                    # Commissions logic fix
                     v_p_override = vendor_fees.get(v_id)
-                    v_p_rate = (v_p_override / Decimal('100')) if v_p_override is not None else global_plat_rate
+                    if v_p_override is not None:
+                        # User said they saved 9%, so we use that directly for EVERYTHING
+                        v_rate_pct = Decimal(str(v_p_override))
+                        fee = (sales * v_rate_pct) / Decimal('100')
+                    else:
+                        # Fallback to Platform + Escrow combined
+                        total_rate_pct = (global_plat_rate + global_esc_rate) * Decimal('100')
+                        fee = (sales * total_rate_pct) / Decimal('100')
                     
-                    # Estimate if zero
-                    if f_plat <= 0 and sales > 0: f_plat = sales * v_p_rate
-                    if f_esc <= 0 and sales > 0: f_esc = sales * global_esc_rate
-                    
-                    fee = f_plat + f_esc
-                    if net <= 0 and sales > 0: net = sales - fee - Decimal('0.0000025')
+                    if net <= 0 and sales > 0: 
+                        net = sales - fee - Decimal('0.0000025')
                     if net < 0: net = Decimal('0')
                     
                     if key not in merged_data:
@@ -708,5 +797,110 @@ class VendorMyFeeView(APIView):
             return Response({
                 'success': False,
                 'error': f'Failed to fetch vendor fee: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class AdminWithdrawalLookupView(APIView):
+    """Lookup data for admin withdrawals"""
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    
+    def get(self, request):
+        cryptos = CryptoCurrency.objects.filter(is_active=True)
+        return Response({
+            'success': True,
+            'cryptos': [{'id': str(c.id), 'symbol': c.symbol, 'name': c.name} for c in cryptos]
+        })
+
+class AdminWithdrawalView(APIView):
+    """Log a manual withdrawal of platform earnings by an admin"""
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    
+    def post(self, request):
+        try:
+            data = request.data
+            amount = data.get('amount')
+            crypto_symbol = data.get('crypto_currency') 
+            destination = data.get('destination_address')
+            notes = data.get('notes', '')
+            password = data.get('password')
+            
+            # 1. SECURITY: Check password
+            if not password:
+                return Response({'success': False, 'error': 'Password is required for authorization'}, status=401)
+            
+            if not request.user.check_password(password):
+                return Response({'success': False, 'error': 'Invalid admin password'}, status=401)
+
+            if not all([amount, crypto_symbol, destination]):
+                return Response({
+                    'success': False,
+                    'error': 'Amount, cryptocurrency, and destination address are required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            try:
+                crypto = CryptoCurrency.objects.get(symbol=crypto_symbol)
+            except CryptoCurrency.DoesNotExist:
+                return Response({'success': False, 'error': 'Invalid crypto currency'}, status=400)
+            
+            # 2. PERFORM BROADCAST
+            from .services import PaymentService
+            payment_service = PaymentService()
+            
+            actual_tx_hash = None
+            
+            if crypto_symbol == 'BTC':
+                payout_data = {
+                    'destination': destination,
+                    'amount': str(amount)
+                }
+                result = payment_service.btcpay.create_payout(payout_data)
+                if result and result.get('transactionHash'):
+                    actual_tx_hash = result.get('transactionHash')
+                else:
+                    return Response({
+                        'success': False, 
+                        'error': 'BTCPay failed to broadcast transaction. This may be due to insufficient balance or connection issues.'
+                    }, status=400)
+            
+            elif crypto_symbol == 'XMR':
+                # Convert amount to atomic units (10^12)
+                atomic_amount = int(Decimal(str(amount)) * Decimal('1000000000000'))
+                destinations = [{'address': destination, 'amount': atomic_amount}]
+                result = payment_service.monero.send_transaction(destinations)
+                if result and result.get('tx_hash'):
+                    actual_tx_hash = result.get('tx_hash')
+                else:
+                    return Response({
+                        'success': False, 
+                        'error': 'Monero RPC failed to broadcast transaction. Ensure the wallet is unlocked and has sufficient balance.'
+                    }, status=400)
+            else:
+                return Response({'success': False, 'error': f'Withdrawals for {crypto_symbol} are not implemented yet'}, status=400)
+            
+            # 3. LOG SUCCESSFUL WITHDRAWAL
+            withdrawal = AdminWithdrawal.objects.create(
+                admin=request.user,
+                amount=Decimal(str(amount)),
+                crypto_currency=crypto,
+                ip_address=get_client_ip(request),
+                transaction_hash=actual_tx_hash,
+                destination_address=destination,
+                notes=notes,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+            
+            logger.info(f"ADMIN WITHDRAWAL: {request.user.username} SENT {amount} {crypto.symbol} to {destination}. TX: {actual_tx_hash}")
+            
+            return Response({
+                'success': True,
+                'message': f'Funds sent successfully! TX: {actual_tx_hash}',
+                'tx_hash': actual_tx_hash,
+                'withdrawal_id': str(withdrawal.id)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error processing admin withdrawal: {e}")
+            return Response({
+                'success': False,
+                'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

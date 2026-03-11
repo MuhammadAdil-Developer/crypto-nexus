@@ -67,6 +67,37 @@ class CommissionSettings(models.Model):
         help_text="Maximum allowed commission rate (%)"
     )
     
+    # Auto-sweep configuration (Cold Storage / Profit Forwarding)
+    auto_sweep_enabled = models.BooleanField(
+        default=False, 
+        help_text="Automatically forward platform profits to personal wallets"
+    )
+    auto_sweep_btc_address = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="Personal BTC address for auto-sweep"
+    )
+    auto_sweep_xmr_address = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="Personal XMR address for auto-sweep"
+    )
+    auto_sweep_time = models.TimeField(
+        default="17:00", 
+        help_text="Daily time to perform the sweep (Local time)"
+    )
+    auto_sweep_whatsapp_number = models.CharField(
+        max_length=20, 
+        default="+923188802535", 
+        help_text="WhatsApp number for notifications"
+    )
+    auto_sweep_min_buffer = models.DecimalField(
+        max_digits=20, 
+        decimal_places=8, 
+        default=0.00005, 
+        help_text="Minimum BTC buffer to keep in hot wallet for fees"
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

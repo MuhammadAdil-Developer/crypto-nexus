@@ -231,39 +231,57 @@ export default function AdminSecurity() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {logs.map((log: any) => (
-                      <tr key={log.id} className="hover:bg-surface-2/50">
-                        <td className="p-4">
-                          <div className="flex items-center">
-                            {log.activity_type === "login_failed" && <AlertTriangle className="w-4 h-4 text-danger mr-2" />}
-                            {log.activity_type === "login" && <Users className="w-4 h-4 text-success mr-2" />}
-                            {log.activity_type === "password_changed" && <Key className="w-4 h-4 text-accent mr-2" />}
-                            <span className="text-white">{log.activity_display}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-accent text-sm">{log.username?.[0]?.toUpperCase() || '?'}</span>
+                    {loading ? (
+                      [...Array(5)].map((_, idx) => (
+                        <tr key={idx} className="animate-pulse border-b border-border/50">
+                          <td className="p-4"><div className="h-4 bg-gray-700/50 rounded w-24"></div></td>
+                          <td className="p-4">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-gray-700/50 rounded-full mr-3"></div>
+                              <div className="h-4 bg-gray-700/50 rounded w-20"></div>
                             </div>
-                            <span className="text-white">{log.username || 'System/Guest'}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-mono text-gray-300">{log.ip_address || 'Internal'}</span>
-                        </td>
-                        <td className="p-4 text-gray-300 max-w-[200px] truncate" title={log.user_agent}>{log.user_agent || 'N/A'}</td>
-                        <td className="p-4">
-                          <StatusBadge status={getStatusLabel(log.activity_type)} type={getStatusType(log.activity_type)} />
-                        </td>
-                        <td className="p-4 text-gray-300">{new Date(log.created_at).toLocaleString()}</td>
-                        <td className="p-4">
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-4"><div className="h-4 bg-gray-700/50 rounded w-28"></div></td>
+                          <td className="p-4"><div className="h-4 bg-gray-700/50 rounded w-32"></div></td>
+                          <td className="p-4"><div className="h-6 bg-gray-700/50 rounded-full w-20"></div></td>
+                          <td className="p-4"><div className="h-4 bg-gray-700/50 rounded w-24"></div></td>
+                          <td className="p-4"><div className="w-8 h-8 bg-gray-700/50 rounded"></div></td>
+                        </tr>
+                      ))
+                    ) : (
+                      logs.map((log: any) => (
+                        <tr key={log.id} className="hover:bg-surface-2/50">
+                          <td className="p-4">
+                            <div className="flex items-center">
+                              {log.activity_type === "login_failed" && <AlertTriangle className="w-4 h-4 text-danger mr-2" />}
+                              {log.activity_type === "login" && <Users className="w-4 h-4 text-success mr-2" />}
+                              {log.activity_type === "password_changed" && <Key className="w-4 h-4 text-accent mr-2" />}
+                              <span className="text-white">{log.activity_display}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center mr-3">
+                                <span className="text-accent text-sm">{log.username?.[0]?.toUpperCase() || '?'}</span>
+                              </div>
+                              <span className="text-white">{log.username || 'System/Guest'}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-mono text-gray-300">{log.ip_address || 'Internal'}</span>
+                          </td>
+                          <td className="p-4 text-gray-300 max-w-[200px] truncate" title={log.user_agent}>{log.user_agent || 'N/A'}</td>
+                          <td className="p-4">
+                            <StatusBadge status={getStatusLabel(log.activity_type)} type={getStatusType(log.activity_type)} />
+                          </td>
+                          <td className="p-4 text-gray-300">{new Date(log.created_at).toLocaleString()}</td>
+                          <td className="p-4">
+                            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )))}
                     {logs.length === 0 && !loading && (
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-gray-400">No security logs found.</td>

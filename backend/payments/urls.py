@@ -28,7 +28,7 @@ from .views import (
     AdminManualPayoutLookupsView,
     AdminOrderPayoutDetailsView,
 )
-from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView
+from .commission_views import CommissionSettingsView, CommissionHistoryView, VendorFeesView, VendorMyFeeView, AdminWithdrawalView, AdminWithdrawalLookupView
 
 urlpatterns = [
     # Admin endpoints for refunds
@@ -89,4 +89,8 @@ urlpatterns = [
     path('admin/commission-history/', CommissionHistoryView.as_view(), name='commission_history'),
     path('admin/vendor-fees/', VendorFeesView.as_view(), name='vendor_fees'),
     path('vendor/my-fee/', VendorMyFeeView.as_view(), name='vendor_my_fee'),
+    
+    # Manual earnings withdrawal
+    path('admin/manual-withdrawal/', AdminWithdrawalView.as_view(), name='admin_manual_withdrawal'),
+    path('admin/manual-withdrawal/lookups/', AdminWithdrawalLookupView.as_view(), name='admin_withdrawal_lookups'),
 ]

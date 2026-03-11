@@ -195,11 +195,12 @@ class Product(BaseModel):
             return False
             
         # Get or create view record (unique per user per product)
+        from shared.utils import get_client_ip
         view, created = ProductView.objects.get_or_create(
             product=self,
             user=user,
             defaults={
-                'ip_address': request.META.get('REMOTE_ADDR') if request else None,
+                'ip_address': get_client_ip(request) if request else None,
                 'user_agent': request.META.get('HTTP_USER_AGENT', '') if request else '',
             }
         )

@@ -424,3 +424,28 @@ class BlockchainTransaction(BaseModel):
 
     def __str__(self):
         return f"TX {self.transaction_hash[:8]}... - {self.amount}" 
+
+class AdminWithdrawal(BaseModel):
+    """Model for tracking manual withdrawals of platform earnings by admins"""
+    admin = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='admin_withdrawals')
+    amount = models.DecimalField(max_digits=20, decimal_places=8)
+    crypto_currency = models.ForeignKey(CryptoCurrency, on_delete=models.CASCADE)
+    
+    # Audit info
+    ip_address = models.GenericIPAddressField()
+    transaction_hash = models.CharField(max_length=255, blank=True, null=True)
+    destination_address = models.CharField(max_length=255)
+    notes = models.TextField(blank=True)
+    
+    # Metadata for safety
+    user_agent = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'admin_withdrawals'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['admin', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"Withdrawal by {self.admin.username} - {self.amount} {self.crypto_currency.symbol}"

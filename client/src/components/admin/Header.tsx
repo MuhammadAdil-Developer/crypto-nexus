@@ -326,6 +326,16 @@ export function Header({ breadcrumbs, sidebarOpen, setSidebarOpen }: HeaderProps
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hover:text-blue-400 transition-colors hidden md:inline-flex"
+            onClick={() => navigate('/admin/security')}
+            title="Security Events"
+          >
+            <Shield className="w-4 h-4 md:w-5 md:h-5" />
+          </Button>
+
           {/* Settings */}
           <Button
             variant="ghost"

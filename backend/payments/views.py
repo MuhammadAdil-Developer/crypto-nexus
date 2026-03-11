@@ -573,7 +573,14 @@ class AdminEarningsAnalyticsView(APIView):
             
             # Use same statuses as CommissionHistoryView
             active_payouts = Payout.objects.filter(status__in=['completed', 'processing'])
-            active_directs = DirectPayment.objects.filter(status__in=['completed', 'confirmed', 'paid'])
+            payout_order_ids = active_payouts.exclude(order_id__isnull=True).values_list('order_id', flat=True)
+            active_directs = DirectPayment.objects.filter(status__in=['completed', 'confirmed', 'paid']).exclude(order_id__in=payout_order_ids)
+            
+            from .models import AdminWithdrawal
+            withdrawals = AdminWithdrawal.objects.all()
+            total_withdrawn = {'BTC': Decimal('0'), 'XMR': Decimal('0')}
+            for w in withdrawals:
+                total_withdrawn[w.crypto_currency.symbol] += w.amount
             
             # Exchange Rates (Live)
             rates = {}
@@ -584,6 +591,7 @@ class AdminEarningsAnalyticsView(APIView):
             profits = {'BTC': Decimal('0'), 'XMR': Decimal('0')}
             sales_vol = {'BTC': Decimal('0'), 'XMR': Decimal('0')}
             total_orders = active_payouts.count() + active_directs.count()
+            processed_order_ids = set()
 
             # Get dynamic settings
             settings = CommissionSettings.get_settings()
@@ -594,8 +602,13 @@ class AdminEarningsAnalyticsView(APIView):
 
             # 1. Calculate base metrics using same estimation logic
             vendor_agg = {}
-            p_items = active_payouts.values('platform_fee', 'escrow_fee', 'gross_amount', 'crypto_currency__symbol', 'vendor_id', 'vendor__username')
+            p_items = active_payouts.values('platform_fee', 'escrow_fee', 'gross_amount', 'crypto_currency__symbol', 'vendor_id', 'vendor__username', 'order__order_id')
             for item in p_items:
+                if item['order__order_id'] and item['order__order_id'] in processed_order_ids:
+                    continue
+                if item['order__order_id']:
+                    processed_order_ids.add(item['order__order_id'])
+
                 sym = (item['crypto_currency__symbol'] or 'BTC').upper().strip()
                 if sym in ['BITCOIN']: sym = 'BTC'
                 if sym in ['XMR', 'MONERO']: sym = 'XMR'
@@ -623,8 +636,13 @@ class AdminEarningsAnalyticsView(APIView):
                 vendor_agg[v_id]['earned_usd'] += fee_usd
                 vendor_agg[v_id]['orders'] += 1
 
-            d_items = active_directs.values('platform_fee', 'escrow_fee', 'amount', 'crypto_currency__symbol', 'vendor_id', 'vendor__username')
+            d_items = active_directs.values('platform_fee', 'escrow_fee', 'amount', 'crypto_currency__symbol', 'vendor_id', 'vendor__username', 'order_id')
             for item in d_items:
+                if item['order_id'] and item['order_id'] in processed_order_ids:
+                    continue
+                if item['order_id']:
+                    processed_order_ids.add(item['order_id'])
+
                 sym = (item['crypto_currency__symbol'] or 'BTC').upper().strip()
                 if sym in ['BITCOIN']: sym = 'BTC'
                 if sym in ['XMR', 'MONERO']: sym = 'XMR'

@@ -190,7 +190,9 @@ def user_login(request):
         # Always require CAPTCHA for login (client requirement)
         captcha_token = request_data.get('captcha_token')
         username = request_data.get('username', '')
-        client_ip = request.META.get('REMOTE_ADDR', '')
+        
+        from shared.utils import get_client_ip
+        client_ip = get_client_ip(request) or ''
         
         # Check failed login attempts
         from django.core.cache import cache
@@ -727,11 +729,11 @@ def user_detail(request, user_id):
         
         # Calculate Total Orders (as buyer)
         user_orders = Order.objects.filter(buyer=user)
-        user_data['total_orders'] = user_orders.count()
         
         # Calculate Total Spent (BTC)
         # We only count orders that are not cancelled
         valid_orders = user_orders.exclude(order_status='cancelled')
+        user_data['total_orders'] = valid_orders.count()
         
         total_spent_btc = 0.0
         
@@ -1097,8 +1099,8 @@ def list_users(request):
         
         # Build queryset with optimized order counts
         queryset = User.objects.filter(is_deleted=False).annotate(
-            buyer_order_count=Count('buyer_orders', distinct=True),
-            vendor_order_count=Count('vendor_orders_new', distinct=True)
+            buyer_order_count=Count('buyer_orders', filter=~Q(buyer_orders__order_status='cancelled'), distinct=True),
+            vendor_order_count=Count('vendor_orders_new', filter=~Q(vendor_orders_new__order_status='cancelled'), distinct=True)
         )
         
         # Apply filters

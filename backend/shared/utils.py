@@ -7,6 +7,25 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+def get_client_ip(request):
+    """
+    Get the real client IP address from the request.
+    Respects Cloudflare and standard proxy headers before falling back to REMOTE_ADDR.
+    """
+    if not request:
+        return None
+        
+    cf_ip = request.META.get('HTTP_CF_CONNECTING_IP')
+    if cf_ip:
+        return cf_ip
+
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+        
+    return request.META.get('REMOTE_ADDR')
+
+
 def clean_crypto_address(address):
     """Strip URI prefixes and query params from crypto addresses"""
     if not address:
@@ -102,7 +121,7 @@ def log_user_activity(user, activity_type, description, request=None, metadata=N
                     user=user,
                     activity_type=activity_type,
                     description=description,
-                    ip_address=request.META.get('REMOTE_ADDR') if request else None,
+                    ip_address=get_client_ip(request),
                     user_agent=request.META.get('HTTP_USER_AGENT', '') if request else '',
                     metadata=metadata or {}
                 )

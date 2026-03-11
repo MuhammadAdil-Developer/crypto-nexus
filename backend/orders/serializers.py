@@ -106,7 +106,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 
                 # Calculate total sales from COMPLETED ORDERS (not product count)
                 # Include both regular and giveaway orders - giveaway orders are marked as 'paid' immediately
-                vendor_orders = Order.objects.filter(product__vendor=obj.vendor)
+                vendor_orders = Order.objects.filter(product__vendor=obj.vendor).exclude(order_status='cancelled')
                 total_orders = vendor_orders.count()
                 # Count all completed orders including giveaways (which have 'paid' status)
                 completed_orders = vendor_orders.filter(

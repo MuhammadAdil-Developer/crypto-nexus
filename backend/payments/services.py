@@ -60,7 +60,7 @@ def get_btc_fee_rate_sat_per_vb() -> Optional[int]:
         cache.set(cache_key, sat_per_vb, 300) # Buffer for 5 minutes
         return sat_per_vb
     except Exception as e:
-        logger.error(f"❌ CRITICAL: Failed to fetch BTC fee rate from mempool.space: {e}")
+        logger.error(f"CRITICAL: Failed to fetch BTC fee rate from mempool.space: {e}")
         return None
 
 
@@ -773,6 +773,33 @@ class PaymentService:
         return {
             'BTC': btc_fee,
             'XMR': xmr_fee
+        }
+
+    def get_realtime_balances(self):
+        """Fetch current wallet balances from BTCPay and Monero RPC"""
+        btc_balance = Decimal('0')
+        xmr_balance = Decimal('0')
+        
+        # 1. BTC Balance
+        try:
+            btc_data = self.btcpay.get_wallet_balance()
+            if btc_data and 'balance' in btc_data:
+                btc_balance = Decimal(str(btc_data['balance']))
+        except Exception as e:
+            logger.error(f"Error fetching real-time BTC balance: {e}")
+
+        # 2. XMR Balance
+        try:
+            xmr_data = self.monero.get_balance()
+            if xmr_data and 'balance' in xmr_data:
+                # Monero returns balance in atomic units (10^12)
+                xmr_balance = Decimal(str(xmr_data['balance'])) / Decimal('1000000000000')
+        except Exception as e:
+            logger.error(f"Error fetching real-time XMR balance: {e}")
+            
+        return {
+            'BTC': btc_balance,
+            'XMR': xmr_balance
         }
 
     _rates_cache = {}

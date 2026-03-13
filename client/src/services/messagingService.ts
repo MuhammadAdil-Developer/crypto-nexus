@@ -375,7 +375,7 @@ class MessagingService {
     this.conversationId = null;
   }
 
-  async sendMessage(message: string, conversationId?: string, attachment?: File): Promise<any> {
+  async sendMessage(message: string, conversationId?: string, attachment?: File, replyToId?: string): Promise<any> {
     const convId = conversationId || this.conversationId;
 
     if (!convId) {
@@ -384,10 +384,10 @@ class MessagingService {
 
     // Always use REST API - WebSocket will deliver the message in real-time
     // This ensures no duplicate messages and simpler logic
-    return await this.sendMessageViaAPI(convId, message, attachment);
+    return await this.sendMessageViaAPI(convId, message, attachment, undefined, replyToId);
   }
 
-  async sendMessageViaAPI(conversationId: string, content: string, attachment?: File, onProgress?: (progress: number) => void): Promise<any> {
+  async sendMessageViaAPI(conversationId: string, content: string, attachment?: File, onProgress?: (progress: number) => void, replyToId?: string): Promise<any> {
     const token = localStorage.getItem('accessToken');
     const conversationIdStr = String(conversationId);
 
@@ -397,6 +397,9 @@ class MessagingService {
       formData.append('conversation', conversationIdStr);
       formData.append('content', content || '');
       formData.append('attachment', attachment);
+      if (replyToId) {
+        formData.append('reply_to', replyToId);
+      }
 
       // Use XMLHttpRequest for progress tracking
       return new Promise((resolve, reject) => {
@@ -440,11 +443,15 @@ class MessagingService {
       });
     } else {
       // Regular JSON payload for text messages
-      const payload = {
+      const payload: any = {
         conversation: conversationIdStr,
         content: content,
         message_type: 'text',
       };
+
+      if (replyToId) {
+        payload.reply_to = replyToId;
+      }
 
       const response = await fetch(`${API_BASE_URL}/messaging/conversations/${conversationIdStr}/messages/`, {
         method: 'POST',
@@ -465,8 +472,8 @@ class MessagingService {
     }
   }
 
-  async sendMessageWithAttachment(conversationId: string, content: string, attachment: File, onProgress?: (progress: number) => void): Promise<any> {
-    return await this.sendMessageViaAPI(conversationId, content, attachment, onProgress);
+  async sendMessageWithAttachment(conversationId: string, content: string, attachment: File, onProgress?: (progress: number) => void, replyToId?: string): Promise<any> {
+    return await this.sendMessageViaAPI(conversationId, content, attachment, onProgress, replyToId);
   }
 
   async blockUser(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {

@@ -1057,12 +1057,13 @@ export default function VendorMessages() {
           selectedConversation.id,
           messageText,
           fileToSend,
-          (progress) => setUploadProgress(progress)
+          (progress) => setUploadProgress(progress),
+          replyToMessage?.id
         );
         setIsUploading(false);
         setUploadProgress(0);
       } else {
-        response = await messagingService.sendMessage(messageText, selectedConversation.id);
+        response = await messagingService.sendMessage(messageText, selectedConversation.id, undefined, replyToMessage?.id);
       }
 
       // Immediately show message to sender (will be replaced by WebSocket if duplicate)
@@ -1558,34 +1559,22 @@ export default function VendorMessages() {
                 ) : (
                   <div className="space-y-4 flex-1 overflow-y-auto scroll-smooth custom-scrollbar pr-2" style={{ scrollBehavior: 'smooth' }} onScroll={handleScroll}>
                     {messages.map((message) => {
-                      // Improved sender detection logic
-                      let isOwnMessage = false;
-
-                      // Get current user info
-                      const userStr = localStorage.getItem('user');
+                      // Improved sender detection logic (Strict Version)
+                      const currentUserStr = localStorage.getItem('user');
                       let currentUser = null;
-                      if (userStr) {
+                      if (currentUserStr) {
                         try {
-                          currentUser = JSON.parse(userStr);
-                        } catch (error) {
-                          console.error('Error parsing user data:', error);
-                        }
+                          currentUser = JSON.parse(currentUserStr);
+                        } catch (e) {}
                       }
 
-                      // Method 1: Direct ID comparison (most reliable)
-                      if (currentUserId && message.sender?.id) {
-                        isOwnMessage = String(message.sender.id) === String(currentUserId);
-                      }
+                      const isOwnMessage = !!(
+                        (currentUserId && message.sender?.id && String(message.sender.id) === String(currentUserId)) ||
+                        (currentUser?.id && message.sender?.id && String(message.sender.id) === String(currentUser.id)) ||
+                        (currentUser?.username && message.sender?.username && message.sender.username === currentUser.username)
+                      );
 
-                      // Method 2: Username comparison (fallback)
-                      if (!isOwnMessage && currentUser && message.sender?.username) {
-                        isOwnMessage = message.sender.username === currentUser.username;
-                      }
 
-                      // Method 3: Check if sender ID matches current user ID from localStorage
-                      if (!isOwnMessage && currentUser && message.sender?.id) {
-                        isOwnMessage = String(message.sender.id) === String(currentUser.id);
-                      }
 
                       // Special handling for product reference messages
                       if (message.message_type === 'product_reference') {
@@ -1634,7 +1623,36 @@ export default function VendorMessages() {
                         );
                       }
 
-                      // Handle different message types
+                      // Handle different message types (WhatsApp-style)
+                      const renderReplyPreview = (details: any) => {
+                        if (!details) return null;
+                        return (
+                          <div 
+                            className={`mb-2 p-2 rounded-lg border-l-4 ${isOwnMessage ? 'bg-black/20 border-blue-300' : 'bg-white/5 border-purple-500'} text-xs cursor-pointer opacity-90 hover:opacity-100 transition-opacity`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const el = document.getElementById(`msg-${details.id}`);
+                              if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                el.classList.add('animate-pulse-purple');
+                                setTimeout(() => el.classList.remove('animate-pulse-purple'), 2000);
+                              }
+                            }}
+                          >
+                            <p className={`font-bold ${isOwnMessage ? 'text-blue-200' : 'text-purple-400'} mb-0.5`}>
+                              {details.sender_username}
+                            </p>
+                            <p className={`truncate ${isOwnMessage ? 'text-blue-50/80' : 'text-gray-300'}`}>
+                               {details.message_type === 'image' ? '📷 Image' : 
+                                details.message_type === 'video' ? '🎥 Video' :
+                                details.message_type === 'pdf' ? '📄 PDF' :
+                                details.message_type === 'file' ? '📎 File' :
+                                details.content}
+                            </p>
+                          </div>
+                        );
+                      };
+
                       const renderMessageContent = () => {
                         const fileUrl = message.attachment_url || message.metadata?.file_url;
 
@@ -1727,6 +1745,7 @@ export default function VendorMessages() {
                             : 'bg-gray-800/80 backdrop-blur-sm text-gray-100 rounded-tl-sm border border-gray-700/50 shadow-black/20'
                             }`}>
 
+                            {message.reply_to_details && renderReplyPreview(message.reply_to_details)}
                             {renderMessageContent()}
 
 
@@ -1748,18 +1767,27 @@ export default function VendorMessages() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="bg-gray-900 border-gray-700 text-white shadow-xl">
-                                  <DropdownMenuItem onClick={() => {
-                                    setEditingMessage(message);
-                                    setEditMessageContent(message.content);
-                                  }}>
-                                    <span className="flex items-center text-sm"><Info className="w-4 h-4 mr-2" /> Edit</span>
+                                  <DropdownMenuItem onClick={() => setReplyToMessage(message)}>
+                                    <span className="flex items-center text-sm"><MessageSquare className="w-4 h-4 mr-2" /> Reply</span>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleReportMessage(message)}>
-                                    <span className="flex items-center text-sm text-yellow-400"><AlertTriangle className="w-4 h-4 mr-2" /> Report</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDeleteMessage(message)}>
-                                    <span className="flex items-center text-sm text-red-400"><Trash2 className="w-4 h-4 mr-2" /> Delete</span>
-                                  </DropdownMenuItem>
+                                  {isOwnMessage && (
+                                    <DropdownMenuItem onClick={() => {
+                                      setEditingMessage(message);
+                                      setEditMessageContent(message.content);
+                                    }}>
+                                      <span className="flex items-center text-sm"><Info className="w-4 h-4 mr-2" /> Edit</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {!isOwnMessage && (
+                                    <DropdownMenuItem onClick={() => handleReportMessage(message)}>
+                                      <span className="flex items-center text-sm text-yellow-400"><AlertTriangle className="w-4 h-4 mr-2" /> Report</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {isOwnMessage && (
+                                    <DropdownMenuItem onClick={() => handleDeleteMessage(message)}>
+                                      <span className="flex items-center text-sm text-red-400"><Trash2 className="w-4 h-4 mr-2" /> Delete</span>
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -1842,19 +1870,26 @@ export default function VendorMessages() {
 
                     {/* Reply Preview */}
                     {replyToMessage && (
-                      <div className="bg-gray-800/80 border-l-4 border-purple-500 rounded-r-xl p-3 flex items-center justify-between animate-in slide-in-from-bottom-2">
-                        <div className="min-w-0">
-                          <p className="text-xs text-purple-400 font-medium mb-0.5">Replying to message</p>
-                          <p className="text-sm text-gray-300 truncate">{replyToMessage.content}</p>
+                      <div className="bg-gray-800/90 backdrop-blur-md border-l-4 border-purple-500 rounded-r-xl p-3 mb-4 shadow-xl animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <MessageSquare className="w-3 h-3 text-purple-400" />
+                              <p className="text-xs font-bold text-purple-400">Replying to {replyToMessage.sender?.username || 'User'}</p>
+                            </div>
+                            <p className="text-sm text-gray-300 truncate">
+                              {replyToMessage.message_type === 'text' ? replyToMessage.content : `[${replyToMessage.message_type}]`}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setReplyToMessage(null)}
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10 rounded-full"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-gray-400 hover:text-white rounded-full"
-                          onClick={() => setReplyToMessage(null)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
                       </div>
                     )}
 

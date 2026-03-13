@@ -6,6 +6,8 @@ from payments.commission_models import CommissionSettings
 from payments.services import PaymentService
 from shared.whatsapp_service import WhatsAppService
 from shared.models import CryptoCurrency
+from decimal import Decimal
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -61,19 +63,36 @@ class Command(BaseCommand):
         active_escrows_sum = EscrowPayment.objects.filter(
             status__in=['active', 'disputed'],
             payment_address__crypto_currency__symbol=symbol
-        ).aggregate(sum=Sum('payment_address__amount'))['sum'] or Decimal('0')
+        ).aggregate(sum=Sum('payment_address__received_amount'))['sum'] or Decimal('0')
         
         total_vendor_obligations = pending_payouts_sum + active_escrows_sum
         
         # 3. Calculate Maximum Safe Available
         # Buffer for transaction fees
-        buffer = settings.auto_sweep_min_buffer if symbol == 'BTC' else Decimal('0.01')
+        buffer = settings.auto_sweep_min_buffer if symbol == 'BTC' else Decimal('0.001')
         
         max_safe_available = max(Decimal('0'), wallet_balance - total_vendor_obligations - buffer)
         
         if max_safe_available <= 0:
-            self.stdout.write(self.style.WARNING(f"Insufficient sweepable balance for {symbol} (Wallet: {wallet_balance}, Owed: {total_vendor_obligations})"))
+            self.stdout.write(self.style.WARNING(f"Insufficient sweepable balance for {symbol} (Wallet: {wallet_balance}, Owed: {total_vendor_obligations}, Buffer: {buffer})"))
             return
+            
+        # 3.5. Ensure Admin profit is at least ~$50
+        # Convert crypto amount to USD dynamically using existing live API fetcher
+        try:
+            usd_rate = ps.get_fiat_to_crypto_rate(symbol, 'USD')
+            usd_value = max_safe_available * usd_rate
+            
+            if usd_value < Decimal('50'):
+                self.stdout.write(self.style.WARNING(
+                    f"Skipping {symbol} sweep: Admin profit is only ${usd_value:.2f} (Minimum required: $50.00)"
+                ))
+                return
+            
+            self.stdout.write(f"Admin profit for {symbol} is ${usd_value:.2f} (Meets $50 threshold)")
+        except Exception as e:
+            logger.error(f"Failed to get exact USD rate for {symbol}, proceeding with manual fallback. Error: {e}")
+            self.stdout.write(self.style.WARNING(f"Warning: USD Rate check failed for {symbol}"))
 
         # 4. Perform ACTUAL BROADCAST
         self.stdout.write(self.style.SUCCESS(f"Broadcasting {max_safe_available} {symbol} to {destination}..."))

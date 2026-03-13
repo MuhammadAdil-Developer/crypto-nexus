@@ -19,6 +19,10 @@ from .serializers import (
 from .moderation import run_auto_moderation
 from products.models import Product
 from users.models import User
+from shared.admin_notifications import (
+    notify_user_message_deleted_by_admin,
+    notify_user_conversation_deleted_by_admin
+)
 
 
 class ConversationListCreateView(generics.ListCreateAPIView):
@@ -30,9 +34,11 @@ class ConversationListCreateView(generics.ListCreateAPIView):
         return ConversationSerializer
     
     def get_queryset(self):
+        is_admin = hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'admin'
+        if is_admin:
+            return Conversation.objects.all().prefetch_related('participants', 'product', 'last_message')
         return Conversation.objects.filter(
-            participants=self.request.user,
-            is_active=True
+            participants=self.request.user
         ).prefetch_related('participants', 'product', 'last_message')
     
     def list(self, request, *args, **kwargs):
@@ -54,10 +60,27 @@ class ConversationDetailView(generics.RetrieveDestroyAPIView):
     serializer_class = ConversationSerializer
     
     def get_queryset(self):
+        is_admin = hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'admin'
+        if is_admin:
+            return Conversation.objects.all().prefetch_related('participants', 'product', 'last_message')
         return Conversation.objects.filter(
             participants=self.request.user,
             is_active=True
         ).prefetch_related('participants', 'product', 'last_message')
+
+    def perform_destroy(self, instance):
+        """Soft delete conversation by marking it as inactive"""
+        is_admin = hasattr(self.request.user, 'user_type') and self.request.user.user_type == 'admin'
+        participants = list(instance.participants.all())
+        conversation_id = str(instance.id)
+        
+        instance.is_active = False
+        instance.save()
+        
+        # If admin deleted it, notify participants
+        if is_admin:
+            for participant in participants:
+                notify_user_conversation_deleted_by_admin(participant, conversation_id)
 
 
 class MessageListCreateView(generics.ListCreateAPIView):
@@ -626,18 +649,33 @@ def delete_message(request, message_id):
     try:
         message = Message.objects.get(id=message_id)
         
-        # Check if user is the sender
-        if message.sender != request.user:
+        # Check if user is admin or the sender
+        is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
+        is_participant = request.user in message.conversation.participants.all()
+        
+        # Admins can delete any message. Participants can delete their own messages.
+        # If client specifically wants sellers to delete OTHER people's messages, that's unusual,
+        # but the request says "same issue as admin has", implying they should have deletion rights.
+        if not is_admin and message.sender != request.user:
             return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Check if message is too old (e.g., 1 hour)
-        time_diff = timezone.now() - message.created_at
-        if time_diff.total_seconds() > 3600:  # 1 hour
-            return Response({'error': 'Message too old to delete'}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if message is too old (Admins: no limit, Users: 24 hours)
+        if not is_admin:
+            time_diff = timezone.now() - message.created_at
+            if time_diff.total_seconds() > 86400:  # 24 hours (increased from 1 hour)
+                return Response({'error': 'Message too old to delete'}, status=status.HTTP_400_BAD_REQUEST)
         
         conversation_id = str(message.conversation.id)
         message_id = str(message.id)
+        
+        # Soft delete for messages? Actually, the model has is_deleted but delete_message used hard delete.
+        # I'll stick to hard delete for individual messages as it was, but remove the barriers.
+        sender = message.sender
         message.delete()
+        
+        # If admin deleted it, notify the sender
+        if is_admin and sender != request.user:
+            notify_user_message_deleted_by_admin(sender, conversation_id)
         
         # Send real-time update to conversation participants
         from channels.layers import get_channel_layer

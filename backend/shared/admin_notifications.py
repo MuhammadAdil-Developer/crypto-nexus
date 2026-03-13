@@ -717,3 +717,31 @@ def notify_payout_status_changed(payout, old_status, new_status):
     )
 
 
+def notify_user_message_deleted_by_admin(user, conversation_id):
+    """Notify user when admin deletes their message"""
+    send_user_notification(
+        user=user,
+        notification_type='security',
+        title='Message Removed by Admin',
+        message=f'One of your messages in a conversation has been removed by a site administrator for moderation purposes.',
+        data={
+            'conversation_id': conversation_id,
+            'action_url': f'/buyer/messages' if user.user_type == 'buyer' else '/vendor/messages'
+        },
+        priority='high'
+    )
+
+
+def notify_user_conversation_deleted_by_admin(user, conversation_id):
+    """Notify user when admin deletes an entire conversation"""
+    send_user_notification(
+        user=user,
+        notification_type='security',
+        title='Conversation Removed by Admin',
+        message=f'A conversation you were participating in has been removed by a site administrator for moderation purposes.',
+        data={
+            'conversation_id': conversation_id,
+            'action_url': f'/buyer/messages' if user.user_type == 'buyer' else '/vendor/messages'
+        },
+        priority='high'
+    )

@@ -860,12 +860,13 @@ export function MessagesPanel({
           selectedConversation.id,
           messageText,
           fileToSend,
-          (progress) => setUploadProgress(progress)
+          (progress) => setUploadProgress(progress),
+          replyToMessage?.id
         );
         setIsUploading(false);
         setUploadProgress(0);
       } else {
-        response = await messagingService.sendMessage(messageText, selectedConversation.id);
+        response = await messagingService.sendMessage(messageText, selectedConversation.id, undefined, replyToMessage?.id);
       }
 
       // Immediately show message to sender (will be replaced by WebSocket if duplicate)
@@ -1291,34 +1292,20 @@ export function MessagesPanel({
                   </div>
                 ) : (
                   messages.map((message) => {
-                    // Improved sender detection logic
-                    let isOwnMessage = false;
-
-                    // Get current user info
-                    const userStr = localStorage.getItem('user');
+                    // Improved sender detection logic (Strict Version)
+                    const currentUserStr = localStorage.getItem('user');
                     let currentUser = null;
-                    if (userStr) {
+                    if (currentUserStr) {
                       try {
-                        currentUser = JSON.parse(userStr);
-                      } catch (error) {
-                        console.error('Error parsing user data:', error);
-                      }
+                        currentUser = JSON.parse(currentUserStr);
+                      } catch (e) {}
                     }
 
-                    // Method 1: Direct ID comparison (most reliable)
-                    if (currentUserId && message.sender?.id) {
-                      isOwnMessage = String(message.sender.id) === String(currentUserId);
-                    }
-
-                    // Method 2: Username comparison (fallback)
-                    if (!isOwnMessage && currentUser && message.sender?.username) {
-                      isOwnMessage = message.sender.username === currentUser.username;
-                    }
-
-                    // Method 3: Check if sender ID matches current user ID from localStorage
-                    if (!isOwnMessage && currentUser && message.sender?.id) {
-                      isOwnMessage = String(message.sender.id) === String(currentUser.id);
-                    }
+                    const isOwnMessage = !!(
+                      (currentUserId && message.sender?.id && String(message.sender.id) === String(currentUserId)) ||
+                      (currentUser?.id && message.sender?.id && String(message.sender.id) === String(currentUser.id)) ||
+                      (currentUser?.username && message.sender?.username && message.sender.username === currentUser.username)
+                    );
 
                     // Special handling for product reference messages
                     if (message.message_type === 'product_reference') {
@@ -1378,6 +1365,35 @@ export function MessagesPanel({
                     }
 
                     // Handle different message types (WhatsApp-style)
+                    const renderReplyPreview = (details: any) => {
+                      if (!details) return null;
+                      return (
+                        <div 
+                          className={`mb-2 p-2 rounded-lg border-l-4 ${isOwnMessage ? 'bg-black/20 border-blue-300' : 'bg-white/5 border-blue-500'} text-xs cursor-pointer opacity-90 hover:opacity-100 transition-opacity`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const el = document.getElementById(`msg-${details.id}`);
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.classList.add('animate-pulse');
+                              setTimeout(() => el.classList.remove('animate-pulse'), 2000);
+                            }
+                          }}
+                        >
+                          <p className={`font-bold ${isOwnMessage ? 'text-blue-200' : 'text-blue-400'} mb-0.5`}>
+                            {details.sender_username}
+                          </p>
+                          <p className={`truncate ${isOwnMessage ? 'text-blue-50/80' : 'text-gray-300'}`}>
+                             {details.message_type === 'image' ? '📷 Image' : 
+                              details.message_type === 'video' ? '🎥 Video' :
+                              details.message_type === 'pdf' ? '📄 PDF' :
+                              details.message_type === 'file' ? '📎 File' :
+                              details.content}
+                          </p>
+                        </div>
+                      );
+                    };
+
                     const renderMessageContent = () => {
                       const fileUrl = message.attachment_url || message.metadata?.file_url;
 
@@ -1500,10 +1516,13 @@ export function MessagesPanel({
                             </div>
                           )}
 
-                          <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl relative shadow-lg ${isOwnMessage
+                          <div 
+                            id={`msg-${message.id}`}
+                            className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl relative shadow-lg ${isOwnMessage
                             ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white border border-blue-400/20'
                             : 'bg-gray-800/90 text-gray-100 border border-gray-700/50'
                             }`}>
+                            {message.reply_to_details && renderReplyPreview(message.reply_to_details)}
                             {renderMessageContent()}
                             <p className={`text-[10px] sm:text-xs mt-1 text-right ${isOwnMessage ? 'text-blue-100/70' : 'text-gray-400/70'}`}>
                               {formatTime(message.created_at)}
@@ -1618,17 +1637,22 @@ export function MessagesPanel({
 
               {/* Reply Preview */}
               {replyToMessage && (
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 mb-4">
+                <div className="bg-gray-800/90 backdrop-blur-md border-l-4 border-blue-500 rounded-lg p-3 mb-4 shadow-xl animate-in slide-in-from-bottom-2 duration-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-400 mb-1">Replying to:</p>
-                      <p className="text-sm text-gray-300 truncate">{replyToMessage.content}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <MessageSquare className="w-3 h-3 text-blue-400" />
+                        <p className="text-xs font-bold text-blue-400">Replying to {replyToMessage.sender?.username || 'User'}</p>
+                      </div>
+                      <p className="text-sm text-gray-300 truncate">
+                        {replyToMessage.message_type === 'text' ? replyToMessage.content : `[${replyToMessage.message_type}]`}
+                      </p>
                     </div>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setReplyToMessage(null)}
-                      className="text-gray-400 hover:text-white"
+                      className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-white/10 rounded-full"
                     >
                       <X className="w-4 h-4" />
                     </Button>

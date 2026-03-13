@@ -219,6 +219,7 @@ class Message(BaseModel):
     ])
     metadata = models.JSONField(default=dict, blank=True)  # For additional data like file info, file_url, file_name, file_size, etc.
     attachment = models.FileField(upload_to='message_attachments/', blank=True, null=True)  # Store file attachments
+    reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies')
     is_flagged = models.BooleanField(default=False)
 
     class Meta:

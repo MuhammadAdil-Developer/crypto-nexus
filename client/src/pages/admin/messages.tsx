@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Filter, MessageSquare, Ban, Lock, Flag, Plus, Trash2, Loader2, Eye, ChevronDown, ChevronLeft, ChevronRight, User, Clock, Download, CheckCircle } from "lucide-react";
+import { Search, Filter, MessageSquare, Ban, Lock, Flag, Plus, Trash2, Loader2, Eye, ChevronDown, ChevronLeft, ChevronRight, User, Clock, Download, CheckCircle, Package, File, Video, Archive } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { messagingService } from "@/services/messagingService";
@@ -472,6 +472,44 @@ export default function AdminMessages() {
     }
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm("Are you sure you want to delete this specific message? This cannot be undone.")) return;
+    try {
+      await messagingService.deleteMessage(messageId);
+      setChatMessages(prev => prev.filter(msg => msg.id !== messageId));
+      toast({
+        title: "Success",
+        description: "Message deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete message",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!confirm("Are you sure you want to delete this ENTIRE chat? This will remove it for both users. This cannot be undone.")) return;
+    try {
+      await messagingService.deleteConversation(conversationId);
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      setIsChatModalOpen(false);
+      setSelectedConversation(null);
+      toast({
+        title: "Success",
+        description: "Conversation deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete conversation",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <main className="flex-1 overflow-y-auto bg-bg p-6">
       {/* Header */}
@@ -692,6 +730,14 @@ export default function AdminMessages() {
                                 <Ban className="w-4 h-4" />
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-danger hover:text-red-400"
+                              onClick={() => handleDeleteConversation(conversation.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -1105,30 +1151,156 @@ export default function AdminMessages() {
                     const isBuyer = message.sender.user_type === 'buyer';
                     const isVendor = message.sender.user_type === 'vendor';
 
+                    // Handle reply previews
+                    const renderReplyPreview = (details: any) => {
+                      if (!details) return null;
+                      return (
+                        <div 
+                          className="mb-2 p-2 rounded bg-gray-900/50 border-l-2 border-theme-cyan text-[11px] cursor-pointer opacity-80 hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            const el = document.getElementById(`msg-admin-${details.id}`);
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.classList.add('bg-blue-500/20');
+                              setTimeout(() => el.classList.remove('bg-blue-500/20'), 2000);
+                            }
+                          }}
+                        >
+                          <p className="font-bold text-theme-cyan mb-0.5">{details.sender_username}</p>
+                          <p className="text-gray-400 truncate">
+                            {details.message_type === 'image' ? 'Image' : 
+                             details.message_type === 'video' ? 'Video' :
+                             details.message_type === 'file' ? 'File' :
+                             details.content}
+                          </p>
+                        </div>
+                      );
+                    };
+
+                    // Handle different message types
+                    const renderMessageContent = () => {
+                      const fileUrl = message.attachment_url || message.metadata?.file_url || (message.attachment && typeof message.attachment === 'string' ? message.attachment : null);
+
+                      if (message.message_type === 'product_reference') {
+                        return (
+                          <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3 mb-2">
+                             <div className="flex items-center space-x-3">
+                                {message.metadata?.product_image ? (
+                                  <img src={message.metadata.product_image} alt="" className="w-10 h-10 rounded object-cover" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-gray-400" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-sm text-white truncate">{message.metadata?.product_title || 'Product'}</h4>
+                                  <p className="text-xs text-gray-400">
+                                    {message.metadata?.product_price ? `$${parseFloat(message.metadata.product_price).toFixed(2)}` : 'Price unknown'}
+                                  </p>
+                                </div>
+                             </div>
+                          </div>
+                        );
+                      }
+
+                      if (message.message_type === 'image' && fileUrl) {
+                        return (
+                          <div className="space-y-2 mb-2">
+                            <img
+                              src={fileUrl}
+                              alt="Shared image"
+                              className="max-w-full rounded-lg object-contain cursor-pointer"
+                              onClick={() => window.open(fileUrl, '_blank')}
+                            />
+                            {message.content && <p className="text-sm">{message.content}</p>}
+                          </div>
+                        );
+                      }
+
+                      if (message.message_type === 'video' && fileUrl) {
+                        return (
+                          <div className="space-y-2 mb-2">
+                            <video src={fileUrl} controls className="max-w-full rounded-lg" />
+                            {message.content && <p className="text-sm">{message.content}</p>}
+                          </div>
+                        );
+                      }
+
+                      if (['pdf', 'file', 'document'].includes(message.message_type) && fileUrl) {
+                        return (
+                          <div className="space-y-2 mb-2">
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 rounded-lg p-2 transition-colors"
+                            >
+                              <File className="w-5 h-5 text-blue-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate text-white">{message.metadata?.file_name || 'File'}</p>
+                                <p className="text-xs text-gray-400">View Attachment</p>
+                              </div>
+                            </a>
+                            {message.content && <p className="text-sm">{message.content}</p>}
+                          </div>
+                        );
+                      }
+
+                      if (message.is_deleted) {
+                        return (
+                          <div className="flex items-center space-x-2 text-gray-400 italic mb-1">
+                            <Archive className="w-3 h-3" />
+                            <p className="text-xs">This message was deleted</p>
+                          </div>
+                        );
+                      }
+
+                      return <p className="text-sm">{message.content}</p>;
+                    };
+
                     return (
                       <div
                         key={message.id}
                         className={`flex ${isBuyer ? 'justify-start' : 'justify-end'}`}
                       >
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isBuyer
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-700 text-white'
+                        <div className={`max-w-[85%] lg:max-w-md px-4 py-2 rounded-lg ${isBuyer
+                          ? 'bg-blue-600 text-white shadow-lg'
+                          : 'bg-gray-700 text-white border border-gray-600 shadow-lg'
                           }`}>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <User className="w-3 h-3" />
-                            <span className="text-xs font-medium">
-                              {message.sender.username}
-                            </span>
-                            <span className="text-xs opacity-75">
-                              ({message.sender.user_type || 'buyer'})
+                          <div className="flex items-center justify-between space-x-2 mb-1">
+                            <div className="flex items-center space-x-1">
+                                <User className={`w-3 h-3 ${isBuyer ? 'text-blue-200' : 'text-gray-400'}`} />
+                                <span className={`text-[10px] font-bold uppercase ${isBuyer ? 'text-blue-100' : 'text-gray-300'}`}>
+                                {message.sender.username}
+                                </span>
+                            </div>
+                            <span className="text-[10px] opacity-60">
+                              {message.sender.user_type === 'vendor' ? 'SELLER' : 'BUYER'}
                             </span>
                           </div>
-                          <p className="text-sm">{message.content}</p>
-                          <div className="flex items-center justify-end mt-1">
-                            <Clock className="w-3 h-3 mr-1 opacity-75" />
-                            <span className="text-xs opacity-75">
-                              {new Date(message.created_at).toLocaleTimeString()}
-                            </span>
+                          
+                          <div id={`msg-admin-${message.id}`}>
+                            {message.reply_to_details && renderReplyPreview(message.reply_to_details)}
+                            {renderMessageContent()}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-1 gap-4 border-t border-white/5 pt-1">
+                            <div className="flex items-center">
+                              <Clock className="w-3 h-3 mr-1 opacity-50" />
+                              <span className="text-[10px] opacity-50">
+                                {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                {message.is_flagged && <Badge variant="destructive" className="ml-2 text-[8px] h-3 px-1">FLAGGED</Badge>}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 text-white/40 hover:text-red-400 hover:bg-transparent"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              title="Delete Message"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         </div>
                       </div>

@@ -38,9 +38,11 @@ class MessageSerializer(serializers.ModelSerializer):
     other_participant = serializers.SerializerMethodField()
     attachment_url = serializers.SerializerMethodField()
     
+    reply_to_details = serializers.SerializerMethodField()
+    
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url', 'is_flagged']
+        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url', 'is_flagged', 'reply_to', 'reply_to_details']
         read_only_fields = ['id', 'created_at']
 
     def to_representation(self, instance):
@@ -88,6 +90,18 @@ class MessageSerializer(serializers.ModelSerializer):
             return obj.sender.id == request.user.id
         return False
     
+    def get_reply_to_details(self, obj):
+        """Get summarized details of the message being replied to"""
+        if obj.reply_to:
+            return {
+                'id': str(obj.reply_to.id),
+                'content': obj.reply_to.content,
+                'message_type': obj.reply_to.message_type,
+                'sender_username': obj.reply_to.sender.username,
+                'is_deleted': obj.reply_to.metadata.get('is_deleted', False) if isinstance(obj.reply_to.metadata, dict) else False
+            }
+        return None
+
     def get_other_participant(self, obj):
         """Get the other participant (not the current user) in the conversation"""
         request = self.context.get('request')
@@ -227,7 +241,7 @@ class SendMessageSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Message
-        fields = ['conversation', 'content', 'message_type', 'attachment']
+        fields = ['conversation', 'content', 'message_type', 'attachment', 'reply_to']
     
     def create(self, validated_data):
         request = self.context['request']
@@ -281,7 +295,8 @@ class SendMessageSerializer(serializers.ModelSerializer):
             content=content,
             message_type=message_type,
             attachment=attachment,
-            metadata=metadata
+            metadata=metadata,
+            reply_to=validated_data.get('reply_to')
         )
         
         # Explicitly set is_flagged if the field exists

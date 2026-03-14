@@ -462,11 +462,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         is_read=False
                     ).count()
                     
+                    content_to_show = last_message.content
+                    if getattr(last_message, 'is_deleted', False):
+                        content_to_show = "This message was deleted"
+
                     recent_messages.append({
                         'id': str(conv.id),
                         'buyer': other_participant.username,
                         'product': conv.product.headline if conv.product else 'Product',
-                        'lastMessage': last_message.content,
+                        'lastMessage': content_to_show,
                         'time': self.get_time_ago(last_message.created_at),
                         'unread': unread_count > 0
                     })

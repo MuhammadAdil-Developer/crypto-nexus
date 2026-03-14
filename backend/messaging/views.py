@@ -64,8 +64,7 @@ class ConversationDetailView(generics.RetrieveDestroyAPIView):
         if is_admin:
             return Conversation.objects.all().prefetch_related('participants', 'product', 'last_message')
         return Conversation.objects.filter(
-            participants=self.request.user,
-            is_active=True
+            participants=self.request.user
         ).prefetch_related('participants', 'product', 'last_message')
 
     def perform_destroy(self, instance):
@@ -668,10 +667,10 @@ def delete_message(request, message_id):
         conversation_id = str(message.conversation.id)
         message_id = str(message.id)
         
-        # Soft delete for messages? Actually, the model has is_deleted but delete_message used hard delete.
-        # I'll stick to hard delete for individual messages as it was, but remove the barriers.
+        # Soft delete for messages (WhatsApp style)
         sender = message.sender
-        message.delete()
+        message.is_deleted = True
+        message.save()
         
         # If admin deleted it, notify the sender
         if is_admin and sender != request.user:
@@ -758,13 +757,20 @@ def get_recent_messages(request):
             unread_count = Message.objects.filter(conversation=conv, recipient=user, is_read=False).count()
             
             if other_participant and last_msg_obj:
+                content_to_show = last_msg_obj.content
+                if getattr(last_msg_obj, 'is_deleted', False):
+                    content_to_show = "This message was deleted"
+                else:
+                    content_to_show = clean_content(content_to_show)
+
                 recent_messages.append({
                     'id': str(conv.id),
                     'buyer': other_participant.username,
-                    'product': conv.product.headline if conv.product else 'Product Inquiry',
-                    'lastMessage': clean_content(last_msg_obj.content),
+                    'product': conv.product.headline if conv.product else 'Product Discussion',
+                    'content': content_to_show,
                     'time': get_time_ago(last_msg_obj.created_at),
-                    'unread': unread_count > 0
+                    'unread_count': unread_count,
+                    'is_admin_chat': getattr(conv, 'is_admin_chat', False)
                 })
         
         return Response(recent_messages)
@@ -871,11 +877,19 @@ def get_recent_activity(request):
             last_message = conv.messages.order_by('-created_at').first()
             
             if vendor and last_message and last_message.sender != user:
+                # Handle soft deleted messages in preview
+                content_preview = last_message.content
+                if getattr(last_message, 'is_deleted', False):
+                    content_preview = "This message was deleted"
+                else:
+                    # Clean content for preview (same logic as in get_recent_messages)
+                    content_preview = content_preview.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()
+
                 recent_activities.append({
                     'id': f"msg_{conv.id}",
                     'type': 'message',
                     'title': 'New message from vendor',
-                    'description': f"{vendor.username} replied to your inquiry about {conv.product.headline if conv.product else 'product'}",
+                    'description': f"{vendor.username}: {content_preview[:50]}...",
                     'time': get_time_ago(last_message.created_at),
                     'status': 'info',
                     'timestamp': last_message.created_at.isoformat()  # For sorting

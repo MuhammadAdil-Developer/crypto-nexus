@@ -230,12 +230,19 @@ export default function VendorMessages() {
 
     // Listen for real-time conversation updates
     const handleConversationUpdate = (data: any) => {
+      console.log('🔄 Real-time conversation update received:', data);
       if (data?.conversation) {
         setConversations(prev => {
-          // Remove old conversation if exists
           const filtered = prev.filter(conv => conv.id !== data.conversation.id);
-          // Add updated conversation at the top
           return [data.conversation, ...filtered];
+        });
+
+        // Update selected conversation if it's the one that changed
+        setSelectedConversation(current => {
+          if (current?.id === data.conversation.id) {
+            return { ...current, ...data.conversation };
+          }
+          return current;
         });
       }
     };
@@ -271,8 +278,10 @@ export default function VendorMessages() {
 
     // Also listen for message_edited and message_deleted from WebSocket directly
     const handleWebSocketMessageEdited = (event: CustomEvent) => {
-      const message = event.detail;
-      const conversationId = message?.conversation || message?.conversation_id;
+      const payload = event.detail;
+      const message = payload?.message || payload;
+      const conversationId = payload?.conversation_id || message?.conversation;
+      
       if (message && message.id && selectedConversation?.id === conversationId) {
         setMessages(prev => prev.map(msg =>
           msg.id === message.id ? { ...msg, ...message, metadata: { ...msg.metadata, ...message.metadata, edited: true } } : msg
@@ -281,9 +290,10 @@ export default function VendorMessages() {
     };
 
     const handleWebSocketMessageDeleted = (event: CustomEvent) => {
-      const data = event.detail;
-      const messageId = data?.message_id || data?.id;
-      const conversationId = data?.conversation_id || data?.conversation;
+      const payload = event.detail;
+      const messageId = payload?.message_id || payload?.id;
+      const conversationId = payload?.conversation_id || payload?.conversation;
+      
       if (messageId && selectedConversation?.id === conversationId) {
         setMessages(prev => prev.map(msg =>
           msg.id === messageId
@@ -816,18 +826,19 @@ export default function VendorMessages() {
   const handleDeleteChat = async () => {
     if (!selectedConversation) return;
 
-    // For now, just lock the conversation
-    // In future, you can implement actual deletion
+    if (!confirm("Are you sure you want to delete this ENTIRE chat? This action cannot be undone.")) return;
+
     try {
-      const response = await messagingService.lockConversation(selectedConversation.id, true);
-      if (response.success) {
-        setIsConversationLocked(true);
-        setShowUserProfileModal(false);
-        toast({
-          title: "Chat Deleted",
-          description: "This conversation has been deleted",
-        });
-      }
+      await messagingService.deleteConversation(selectedConversation.id);
+      setConversations(prev => prev.filter(c => c.id !== selectedConversation.id));
+      setSelectedConversation(null);
+      setMessages([]);
+      setIsConversationLocked(false);
+      setShowUserProfileModal(false);
+      toast({
+        title: "Chat Deleted",
+        description: "The conversation has been deleted successfully",
+      });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1073,6 +1084,19 @@ export default function VendorMessages() {
           const exists = prev.find(msg => msg.id === response.id);
           if (exists) return prev;
           return [...prev, response];
+        });
+
+        // Also update conversation list last_message preview immediately for the sender
+        setConversations(prev => {
+          const updated = prev.map(conv =>
+            conv.id === selectedConversation.id
+              ? { ...conv, last_message: response, updated_at: response.created_at }
+              : conv
+          );
+          // Re-sort to bring selected conversation to top
+          return updated.sort((a, b) => 
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
         });
       }
 

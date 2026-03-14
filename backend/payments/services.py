@@ -2837,9 +2837,10 @@ class PayoutService:
             # logger.info(f"   Only {net_amount} {crypto_currency} is being sent to vendor")
             
             # CRITICAL: Final check - net_amount MUST be < received_amount
-            if net_amount >= direct_payment.amount:
-                logger.error(f"❌❌❌ CRITICAL ERROR: net_amount ({net_amount}) >= received_amount ({direct_payment.amount})!")
-                raise ValueError(f"Cannot send: net_amount ({net_amount}) >= received_amount ({direct_payment.amount})")
+            gross_amount = getattr(direct_payment, 'amount', Decimal('0')) or Decimal('0')
+            if net_amount >= gross_amount and gross_amount > Decimal('0'):
+                logger.error(f"❌❌❌ CRITICAL ERROR: net_amount ({net_amount}) >= received_amount ({gross_amount})!")
+                raise ValueError(f"Cannot send: net_amount ({net_amount}) >= received_amount ({gross_amount})")
             
             # logger.info(f"📊 FINAL SUMMARY:")
             # logger.info(f"   Received from buyer: {direct_payment.amount} {crypto_currency}")

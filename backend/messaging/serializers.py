@@ -38,18 +38,26 @@ class MessageSerializer(serializers.ModelSerializer):
     other_participant = serializers.SerializerMethodField()
     attachment_url = serializers.SerializerMethodField()
     
+    reply_to = serializers.CharField(required=False, allow_null=True)
     reply_to_details = serializers.SerializerMethodField()
     
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url', 'is_flagged', 'reply_to', 'reply_to_details']
+        fields = ['id', 'conversation', 'sender', 'recipient', 'content', 'is_read', 'message_type', 'metadata', 'created_at', 'is_sender', 'other_participant', 'attachment_url', 'is_flagged', 'reply_to', 'reply_to_details', 'is_deleted']
         read_only_fields = ['id', 'created_at']
 
     def to_representation(self, instance):
         """Clean up raw message content for professional display (handles old data)"""
         data = super().to_representation(instance)
-        content = data.get('content', '')
-        
+        if data.get('is_deleted'):
+            data['content'] = "This message was deleted"
+            data['message_type'] = 'system'
+            # Clear attachment for deleted messages to prevent reuse/viewing
+            data['attachment_url'] = None
+            data['metadata'] = data.get('metadata', {})
+            data['metadata']['is_deleted'] = True
+            return data
+
         # Detect and clean old messy format: "💬 **Discussing:** ... 💰 **Price:** ... 👤 **Vendor:** ..."
         # Only do this for messages that look like our old product reference template
         # Detect and clean old messy format OR new format with too many decimals
@@ -93,12 +101,13 @@ class MessageSerializer(serializers.ModelSerializer):
     def get_reply_to_details(self, obj):
         """Get summarized details of the message being replied to"""
         if obj.reply_to:
+            is_deleted = getattr(obj.reply_to, 'is_deleted', False)
             return {
                 'id': str(obj.reply_to.id),
-                'content': obj.reply_to.content,
-                'message_type': obj.reply_to.message_type,
+                'content': "This message was deleted" if is_deleted else obj.reply_to.content,
+                'message_type': 'system' if is_deleted else obj.reply_to.message_type,
                 'sender_username': obj.reply_to.sender.username,
-                'is_deleted': obj.reply_to.metadata.get('is_deleted', False) if isinstance(obj.reply_to.metadata, dict) else False
+                'is_deleted': is_deleted
             }
         return None
 

@@ -340,7 +340,8 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             # 4. CRITICAL STATE CHECKS
             # If already completed, STOP IMMEDIATELY.
             if direct_payment.status == 'completed' or (direct_payment.transaction_hash and not direct_payment.transaction_hash.startswith('processing_task_')):
-                logger.info(f"✅ IDEMPOTENCY: Order {order_id} already PAID (status: {direct_payment.status}, TX: {direct_payment.transaction_hash[:10]}...). Aborting.")
+                tx_display = direct_payment.transaction_hash[:10] if direct_payment.transaction_hash else "None"
+                logger.info(f"✅ IDEMPOTENCY: Order {order_id} already PAID (status: {direct_payment.status}, TX: {tx_display}...). Aborting.")
                 return f"Order {order_id} - already completed"
             
             # If currently processing by another task

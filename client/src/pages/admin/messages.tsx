@@ -360,12 +360,22 @@ export default function AdminMessages() {
 
     try {
       setSendingAdminMessage(true);
-      await messagingService.sendMessage(adminMessageInput, selectedConversation.id);
-
-      // Refresh messages to show the new one
-      await fetchMessages(selectedConversation.id, 1, true);
+      const response = await messagingService.sendMessage(adminMessageInput.trim(), selectedConversation.id, undefined, replyToMessage?.id);
+      
+      // Update messages immediately from API response to ensure real-time reflection for the sender
+      if (response && response.id) {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === response.id)) return prev;
+          return [...prev, response];
+        });
+      }
 
       setAdminMessageInput("");
+      // Assuming these states exist and are relevant to the admin message input/reply
+      // setReplyToMessage(null);
+      // setProductReferenceData(null);
+      // setShowProductReference(false);
+      // scrollToBottom(); // Assuming this function exists and is relevant
       toast({
         title: "Message Sent",
         description: "Admin message sent successfully",
@@ -1226,19 +1236,23 @@ export default function AdminMessages() {
                         );
                       }
 
-                      if (['pdf', 'file', 'document'].includes(message.message_type) && fileUrl) {
+                      if (['pdf', 'file', 'document', 'docx', 'doc', 'txt'].includes(message.message_type) && fileUrl) {
                         return (
                           <div className="space-y-2 mb-2">
                             <a
                               href={fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 rounded-lg p-2 transition-colors"
+                              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 rounded-lg p-3 transition-colors border border-white/10"
                             >
-                              <File className="w-5 h-5 text-blue-400" />
+                              <div className="w-10 h-10 rounded bg-blue-500/20 flex items-center justify-center">
+                                <File className="w-5 h-5 text-blue-400" />
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate text-white">{message.metadata?.file_name || 'File'}</p>
-                                <p className="text-xs text-gray-400">View Attachment</p>
+                                <p className="text-sm font-semibold truncate text-white">{message.metadata?.file_name || 'View Document'}</p>
+                                <p className="text-xs text-gray-400">
+                                  {message.metadata?.file_size ? `${(message.metadata.file_size / 1024).toFixed(1)} KB` : 'Download Attachment'}
+                                </p>
                               </div>
                             </a>
                             {message.content && <p className="text-sm">{message.content}</p>}
@@ -1295,11 +1309,11 @@ export default function AdminMessages() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-5 w-5 p-0 text-white/40 hover:text-red-400 hover:bg-transparent"
+                              className="h-6 w-6 p-0 text-red-400/70 hover:text-red-500 hover:bg-red-500/10"
                               onClick={() => handleDeleteMessage(message.id)}
                               title="Delete Message"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
                         </div>

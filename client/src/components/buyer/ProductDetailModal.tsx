@@ -147,6 +147,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     }
   };
 
+  const handleHelpfulToggle = async (reviewId: string) => {
+    try {
+      const response = await productService.markReviewHelpful(reviewId);
+      if (response.success) {
+        setProductReviews((prev: any) => ({
+          ...prev,
+          reviews: prev.reviews.map((r: any) => 
+            r.id === reviewId 
+              ? { ...r, helpful_count: response.data.helpful_count, is_helpful: response.data.is_helpful } 
+              : r
+          )
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling helpful status:', error);
+    }
+  };
+
   const checkWishlistStatus = async () => {
     if (!product?.id) return;
 
@@ -911,18 +929,30 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                                 "{review.comment}"
                               </p>
                               {review.images && review.images.length > 0 && (
-                                <div className="mt-3 flex gap-2">
+                                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                                   {review.images.map((image: string, index: number) => (
-                                    <div key={index} className="w-16 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-theme-cyan/50 transition-all cursor-zoom-in">
-                                      <img
-                                        src={image}
-                                        alt={`Review proof ${index + 1}`}
-                                        className="w-full h-full object-cover"
-                                      />
+                                    <div key={index} className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-theme-cyan/50 transition-all cursor-zoom-in">
+                                      <a href={getImageUrl(image)} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                          src={getImageUrl(image)}
+                                          alt={`Review proof ${index + 1}`}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => { e.currentTarget.src = brandLogo; }}
+                                        />
+                                      </a>
                                     </div>
                                   ))}
                                 </div>
                               )}
+                              <div className="mt-3 flex items-center">
+                                <button 
+                                  onClick={() => handleHelpfulToggle(review.id)}
+                                  className={`flex items-center space-x-1 transition-colors ${review.is_helpful ? 'text-theme-cyan' : 'text-gray-400 hover:text-gray-200'}`}
+                                >
+                                  <ThumbsUp className={`w-3 h-3 sm:w-4 sm:h-4 ${review.is_helpful ? 'fill-current' : ''}`} />
+                                  <span className="text-[10px] sm:text-xs font-bold uppercase">{review.helpful_count || 0} Helpful</span>
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>

@@ -307,6 +307,7 @@ class ProductReview(BaseModel):
     vendor_reply = models.TextField(blank=True, null=True)
     vendor_reply_date = models.DateTimeField(blank=True, null=True)
     conversation = models.JSONField(default=list, blank=True)  # Store conversation chain: [{author: 'vendor'|'buyer', message: str, date: str}]
+    helpful_votes = models.ManyToManyField('users.User', related_name='helpful_reviews', blank=True)
     
     class Meta:
         db_table = 'product_reviews'

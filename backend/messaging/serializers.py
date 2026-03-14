@@ -61,6 +61,7 @@ class MessageSerializer(serializers.ModelSerializer):
         # Detect and clean old messy format: "💬 **Discussing:** ... 💰 **Price:** ... 👤 **Vendor:** ..."
         # Only do this for messages that look like our old product reference template
         # Detect and clean old messy format OR new format with too many decimals
+        content = data.get('content') or ""
         if content and (('Discussing:' in content or 'Price:' in content) or 'PRODUCT INQUIRY:' in content):
             # Step 1: Strip all markdown and emojis for a clean base
             clean_text = content.replace('💬', '').replace('💰', '').replace('👤', '').replace('**', '').strip()

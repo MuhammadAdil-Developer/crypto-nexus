@@ -2367,6 +2367,8 @@ def list_vendor_reviews(request):
                     'username': getattr(r.user, 'username', ''),
                 },
                 'created_at': r.created_at.isoformat(),
+                'helpful_count': r.helpful_votes.count(),
+                'is_helpful': r.helpful_votes.filter(id=request.user.id).exists() if request.user.is_authenticated else False,
             }
             for r in reviews
         ]
@@ -2605,6 +2607,8 @@ def list_buyer_reviews(request):
                     'headline': r.product.headline,
                 },
                 'created_at': r.created_at.isoformat(),
+                'helpful_count': r.helpful_votes.count(),
+                'is_helpful': r.helpful_votes.filter(id=request.user.id).exists() if request.user.is_authenticated else False,
             }
             for r in reviews
         ]
@@ -2952,7 +2956,9 @@ def get_product_reviews(request, product_id):
                 'vendor_reply_date': review.vendor_reply_date.strftime('%Y-%m-%d %H:%M') if review.vendor_reply_date else None,
                 'buyer_username': review.user.username if review.user else 'Anonymous',
                 'created_at': review.created_at.strftime('%Y-%m-%d %H:%M'),
-                'time_ago': _get_time_ago(review.created_at)
+                'time_ago': _get_time_ago(review.created_at),
+                'helpful_count': review.helpful_votes.count(),
+                'is_helpful': review.helpful_votes.filter(id=request.user.id).exists() if request.user.is_authenticated else False,
             })
         
         # Calculate product statistics
@@ -3012,3 +3018,34 @@ def _get_rating_distribution(product_id):
     for item in distribution:
         dist_map[item['rating']] = item['count']
     return dist_map
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_review_helpful(request, review_id):
+    """Allow internal users to mark a review as helpful (toggle)"""
+    try:
+        review = get_object_or_404(ProductReview, id=review_id)
+        user = request.user
+        
+        if review.helpful_votes.filter(id=user.id).exists():
+            review.helpful_votes.remove(user)
+            is_helpful = False
+            message = "Unmarked review as helpful"
+        else:
+            review.helpful_votes.add(user)
+            is_helpful = True
+            message = "Marked review as helpful"
+            
+        return Response({
+            'success': True,
+            'message': message,
+            'data': {
+                'id': str(review.id),
+                'is_helpful': is_helpful,
+                'helpful_count': review.helpful_votes.count()
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error marking review as helpful: {str(e)}")
+        return Response({'success': False, 'message': 'Failed to update helpful status', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

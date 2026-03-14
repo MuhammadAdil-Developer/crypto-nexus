@@ -15,6 +15,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { productService } from "@/services/productService";
 import { useToast } from "@/components/ui/ToastContainer";
+import { getImageUrl } from "@/config/api";
 
 // Placeholder removed; load from API
 const staticReviews = [
@@ -110,39 +111,57 @@ export default function VendorReviews() {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
+  const loadReviews = async () => {
+    try {
+      setLoading(true);
+      const res = await productService.getVendorReviews({ page: 1, page_size: 20 });
+      const raw = (res as any)?.data || [];
+      const mapped = raw.map((r: any) => ({
+        id: r.id,
+        buyer: r.buyer?.username || 'Anonymous',
+        product: r.product?.headline || 'Product',
+        rating: r.rating || 0,
+        title: r.title || '',
+        content: r.comment || '',
+        date: r.created_at || '',
+        verified: true,
+        helpful: r.helpful_count || 0,
+        isHelpful: r.is_helpful || false,
+        reply: r.vendor_reply ? {
+          content: r.vendor_reply,
+          date: r.vendor_reply_date || r.created_at,
+        } : null,
+        images: r.images || [],
+        conversation: r.conversation || [],
+      }));
+      setReviews(mapped);
+    } catch (e) {
+      console.error('Failed to load reviews', e);
+      setReviews([]);
+      showToast({ title: 'Error', message: 'Failed to load reviews', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await productService.getVendorReviews({ page: 1, page_size: 20 });
-        const raw = (res as any)?.data || [];
-        const mapped = raw.map((r: any) => ({
-          id: r.id,
-          buyer: r.buyer?.username || 'Anonymous',
-          product: r.product?.headline || 'Product',
-          rating: r.rating || 0,
-          title: r.title || '',
-          content: r.comment || '',
-          date: r.created_at || '',
-          verified: true,
-          helpful: r.helpful || 0,
-          reply: r.vendor_reply ? {
-            content: r.vendor_reply,
-            date: r.vendor_reply_date || r.created_at,
-          } : null,
-          conversation: r.conversation || [],
-        }));
-        setReviews(mapped);
-      } catch (e) {
-        console.error('Failed to load reviews', e);
-        setReviews([]);
-        showToast({ title: 'Error', message: 'Failed to load reviews', type: 'error' });
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadReviews();
   }, []);
+
+  const handleHelpfulClick = async (reviewId: string) => {
+    try {
+      const res = await productService.markReviewHelpful(reviewId);
+      if (res.success) {
+        setReviews(prev => prev.map(r => 
+          r.id === reviewId 
+            ? { ...r, helpful: res.data.helpful_count, isHelpful: res.data.is_helpful } 
+            : r
+        ));
+      }
+    } catch (e) {
+      console.error('Failed to mark helpful', e);
+    }
+  };
 
   const filteredReviews = reviews.filter(review => {
     const matchesSearch =
@@ -367,12 +386,30 @@ export default function VendorReviews() {
                     {renderStars(review.rating)}
                   </div>
                   <p className="text-gray-200 text-sm sm:text-base break-words">{review.content}</p>
+                  
+                  {/* Render review images if available */}
+                  {review.images && review.images.length > 0 && (
+                    <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                      {review.images.map((img: string, idx: number) => (
+                        <a key={idx} href={getImageUrl(img)} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                          <img 
+                            src={getImageUrl(img)} 
+                            alt={`Review attachment ${idx + 1}`} 
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-md border border-gray-700 hover:opacity-80 transition-opacity" 
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                   <div className="flex items-center space-x-3 sm:space-x-4">
-                    <button className="flex items-center space-x-1 text-gray-400 hover:text-gray-700">
-                      <ThumbsUp className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <button 
+                      onClick={() => handleHelpfulClick(review.id)}
+                      className={`flex items-center space-x-1 transition-colors ${review.isHelpful ? 'text-theme-cyan' : 'text-gray-400 hover:text-gray-200'}`}
+                    >
+                      <ThumbsUp className={`w-3 h-3 sm:w-4 sm:h-4 ${review.isHelpful ? 'fill-current' : ''}`} />
                       <span className="text-xs sm:text-sm">{review.helpful} helpful</span>
                     </button>
                   </div>

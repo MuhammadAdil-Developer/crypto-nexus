@@ -700,7 +700,16 @@ export default function VendorOverview() {
                       <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner border border-white/5">
                           {product.image ? (
-                            <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
+                            <img 
+                              src={getImageUrl(product.image)} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = brandLogo;
+                                e.currentTarget.className = "w-6 h-6 opacity-30 object-contain";
+                              }}
+                            />
                           ) : (
                             <img src={brandLogo} alt="AC Logo" className="w-6 h-6 opacity-30 object-contain" />
                           )}

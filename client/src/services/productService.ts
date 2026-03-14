@@ -411,6 +411,13 @@ class ProductService {
     const endpoint = qs ? `/${productId}/reviews/modal/?${qs}` : `/${productId}/reviews/modal/`;
     return this.makeRequest(endpoint);
   }
+
+  // Mark review as helpful (internal toggle)
+  async markReviewHelpful(reviewId: string): Promise<{ success: boolean; message: string; data: { id: string; is_helpful: boolean; helpful_count: number } }> {
+    return this.makeRequest(`/reviews/${reviewId}/mark-helpful/`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const productService = new ProductService();

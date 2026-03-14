@@ -470,7 +470,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
                 'price': float(obj.product.price),
                 'rating': float(obj.product.rating),
                 'category_name': obj.product.category.name if obj.product.category else 'N/A',
-                'main_image': obj.product.main_image
+                'main_image': obj.product.main_image.url if obj.product.main_image else None
             }
         return {'headline': 'Deleted'}
 

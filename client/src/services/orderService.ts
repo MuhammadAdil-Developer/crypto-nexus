@@ -148,6 +148,8 @@ export interface Order {
   delivered_at: string | null;
   confirmed_at: string | null;
   dispute_opened_at: string | null;
+  payment_status_display?: string;
+  refund_address?: string;
   product_credentials: any;
   created_at: string;
   updated_at: string;
@@ -159,6 +161,14 @@ export interface CreateOrderRequest {
   crypto_currency: string;
   use_escrow: boolean;
   refund_address?: string;
+  dispute_details?: {
+    status: string;
+    reason: string;
+    resolution?: string;
+    resolution_notes?: string;
+    resolved_at?: string;
+    evidence_count: number;
+  };
 }
 
 export interface UpdateOrderStatusRequest {

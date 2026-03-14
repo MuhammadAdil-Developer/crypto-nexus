@@ -876,11 +876,19 @@ export default function AdminOrders() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Username</span>
-                        <span className="text-white font-medium text-sm">{safeString(selectedOrder.buyer)}</span>
+                        <span className="text-white font-medium text-sm">{selectedOrder.buyer?.username || 'Unknown'}</span>
                       </div>
                       <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Email</span>
                         <span className="text-white font-medium text-sm">{selectedOrder.buyer?.email || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-gray-400 text-xs font-medium">User Type</span>
+                        <span className="text-white font-medium text-sm capitalize">{selectedOrder.buyer?.user_type || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-gray-400 text-xs font-medium">Member Since</span>
+                        <span className="text-white font-medium text-sm">{selectedOrder.buyer?.date_joined ? new Date(selectedOrder.buyer.date_joined).toLocaleDateString() : 'N/A'}</span>
                       </div>
                     </div>
                   </div>
@@ -893,11 +901,19 @@ export default function AdminOrders() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Username</span>
-                        <span className="text-white font-medium text-sm">{safeString(selectedOrder.vendor)}</span>
+                        <span className="text-white font-medium text-sm">{selectedOrder.vendor?.username || 'Unknown'}</span>
                       </div>
                       <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Email</span>
                         <span className="text-white font-medium text-sm">{selectedOrder.vendor?.email || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-gray-400 text-xs font-medium">User Type</span>
+                        <span className="text-white font-medium text-sm capitalize">{selectedOrder.vendor?.user_type || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-gray-400 text-xs font-medium">Member Since</span>
+                        <span className="text-white font-medium text-sm">{selectedOrder.vendor?.date_joined ? new Date(selectedOrder.vendor.date_joined).toLocaleDateString() : 'N/A'}</span>
                       </div>
                     </div>
                   </div>
@@ -909,11 +925,22 @@ export default function AdminOrders() {
                     <Package className="w-4 h-4 text-accent" />
                     <h3 className="text-sm font-semibold text-white">Product Information</h3>
                   </div>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-start gap-4">
+                    {selectedOrder.product?.main_image && (
+                      <div className="w-24 h-24 bg-gray-900 rounded-lg overflow-hidden border border-gray-600/20 flex-shrink-0">
+                        <img 
+                          src={getImageUrl(selectedOrder.product.main_image)} 
+                          alt="Product" 
+                          className="w-full h-full object-contain"
+                          onError={(e) => { e.currentTarget.src = brandLogo; }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Product Name</span>
-                        <span className="text-white font-medium text-sm text-right">{safeString(selectedOrder.product)}</span>
+                        <span className="text-white font-medium text-sm text-right">{selectedOrder.product?.headline || 'Unknown Product'}</span>
                       </div>
                       <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Account Type</span>
@@ -924,11 +951,18 @@ export default function AdminOrders() {
                         <span className="text-white font-medium text-sm">{selectedOrder.product?.access_type || 'N/A'}</span>
                       </div>
                       <div className="flex items-center justify-between py-1">
+                        <span className="text-gray-400 text-xs font-medium">Account Balance</span>
+                        <span className="text-white font-semibold text-sm">{selectedOrder.product?.account_balance || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
                         <span className="text-gray-400 text-xs font-medium">Website</span>
                         <span className="text-white font-medium text-sm">{selectedOrder.product?.website || 'N/A'}</span>
                       </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-gray-400 text-xs font-medium">Category</span>
+                        <span className="text-white font-medium text-sm">{selectedOrder.product?.category_name || 'N/A'}</span>
+                      </div>
                     </div>
-                    {/* VERTICAL LAYOUT: Description label above, value below */}
                     <div className="pt-2 border-t border-gray-600/20">
                       <div className="space-y-1">
                         <span className="text-gray-400 text-xs font-medium">Description</span>
@@ -938,7 +972,22 @@ export default function AdminOrders() {
                   </div>
                 </div>
 
-                {/* Payment Information - VERTICAL LAYOUT FOR PAYMENT ADDRESS */}
+                {/* Product Credentials - SENSITIVE DATA FOR ADMIN ONLY */}
+                {selectedOrder.product_credentials && Object.keys(selectedOrder.product_credentials).length > 0 && (
+                  <div className="bg-red-500/5 rounded-lg p-4 border border-red-500/20">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Key className="w-4 h-4 text-red-500" />
+                      <h3 className="text-sm font-semibold text-white">Product Credentials (Delivered)</h3>
+                    </div>
+                    <div className="bg-black/40 rounded p-3 font-mono text-[10px] sm:text-xs text-red-200 whitespace-pre-wrap overflow-x-auto border border-red-500/10">
+                      {typeof selectedOrder.product_credentials === 'string' 
+                        ? selectedOrder.product_credentials 
+                        : JSON.stringify(selectedOrder.product_credentials, null, 2)}
+                    </div>
+                  </div>
+                )}
+
+                  {/* Payment Information - VERTICAL LAYOUT FOR PAYMENT ADDRESS */}
                 <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
                   <div className="flex items-center space-x-2 mb-3">
                     <DollarSign className="w-4 h-4 text-accent" />
@@ -978,6 +1027,14 @@ export default function AdminOrders() {
                         <div className="space-y-1">
                           <span className="text-gray-400 text-xs font-medium">Payment Address</span>
                           <p className="text-white font-mono text-xs break-all">{selectedOrder.payment_address}</p>
+                        </div>
+                      </div>
+                    )}
+                    {selectedOrder.refund_address && (
+                      <div className="pt-2 border-t border-gray-600/20">
+                        <div className="space-y-1">
+                          <span className="text-gray-400 text-xs font-medium">Refund Address</span>
+                          <p className="text-white font-mono text-xs break-all">{selectedOrder.refund_address}</p>
                         </div>
                       </div>
                     )}
@@ -1041,6 +1098,30 @@ export default function AdminOrders() {
                             <span className="text-white font-semibold text-sm">{new Date(selectedOrder.dispute_opened_at).toLocaleString()}</span>
                           </div>
                         </div>
+                      )}
+                      {selectedOrder.dispute_details && (
+                        <>
+                          <div className="pt-2 border-t border-red-500/20">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-400 text-xs font-medium">Internal Status</span>
+                              <span className="text-white font-medium text-sm capitalize text-right">{selectedOrder.dispute_details.status}</span>
+                            </div>
+                          </div>
+                          {selectedOrder.dispute_details.resolution && (
+                            <div className="pt-2 border-t border-red-500/20">
+                              <div className="flex items-start justify-between">
+                                <span className="text-gray-400 text-xs font-medium">Resolution</span>
+                                <span className="text-white font-medium text-sm text-right capitalize">{selectedOrder.dispute_details.resolution.replace('_', ' ')}</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="pt-2 border-t border-red-500/20">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-400 text-xs font-medium">Evidence Files</span>
+                              <span className="text-white font-medium text-sm text-right">{selectedOrder.dispute_details.evidence_count} files</span>
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>

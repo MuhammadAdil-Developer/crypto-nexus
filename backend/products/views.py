@@ -2245,7 +2245,25 @@ def create_review(request, product_id):
         
         rating = int(request.data.get('rating', 0))
         comment = (request.data.get('comment') or '').strip()
-        images = request.data.get('images') or []
+        
+        # Handle Image Uploads to Cloudinary
+        image_urls = []
+        if 'review_images' in request.FILES:
+            from django.core.files.storage import default_storage
+            import uuid
+            files = request.FILES.getlist('review_images')
+            for f in files[:3]: # Limit to 3 images per review
+                # Generate unique filename for Cloudinary
+                ext = f.name.split('.')[-1]
+                filename = f"reviews/{uuid.uuid4()}.{ext}"
+                # default_storage is configured for Cloudinary in settings.py
+                file_path = default_storage.save(filename, f)
+                # Get the full public URL from Cloudinary
+                url = default_storage.url(file_path)
+                image_urls.append(url)
+        elif request.data.get('images'):
+            # Fallback for existing data/JSON requests
+            image_urls = request.data.get('images')
 
         if rating < 1 or rating > 5:
             return Response({'success': False, 'message': 'Rating must be between 1 and 5'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2255,7 +2273,7 @@ def create_review(request, product_id):
         review, created = ProductReview.objects.update_or_create(
             product=product,
             user=request.user,
-            defaults={'rating': rating, 'comment': comment, 'images': images}
+            defaults={'rating': rating, 'comment': comment, 'images': image_urls}
         )
 
         # Update product aggregates (only if product is still active)

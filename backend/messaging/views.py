@@ -1253,50 +1253,7 @@ def get_user_attachments(request, user_id):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def report_user(request):
-    """Report a user"""
-    try:
-        from shared.models import UserReport
-        
-        reported_user_id = request.data.get('reported_user_id')
-        reason = request.data.get('reason')
-        description = request.data.get('description')
-        conversation_id = request.data.get('conversation_id')
-        message_id = request.data.get('message_id')
-        
-        if not reported_user_id or not reason:
-            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        reported_user = User.objects.get(id=reported_user_id)
-        
-        # Check if already reported
-        existing_report = UserReport.objects.filter(
-            reporter=request.user,
-            reported_user=reported_user,
-            conversation_id=conversation_id,
-            status='pending'
-        ).first()
-        
-        if existing_report:
-             return Response({'message': 'You have already reported this user for this conversation'})
 
-        UserReport.objects.create(
-            reporter=request.user,
-            reported_user=reported_user,
-            reason=reason,
-            description=description,
-            conversation_id=conversation_id,
-            message_id=message_id
-        )
-        
-        return Response({'message': 'User reported successfully'})
-        
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

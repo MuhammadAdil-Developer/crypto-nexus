@@ -82,9 +82,14 @@ interface DashboardStats {
   escrow_stats: {
     btc_total: number;
     xmr_total: number;
+    btc_order_ids?: string[];
+    xmr_order_ids?: string[];
     pending_releases: number;
+    pending_release_ids?: string[];
     auto_release_orders: number;
+    auto_release_ids?: string[];
     disputed_orders: number;
+    disputed_order_ids?: string[];
   };
   recent_orders: UIOrder[];
 }
@@ -713,6 +718,11 @@ export function Overview() {
                 <p className="text-xs mt-1 text-gray-400">
                   ~${((dashboardStats?.escrow_stats.btc_total || 0) * prices.BTC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
+                {dashboardStats?.escrow_stats.btc_order_ids && dashboardStats.escrow_stats.btc_order_ids.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border/50 text-[10px] text-gray-500 font-mono truncate px-1">
+                    {dashboardStats.escrow_stats.btc_order_ids.join(', ')}
+                  </div>
+                )}
               </div>
               <div className={`text-center p-3 bg-surface-2 rounded-lg transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
                 <p className="text-xl font-bold text-text font-mono">
@@ -722,21 +732,49 @@ export function Overview() {
                 <p className="text-xs mt-1 text-gray-400">
                   ~${((dashboardStats?.escrow_stats.xmr_total || 0) * prices.XMR).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
+                {dashboardStats?.escrow_stats.xmr_order_ids && dashboardStats.escrow_stats.xmr_order_ids.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border/50 text-[10px] text-gray-500 font-mono truncate px-1">
+                    {dashboardStats.escrow_stats.xmr_order_ids.join(', ')}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className={`mt-3 space-y-1 transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Pending Releases</span>
-                <span className="text-text">{dashboardStats?.escrow_stats.pending_releases || 0} orders</span>
+            <div className={`mt-3 space-y-2 transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
+              <div className="bg-surface-2/50 p-2 rounded-lg">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">Pending Releases</span>
+                  <span className="text-text font-medium">{dashboardStats?.escrow_stats.pending_releases || 0} orders</span>
+                </div>
+                {dashboardStats?.escrow_stats.pending_release_ids && dashboardStats.escrow_stats.pending_release_ids.length > 0 && (
+                  <div className="text-[10px] text-gray-500 font-mono truncate border-t border-border/30 pt-1">
+                    IDs: {dashboardStats.escrow_stats.pending_release_ids.join(', ')}
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Auto-Release (48h)</span>
-                <span className="text-text">{dashboardStats?.escrow_stats.auto_release_orders || 0} orders</span>
+              
+              <div className="bg-surface-2/50 p-2 rounded-lg">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">Auto-Release (48h)</span>
+                  <span className="text-text font-medium">{dashboardStats?.escrow_stats.auto_release_orders || 0} orders</span>
+                </div>
+                {dashboardStats?.escrow_stats.auto_release_ids && dashboardStats.escrow_stats.auto_release_ids.length > 0 && (
+                  <div className="text-[10px] text-gray-500 font-mono truncate border-t border-border/30 pt-1">
+                    IDs: {dashboardStats.escrow_stats.auto_release_ids.join(', ')}
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Disputed</span>
-                <span className="text-danger font-medium">{dashboardStats?.escrow_stats.disputed_orders || 0} orders</span>
+
+              <div className="bg-surface-2/50 p-2 rounded-lg">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">Disputed</span>
+                  <span className="text-danger font-medium">{dashboardStats?.escrow_stats.disputed_orders || 0} orders</span>
+                </div>
+                {dashboardStats?.escrow_stats.disputed_order_ids && dashboardStats.escrow_stats.disputed_order_ids.length > 0 && (
+                  <div className="text-[10px] text-red-400/60 font-mono truncate border-t border-red-500/10 pt-1">
+                    IDs: {dashboardStats.escrow_stats.disputed_order_ids.join(', ')}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

@@ -7,7 +7,8 @@ from django.db.models import Q
 from .models import Order, OrderDispute, OrderStatus
 from .serializers import (
     OrderSerializer, CreateOrderSerializer, UpdateOrderStatusSerializer,
-    OrderDisputeSerializer, AdminDashboardOrderSerializer, OrderListSerializer
+    OrderDisputeSerializer, AdminDashboardOrderSerializer, OrderListSerializer,
+    AdminOrderListSerializer
 )
 from django.core.cache import cache
 from payments.services import BTCPayServerService, MoneroRPCService
@@ -75,35 +76,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     
     def get_serializer_class(self):
         """Return different serializers for different actions"""
-        if self.action in ['list', 'orders_page_aggregated']:
+        if self.action == 'orders_page_aggregated':
+            return AdminOrderListSerializer
+        if self.action == 'list':
             return OrderListSerializer
         if self.action == 'create':
             return CreateOrderSerializer
-        if self.action == 'update' or self.action == 'partial_update':
-            return UpdateOrderStatusSerializer
-        return OrderSerializer    
-    def get_queryset(self):
-        """Filter orders with SMART deferring (only skips heavy JSON fields)"""
-        user = self.request.user
-        
-        # Deferring ONLY the heavy fields that slow down lists
-        # This fixes the N+1 problem while keeping the query fast
-        base_qs = Order.objects.select_related('buyer', 'vendor', 'product').defer(
-            'product_credentials'
-        ).order_by('-created_at')
-        
-        if user.is_staff or user.user_type == 'admin':
-            return base_qs
-        elif user.user_type == 'vendor':
-            return base_qs.filter(vendor=user)
-        else:
-            return base_qs.filter(buyer=user)
-    
-    def get_serializer_class(self):
-        """Return appropriate serializer based on action"""
-        if self.action == 'create':
-            return CreateOrderSerializer
-        elif self.action in ['update', 'partial_update']:
+        if self.action in ['update', 'partial_update']:
             return UpdateOrderStatusSerializer
         return OrderSerializer
     
@@ -780,37 +759,62 @@ class OrderViewSet(viewsets.ModelViewSet):
                     # Orders in system but payout not finished
                     # Only calculate on the currency we care about
                     active_escrow_orders = Order.objects.filter(use_escrow=True).exclude(
-                        order_status__in=[OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PENDING_PAYMENT.value]
+                        order_status__in=[OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PENDING_PAYMENT.value, 'completed', 'expired']
                     ).exclude(
                         Q(order_status=OrderStatus.CONFIRMED.value) &
                         (Q(payouts__status='completed') | Q(direct_payment__status='completed'))
                     ).distinct()
                     
-                    totals = list(active_escrow_orders.values('crypto_currency').annotate(total=Sum('total_amount')))
-                    return totals
-                except:
-                    return []
+                    # Get totals by currency - Fixed grouping by clearing any default ordering
+                    totals = list(active_escrow_orders.order_by().values('crypto_currency').annotate(total=Sum('total_amount')))
+                    
+                    # Get order IDs by currency (limit to 20 for performance)
+                    currency_ids = {}
+                    for curr in ['BTC', 'XMR']:
+                        ids = list(active_escrow_orders.filter(crypto_currency=curr).values_list('order_id', flat=True)[:20])
+                        currency_ids[curr] = ids
+                        
+                    return {'totals': totals, 'ids': currency_ids}
+                except Exception as e:
+                    logger.error(f"Error in get_escrow_volume: {str(e)}")
+                    return {'totals': [], 'ids': {}}
 
             f5 = executor.submit(run_query, get_escrow_volume, "EscrowVol")
 
             # 6. Escrow Pipeline Counts (Optimized SQL-only version)
             def get_pipeline_counts():
                 try:
-                    # Pending Releases
-                    pending_releases = Order.objects.filter(
+                    # Pending Releases (Confirmed by buyer but payout not done)
+                    pending_qs = Order.objects.filter(
                         order_status=OrderStatus.CONFIRMED.value, 
                         use_escrow=True
                     ).exclude(
                         Q(payouts__status='completed') | 
                         Q(direct_payment__status='completed')
-                    ).distinct().count()
+                    ).distinct()
                     
-                    # Auto-Release
-                    auto_release = Order.objects.filter(order_status=OrderStatus.DELIVERED.value, use_escrow=True).count()
+                    pending_count = pending_qs.count()
+                    pending_ids = list(pending_qs.values_list('order_id', flat=True)[:20])
                     
-                    return {'pending': pending_releases, 'auto': auto_release}
-                except:
-                    return {'pending': 0, 'auto': 0}
+                    # Auto-Release (Delivered orders using escrow)
+                    auto_qs = Order.objects.filter(order_status=OrderStatus.DELIVERED.value, use_escrow=True)
+                    auto_count = auto_qs.count()
+                    auto_ids = list(auto_qs.values_list('order_id', flat=True)[:20])
+                    
+                    # Disputed Order IDs
+                    disputed_qs = Order.objects.filter(order_status=OrderStatus.DISPUTED.value)
+                    disputed_ids = list(disputed_qs.values_list('order_id', flat=True)[:20])
+                    
+                    return {
+                        'pending': pending_count, 
+                        'pending_ids': pending_ids,
+                        'auto': auto_count,
+                        'auto_ids': auto_ids,
+                        'disputed_ids': disputed_ids
+                    }
+                except Exception as e:
+                    logger.error(f"Error in get_pipeline_counts: {str(e)}")
+                    return {'pending': 0, 'pending_ids': [], 'auto': 0, 'auto_ids': [], 'disputed_ids': []}
 
             f6 = executor.submit(run_query, get_pipeline_counts, "Pipeline")
 
@@ -818,8 +822,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             vendor_stats = f2.result()
             listing_stats = f3.result()
             order_stats_agg = f4.result()
-            escrow_totals = f5.result()
-            pipeline_counts = f6.result()
+        escrow_data = f5.result()
+        escrow_totals = escrow_data.get('totals', [])
+        escrow_ids = escrow_data.get('ids', {})
+        pipeline_counts = f6.result()
 
         logger.info(f"[PERF] Dashboard parallel block took: {time.time() - start_total:.4f}s")
 
@@ -846,9 +852,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             'escrow_stats': {
                 'btc_total': total_escrow_btc,
                 'xmr_total': total_escrow_xmr,
+                'btc_order_ids': escrow_ids.get('BTC', []),
+                'xmr_order_ids': escrow_ids.get('XMR', []),
                 'pending_releases': pipeline_counts.get('pending', 0),
+                'pending_release_ids': pipeline_counts.get('pending_ids', []),
                 'auto_release_orders': pipeline_counts.get('auto', 0),
-                'disputed_orders': order_stats_agg.get('disputed', 0)
+                'auto_release_ids': pipeline_counts.get('auto_ids', []),
+                'disputed_orders': order_stats_agg.get('disputed', 0),
+                'disputed_order_ids': pipeline_counts.get('disputed_ids', [])
             }
         }
 

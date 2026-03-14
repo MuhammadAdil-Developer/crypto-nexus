@@ -344,4 +344,135 @@ class OrderListSerializer(serializers.ModelSerializer):
         if obj.product: return {'headline': obj.product.headline}
         return {'headline': 'Deleted'}
 
+
+class AdminOrderListSerializer(serializers.ModelSerializer):
+    """
+    Comprehensive serializer for admin orders list.
+    Includes full details for modal view while optimizing query performance.
+    """
+    buyer = serializers.SerializerMethodField()
+    vendor = serializers.SerializerMethodField()
+    product = serializers.SerializerMethodField()
+    order_status_display = serializers.SerializerMethodField()
+    payment_status_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_id', 'buyer', 'vendor', 'product', 'quantity',
+            'unit_price', 'total_amount', 'crypto_currency', 'payment_address', 
+            'payment_status', 'payment_status_display', 'order_status', 'order_status_display', 
+            'use_escrow', 'escrow_fee', 'payment_address', 'refund_address',
+            'dispute_opened', 'dispute_reason', 'dispute_opened_at', 'dispute_details',
+            'payment_expires_at', 'delivered_at', 'confirmed_at',
+            'is_giveaway', 'created_at', 'updated_at'
+        ]
+
+    def get_order_status_display(self, obj):
+        status = obj.order_status
+        status_map = {
+            'pending_payment': 'Pending Payment',
+            'payment_received': 'Payment Received',
+            'processing': 'Processing',
+            'paid': 'Paid',
+            'delivered': 'Completed',
+            'confirmed': 'Completed',
+            'disputed': 'Disputed',
+            'cancelled': 'Cancelled',
+            'refunded': 'Refunded',
+            'partial': 'Partial Payment',
+        }
+        if status == 'paid' and obj.product and obj.product.delivery_time == 'instant_auto':
+            return "Completed"
+        return status_map.get(status, status.replace('_', ' ').capitalize())
+
+    def get_payment_status_display(self, obj):
+        if hasattr(obj, 'payment') and obj.payment:
+            return obj.payment.get_status_display()
+        return "Unknown"
+
+    def get_dispute_details(self, obj):
+        if obj.dispute_opened:
+            dispute = obj.refund_disputes.first()
+            if dispute:
+                return {
+                    'status': dispute.status,
+                    'reason': dispute.reason,
+                    'resolution': dispute.resolution,
+                    'resolution_notes': dispute.resolution_notes,
+                    'resolved_at': dispute.resolved_at,
+                    'evidence_count': len(dispute.evidence) if isinstance(dispute.evidence, dict) else 0
+                }
+        return None
+
+    def get_buyer(self, obj):
+        if obj.buyer:
+            return {
+                'id': str(obj.buyer.id),
+                'username': obj.buyer.username,
+                'email': obj.buyer.email,
+                'user_type': obj.buyer.user_type,
+                'is_verified': obj.buyer.is_verified,
+                'date_joined': obj.buyer.date_joined.isoformat() if obj.buyer.date_joined else None,
+                'last_login': obj.buyer.last_login.isoformat() if obj.buyer.last_login else None
+            }
+        return {'username': 'Unknown'}
+
+    def get_vendor(self, obj):
+        if obj.vendor:
+            return {
+                'id': str(obj.vendor.id),
+                'username': obj.vendor.username,
+                'email': obj.vendor.email,
+                'user_type': obj.vendor.user_type,
+                'is_verified': obj.vendor.is_verified,
+                'date_joined': obj.vendor.date_joined.isoformat() if obj.vendor.date_joined else None,
+                'last_login': obj.vendor.last_login.isoformat() if obj.vendor.last_login else None
+            }
+        return {'username': 'Unknown'}
+
+    def get_product(self, obj):
+        if obj.product:
+            return {
+                'id': obj.product.id,
+                'headline': obj.product.headline,
+                'website': obj.product.website,
+                'account_type': obj.product.account_type,
+                'access_type': obj.product.access_type,
+                'account_balance': obj.product.account_balance,
+                'description': obj.product.description,
+                'additional_info': obj.product.additional_info,
+                'delivery_time': obj.product.delivery_time,
+                'delivery_method': obj.product.delivery_method,
+                'price': float(obj.product.price),
+                'rating': float(obj.product.rating),
+                'category_name': obj.product.category.name if obj.product.category else 'N/A',
+                'main_image': obj.product.main_image
+            }
+        return {'headline': 'Deleted'}
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_id', 'buyer', 'vendor', 'product', 
+            'quantity', 'unit_price', 'total_amount', 'crypto_currency',
+            'payment_address', 'payment_status', 'payment_status_display',
+            'order_status', 'use_escrow', 'escrow_fee', 'dispute_opened',
+            'delivered_at', 'confirmed_at', 'created_at', 'updated_at',
+            'product_credentials', 'dispute_details'
+        ]
+
+    def get_dispute_details(self, obj):
+        dispute = obj.refund_disputes.first()
+        if dispute:
+            return {
+                'status': dispute.status,
+                'reason': dispute.reason,
+                'resolution': dispute.resolution,
+                'resolution_notes': dispute.resolution_notes,
+                'resolved_at': dispute.resolved_at.isoformat() if dispute.resolved_at else None,
+                'evidence_count': len(dispute.evidence) if isinstance(dispute.evidence, dict) else 0
+            }
+        return None
+
  

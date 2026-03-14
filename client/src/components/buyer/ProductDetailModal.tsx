@@ -5,7 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, Loader2, FileText, Download, Tag, Key, Truck } from 'lucide-react';
+import { 
+  Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, 
+  X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, 
+  MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, 
+  Loader2, FileText, Download, Tag, Key, Truck, ThumbsUp 
+} from 'lucide-react';
 import { DotLoader } from '@/components/ui/dot-loader';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/productService';
@@ -129,6 +134,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     } finally {
       setLoadingVendorStats(false);
     }
+  };
+
+  const getProductImage = () => {
+    if (!product) return placeholderImage;
+    if (product.main_image && product.main_image !== 'null') return getImageUrl(product.main_image);
+    if (product.main_images && product.main_images.length > 0) return getImageUrl(product.main_images[0]);
+    if (product.gallery_images && product.gallery_images.length > 0) return getImageUrl(product.gallery_images[0]);
+    return placeholderImage;
   };
 
   const fetchProductReviews = async () => {
@@ -382,12 +395,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 <div className="h-40 sm:h-48 md:h-56 bg-white/5 rounded-lg sm:rounded-xl overflow-hidden border border-white/10">
                   {product.main_image || (product.main_images && product.main_images.length > 0) ? (
                     <img
-                      src={
-                        getImageUrl(product.main_image) ||
-                        (product.main_images && product.main_images.length > 0
-                          ? getImageUrl(product.main_images[0])
-                          : brandLogo)
-                      }
+                      src={getProductImage()}
                       alt={product.headline || 'Product'}
                       className="w-full h-full object-contain bg-transparent"
                       onError={(e) => {

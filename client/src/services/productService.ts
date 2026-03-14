@@ -337,6 +337,18 @@ class ProductService {
     });
   }
 
+  async postReviewFormData(productId: number, formData: FormData): Promise<{ success: boolean; message: string; data?: any }> {
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch(`${API_BASE_URL}/products/${productId}/reviews/create/`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+    return response.json();
+  }
+
   // Vendor reviews (all for vendor)
   async getVendorReviews(params: { page?: number; page_size?: number; product_id?: number; search?: string; min_rating?: number; max_rating?: number; date_from?: string; date_to?: string; ordering?: string } = {}): Promise<{ success: boolean; message: string; data: any[]; pagination: any }> {
     const searchParams = new URLSearchParams();

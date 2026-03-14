@@ -33,16 +33,25 @@ export function ReviewModal({ productId, isOpen, onClose, onSuccess }: ReviewMod
     try {
       setIsSubmitting(true);
       
-      const reviewData = {
-        rating,
-        comment: comment.trim(),
-        images: images.map(file => file.name) // For now, just send file names
-      };
-
-      console.log('🔍 Submitting review data:', reviewData);
-      await productService.postReview(productId, reviewData);
-      onSuccess();
+      const formData = new FormData();
+      formData.append('rating', rating.toString());
+      formData.append('comment', comment.trim());
       
+      // Append actual files
+      images.forEach((file) => {
+        formData.append('review_images', file);
+      });
+
+      console.log('🔍 Submitting review data with images...');
+      await productService.postReviewFormData(productId, formData);
+      
+      toast({
+        title: "Success",
+        description: "Review submitted successfully!",
+      });
+      
+      onSuccess();
+      onClose();
     } catch (error: any) {
       console.error('Error submitting review:', error);
       toast({

@@ -646,92 +646,96 @@ export function Overview() {
         {/* Left Column: Stacked Nodes and Alerts */}
         <div className="lg:col-span-3 flex flex-col gap-6">
           {/* Crypto Node Status */}
-          <Card className="crypto-card h-full">
-            <CardContent className="p-4">
+          <Card className="crypto-card flex-1">
+            <CardContent className="p-4 h-full flex flex-col">
               <h3 className="text-lg font-semibold text-text mb-3">Crypto Nodes</h3>
 
-              {loading && (!cryptoStatus || !cryptoStatus.nodes) ? (
-                <div className="space-y-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+              <div className="flex-1 flex flex-col justify-center">
+                {loading && (!cryptoStatus || !cryptoStatus.nodes) ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gray-700 rounded-lg"></div>
+                          <div className="space-y-2">
+                            <div className="h-3 bg-gray-700 rounded w-20"></div>
+                            <div className="h-2 bg-gray-700 rounded w-32"></div>
+                          </div>
+                        </div>
+                        <div className="w-16 h-6 bg-gray-700 rounded-full"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : cryptoStatus?.nodes && cryptoStatus.nodes.length > 0 ? (
+                  cryptoStatus.nodes.map((node: any) => (
+                    <div key={node.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3 last:mb-0">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-700 rounded-lg"></div>
-                        <div className="space-y-2">
-                          <div className="h-3 bg-gray-700 rounded w-20"></div>
-                          <div className="h-2 bg-gray-700 rounded w-32"></div>
+                        <div className={`w-8 h-8 ${node.symbol === 'BTC' ? 'bg-warning/20' : 'bg-accent/20'} rounded-lg flex items-center justify-center`}>
+                          {node.symbol === 'BTC' ? (
+                            <Bitcoin className="text-warning w-4 h-4" />
+                          ) : (
+                            <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-text text-sm">{node.name}</p>
+                          <p className="text-[10px] text-gray-400">
+                            #{node.blockHeight} • {node.lastSync}
+                          </p>
                         </div>
                       </div>
-                      <div className="w-16 h-6 bg-gray-700 rounded-full"></div>
+                      <StatusBadge status={node.status} type={node.statusType === 'success' ? 'success' : 'warning'} className="scale-75 origin-right" />
                     </div>
-                  ))}
-                </div>
-              ) : cryptoStatus?.nodes && cryptoStatus.nodes.length > 0 ? (
-                cryptoStatus.nodes.map((node: any) => (
-                  <div key={node.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3 last:mb-0">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 ${node.symbol === 'BTC' ? 'bg-warning/20' : 'bg-accent/20'} rounded-lg flex items-center justify-center`}>
-                        {node.symbol === 'BTC' ? (
-                          <Bitcoin className="text-warning w-4 h-4" />
-                        ) : (
-                          <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
-                          </svg>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-text text-sm">{node.name}</p>
-                        <p className="text-[10px] text-gray-400">
-                          #{node.blockHeight} • {node.lastSync}
-                        </p>
-                      </div>
-                    </div>
-                    <StatusBadge status={node.status} type={node.statusType === 'success' ? 'success' : 'warning'} className="scale-75 origin-right" />
+                  ))
+                ) : (
+                  <div className="text-center py-4 bg-surface-2 rounded-lg">
+                    <p className="text-xs text-gray-500">Node data unavailable</p>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-4 bg-surface-2 rounded-lg">
-                  <p className="text-xs text-gray-500">Node data unavailable</p>
-                </div>
-              )}
+                )}
+              </div>
             </CardContent>
           </Card>
 
           {/* Crypto Alerts / Escrow Events */}
-          <Card className="crypto-card h-full">
-            <CardContent className="p-4">
+          <Card className="crypto-card flex-1">
+            <CardContent className="p-4 h-full flex flex-col">
               <h3 className="text-lg font-semibold text-text mb-3 flex items-center">
                 <Lock className="w-4 h-4 mr-2 text-yellow-500/80" />
                 Escrow Alerts
               </h3>
-              <div className="space-y-3">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <RefreshCw className="w-5 h-5 mx-auto text-gray-700 animate-spin" />
-                  </div>
-                ) : recentOrders.filter(order => order.use_escrow).slice(0, 3).length > 0 ? (
-                  recentOrders.filter(order => order.use_escrow).slice(0, 3).map((order) => (
-                    <div key={order.id} className="flex items-start space-x-3 p-2 hover:bg-surface-2 rounded-lg transition-colors group">
-                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-[11px] font-medium text-text truncate group-hover:text-accent transition-colors">
-                          {order.listing}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">
-                          {order.order_status === 'paid' && !order.confirmed_at
-                            ? 'Awaiting buyer'
-                            : order.confirmed_at
-                              ? 'Approved'
-                              : 'Pending'} • {order.created}
-                        </p>
-                      </div>
+              <div className="flex-1 flex flex-col justify-center">
+                <div className="space-y-3">
+                  {loading ? (
+                    <div className="text-center py-4">
+                      <RefreshCw className="w-5 h-5 mx-auto text-gray-700 animate-spin" />
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 bg-surface-2/30 rounded-lg">
-                    <Lock className="w-6 h-6 mx-auto text-gray-600 mb-1 opacity-20" />
-                    <p className="text-[10px] text-gray-500">No active escrow alerts</p>
-                  </div>
-                )}
+                  ) : recentOrders.filter(order => order.use_escrow).slice(0, 3).length > 0 ? (
+                    recentOrders.filter(order => order.use_escrow).slice(0, 3).map((order) => (
+                      <div key={order.id} className="flex items-start space-x-3 p-2 hover:bg-surface-2 rounded-lg transition-colors group">
+                        <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
+                        <div className="flex-1 overflow-hidden">
+                          <p className="text-[11px] font-medium text-text truncate group-hover:text-accent transition-colors">
+                            {order.listing}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {order.order_status === 'paid' && !order.confirmed_at
+                              ? 'Awaiting buyer'
+                              : order.confirmed_at
+                                ? 'Approved'
+                                : 'Pending'} • {order.created}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 bg-surface-2/30 rounded-lg">
+                      <Lock className="w-6 h-6 mx-auto text-gray-600 mb-1 opacity-20" />
+                      <p className="text-[10px] text-gray-500">No active escrow alerts</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

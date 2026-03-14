@@ -407,9 +407,13 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         return status_map.get(status, status.replace('_', ' ').capitalize())
 
     def get_payment_status_display(self, obj):
-        if hasattr(obj, 'payment') and obj.payment:
-            return obj.payment.get_status_display()
-        return "Unknown"
+        from payments.models import PaymentStatus
+        status = obj.payment_status
+        # Handle cases where status might be the enum member or its value
+        try:
+            return dict(PaymentStatus.__members__).get(status, str(status).replace('_', ' ').capitalize())
+        except:
+            return str(status).replace('_', ' ').capitalize()
 
     def get_dispute_details(self, obj):
         dispute = obj.refund_disputes.first()

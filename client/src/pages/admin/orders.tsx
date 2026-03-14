@@ -971,8 +971,9 @@ export default function AdminOrders() {
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Product Credentials - SENSITIVE DATA FOR ADMIN ONLY */}
+              {/* Product Credentials - SENSITIVE DATA FOR ADMIN ONLY */}
                 {selectedOrder.product_credentials && Object.keys(selectedOrder.product_credentials).length > 0 && (
                   <div className="bg-red-500/5 rounded-lg p-4 border border-red-500/20">
                     <div className="flex items-center space-x-2 mb-3">
@@ -1259,6 +1260,6 @@ export default function AdminOrders() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main >
+    </main>
   );
 }

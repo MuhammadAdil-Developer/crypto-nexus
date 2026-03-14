@@ -270,14 +270,33 @@ class AdminDashboardOrderSerializer(serializers.ModelSerializer):
     buyer = serializers.SerializerMethodField()
     vendor = serializers.SerializerMethodField()
     product = serializers.SerializerMethodField()
+    order_status_display = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
         fields = [
             'id', 'order_id', 'buyer', 'vendor', 'product',
             'quantity', 'total_amount', 'crypto_currency', 'payment_status',
-            'order_status', 'created_at'
+            'order_status', 'order_status_display', 'created_at'
         ]
+
+    def get_order_status_display(self, obj):
+        status = obj.order_status
+        status_map = {
+            'pending_payment': 'Pending Payment',
+            'payment_received': 'Payment Received',
+            'processing': 'Processing',
+            'paid': 'Paid',
+            'delivered': 'Completed',
+            'confirmed': 'Completed',
+            'disputed': 'Disputed',
+            'cancelled': 'Cancelled',
+            'refunded': 'Refunded',
+            'partial': 'Partial Payment',
+        }
+        if status == 'paid' and obj.product and obj.product.delivery_time == 'instant_auto':
+            return "Completed"
+        return status_map.get(status, status.replace('_', ' ').capitalize())
 
     def get_buyer(self, obj):
         if obj.buyer:
@@ -355,6 +374,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
     order_status_display = serializers.SerializerMethodField()
     payment_status_display = serializers.SerializerMethodField()
+    dispute_details = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
@@ -362,10 +382,10 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             'id', 'order_id', 'buyer', 'vendor', 'product', 'quantity',
             'unit_price', 'total_amount', 'crypto_currency', 'payment_address', 
             'payment_status', 'payment_status_display', 'order_status', 'order_status_display', 
-            'use_escrow', 'escrow_fee', 'payment_address', 'refund_address',
+            'use_escrow', 'escrow_fee', 'refund_address',
             'dispute_opened', 'dispute_reason', 'dispute_opened_at', 'dispute_details',
             'payment_expires_at', 'delivered_at', 'confirmed_at',
-            'is_giveaway', 'created_at', 'updated_at'
+            'is_giveaway', 'created_at', 'updated_at', 'product_credentials'
         ]
 
     def get_order_status_display(self, obj):
@@ -392,17 +412,16 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         return "Unknown"
 
     def get_dispute_details(self, obj):
-        if obj.dispute_opened:
-            dispute = obj.refund_disputes.first()
-            if dispute:
-                return {
-                    'status': dispute.status,
-                    'reason': dispute.reason,
-                    'resolution': dispute.resolution,
-                    'resolution_notes': dispute.resolution_notes,
-                    'resolved_at': dispute.resolved_at,
-                    'evidence_count': len(dispute.evidence) if isinstance(dispute.evidence, dict) else 0
-                }
+        dispute = obj.refund_disputes.first()
+        if dispute:
+            return {
+                'status': dispute.status,
+                'reason': dispute.reason,
+                'resolution': dispute.resolution,
+                'resolution_notes': dispute.resolution_notes,
+                'resolved_at': dispute.resolved_at.isoformat() if dispute.resolved_at else None,
+                'evidence_count': len(dispute.evidence) if isinstance(dispute.evidence, dict) else 0
+            }
         return None
 
     def get_buyer(self, obj):
@@ -451,28 +470,5 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             }
         return {'headline': 'Deleted'}
 
-    class Meta:
-        model = Order
-        fields = [
-            'id', 'order_id', 'buyer', 'vendor', 'product', 
-            'quantity', 'unit_price', 'total_amount', 'crypto_currency',
-            'payment_address', 'payment_status', 'payment_status_display',
-            'order_status', 'use_escrow', 'escrow_fee', 'dispute_opened',
-            'delivered_at', 'confirmed_at', 'created_at', 'updated_at',
-            'product_credentials', 'dispute_details'
-        ]
-
-    def get_dispute_details(self, obj):
-        dispute = obj.refund_disputes.first()
-        if dispute:
-            return {
-                'status': dispute.status,
-                'reason': dispute.reason,
-                'resolution': dispute.resolution,
-                'resolution_notes': dispute.resolution_notes,
-                'resolved_at': dispute.resolved_at.isoformat() if dispute.resolved_at else None,
-                'evidence_count': len(dispute.evidence) if isinstance(dispute.evidence, dict) else 0
-            }
-        return None
 
  

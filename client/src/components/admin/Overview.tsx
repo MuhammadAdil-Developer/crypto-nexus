@@ -641,138 +641,250 @@ export function Overview() {
         </Card>
       </div>
 
-      {/* Node Status and System Health */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Crypto Node Status */}
-        <Card className="crypto-card">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-text mb-3">Crypto Nodes</h3>
+      {/* Nodes, Escrow Overview, and Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8 items-stretch">
+        {/* Left Column: Stacked Nodes and Alerts */}
+        <div className="lg:col-span-3 flex flex-col gap-6">
+          {/* Crypto Node Status */}
+          <Card className="crypto-card h-full">
+            <CardContent className="p-4">
+              <h3 className="text-lg font-semibold text-text mb-3">Crypto Nodes</h3>
 
-            {loading && (!cryptoStatus || !cryptoStatus.nodes) ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+              {loading && (!cryptoStatus || !cryptoStatus.nodes) ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-surface-2 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gray-700 rounded-lg"></div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-gray-700 rounded w-20"></div>
+                          <div className="h-2 bg-gray-700 rounded w-32"></div>
+                        </div>
+                      </div>
+                      <div className="w-16 h-6 bg-gray-700 rounded-full"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : cryptoStatus?.nodes && cryptoStatus.nodes.length > 0 ? (
+                cryptoStatus.nodes.map((node: any) => (
+                  <div key={node.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3 last:mb-0">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-700 rounded-lg"></div>
-                      <div className="space-y-2">
-                        <div className="h-3 bg-gray-700 rounded w-20"></div>
-                        <div className="h-2 bg-gray-700 rounded w-32"></div>
+                      <div className={`w-8 h-8 ${node.symbol === 'BTC' ? 'bg-warning/20' : 'bg-accent/20'} rounded-lg flex items-center justify-center`}>
+                        {node.symbol === 'BTC' ? (
+                          <Bitcoin className="text-warning w-4 h-4" />
+                        ) : (
+                          <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-text text-sm">{node.name}</p>
+                        <p className="text-[10px] text-gray-400">
+                          #{node.blockHeight} • {node.lastSync}
+                        </p>
                       </div>
                     </div>
-                    <div className="w-16 h-6 bg-gray-700 rounded-full"></div>
+                    <StatusBadge status={node.status} type={node.statusType === 'success' ? 'success' : 'warning'} className="scale-75 origin-right" />
                   </div>
-                ))}
-              </div>
-            ) : cryptoStatus?.nodes && cryptoStatus.nodes.length > 0 ? (
-              cryptoStatus.nodes.map((node: any) => (
-                <div key={node.id} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg mb-3 last:mb-0">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 ${node.symbol === 'BTC' ? 'bg-warning/20' : 'bg-accent/20'} rounded-lg flex items-center justify-center`}>
-                      {node.symbol === 'BTC' ? (
-                        <Bitcoin className="text-warning w-4 h-4" />
-                      ) : (
-                        <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.605 16.695h-2.292l-1.689-2.646-1.689 2.646H10.64l2.646-4.141L10.64 8.414h2.295l1.689 2.646 1.689-2.646h2.292l-2.646 4.14 2.646 4.141z" />
-                        </svg>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-text text-sm">{node.name}</p>
-                      <p className="text-xs text-gray-400">
-                        Block #{node.blockHeight} • {node.lastSync}
-                      </p>
-                    </div>
-                  </div>
-                  <StatusBadge status={node.status} type={node.statusType === 'success' ? 'success' : 'warning'} />
+                ))
+              ) : (
+                <div className="text-center py-4 bg-surface-2 rounded-lg">
+                  <p className="text-xs text-gray-500">Node data unavailable</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-4 bg-surface-2 rounded-lg">
-                <p className="text-xs text-gray-500">Node data unavailable</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Escrow Overview */}
-        <Card className="crypto-card">
+          {/* Crypto Alerts / Escrow Events */}
+          <Card className="crypto-card h-full">
+            <CardContent className="p-4">
+              <h3 className="text-lg font-semibold text-text mb-3 flex items-center">
+                <Lock className="w-4 h-4 mr-2 text-yellow-500/80" />
+                Escrow Alerts
+              </h3>
+              <div className="space-y-3">
+                {loading ? (
+                  <div className="text-center py-4">
+                    <RefreshCw className="w-5 h-5 mx-auto text-gray-700 animate-spin" />
+                  </div>
+                ) : recentOrders.filter(order => order.use_escrow).slice(0, 3).length > 0 ? (
+                  recentOrders.filter(order => order.use_escrow).slice(0, 3).map((order) => (
+                    <div key={order.id} className="flex items-start space-x-3 p-2 hover:bg-surface-2 rounded-lg transition-colors group">
+                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-[11px] font-medium text-text truncate group-hover:text-accent transition-colors">
+                          {order.listing}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          {order.order_status === 'paid' && !order.confirmed_at
+                            ? 'Awaiting buyer'
+                            : order.confirmed_at
+                              ? 'Approved'
+                              : 'Pending'} • {order.created}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 bg-surface-2/30 rounded-lg">
+                    <Lock className="w-6 h-6 mx-auto text-gray-600 mb-1 opacity-20" />
+                    <p className="text-[10px] text-gray-500">No active escrow alerts</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Center/Main Column: Escrow Overview */}
+        <Card className="crypto-card lg:col-span-6 overflow-hidden">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-text">Escrow Overview</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-text underline decoration-accent/30 underline-offset-8">Escrow Overview</h3>
+                <p className="text-xs text-gray-400 mt-2">Active platform liquidity & pending releases</p>
+              </div>
               <button
                 onClick={() => fetchDashboardData(true)}
                 disabled={refreshing || loading}
-                className={`p-1.5 hover:bg-surface-2 rounded-full transition-all duration-200 ${refreshing ? 'animate-spin text-accent' : 'text-gray-400'}`}
-                title="Refresh escrow data"
+                className={`p-2 hover:bg-surface-2 rounded-xl transition-all duration-200 border border-border/50 ${refreshing ? 'animate-spin text-accent border-accent/20' : 'text-gray-400'}`}
+                title="System Resync"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className={`text-center p-3 bg-surface-2 rounded-lg transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
-                <p className="text-xl font-bold text-text font-mono">
-                  {loading ? "..." : dashboardStats?.escrow_stats.btc_total.toFixed(5) || "0.00000"}
-                </p>
-                <p className="text-xs">BTC in Escrow</p>
-                <p className="text-xs mt-1 text-gray-400">
-                  ~${((dashboardStats?.escrow_stats.btc_total || 0) * prices.BTC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                {dashboardStats?.escrow_stats.btc_order_ids && dashboardStats.escrow_stats.btc_order_ids.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border/50 text-[10px] text-gray-500 font-mono truncate px-1">
-                    {dashboardStats.escrow_stats.btc_order_ids.join(', ')}
-                  </div>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* BTC Total */}
+              <div className={`relative group p-4 bg-surface-2 border border-border/40 rounded-xl overflow-hidden transition-all duration-300 ${refreshing ? 'opacity-50 grayscale' : 'opacity-100 hover:border-warning/30 hover:shadow-[0_0_20px_rgba(234,179,8,0.05)]'}`}>
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                   <Bitcoin className="w-12 h-12 text-warning" />
+                </div>
+                <div className="relative z-10 text-center md:text-left">
+                  <p className="text-2xl font-black text-text font-mono tracking-tighter">
+                    {loading ? "..." : (dashboardStats?.escrow_stats.btc_total || 0).toFixed(6)}
+                  </p>
+                  <p className="text-[10px] font-bold text-warning uppercase tracking-widest mt-0.5">BTC in Escrow</p>
+                  <p className="text-xs mt-2 font-medium text-gray-400">
+                    Est. <span className="text-text">${((dashboardStats?.escrow_stats.btc_total || 0) * prices.BTC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </p>
+                  
+                  {/* Interactive Proof Button */}
+                  {dashboardStats?.escrow_stats.btc_order_ids && dashboardStats.escrow_stats.btc_order_ids.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border/30">
+                      <p className="text-[9px] text-gray-500 mb-1.5 font-bold uppercase">Order IDs Proof:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {dashboardStats.escrow_stats.btc_order_ids.slice(0, 3).map(id => (
+                          <span key={id} className="text-[8px] bg-background px-1.5 py-0.5 rounded border border-border/50 text-gray-400 font-mono">
+                            {id}
+                          </span>
+                        ))}
+                        {dashboardStats.escrow_stats.btc_order_ids.length > 3 && (
+                          <span className="text-[8px] text-accent font-bold">+{dashboardStats.escrow_stats.btc_order_ids.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className={`text-center p-3 bg-surface-2 rounded-lg transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
-                <p className="text-xl font-bold text-text font-mono">
-                  {loading ? "..." : dashboardStats?.escrow_stats.xmr_total.toFixed(3) || "0.000"}
-                </p>
-                <p className="text-xs">XMR in Escrow</p>
-                <p className="text-xs mt-1 text-gray-400">
-                  ~${((dashboardStats?.escrow_stats.xmr_total || 0) * prices.XMR).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                {dashboardStats?.escrow_stats.xmr_order_ids && dashboardStats.escrow_stats.xmr_order_ids.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border/50 text-[10px] text-gray-500 font-mono truncate px-1">
-                    {dashboardStats.escrow_stats.xmr_order_ids.join(', ')}
-                  </div>
-                )}
+
+              {/* XMR Total */}
+              <div className={`relative group p-4 bg-surface-2 border border-border/40 rounded-xl overflow-hidden transition-all duration-300 ${refreshing ? 'opacity-50 grayscale' : 'opacity-100 hover:border-accent/30 hover:shadow-[0_0_20px_rgba(77,248,255,0.05)]'}`}>
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                   <Lock className="w-12 h-12 text-accent" />
+                </div>
+                <div className="relative z-10 text-center md:text-left">
+                  <p className="text-2xl font-black text-text font-mono tracking-tighter">
+                    {loading ? "..." : (dashboardStats?.escrow_stats.xmr_total || 0).toFixed(4)}
+                  </p>
+                  <p className="text-[10px] font-bold text-accent uppercase tracking-widest mt-0.5">XMR in Escrow</p>
+                  <p className="text-xs mt-2 font-medium text-gray-400">
+                    Est. <span className="text-text">${((dashboardStats?.escrow_stats.xmr_total || 0) * prices.XMR).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </p>
+                  
+                  {/* Interactive Proof Button */}
+                  {dashboardStats?.escrow_stats.xmr_order_ids && dashboardStats.escrow_stats.xmr_order_ids.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border/30">
+                      <p className="text-[9px] text-gray-500 mb-1.5 font-bold uppercase">Order IDs Proof:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {dashboardStats.escrow_stats.xmr_order_ids.slice(0, 3).map(id => (
+                          <span key={id} className="text-[8px] bg-background px-1.5 py-0.5 rounded border border-border/50 text-gray-400 font-mono">
+                            {id}
+                          </span>
+                        ))}
+                        {dashboardStats.escrow_stats.xmr_order_ids.length > 3 && (
+                          <span className="text-[8px] text-accent font-bold">+{dashboardStats.escrow_stats.xmr_order_ids.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className={`mt-3 space-y-2 transition-opacity duration-300 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
-              <div className="bg-surface-2/50 p-2 rounded-lg">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-400">Pending Releases</span>
-                  <span className="text-text font-medium">{dashboardStats?.escrow_stats.pending_releases || 0} orders</span>
+            {/* Pipeline Status Counters */}
+            <div className="space-y-3">
+              <div className="p-3 bg-surface-2/60 border border-border/20 rounded-xl hover:bg-surface-2 transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Pending Releases</span>
+                  </div>
+                  <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
+                    {dashboardStats?.escrow_stats.pending_releases || 0} ACTIVE
+                  </Badge>
                 </div>
                 {dashboardStats?.escrow_stats.pending_release_ids && dashboardStats.escrow_stats.pending_release_ids.length > 0 && (
-                  <div className="text-[10px] text-gray-500 font-mono truncate border-t border-border/30 pt-1">
-                    IDs: {dashboardStats.escrow_stats.pending_release_ids.join(', ')}
-                  </div>
-                )}
-              </div>
-              
-              <div className="bg-surface-2/50 p-2 rounded-lg">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-400">Auto-Release (48h)</span>
-                  <span className="text-text font-medium">{dashboardStats?.escrow_stats.auto_release_orders || 0} orders</span>
-                </div>
-                {dashboardStats?.escrow_stats.auto_release_ids && dashboardStats.escrow_stats.auto_release_ids.length > 0 && (
-                  <div className="text-[10px] text-gray-500 font-mono truncate border-t border-border/30 pt-1">
-                    IDs: {dashboardStats.escrow_stats.auto_release_ids.join(', ')}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {dashboardStats.escrow_stats.pending_release_ids.map(id => (
+                      <span key={id} className="text-[9px] px-2 py-0.5 bg-background/50 rounded-full text-gray-400 font-mono border border-border/30">
+                        {id}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-surface-2/50 p-2 rounded-lg">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-400">Disputed</span>
-                  <span className="text-danger font-medium">{dashboardStats?.escrow_stats.disputed_orders || 0} orders</span>
+              <div className="p-3 bg-surface-2/60 border border-border/20 rounded-xl hover:bg-surface-2 transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Auto-Release Pipeline</span>
+                  </div>
+                  <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                    {dashboardStats?.escrow_stats.auto_release_orders || 0} ORDERS
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-gray-500 mb-2 italic">Scheduled within next 48 hours</p>
+                {dashboardStats?.escrow_stats.auto_release_ids && dashboardStats.escrow_stats.auto_release_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {dashboardStats.escrow_stats.auto_release_ids.map(id => (
+                      <span key={id} className="text-[9px] px-2 py-0.5 bg-background/50 rounded-full text-gray-400 font-mono border border-border/30">
+                        {id}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-xl hover:bg-red-900/10 transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-danger shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                    <span className="text-xs font-bold text-danger uppercase tracking-wider">Disputed Liquidity</span>
+                  </div>
+                  <Badge variant="outline" className="bg-danger/10 text-danger border-danger/20">
+                    {dashboardStats?.escrow_stats.disputed_orders || 0} STUCK
+                  </Badge>
                 </div>
                 {dashboardStats?.escrow_stats.disputed_order_ids && dashboardStats.escrow_stats.disputed_order_ids.length > 0 && (
-                  <div className="text-[10px] text-red-400/60 font-mono truncate border-t border-red-500/10 pt-1">
-                    IDs: {dashboardStats.escrow_stats.disputed_order_ids.join(', ')}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {dashboardStats.escrow_stats.disputed_order_ids.map(id => (
+                      <span key={id} className="text-[9px] px-2 py-0.5 bg-red-900/10 rounded-full text-red-300/60 font-mono border border-red-900/30">
+                        {id}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
@@ -780,47 +892,37 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        {/* Escrow Alerts */}
-        <Card className="crypto-card">
-          <CardContent className="p-4">
-            <h3 className="text-lg font-semibold text-text mb-3 flex items-center">
-              <Lock className="w-4 h-4 mr-2 text-yellow-400" />
-              Escrow Alerts
-            </h3>
-            <div className="space-y-2">
-              {loading ? (
-                <div className="text-center py-2">
-                  <p className="text-xs text-gray-400">Loading escrow alerts...</p>
-                </div>
-              ) : recentOrders.filter(order => order.use_escrow).slice(0, 3).map((order) => (
-                <div key={order.id} className="flex items-start space-x-2">
-                  <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-yellow-400" />
-                  <div className="flex-1">
-                    <p className="text-xs text-text">
-                      Escrow Order: {order.listing}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {order.order_status === 'paid' && !order.confirmed_at
-                        ? 'Awaiting buyer approval'
-                        : order.confirmed_at
-                          ? 'Approved by buyer'
-                          : 'Payment pending'}
-                    </p>
+        {/* Right Column: Platform Context / Quick Links */}
+        <div className="lg:col-span-3">
+          <Card className="crypto-card h-full border-accent/20 bg-accent/5">
+            <CardContent className="p-4">
+               <h3 className="text-lg font-semibold text-accent mb-4">Quick Insights</h3>
+               <div className="space-y-4">
+                  <div className="p-3 bg-surface-2 rounded-lg border border-border/50">
+                     <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Total Orders</p>
+                     <p className="text-xl font-black text-text">{dashboardStats?.statistics.total_orders || 0}</p>
                   </div>
-                  <div className="text-xs text-gray-400">
-                    {order.created}
+                  <div className="p-3 bg-surface-2 rounded-lg border border-border/50">
+                     <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Awaiting Payment</p>
+                     <p className="text-xl font-black text-warning">{dashboardStats?.statistics.pending_payments || 0}</p>
                   </div>
-                </div>
-              ))}
-              {recentOrders.filter(order => order.use_escrow).length === 0 && !loading && (
-                <div className="text-center py-2">
-                  <Lock className="w-6 h-6 mx-auto text-gray-500 mb-1" />
-                  <p className="text-xs text-gray-400">No escrow orders at the moment</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="p-3 bg-surface-2 rounded-lg border border-border/50">
+                     <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Real-time Growth</p>
+                     <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                        <p className="text-xl font-black text-green-500">+{dashboardStats?.statistics.users.growth_pct || 0}%</p>
+                     </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                    <Link to="/admin/disputes" className="w-full h-10 flex items-center justify-center bg-danger/10 border border-danger/30 text-danger text-xs font-bold rounded-xl hover:bg-danger hover:text-white transition-all duration-300">
+                      Manage {dashboardStats?.escrow_stats.disputed_orders || 0} Disputes
+                    </Link>
+                  </div>
+               </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Recent Orders Table */}

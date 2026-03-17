@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, Heart, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, Filter, MoreVertical, Loader2, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, Heart, CheckCircle, AlertCircle, Info, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -231,6 +231,27 @@ export default function VendorListings() {
       setError(err.message || 'Failed to fetch vendor data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Highlight product
+  const handleHighlightProduct = async (productId: number) => {
+    try {
+      const response = await vendorService.promoteHighlight(productId);
+      if (response.success) {
+        showToast({
+          title: "Product Highlighted",
+          message: "Product will appear at the top of search for 12 hours!",
+          type: "success"
+        });
+        await fetchVendorData(); // Refresh to show highlight status if UI supports it
+      }
+    } catch (err: any) {
+      showToast({
+        title: "Promotion Failed",
+        message: err.message || "Failed to highlight product",
+        type: "error"
+      });
     }
   };
 
@@ -641,6 +662,12 @@ export default function VendorListings() {
                               GIVEAWAY
                             </Badge>
                           )}
+                          {product.is_highlighted && product.highlighted_until && new Date(product.highlighted_until) > new Date() && (
+                            <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-[10px] sm:text-xs px-2 py-0.5 font-bold">
+                              <Zap className="w-3 h-3 mr-1" />
+                              HIGHLIGHT
+                            </Badge>
+                          )}
                         </div>
                         <h3 className="text-white font-bold text-base sm:text-lg leading-tight mb-1 line-clamp-2">{product.headline}</h3>
                         <p className="text-gray-400 text-xs sm:text-sm truncate font-medium">{product.category?.name || 'Uncategorized'}</p>
@@ -720,6 +747,9 @@ export default function VendorListings() {
                           </DropdownMenuItem>
                           <DropdownMenuItem className="focus:bg-gray-800 focus:text-white cursor-pointer" onClick={() => navigate(getLinkUrl(`/vendor/listings/edit/${product.id}`))}>
                             <Edit className="w-4 h-4 mr-2" /> Quick Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="focus:bg-theme-cyan/10 focus:text-theme-cyan cursor-pointer" onClick={() => handleHighlightProduct(product.id)}>
+                            <Zap className="w-4 h-4 mr-2" /> Highlight (12h Top)
                           </DropdownMenuItem>
                           <DropdownMenuItem className="focus:bg-red-900/20 focus:text-red-400 text-red-400 cursor-pointer" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
                             <Trash2 className="w-4 h-4 mr-2" /> Delete Product
@@ -829,6 +859,12 @@ export default function VendorListings() {
                               GIVEAWAY
                             </Badge>
                           )}
+                          {product.is_highlighted && product.highlighted_until && new Date(product.highlighted_until) > new Date() && (
+                             <Badge className="bg-amber-500 text-black border-none text-xs px-1.5 py-0.5 mt-1 block w-fit">
+                               <Zap className="w-2.5 h-2.5 mr-0.5 inline" />
+                               HIGHLIGHT
+                             </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
@@ -921,6 +957,13 @@ export default function VendorListings() {
                                   Edit & Resubmit
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem
+                                className="text-theme-cyan hover:bg-theme-cyan/10 cursor-pointer"
+                                onClick={() => handleHighlightProduct(product.id)}
+                              >
+                                <Zap className="w-4 h-4 mr-2" />
+                                Highlight (12h Top)
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-red-400 hover:bg-red-500/10"
                                 onClick={() => {

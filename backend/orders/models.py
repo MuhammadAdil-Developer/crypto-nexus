@@ -69,6 +69,9 @@ class Order(BaseModel):
     dispute_reason = models.TextField(blank=True)
     is_giveaway = models.BooleanField(default=False)
     
+    # Promotional Tracking
+    was_highlighted_at_order = models.BooleanField(default=False, help_text="Was the product highlighted when this order was created?")
+    
     # Timestamps
     payment_expires_at = models.DateTimeField(null=True, blank=True)
     payment_confirmed_at = models.DateTimeField(null=True, blank=True)

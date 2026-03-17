@@ -8,11 +8,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/pagination";
-import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download, MessageSquare, Trash2 } from "lucide-react";
+import { Search, Filter, Eye, RefreshCw, DollarSign, Package, AlertTriangle, User, Calendar, CreditCard, Shield, Truck, Lock, CheckCircle, Download, MessageSquare, Trash2, Key } from "lucide-react";
 import { SAMPLE_ORDERS } from "@/lib/constants";
 import { orderService, Order } from "@/services/orderService";
 import { useToast } from "@/hooks/use-toast";
 import { formatCryptoAmountInString } from "@/lib/utils";
+import { getImageUrl } from "@/config/api";
+import brandLogo from "@/assets/banner/logo.png";
 
 export default function AdminOrders() {
   const { toast } = useToast();
@@ -279,18 +281,6 @@ export default function AdminOrders() {
     return 'Unknown';
   };
 
-  // Safe credentials display
-  const getCredentialsDisplay = (credentials: any): string => {
-    if (!credentials || typeof credentials !== 'object') return 'N/A';
-    if (Object.keys(credentials).length === 0) return 'No credentials provided';
-
-    // If it's an object with data, try to stringify it safely
-    try {
-      return JSON.stringify(credentials);
-    } catch {
-      return 'Credentials available';
-    }
-  };
 
   // Filter orders based on search and filters
   const getFilteredOrders = () => {
@@ -973,20 +963,6 @@ export default function AdminOrders() {
                 </div>
               </div>
 
-              {/* Product Credentials - SENSITIVE DATA FOR ADMIN ONLY */}
-                {selectedOrder.product_credentials && Object.keys(selectedOrder.product_credentials).length > 0 && (
-                  <div className="bg-red-500/5 rounded-lg p-4 border border-red-500/20">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Key className="w-4 h-4 text-red-500" />
-                      <h3 className="text-sm font-semibold text-white">Product Credentials (Delivered)</h3>
-                    </div>
-                    <div className="bg-black/40 rounded p-3 font-mono text-[10px] sm:text-xs text-red-200 whitespace-pre-wrap overflow-x-auto border border-red-500/10">
-                      {typeof selectedOrder.product_credentials === 'string' 
-                        ? selectedOrder.product_credentials 
-                        : JSON.stringify(selectedOrder.product_credentials, null, 2)}
-                    </div>
-                  </div>
-                )}
 
                   {/* Payment Information - VERTICAL LAYOUT FOR PAYMENT ADDRESS */}
                 <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
@@ -1128,21 +1104,6 @@ export default function AdminOrders() {
                   </div>
                 )}
 
-                {/* Product Credentials - HIDDEN FOR ADMIN per requirement */}
-                {/* 
-                {selectedOrder.product_credentials && Object.keys(selectedOrder.product_credentials).length > 0 && (
-                  <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/20">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Package className="w-4 h-4 text-accent" />
-                      <h3 className="text-sm font-semibold text-white">Product Credentials</h3>
-                    </div>
-                    <div className="flex items-start justify-between">
-                      <span className="text-gray-400 text-xs font-medium">Credentials</span>
-                      <span className="text-white font-mono text-xs break-all text-right max-w-xs">{getCredentialsDisplay(selectedOrder.product_credentials)}</span>
-                    </div>
-                  </div>
-                )}
-                */}
               </div>
             </div>
           )}

@@ -8,7 +8,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Product, ProductCategory, ProductSubCategory, ProductView, ProductReview
-from shared.models import Notification
+from shared.models import Notification, UserWallet, WalletTransaction, Announcement
+from django.db import transaction
 from .serializers import ProductSerializer, ProductDetailSerializer, ProductCreateSerializer, ProductUpdateSerializer, ProductSubCategorySerializer, ProductCategorySerializer
 from users.models import User
 from orders.models import Order
@@ -169,17 +170,22 @@ def list_products(request):
             # Handle list field filtering for JSONField
             products = products.filter(accepted_crypto__contains=[crypto])
         
-        # Apply sorting
+        # Create a list for ordering
+        # Highlighted items first, then based on sort_by
+        order_fields = ['-is_highlighted']
+        
         if sort_by == 'price_low':
-            products = products.order_by('price')
+            order_fields.append('price')
         elif sort_by == 'price_high':
-            products = products.order_by('-price')
+            order_fields.append('-price')
         elif sort_by == 'rating':
-            products = products.order_by('-rating')
+            order_fields.append('-rating')
         elif sort_by == 'views':
-            products = products.order_by('-views_count')
+            order_fields.append('-views_count')
         else:  # created_at
-            products = products.order_by('-created_at')
+            order_fields.append('-created_at')
+            
+        products = products.order_by(*order_fields)
         
         # Pagination
         total_count = products.count()
@@ -3067,3 +3073,109 @@ def mark_review_helpful(request, review_id):
     except Exception as e:
         logger.error(f"Error marking review as helpful: {str(e)}")
         return Response({'success': False, 'message': 'Failed to update helpful status', 'errors': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def promote_highlight(request, product_id):
+    """Highlight a product for 12 hours with 10% commission"""
+    try:
+        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        
+        # Check if already highlighted
+        if product.is_highlighted and product.highlighted_until and product.highlighted_until > timezone.now():
+             return Response({'success': False, 'message': 'Product is already highlighted'}, status=400)
+             
+        # Reset other highlighted products for this vendor (keep only one)
+        Product.objects.filter(vendor=request.user, is_highlighted=True).update(is_highlighted=False, highlighted_until=None)
+        
+        product.is_highlighted = True
+        product.highlighted_until = timezone.now() + timezone.timedelta(hours=12)
+        product.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Product highlighted successfully for 12 hours. 10% commission will apply to sales.',
+            'highlighted_until': product.highlighted_until
+        })
+    except Exception as e:
+        return Response({'success': False, 'message': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def promote_notification(request):
+    """Pay $10 (standard) or $100 (premium) to notify all users about up to 10 products"""
+    try:
+        product_ids = request.data.get('product_ids', [])
+        currency = request.data.get('currency', 'BTC').upper()
+        promotion_type = request.data.get('promotion_type', 'standard') # 'standard' or 'premium'
+        
+        if not product_ids or len(product_ids) > 10:
+            return Response({'success': False, 'message': 'Please provide 1-10 products'}, status=400)
+            
+        products = Product.objects.filter(id__in=product_ids, vendor=request.user)
+        if products.count() != len(product_ids):
+            return Response({'success': False, 'message': 'Some products were not found or do not belong to you'}, status=400)
+            
+        # 1. Determine cost and priority based on tier
+        if promotion_type == 'premium':
+            cost_usd = Decimal('100.00')
+            title_prefix = "🔥 EXCLUSIVE ACCESS:"
+            priority = 'critical'
+            expiry_hours = 48
+        else:
+            cost_usd = Decimal('10.00')
+            title_prefix = "Premium Promotion:"
+            priority = 'high'
+            expiry_hours = 24
+
+        # 2. Calculate cost in crypto
+        from payments.services import get_current_price_usd
+        price_usd = get_current_price_usd(currency)
+        if price_usd <= 0:
+            return Response({'success': False, 'message': 'Could not fetch crypto price'}, status=500)
+            
+        cost_crypto = cost_usd / price_usd
+        
+        # 3. Deduct from wallet
+        try:
+            wallet, created = UserWallet.objects.get_or_create(user=request.user)
+            
+            with transaction.atomic():
+                wallet.debit(cost_crypto, currency)
+                
+                # 4. Create wallet transaction
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    transaction_type='purchase',
+                    amount=cost_crypto,
+                    crypto_currency=currency,
+                    notes=f'{promotion_type.capitalize()} promotion fee (${cost_usd}) for {len(product_ids)} products'
+                )
+                
+                # 5. Create announcement for all users
+                product_links = [f'<a href="/product/{p.id}">{p.headline}</a>' for p in products]
+                content = f"AccountzClub Featured Offers from <strong>{request.user.username}</strong>:<br><br>" + "<br>".join(product_links)
+                if promotion_type == 'premium':
+                    content = "<strong>URGENT: A new premium account selection is available!</strong><br><br>" + content
+                
+                Announcement.objects.create(
+                    title=f"{title_prefix} {request.user.username}'s Special Deals",
+                    content=content,
+                    audience='all',
+                    priority=priority,
+                    created_by=request.user,
+                    start_date=timezone.now(),
+                    end_date=timezone.now() + timezone.timedelta(hours=expiry_hours)
+                )
+        except ValueError as e:
+            return Response({'success': False, 'message': str(e)}, status=400)
+            
+        return Response({
+            'success': True,
+            'message': f'{promotion_type.capitalize()} notification sent! {cost_crypto:.8f} {currency} (~${cost_usd}) deducted from wallet.'
+        })
+    except Exception as e:
+        logger.error(f"Error in promote_notification: {str(e)}")
+        return Response({'success': False, 'message': str(e)}, status=500)

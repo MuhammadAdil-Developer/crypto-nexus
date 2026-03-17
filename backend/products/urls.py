@@ -68,6 +68,10 @@ urlpatterns = [
     # Resubmit endpoint
     path('<int:product_id>/resubmit/', views.resubmit_product, name='resubmit_product'),
     
+    # Promotional features
+    path('<int:product_id>/promote/highlight/', views.promote_highlight, name='promote_highlight'),
+    path('promote/notification/', views.promote_notification, name='promote_notification'),
+    
     # Product detail (must be last to avoid conflicts)
     path('<int:product_id>/', views.product_detail, name='product_detail'),
 ]

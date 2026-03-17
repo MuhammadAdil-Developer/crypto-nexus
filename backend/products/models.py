@@ -127,6 +127,12 @@ class Product(BaseModel):
     
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
+    
+    # Promotional Fields (12-hour Highlight)
+    is_highlighted = models.BooleanField(default=False, help_text="Is this product currently highlighted as a special offer?")
+    highlighted_until = models.DateTimeField(blank=True, null=True, help_text="Time until which the product remains highlighted")
+    highlight_fee_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.00, help_text="Fee rate when highlighted (%)")
+    
     is_deleted = models.BooleanField(default=False)
     approval_notes = models.TextField(default='')
     approved_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, blank=True, null=True, related_name='approved_products')

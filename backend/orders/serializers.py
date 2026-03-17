@@ -214,9 +214,17 @@ class CreateOrderSerializer(serializers.ModelSerializer):
             # Both vendor and product have escrow disabled - no escrow
             use_escrow = False
         
-        # Update validated_data with escrow decision and giveaway status
+        # Capture highlight status at the time of order creation
+        # We also check if the highlight has expired
+        is_currently_highlighted = False
+        if product.is_highlighted and product.highlighted_until:
+             from django.utils import timezone
+             is_currently_highlighted = timezone.now() < product.highlighted_until
+        
+        # Update validated_data with escrow decision, giveaway status, and highlight tracking
         validated_data['use_escrow'] = use_escrow
         validated_data['is_giveaway'] = product.is_giveaway
+        validated_data['was_highlighted_at_order'] = is_currently_highlighted
         
         # Reserve product quantity
         product.quantity_available -= quantity
@@ -310,27 +318,35 @@ class AdminDashboardOrderSerializer(serializers.ModelSerializer):
 
     def get_product(self, obj):
         if obj.product:
-            return {'headline': obj.product.headline}
+            return {
+                'headline': obj.product.headline,
+                'delivery_time': obj.product.delivery_time,
+                'delivery_method': obj.product.delivery_method
+            }
         return {'headline': 'Deleted Product'}
 
 
 class OrderListSerializer(serializers.ModelSerializer):
     """
-    Lightweight serializer for order lists (Admin/Buyer/Vendor lists).
-    Removes expensive nested stats to prevent N+1 queries.
+    Full-detail serializer for order lists used by Vendor/Buyer order pages.
+    Includes all product and vendor info needed for the order detail modal.
     """
     buyer = serializers.SerializerMethodField()
     vendor = serializers.SerializerMethodField()
     product = serializers.SerializerMethodField()
     order_status_display = serializers.SerializerMethodField()
-    
+    product_credentials = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = [
             'id', 'order_id', 'buyer', 'vendor', 'product', 'quantity',
-            'total_amount', 'crypto_currency', 'payment_status', 
-            'order_status', 'order_status_display', 'is_giveaway',
-            'created_at', 'updated_at'
+            'unit_price', 'total_amount', 'crypto_currency', 'payment_address',
+            'payment_status', 'order_status', 'order_status_display', 'is_giveaway',
+            'use_escrow', 'escrow_fee', 'refund_address',
+            'dispute_opened', 'dispute_reason', 'dispute_opened_at',
+            'payment_expires_at', 'delivered_at', 'confirmed_at',
+            'product_credentials', 'created_at', 'updated_at'
         ]
 
     def get_order_status_display(self, obj):
@@ -351,17 +367,91 @@ class OrderListSerializer(serializers.ModelSerializer):
             return "Completed"
         return status_map.get(status, status.replace('_', ' ').capitalize())
 
+    def get_product_credentials(self, obj):
+        """Only expose credentials to the buyer of this order"""
+        request = self.context.get('request')
+        user = request.user if request else None
+        order_is_paid = obj.order_status in ['paid', 'delivered', 'confirmed', 'completed']
+        is_buyer = user and obj.buyer and user.id == obj.buyer.id
+        is_admin = user and (user.is_staff or getattr(user, 'user_type', '') == 'admin')
+        if (is_buyer or is_admin) and order_is_paid:
+            return obj.product_credentials
+        return None
+
     def get_buyer(self, obj):
-        if obj.buyer: return {'username': obj.buyer.username}
+        if obj.buyer:
+            return {
+                'id': str(obj.buyer.id),
+                'username': obj.buyer.username,
+                'email': obj.buyer.email,
+            }
         return {'username': 'Unknown'}
 
     def get_vendor(self, obj):
-        if obj.vendor: return {'username': obj.vendor.username}
+        if obj.vendor:
+            try:
+                from orders.models import Order as OrderModel
+                vendor = obj.vendor
+                completed_orders = OrderModel.objects.filter(
+                    vendor=vendor,
+                    order_status__in=['delivered', 'confirmed', 'completed']
+                ).count()
+                total_orders = OrderModel.objects.filter(
+                    vendor=vendor
+                ).exclude(order_status='cancelled').count()
+                completion_rate = round((completed_orders / total_orders * 100), 1) if total_orders > 0 else 100.0
+                return {
+                    'id': str(vendor.id),
+                    'username': vendor.username,
+                    'is_verified': vendor.is_verified,
+                    'rating': float(getattr(vendor, 'rating', 0) or 0),
+                    'total_sales': completed_orders,
+                    'completion_rate': completion_rate,
+                    'date_joined': vendor.date_joined.isoformat() if vendor.date_joined else None,
+                }
+            except Exception:
+                return {'username': obj.vendor.username, 'rating': 0, 'total_sales': 0, 'completion_rate': 100.0}
         return {'username': 'Unknown'}
 
     def get_product(self, obj):
-        if obj.product: return {'headline': obj.product.headline}
+        if obj.product:
+            p = obj.product
+            main_image = None
+            try:
+                if p.main_image:
+                    main_image = p.main_image.url
+                elif p.main_images and isinstance(p.main_images, list) and p.main_images:
+                    from django.core.files.storage import default_storage
+                    main_image = default_storage.url(p.main_images[0])
+            except Exception:
+                pass
+            return {
+                'id': p.id,
+                'headline': p.headline,
+                'website': p.website,
+                'account_type': p.account_type,
+                'access_type': p.access_type,
+                'account_balance': p.account_balance,
+                'description': p.description,
+                'additional_info': p.additional_info,
+                'delivery_time': p.delivery_time,
+                'delivery_method': p.delivery_method,
+                'price': float(p.price),
+                'rating': float(p.rating),
+                'review_count': p.review_count,
+                'notes_for_buyer': p.notes_for_buyer,
+                'main_image': main_image,
+                'category_name': p.category.name if p.category else 'N/A',
+                # These two fields are needed by the frontend modal to trigger vendor stats API
+                'vendor_username': p.vendor.username if p.vendor else None,
+                'vendor': {
+                    'id': str(p.vendor.id) if p.vendor else None,
+                    'username': p.vendor.username if p.vendor else None,
+                    'email': p.vendor.email if p.vendor else None,
+                } if p.vendor else None,
+            }
         return {'headline': 'Deleted'}
+
 
 
 class AdminOrderListSerializer(serializers.ModelSerializer):
@@ -385,7 +475,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             'use_escrow', 'escrow_fee', 'refund_address',
             'dispute_opened', 'dispute_reason', 'dispute_opened_at', 'dispute_details',
             'payment_expires_at', 'delivered_at', 'confirmed_at',
-            'is_giveaway', 'created_at', 'updated_at', 'product_credentials'
+            'is_giveaway', 'created_at', 'updated_at'
         ]
 
     def get_order_status_display(self, obj):

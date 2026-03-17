@@ -1,343 +1,268 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Eye, BarChart3, Play, Pause, MoreVertical } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-const ads = [
-  {
-    id: 1,
-    title: "Netflix Premium - Special Offer",
-    product: "Netflix Premium Account (1 Year)",
-    budget: "0.002 BTC",
-    spent: "0.0015 BTC",
-    clicks: 1247,
-    impressions: 15823,
-    ctr: 7.88,
-    status: "Active",
-    placement: "Homepage Banner",
-    startDate: "2024-01-10",
-    endDate: "2024-02-10"
-  },
-  {
-    id: 2,
-    title: "Spotify Premium Deal",
-    product: "Spotify Premium (6 Months)",
-    budget: "0.001 BTC",
-    spent: "0.0008 BTC",
-    clicks: 892,
-    impressions: 12456,
-    ctr: 7.16,
-    status: "Active",
-    placement: "Category Sidebar",
-    startDate: "2024-01-12",
-    endDate: "2024-02-12"
-  },
-  {
-    id: 3,
-    title: "Adobe Creative Suite",
-    product: "Adobe Creative Cloud (1 Year)",
-    budget: "0.003 BTC",
-    spent: "0.003 BTC",
-    clicks: 567,
-    impressions: 8932,
-    ctr: 6.35,
-    status: "Completed",
-    placement: "Search Results",
-    startDate: "2024-01-05",
-    endDate: "2024-01-20"
-  },
-  {
-    id: 4,
-    title: "VPN Security Bundle",
-    product: "VPN Service (1 Year)",
-    budget: "0.0015 BTC",
-    spent: "0.0005 BTC",
-    clicks: 234,
-    impressions: 4567,
-    ctr: 5.12,
-    status: "Paused",
-    placement: "Footer Banner",
-    startDate: "2024-01-15",
-    endDate: "2024-02-15"
-  }
-];
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "Active":
-      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
-    case "Paused":
-      return "bg-theme-red/10 text-theme-red border-theme-red/20";
-    case "Completed":
-      return "bg-theme-cyan/10 text-theme-cyan border-theme-cyan/20";
-    case "Expired":
-      return "bg-theme-red/10 text-theme-red border-theme-red/20";
-    default:
-      return "bg-gray-800 text-gray-400 border-gray-700";
-  }
-};
+import { Zap, Megaphone, Bell, Check, Loader2, AlertCircle, Info, Sparkles, Rocket } from "lucide-react";
+import { useToast } from "@/components/ui/ToastContainer";
+import vendorService, { VendorProduct } from "@/services/vendorService";
+import { useCryptoPrices } from "@/contexts/PriceContext";
 
 export default function VendorAds() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { showToast } = useToast();
+  const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
+  const [products, setProducts] = useState<VendorProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeHighlight, setActiveHighlight] = useState<VendorProduct | null>(null);
 
-  const filteredAds = ads.filter(ad => {
-    const matchesSearch =
-      ad.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ad.product.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || ad.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Notification state
+  const [promoType, setPromoType] = useState<'standard' | 'premium'>('standard');
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [currency, setCurrency] = useState('BTC');
+  const [isPromoting, setIsPromoting] = useState(false);
 
-  const totalBudget = ads.reduce((sum, ad) => sum + parseFloat(ad.budget.replace(' BTC', '')), 0);
-  const totalSpent = ads.reduce((sum, ad) => sum + parseFloat(ad.spent.replace(' BTC', '')), 0);
-  const totalClicks = ads.reduce((sum, ad) => sum + ad.clicks, 0);
-  const totalImpressions = ads.reduce((sum, ad) => sum + ad.impressions, 0);
-  const avgCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await vendorService.getMyProducts();
+      if (response.success) {
+        setProducts(response.data || []);
+        const highlighted = response.data?.find((p: any) => p.is_highlighted);
+        setActiveHighlight(highlighted || null);
+      }
+    } catch (error) {
+      console.error("Error fetching ads data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleHighlight = async (productId: number) => {
+    try {
+      const response = await vendorService.promoteHighlight(productId);
+      if (response.success) {
+        showToast({ title: "Success", message: "Product highlighted at top of search!", type: "success" });
+        fetchData();
+      }
+    } catch (error: any) {
+      showToast({ title: "Error", message: error.message || "Failed to highlight", type: "error" });
+    }
+  };
+
+  const handleSendNotification = async () => {
+    if (selectedProductIds.length === 0) {
+      showToast({ title: "Warning", message: "Select at least 1 product", type: "error" });
+      return;
+    }
+    
+    try {
+      setIsPromoting(true);
+      const response = await vendorService.promoteNotification(selectedProductIds, currency, promoType);
+      if (response.success) {
+        showToast({ title: "Blast Sent!", message: response.message, type: "success" });
+        setSelectedProductIds([]);
+      }
+    } catch (error: any) {
+      showToast({ title: "Promotion Failed", message: error.message || "Insufficient funds?", type: "error" });
+    } finally {
+      setIsPromoting(false);
+    }
+  };
+
+  const getCryptoPrice = () => {
+    const costUsd = promoType === 'premium' ? 100 : 10;
+    const price = currency === 'BTC' ? btcPrice : xmrPrice;
+    if (!price) return "?.????";
+    return (costUsd / price).toFixed(8);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-theme-cyan" />
+      </div>
+    );
+  }
 
   return (
-
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Advertisement Management</h1>
-          <p className="text-gray-400">Create and manage your product advertisements</p>
-        </div>
-        <Button className="bg-theme-cyan hover:bg-theme-cyan/80 text-black font-semibold">
-          <Plus className="w-4 h-4 mr-2" />
-          Create New Ad
-        </Button>
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-4xl font-black text-white tracking-tight flex items-center gap-3">
+          <Rocket className="w-10 h-10 text-theme-cyan" />
+          Promotion Center
+        </h1>
+        <p className="text-gray-400 text-lg">Boost your sales with our premium visibility tools.</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <div className="text-2xl font-bold text-white">{ads.length}</div>
-            <p className="text-sm text-gray-400">Total Campaigns</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Section 1: Top of Search Highlight */}
+        <Card className="bg-gray-900/60 border-gray-800 shadow-2xl backdrop-blur-md hover:border-theme-cyan/30 transition-all">
+          <CardHeader>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-3 bg-theme-cyan/10 rounded-2xl">
+                <Zap className="w-8 h-8 text-theme-cyan" />
+              </div>
+              <Badge className="bg-theme-cyan/20 text-theme-cyan border-none">10% COMMISSION</Badge>
+            </div>
+            <CardTitle className="text-2xl font-bold text-white">Featured Offer</CardTitle>
+            <CardDescription className="text-gray-400">
+              Pin one product to the <strong>top of search results</strong> for 12 hours. 
+              No upfront cost—we only take 10% commission when it sells!
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {activeHighlight ? (
+              <div className="p-4 bg-gray-800/50 rounded-xl border border-theme-cyan/20 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-2">
+                   <Sparkles className="w-5 h-5 text-theme-cyan animate-pulse" />
+                </div>
+                <p className="text-xs font-bold text-theme-cyan uppercase tracking-widest mb-2">Currently Active</p>
+                <h3 className="text-white font-bold">{activeHighlight.headline}</h3>
+                <p className="text-gray-500 text-sm">Expires in ~12 hours</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-400">Select a product to highlight:</p>
+                <div className="flex gap-2">
+                  <Select onValueChange={(val) => handleHighlight(Number(val))}>
+                    <SelectTrigger className="bg-gray-950 border-gray-800 text-white rounded-xl">
+                      <SelectValue placeholder="Choose a product..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-900 border-gray-700">
+                      {products.filter(p => p.status === 'approved').map(p => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.headline}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <div className="bg-black/20 p-4 rounded-xl border border-gray-800/50">
+               <h4 className="text-sm font-bold text-white flex items-center gap-2 mb-2">
+                  <Info className="w-4 h-4 text-theme-cyan" />
+                  How it works
+               </h4>
+               <ul className="text-xs text-gray-500 space-y-1">
+                 <li>• Your product stays at the absolute top of search</li>
+                 <li>• Duration: 12 Hours (one product at a time)</li>
+                 <li>• Fee: 10% on sales instead of standard rate</li>
+               </ul>
+            </div>
           </CardContent>
         </Card>
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <div className="text-2xl font-bold text-theme-cyan">{totalBudget.toFixed(4)} BTC</div>
-            <p className="text-sm text-gray-400">Total Budget</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <div className="text-2xl font-bold text-theme-red">{totalSpent.toFixed(4)} BTC</div>
-            <p className="text-sm text-gray-400">Total Spent</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <div className="text-2xl font-bold text-theme-cyan">{totalClicks.toLocaleString()}</div>
-            <p className="text-sm text-gray-400">Total Clicks</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-gray-700 bg-gray-900">
-          <CardContent className="p-6">
-            <div className="text-2xl font-bold text-theme-red">{avgCTR.toFixed(2)}%</div>
-            <p className="text-sm text-gray-400">Average CTR</p>
+
+        {/* Section 2: Blast Notifications */}
+        <Card className="bg-gray-900/60 border-gray-800 shadow-2xl backdrop-blur-md hover:border-theme-red/30 transition-all">
+          <CardHeader>
+             <div className="flex items-center justify-between mb-2">
+              <div className="p-3 bg-theme-red/10 rounded-2xl">
+                <Megaphone className="w-8 h-8 text-theme-red" />
+              </div>
+              <div className="flex gap-1">
+                <Badge variant="outline" className="border-gray-700 text-gray-400">$10</Badge>
+                <Badge variant="outline" className="border-theme-red/30 text-theme-red">$100</Badge>
+              </div>
+            </div>
+            <CardTitle className="text-2xl font-bold text-white">Global Announcement</CardTitle>
+            <CardDescription className="text-gray-400">
+              Blast a notification to <strong>all users</strong> on the platform. 
+              Perfect for new drops or limited quantity sales.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex bg-gray-950 p-1 rounded-xl gap-1">
+               <button 
+                 onClick={() => setPromoType('standard')}
+                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${promoType === 'standard' ? 'bg-gray-800 text-white shadow-lg' : 'text-gray-500 hover:text-gray-400'}`}
+               >
+                 STANDARD ($10)
+               </button>
+               <button 
+                 onClick={() => setPromoType('premium')}
+                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${promoType === 'premium' ? 'bg-theme-red/10 text-theme-red border border-theme-red/20 shadow-lg' : 'text-gray-500 hover:text-gray-400'}`}
+               >
+                 PREMIUM ($100)
+               </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <p className="text-sm text-gray-400">Products to include (max 10):</p>
+                 <Badge variant="secondary" className="bg-gray-800 text-gray-400">{selectedProductIds.length}/10</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto pr-2 custom-scrollbar">
+                {products.filter(p => p.status === 'approved').map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      if (selectedProductIds.includes(p.id)) {
+                        setSelectedProductIds(prev => prev.filter(id => id !== p.id));
+                      } else if (selectedProductIds.length < 10) {
+                        setSelectedProductIds(prev => [...prev, p.id]);
+                      }
+                    }}
+                    className={`text-left p-2 rounded-lg text-xs border transition-all truncate ${selectedProductIds.includes(p.id) ? 'bg-theme-red/10 border-theme-red/50 text-white' : 'bg-gray-950 border-gray-800 text-gray-500 hover:border-gray-700'}`}
+                  >
+                    {p.headline}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-end gap-2">
+               <div className="flex-1 space-y-2">
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Pay With</p>
+                  <Select value={currency} onValueChange={setCurrency}>
+                    <SelectTrigger className="bg-gray-950 border-gray-800 text-white h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-900 border-gray-700">
+                      <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
+                      <SelectItem value="XMR">Monero (XMR)</SelectItem>
+                    </SelectContent>
+                  </Select>
+               </div>
+               <div className="flex-1 space-y-1 text-right">
+                  <p className="text-xs text-gray-500">Estimated Cost</p>
+                  <div className="text-xl font-black text-white">{getCryptoPrice()} {currency}</div>
+               </div>
+            </div>
+
+            <Button 
+               onClick={handleSendNotification}
+               disabled={isPromoting || selectedProductIds.length === 0}
+               className={`w-full h-14 rounded-2xl font-black text-lg transition-all shadow-xl ${promoType === 'premium' ? 'bg-theme-red hover:bg-theme-red-dark shadow-theme-red/20' : 'bg-white hover:bg-gray-100 text-black shadow-white/10'}`}
+            >
+              {isPromoting ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                <span className="flex items-center gap-2">
+                   {promoType === 'premium' ? <Sparkles className="w-6 h-6" /> : <Megaphone className="w-6 h-6" />}
+                   SEND BLAST NOW
+                </span>
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search campaigns..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Paused">Paused</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Expired">Expired</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Ads List */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-white">
-            Campaigns ({filteredAds.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredAds.map((ad) => (
-              <div key={ad.id} className="flex items-center justify-between p-6 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
-                <div className="flex items-center space-x-6">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-white mb-1">{ad.title}</h3>
-                    <p className="text-sm text-gray-400 mb-2">{ad.product}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-400">
-                      <span>{ad.placement}</span>
-                      <span>•</span>
-                      <span>{ad.startDate} - {ad.endDate}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-8">
-                  {/* Performance Metrics */}
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-white">{ad.impressions.toLocaleString()}</div>
-                    <div className="text-xs text-gray-400">Impressions</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-white">{ad.clicks.toLocaleString()}</div>
-                    <div className="text-xs text-gray-400">Clicks</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-white">{ad.ctr}%</div>
-                    <div className="text-xs text-gray-400">CTR</div>
-                  </div>
-
-                  {/* Budget Info */}
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-theme-cyan">{ad.spent}</div>
-                    <div className="text-xs text-gray-400">of {ad.budget}</div>
-                    <div className="w-24 bg-gray-700 rounded-full h-1.5 mt-1">
-                      <div
-                        className="bg-theme-cyan h-1.5 rounded-full"
-                        style={{
-                          width: `${(parseFloat(ad.spent.replace(' BTC', '')) / parseFloat(ad.budget.replace(' BTC', ''))) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <Badge className={`border ${getStatusColor(ad.status)}`}>
-                    {ad.status}
-                  </Badge>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center space-x-2">
-                    {ad.status === "Active" ? (
-                      <Button size="sm" variant="outline" className="text-theme-red border-theme-red/30 hover:bg-theme-red/10">
-                        <Pause className="w-4 h-4" />
-                      </Button>
-                    ) : ad.status === "Paused" ? (
-                      <Button size="sm" variant="outline" className="text-theme-cyan border-theme-cyan/30 hover:bg-theme-cyan/10">
-                        <Play className="w-4 h-4" />
-                      </Button>
-                    ) : null}
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <BarChart3 className="w-4 h-4 mr-2" />
-                          View Analytics
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit Campaign
-                        </DropdownMenuItem>
-                        {ad.status !== "Active" && (
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Campaign
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredAds.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <BarChart3 className="w-12 h-12 mx-auto" />
-              </div>
-              <h3 className="text-lg font-medium text-white mb-2">No campaigns found</h3>
-              <p className="text-gray-400 mb-4">Create your first advertisement to promote your products.</p>
-              <Button className="bg-blue-500 hover:bg-blue-600">
-                <Plus className="w-4 h-4 mr-2" />
-                Create New Campaign
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Performance Insights */}
-      <Card className="border border-gray-700 bg-gray-900">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-white">Performance Insights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-theme-cyan/10 rounded-lg border border-theme-cyan/20">
-              <div className="text-2xl font-bold text-theme-cyan mb-2">Homepage Banner</div>
-              <p className="text-sm text-gray-400">Best performing placement</p>
-              <p className="text-xs text-theme-cyan/80 mt-1">7.88% CTR</p>
-            </div>
-
-            <div className="text-center p-4 bg-theme-cyan/10 rounded-lg border border-theme-cyan/20">
-              <div className="text-2xl font-bold text-theme-cyan mb-2">Netflix Ads</div>
-              <p className="text-sm text-gray-400">Top converting product</p>
-              <p className="text-xs text-theme-cyan/80 mt-1">1,247 clicks</p>
-            </div>
-
-            <div className="text-center p-4 bg-theme-red/10 rounded-lg border border-theme-red/20">
-              <div className="text-2xl font-bold text-theme-red mb-2">Peak Hours</div>
-              <p className="text-sm text-gray-400">2-6 PM daily</p>
-              <p className="text-xs text-theme-red/80 mt-1">Highest engagement</p>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-gray-800 rounded-lg">
-            <h4 className="font-semibold text-white mb-2">Optimization Tips</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>• Homepage banner ads perform 23% better than sidebar placements</li>
-              <li>• Netflix and streaming account ads have the highest click-through rates</li>
-              <li>• Consider increasing budget for high-performing campaigns</li>
-              <li>• Best performance times are between 2-6 PM daily</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="bg-gray-900/40 p-6 rounded-3xl border border-gray-800 flex items-center gap-6">
+         <div className="p-4 bg-theme-cyan/10 rounded-2xl">
+            <Bell className="w-8 h-8 text-theme-cyan" />
+         </div>
+         <div>
+            <h4 className="text-white font-bold text-lg">Did you know?</h4>
+            <p className="text-gray-400 text-sm">
+              Sellers who use **Premium Notifications** see an average of **234% increase** in profile views within the first 6 hours.
+            </p>
+         </div>
+         <div className="ml-auto hidden md:block">
+            <Button variant="outline" className="border-gray-700 text-gray-400 rounded-xl">Read Seller Guide</Button>
+         </div>
+      </div>
     </div>
-
   );
 }

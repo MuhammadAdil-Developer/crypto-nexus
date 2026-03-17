@@ -115,6 +115,9 @@ export default function AdminMessages() {
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [adminMessageInput, setAdminMessageInput] = useState("");
   const [sendingAdminMessage, setSendingAdminMessage] = useState(false);
+  const [replyToMessage, setReplyToMessage] = useState<any>(null);
+  const [showProductReference, setShowProductReference] = useState(false);
+  const [productReferenceData, setProductReferenceData] = useState<any>(null);
 
   // Lock chat states
   const [showLockDialog, setShowLockDialog] = useState(false);
@@ -371,10 +374,9 @@ export default function AdminMessages() {
       }
 
       setAdminMessageInput("");
-      // Assuming these states exist and are relevant to the admin message input/reply
-      // setReplyToMessage(null);
-      // setProductReferenceData(null);
-      // setShowProductReference(false);
+      setReplyToMessage(null);
+      setProductReferenceData(null);
+      setShowProductReference(false);
       // scrollToBottom(); // Assuming this function exists and is relevant
       toast({
         title: "Message Sent",

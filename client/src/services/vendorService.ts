@@ -347,6 +347,30 @@ class VendorService {
       };
     }
   }
+
+  async promoteHighlight(productId: number) {
+    try {
+      const response = await api.post(`/products/${productId}/promote/highlight/`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error promoting highlight:', error);
+      throw error.response?.data || error;
+    }
+  }
+
+  async promoteNotification(productIds: number[], currency: string = 'BTC', promotionType: string = 'standard') {
+    try {
+      const response = await api.post('/products/promote/notification/', {
+        product_ids: productIds,
+        currency,
+        promotion_type: promotionType
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error promoting notification:', error);
+      throw error.response?.data || error;
+    }
+  }
 }
 
 export default new VendorService();

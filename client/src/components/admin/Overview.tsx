@@ -70,7 +70,7 @@ interface DashboardStats {
     orders: { today: number; yesterday: number; growth_pct: number };
     total_orders: number;
     paid_orders: number;
-    pending_payments: number;
+    cancelled_orders: number;
     disputed_orders: number;
   };
   chart_data: Array<{
@@ -907,8 +907,8 @@ export function Overview() {
                      <p className="text-xl font-black text-text">{dashboardStats?.statistics.total_orders || 0}</p>
                   </div>
                   <div className="p-3 bg-surface-2 rounded-lg border border-border/50">
-                     <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Awaiting Payment</p>
-                     <p className="text-xl font-black text-warning">{dashboardStats?.statistics.pending_payments || 0}</p>
+                     <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Cancelled Orders</p>
+                     <p className="text-xl font-black text-warning">{dashboardStats?.statistics.cancelled_orders || 0}</p>
                   </div>
                   <div className="p-3 bg-surface-2 rounded-lg border border-border/50">
                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Real-time Growth</p>

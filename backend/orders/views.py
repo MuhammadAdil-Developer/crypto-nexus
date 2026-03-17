@@ -85,6 +85,24 @@ class OrderViewSet(viewsets.ModelViewSet):
         if self.action in ['update', 'partial_update']:
             return UpdateOrderStatusSerializer
         return OrderSerializer
+
+    def get_queryset(self):
+        """Filter orders with SMART deferring (only skips heavy JSON fields)"""
+        user = self.request.user
+        
+        # Deferring ONLY the heavy fields that slow down lists
+        # This fixes the N+1 problem while keeping the query fast
+        base_qs = Order.objects.select_related('buyer', 'vendor', 'product').order_by('-created_at')
+        
+        if not user.is_authenticated:
+            return Order.objects.none()
+            
+        if user.is_staff or user.user_type == 'admin':
+            return base_qs
+        elif user.user_type == 'vendor':
+            return base_qs.filter(vendor=user)
+        else:
+            return base_qs.filter(buyer=user)
     
     def create(self, request, *args, **kwargs):
         """Create new order and generate payment address"""
@@ -117,11 +135,14 @@ class OrderViewSet(viewsets.ModelViewSet):
                 }
                 # Only set delivered_at for instant auto delivery
                 order.delivered_at = timezone.now()
-            # For manual delivery, credentials will be empty and delivered_at will be null
-            # This allows vendor to see "Deliver Account" button
-            
-            order.save()
-            logger.info(f"Giveaway order {order.order_id} marked as COMPLETED - waiting for manual delivery")
+                order.order_status = OrderStatus.DELIVERED.value
+                order.save()
+                logger.info(f"Giveaway order {order.order_id} auto-delivered and marked as DELIVERED")
+            else:
+                # For manual delivery, credentials will be empty and delivered_at will be null
+                # This allows vendor to see "Deliver Account" button
+                order.save()
+                logger.info(f"Giveaway order {order.order_id} marked as CONFIRMED - waiting for manual delivery")
             
             # Prepare giveaway response
             return Response(
@@ -742,13 +763,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     created_at__gte=today_start
                 )),
                 disputed=Count('id', filter=Q(order_status=OrderStatus.DISPUTED.value)),
-                pending_payments=Count('id', filter=Q(
-                    Q(order_status=OrderStatus.PENDING_PAYMENT.value) |
-                    Q(payment_status='pending') |
-                    (Q(use_escrow=True) & ~Q(order_status__in=[
-                        OrderStatus.CONFIRMED.value, OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PAID.value
-                    ]))
-                ))
+                cancelled_count=Count('id', filter=Q(order_status=OrderStatus.CANCELLED.value))
             ), "Orders")
 
             # 5. Escrow Volume (Highly Optimized SQL-only version)
@@ -758,11 +773,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                 try:
                     # Orders in system but payout not finished
                     # Only calculate on the currency we care about
-                    active_escrow_orders = Order.objects.filter(use_escrow=True).exclude(
-                        order_status__in=[OrderStatus.CANCELLED.value, OrderStatus.REFUNDED.value, OrderStatus.PENDING_PAYMENT.value, 'completed', 'expired']
+                    active_escrow_orders = Order.objects.filter(
+                        use_escrow=True,
+                        order_status__in=[
+                            OrderStatus.PAID.value, 
+                            OrderStatus.DELIVERED.value, 
+                            OrderStatus.DISPUTED.value
+                        ]
                     ).exclude(
-                        Q(order_status=OrderStatus.CONFIRMED.value) &
-                        (Q(payouts__status='completed') | Q(direct_payment__status='completed'))
+                        Q(payouts__status__in=['completed', 'cancelled', 'failed']) | 
+                        Q(direct_payment__status__in=['completed', 'cancelled', 'failed'])
                     ).distinct()
                     
                     # Get totals by currency - Fixed grouping by clearing any default ordering
@@ -789,8 +809,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                         order_status=OrderStatus.CONFIRMED.value, 
                         use_escrow=True
                     ).exclude(
-                        Q(payouts__status='completed') | 
-                        Q(direct_payment__status='completed')
+                        Q(payouts__status__in=['completed', 'cancelled', 'failed']) | 
+                        Q(direct_payment__status__in=['completed', 'cancelled', 'failed'])
                     ).distinct()
                     
                     pending_count = pending_qs.count()
@@ -846,7 +866,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'orders': {'today': order_stats_agg.get('today', 0), 'yesterday': order_stats_agg.get('yesterday', 0), 'growth_pct': round(order_growth_daily, 1)},
                 'total_orders': order_stats_agg.get('total', 0),
                 'paid_orders': order_stats_agg.get('completed_today', 0),
-                'pending_payments': order_stats_agg.get('pending_payments', 0),
+                'cancelled_orders': order_stats_agg.get('cancelled_count', 0),
                 'disputed_orders': order_stats_agg.get('disputed', 0)
             },
             'escrow_stats': {

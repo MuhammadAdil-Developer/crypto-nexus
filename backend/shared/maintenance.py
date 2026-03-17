@@ -18,19 +18,32 @@ class MaintenanceMode:
         if settings.DEBUG:
             return False
             
-        # Try cache first for performance
-        enabled = cache.get(MAINTENANCE_MODE_KEY)
-        if enabled is not None:
-            return enabled
+        try:
+            # Try cache first for performance
+            enabled = cache.get(MAINTENANCE_MODE_KEY)
+            if enabled is not None:
+                return enabled
+        except Exception as e:
+            # Fallback for Redis/Cache connection issues
+            logger.error(f"Cache connection error in is_enabled: {e}")
+            pass
         
         # Fallback to DB
-        from shared.models import SystemConfiguration
-        db_val = SystemConfiguration.get_value(MAINTENANCE_MODE_KEY, 'False')
-        is_enabled = db_val.lower() == 'true'
-        
-        # Update cache
-        cache.set(MAINTENANCE_MODE_KEY, is_enabled, timeout=3600)
-        return is_enabled
+        try:
+            from shared.models import SystemConfiguration
+            db_val = SystemConfiguration.get_value(MAINTENANCE_MODE_KEY, 'False')
+            is_enabled = db_val.lower() == 'true'
+            
+            # Update cache if possible
+            try:
+                cache.set(MAINTENANCE_MODE_KEY, is_enabled, timeout=3600)
+            except:
+                pass
+                
+            return is_enabled
+        except Exception as e:
+            logger.error(f"Database fallback failed in is_enabled: {e}")
+            return False
     
     @staticmethod
     def enable(message="We're currently performing scheduled maintenance. We'll be back shortly!"):

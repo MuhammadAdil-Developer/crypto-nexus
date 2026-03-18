@@ -50,6 +50,7 @@ interface Product {
   escrow_enabled?: boolean;
   accepted_crypto?: string[];
   is_giveaway?: boolean;
+  is_highlighted?: boolean;
 }
 
 interface ProductCardProps {
@@ -403,6 +404,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                         </Tooltip>
                       </TooltipProvider>
                     )}
+                    {product.is_highlighted && (
+                      <Badge className="bg-theme-cyan text-black border-none text-[9px] px-1.5 py-0 font-black shadow-lg animate-pulse">
+                        <Zap className="w-2.5 h-2.5 mr-0.5 fill-black" />
+                        FEATURED
+                      </Badge>
+                    )}
                     {product.escrow_enabled && (
                       <Badge className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 text-black border border-yellow-400/60 text-[9px] px-1.5 py-0 font-black shadow-lg">
                         <Lock className="w-2.5 h-2.5 mr-0.5" />
@@ -597,6 +604,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             {product.verification_level && (
               <Badge className={`${getVerificationColor(product.verification_level)} text-xs px-1 py-0.5`}>
                 {product.verification_level.toUpperCase()}
+              </Badge>
+            )}
+            {product.is_highlighted && (
+              <Badge className="bg-theme-cyan text-black border-none text-xs px-1 py-0.5 shadow-lg font-black animate-pulse">
+                <Zap className="w-2 h-2 mr-0.5 fill-black" />
+                FEATURED
               </Badge>
             )}
             {product.escrow_enabled && (

@@ -70,6 +70,7 @@ urlpatterns = [
     
     # Promotional features
     path('<int:product_id>/promote/highlight/', views.promote_highlight, name='promote_highlight'),
+    path('<int:product_id>/promote/unhighlight/', views.cancel_highlight, name='cancel_highlight'),
     path('promote/notification/', views.promote_notification, name='promote_notification'),
     
     # Product detail (must be last to avoid conflicts)

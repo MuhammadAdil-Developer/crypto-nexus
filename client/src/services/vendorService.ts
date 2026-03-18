@@ -358,6 +358,16 @@ class VendorService {
     }
   }
 
+  async promoteUnhighlight(productId: number) {
+    try {
+      const response = await api.post(`/products/${productId}/promote/unhighlight/`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error stopping promotion:', error);
+      throw error.response?.data || error;
+    }
+  }
+
   async promoteNotification(productIds: number[], currency: string = 'BTC', promotionType: string = 'standard') {
     try {
       const response = await api.post('/products/promote/notification/', {

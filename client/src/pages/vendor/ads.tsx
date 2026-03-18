@@ -54,6 +54,18 @@ export default function VendorAds() {
     }
   };
 
+  const handleStopHighlight = async (productId: number) => {
+    try {
+      const response = await vendorService.promoteUnhighlight(productId);
+      if (response.success) {
+        showToast({ title: "Success", message: "Promotion stopped.", type: "success" });
+        fetchData();
+      }
+    } catch (error: any) {
+      showToast({ title: "Error", message: error.message || "Failed to stop promotion", type: "error" });
+    }
+  };
+
   const handleSendNotification = async () => {
     if (selectedProductIds.length === 0) {
       showToast({ title: "Warning", message: "Select at least 1 product", type: "error" });
@@ -121,9 +133,21 @@ export default function VendorAds() {
                 <div className="absolute top-0 right-0 p-2">
                    <Sparkles className="w-5 h-5 text-theme-cyan animate-pulse" />
                 </div>
-                <p className="text-xs font-bold text-theme-cyan uppercase tracking-widest mb-2">Currently Active</p>
-                <h3 className="text-white font-bold">{activeHighlight.headline}</h3>
-                <p className="text-gray-500 text-sm">Expires in ~12 hours</p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-bold text-theme-cyan uppercase tracking-widest mb-2">Currently Active</p>
+                    <h3 className="text-white font-bold">{activeHighlight.headline}</h3>
+                    <p className="text-gray-500 text-sm">Valid for 12 hours from start</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleStopHighlight(activeHighlight.id)}
+                    className="text-gray-500 hover:text-theme-red hover:bg-theme-red/10 h-8"
+                  >
+                    Stop Promotion
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">

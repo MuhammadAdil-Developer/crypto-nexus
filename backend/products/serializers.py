@@ -153,13 +153,14 @@ class ProductSerializer(serializers.ModelSerializer):
             'account_balance', 'description', 'price', 'additional_info',
             'delivery_time', 'credentials_display', 'credentials', 'main_image', 
             'gallery_images', 'documents', 'status', 'is_featured', 'views_count',
-            'favorites_count', 'rating', 'review_count', 'created_at',
+            'favorites_count', 'rating', 'review_count', 'is_highlighted', 'highlighted_until', 
+            'highlight_fee_rate', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
             'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason', 'accepted_crypto', 'is_giveaway'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
-            'rating', 'review_count', 'created_at', 'vendor_username'
+            'rating', 'review_count', 'is_highlighted', 'highlighted_until', 'created_at', 'vendor_username'
         ]
 
     def to_representation(self, instance):
@@ -292,7 +293,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'account_balance', 'description', 'price', 'additional_info',
             'delivery_time', 'credentials_display', 'main_image',
             'gallery_images', 'status', 'is_featured', 'views_count',
-            'favorites_count', 'rating', 'review_count', 'created_at',
+            'favorites_count', 'rating', 'review_count', 'is_highlighted', 'highlighted_until', 
+            'highlight_fee_rate', 'created_at',
             'vendor_username', 'access_method', 'account_age', 'quantity_available',
             'delivery_method', 'special_features', 'region_restrictions',
             'tags', 'documents', 'main_images', 'auto_delivery_script',
@@ -301,7 +303,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
-            'rating', 'review_count', 'created_at', 'vendor_username'
+            'rating', 'review_count', 'is_highlighted', 'highlighted_until', 'created_at', 'vendor_username'
         ]
         
     def to_representation(self, instance):

@@ -170,9 +170,21 @@ def list_products(request):
             # Handle list field filtering for JSONField
             products = products.filter(accepted_crypto__contains=[crypto])
         
-        # Create a list for ordering
-        # Highlighted items first, then based on sort_by
-        order_fields = ['-is_highlighted']
+        # Apply ordering
+        # Highlighted items first (ensure they are still within the highlight period), then based on sort_by
+        from django.db.models import Case, When, Value, BooleanField
+        now = timezone.now()
+        
+        # Determine for each product if it's currently highlighted
+        products = products.annotate(
+            is_currently_highlighted=Case(
+                When(is_highlighted=True, highlighted_until__gt=now, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )
+        )
+        
+        order_fields = ['-is_currently_highlighted']
         
         if sort_by == 'price_low':
             order_fields.append('price')
@@ -3097,6 +3109,25 @@ def promote_highlight(request, product_id):
             'success': True,
             'message': 'Product highlighted successfully for 12 hours. 10% commission will apply to sales.',
             'highlighted_until': product.highlighted_until
+        })
+    except Exception as e:
+        return Response({'success': False, 'message': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_highlight(request, product_id):
+    """Remove highlight from a product"""
+    try:
+        product = get_object_or_404(Product, id=product_id, vendor=request.user)
+        
+        product.is_highlighted = False
+        product.highlighted_until = None
+        # Note: we don't reset highlight_fee_rate here as it's the default potential fee if re-highlighted
+        product.save()
+        
+        return Response({
+            'success': True,
+            'message': 'Promotion stopped successfully.'
         })
     except Exception as e:
         return Response({'success': False, 'message': str(e)}, status=500)

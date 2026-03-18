@@ -41,7 +41,8 @@ const VENDOR_NAV_CATEGORIES = [
     title: "Products",
     items: [
       { title: "Listings", icon: Package, href: "/vendor/listings", countKey: "listings" },
-      { title: "Add Product", icon: Package, href: "/vendor/listings/add", countKey: null }
+      { title: "Add Product", icon: Package, href: "/vendor/listings/add", countKey: null },
+      { title: "Promotions", icon: Megaphone, href: "/vendor/ads", countKey: null }
     ]
   },
   {

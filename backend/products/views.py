@@ -1172,7 +1172,10 @@ def buyer_listings(request):
         max_price = get_safe_decimal(request.GET.get('max_price'))
         category = request.GET.get('category', '')
         
+        from django.db.models import Case, When, Value, BooleanField, Q, Count, Sum, Avg
+        
         # Base queryset - approved and in-stock only
+        now = timezone.now()
         products_qs = Product.objects.filter(
             status='approved',
             is_active=True,
@@ -1180,6 +1183,12 @@ def buyer_listings(request):
             vendor__is_active=True,
             vendor__is_deleted=False,
             quantity_available__gt=0
+        ).annotate(
+            is_currently_highlighted=Case(
+                When(is_highlighted=True, highlighted_until__gt=now, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )
         ).select_related('vendor', 'category', 'sub_category')
 
         # Apply search filter
@@ -1313,52 +1322,58 @@ def buyer_listings(request):
                 # Sort by vendor's average rating (highest first)
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
-                    return (-float(stats.get('avg_rating', 0)), -stats.get('completed_orders', 0))
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
+                    return (-int(is_hlt), -float(stats.get('avg_rating', 0)), -stats.get('completed_orders', 0))
                 products_list.sort(key=_sort_key)
                 
             elif selected_strategy == 'newest_vendors':
                 # Sort by newest vendors first
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
                     is_new = stats.get('is_new_vendor', False)
                     days = stats.get('days_as_vendor', 999999)
-                    return (not is_new, days)  # New vendors first, then by days
+                    return (-int(is_hlt), not is_new, days)  # New vendors first, then by days
                 products_list.sort(key=_sort_key)
                 
             elif selected_strategy == 'top_sellers':
                 # Sort by vendors with most completed orders
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
-                    return -stats.get('completed_orders', 0)
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
+                    return (-int(is_hlt), -stats.get('completed_orders', 0))
                 products_list.sort(key=_sort_key)
                 
             elif selected_strategy == 'recent_listings':
                 # Sort by newly uploaded products (created_at)
                 def _sort_key(p):
-                    return -(p.created_at.timestamp() if p.created_at else 0)
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
+                    return (-int(is_hlt), -(p.created_at.timestamp() if p.created_at else 0))
                 products_list.sort(key=_sort_key)
                 
             elif selected_strategy == 'most_views':
                 # Sort by products with most views, with vendor diversity
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
                     # Combine product views with vendor diversity
                     vendor_hash = (abs(hash(str(p.vendor_id))) * 7919) % 1000  # For diversity
-                    return (-(p.views_count or 0), -stats.get('total_views', 0), vendor_hash)
+                    return (-int(is_hlt), -(p.views_count or 0), -stats.get('total_views', 0), vendor_hash)
                 products_list.sort(key=_sort_key)
                 
             elif selected_strategy == 'best_value':
                 # Sort by best price/rating ratio
                 def _sort_key(p):
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
                     try:
                         price = float(p.price)
                         stats = vendor_stats.get(p.vendor_id, {})
                         rating = stats.get('avg_rating', 0) or 1
                         # Lower price and higher rating = better value
                         value_score = -price / max(rating, 0.1)
-                        return (value_score, -stats.get('completed_orders', 0))
+                        return (-int(is_hlt), value_score, -stats.get('completed_orders', 0))
                     except:
-                        return (0, 0)
+                        return (-int(is_hlt), 0, 0)
                 products_list.sort(key=_sort_key)
                 
             elif selected_strategy == 'mixed_rotation':
@@ -1366,6 +1381,7 @@ def buyer_listings(request):
                 def _sort_key(p):
                     stats = vendor_stats.get(p.vendor_id, {})
                     vendor_hash = (abs(hash(str(p.vendor_id))) * 7919) % 1000
+                    is_hlt = getattr(p, 'is_currently_highlighted', False)
                     
                     # Weighted score: rating (40%) + orders (30%) + views (20%) + diversity (10%)
                     rating_score = (stats.get('avg_rating', 0) or 0) * 4
@@ -1374,36 +1390,38 @@ def buyer_listings(request):
                     diversity_score = (vendor_hash / 1000.0) * 1
                     
                     total_score = rating_score + order_score + view_score + diversity_score
-                    return -total_score
+                    return (-int(is_hlt), -total_score)
                 products_list.sort(key=_sort_key)
 
         elif sort_mode == 'newest':
-            products_list.sort(key=lambda p: -(p.created_at.timestamp() if p.created_at else 0))
+            products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), -(p.created_at.timestamp() if p.created_at else 0)))
 
         elif sort_mode == 'oldest':
-            products_list.sort(key=lambda p: p.created_at.timestamp() if p.created_at else 0)
+            products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), p.created_at.timestamp() if p.created_at else 0))
 
         elif sort_mode == 'rating':
             def _sort_key(p):
                 stats = vendor_stats.get(p.vendor_id, {})
-                return -stats.get('avg_rating', 0)
+                return (-int(getattr(p, 'is_currently_highlighted', False)), -stats.get('avg_rating', 0))
             products_list.sort(key=_sort_key)
 
         elif sort_mode == 'views':
-            products_list.sort(key=lambda p: -(p.views_count or 0))
+            products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), -(p.views_count or 0)))
 
         elif sort_mode == 'random':
             import random
             random.shuffle(products_list)
+            # still keep highlighted at top
+            products_list.sort(key=lambda p: -int(getattr(p, 'is_currently_highlighted', False)))
 
         elif sort_mode == 'price-low':
-            products_list.sort(key=lambda p: float(p.price))
+            products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), float(p.price)))
 
         elif sort_mode == 'price-high':
-            products_list.sort(key=lambda p: -float(p.price))
+            products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), -float(p.price)))
 
         elif sort_mode == 'popular':
-            products_list.sort(key=lambda p: -(p.review_count or 0))
+            products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), -(p.review_count or 0)))
 
         # Pagination
         total_count = len(products_list)
@@ -3090,7 +3108,7 @@ def mark_review_helpful(request, review_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def promote_highlight(request, product_id):
-    """Highlight a product for 12 hours with 10% commission"""
+    """Highlight a product for 12 hours with +1% commission on top of existing platform fee"""
     try:
         product = get_object_or_404(Product, id=product_id, vendor=request.user)
         
@@ -3098,16 +3116,27 @@ def promote_highlight(request, product_id):
         if product.is_highlighted and product.highlighted_until and product.highlighted_until > timezone.now():
              return Response({'success': False, 'message': 'Product is already highlighted'}, status=400)
              
+        is_giveaway = request.data.get('is_giveaway', False)
+             
         # Reset other highlighted products for this vendor (keep only one)
         Product.objects.filter(vendor=request.user, is_highlighted=True).update(is_highlighted=False, highlighted_until=None)
         
         product.is_highlighted = True
         product.highlighted_until = timezone.now() + timezone.timedelta(hours=12)
+        product.highlight_fee_rate = 1.00  # 1% extra on top of the standard platform fee
+        
+        if is_giveaway:
+            from decimal import Decimal
+            product.is_giveaway = True
+            product.price = Decimal('0.00')
+            
         product.save()
+        
+        msg = 'Product highlighted successfully for 12 hours as a FREE Giveaway!' if is_giveaway else 'Product highlighted! It will appear at the top of search results. An extra 1% promotional fee will apply on top of your standard platform commission.'
         
         return Response({
             'success': True,
-            'message': 'Product highlighted successfully for 12 hours. 10% commission will apply to sales.',
+            'message': msg,
             'highlighted_until': product.highlighted_until
         })
     except Exception as e:

@@ -21,6 +21,7 @@ export default function VendorAds() {
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [currency, setCurrency] = useState('BTC');
   const [isPromoting, setIsPromoting] = useState(false);
+  const [selectedHighlightId, setSelectedHighlightId] = useState<string>("");
 
   useEffect(() => {
     fetchData();
@@ -42,15 +43,23 @@ export default function VendorAds() {
     }
   };
 
-  const handleHighlight = async (productId: number) => {
+  const handleHighlight = async (isGiveaway: boolean = false) => {
+    if (!selectedHighlightId) {
+      showToast({ title: "Warning", message: "Select a product first", type: "error" });
+      return;
+    }
+    
     try {
-      const response = await vendorService.promoteHighlight(productId);
+      setLoading(true);
+      const response = await vendorService.promoteHighlight(Number(selectedHighlightId), isGiveaway);
       if (response.success) {
-        showToast({ title: "Success", message: "Product highlighted at top of search!", type: "success" });
+        showToast({ title: "Success", message: response.message || "Product highlighted at top of search!", type: "success" });
+        setSelectedHighlightId("");
         fetchData();
       }
     } catch (error: any) {
       showToast({ title: "Error", message: error.message || "Failed to highlight", type: "error" });
+      setLoading(false);
     }
   };
 
@@ -119,12 +128,12 @@ export default function VendorAds() {
               <div className="p-3 bg-theme-cyan/10 rounded-2xl">
                 <Zap className="w-8 h-8 text-theme-cyan" />
               </div>
-              <Badge className="bg-theme-cyan/20 text-theme-cyan border-none">10% COMMISSION</Badge>
+              <Badge className="bg-theme-cyan/20 text-theme-cyan border-none">1% COMMISSION</Badge>
             </div>
             <CardTitle className="text-2xl font-bold text-white">Featured Offer</CardTitle>
             <CardDescription className="text-gray-400">
               Pin one product to the <strong>top of search results</strong> for 12 hours. 
-              No upfront cost—we only take 10% commission when it sells!
+              No upfront cost—we take a tiny extra 1% commission when it sells!
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -152,17 +161,37 @@ export default function VendorAds() {
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-gray-400">Select a product to highlight:</p>
-                <div className="flex gap-2">
-                  <Select onValueChange={(val) => handleHighlight(Number(val))}>
+                <div className="flex flex-col gap-4">
+                  <Select onValueChange={setSelectedHighlightId} value={selectedHighlightId}>
                     <SelectTrigger className="bg-gray-950 border-gray-800 text-white rounded-xl">
                       <SelectValue placeholder="Choose a product..." />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-900 border-gray-700">
                       {products.filter(p => p.status === 'approved').map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.headline}</SelectItem>
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.headline || p.listing_title}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      onClick={() => handleHighlight(false)} 
+                      disabled={!selectedHighlightId}
+                      className="flex-1 bg-theme-cyan hover:bg-theme-cyan/90 text-black font-bold"
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      Highlight (1% Fee)
+                    </Button>
+                    <Button 
+                      onClick={() => handleHighlight(true)}  
+                      disabled={!selectedHighlightId}
+                      variant="outline"
+                      className="flex-1 border-theme-red text-theme-red hover:bg-theme-red/10 font-bold"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Make it a Giveaway! (Free)
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -174,9 +203,11 @@ export default function VendorAds() {
                <ul className="text-xs text-gray-500 space-y-1">
                  <li>• Your product stays at the absolute top of search</li>
                  <li>• Duration: 12 Hours (one product at a time)</li>
-                 <li>• Fee: 10% on sales instead of standard rate</li>
+                 <li>• Fee: Your standard platform fee <span className="text-theme-cyan font-bold">+1% extra</span> promo commission</li>
+                 <li>• Example: if platform fee is 9%, highlighted sale = <span className="text-white font-bold">10% total</span></li>
                </ul>
             </div>
+
           </CardContent>
         </Card>
 

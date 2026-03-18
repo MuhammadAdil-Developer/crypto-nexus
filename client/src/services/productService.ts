@@ -61,6 +61,9 @@ export interface Product {
   escrow_enabled?: boolean;
   quantity_available: number;
   is_giveaway?: boolean;
+  is_highlighted?: boolean;
+  highlighted_until?: string;
+  is_currently_highlighted?: boolean;
 }
 
 export interface ProductListResponse {

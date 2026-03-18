@@ -662,7 +662,7 @@ export default function VendorListings() {
                               GIVEAWAY
                             </Badge>
                           )}
-                          {product.is_highlighted && product.highlighted_until && new Date(product.highlighted_until) > new Date() && (
+                          {product.is_currently_highlighted && (
                             <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-[10px] sm:text-xs px-2 py-0.5 font-bold">
                               <Zap className="w-3 h-3 mr-1" />
                               HIGHLIGHT
@@ -748,9 +748,15 @@ export default function VendorListings() {
                           <DropdownMenuItem className="focus:bg-gray-800 focus:text-white cursor-pointer" onClick={() => navigate(getLinkUrl(`/vendor/listings/edit/${product.id}`))}>
                             <Edit className="w-4 h-4 mr-2" /> Quick Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="focus:bg-theme-cyan/10 focus:text-theme-cyan cursor-pointer" onClick={() => handleHighlightProduct(product.id)}>
-                            <Zap className="w-4 h-4 mr-2" /> Highlight (12h Top)
-                          </DropdownMenuItem>
+                          {product.is_currently_highlighted ? (
+                            <DropdownMenuItem className="focus:bg-red-900/20 focus:text-red-400 cursor-pointer text-red-400" onClick={() => handleHighlightProduct(product.id)}>
+                              <Zap className="w-4 h-4 mr-2" /> Cancel Highlight
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem className="focus:bg-theme-cyan/10 focus:text-theme-cyan cursor-pointer" onClick={() => handleHighlightProduct(product.id)}>
+                              <Zap className="w-4 h-4 mr-2" /> Highlight (12h Top)
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem className="focus:bg-red-900/20 focus:text-red-400 text-red-400 cursor-pointer" onClick={() => { setProductToDelete(product); setDeleteDialogOpen(true); }}>
                             <Trash2 className="w-4 h-4 mr-2" /> Delete Product
                           </DropdownMenuItem>
@@ -859,7 +865,7 @@ export default function VendorListings() {
                               GIVEAWAY
                             </Badge>
                           )}
-                          {product.is_highlighted && product.highlighted_until && new Date(product.highlighted_until) > new Date() && (
+                          {product.is_currently_highlighted && (
                              <Badge className="bg-amber-500 text-black border-none text-xs px-1.5 py-0.5 mt-1 block w-fit">
                                <Zap className="w-2.5 h-2.5 mr-0.5 inline" />
                                HIGHLIGHT
@@ -957,13 +963,25 @@ export default function VendorListings() {
                                   Edit & Resubmit
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem
-                                className="text-theme-cyan hover:bg-theme-cyan/10 cursor-pointer"
-                                onClick={() => handleHighlightProduct(product.id)}
-                              >
-                                <Zap className="w-4 h-4 mr-2" />
-                                Highlight (12h Top)
-                              </DropdownMenuItem>
+                              
+                              {product.is_currently_highlighted ? (
+                                <DropdownMenuItem
+                                  className="text-red-400 hover:bg-red-500/10 cursor-pointer"
+                                  onClick={() => handleHighlightProduct(product.id)}
+                                >
+                                  <Zap className="w-4 h-4 mr-2" />
+                                  Cancel Highlight
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  className="text-theme-cyan hover:bg-theme-cyan/10 cursor-pointer"
+                                  onClick={() => handleHighlightProduct(product.id)}
+                                >
+                                  <Zap className="w-4 h-4 mr-2" />
+                                  Highlight (12h Top)
+                                </DropdownMenuItem>
+                              )}
+                              
                               <DropdownMenuItem
                                 className="text-red-400 hover:bg-red-500/10"
                                 onClick={() => {

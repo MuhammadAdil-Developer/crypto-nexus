@@ -32,8 +32,15 @@ class ProductSerializer(serializers.ModelSerializer):
     listing_title = serializers.CharField(source='headline', read_only=True)
     gallery_images = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
+    is_currently_highlighted = serializers.SerializerMethodField()
     
     main_image = serializers.SerializerMethodField()
+    
+    def get_is_currently_highlighted(self, obj):
+        if hasattr(obj, 'is_currently_highlighted'):
+            return obj.is_currently_highlighted
+        from django.utils import timezone
+        return bool(obj.is_highlighted and obj.highlighted_until and obj.highlighted_until > timezone.now())
     
     def get_vendor(self, obj):
         if obj.vendor:
@@ -154,13 +161,13 @@ class ProductSerializer(serializers.ModelSerializer):
             'delivery_time', 'credentials_display', 'credentials', 'main_image', 
             'gallery_images', 'documents', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'is_highlighted', 'highlighted_until', 
-            'highlight_fee_rate', 'created_at',
+            'highlight_fee_rate', 'is_currently_highlighted', 'created_at',
             'vendor_username', 'vendor', 'category', 'sub_category',
             'main_images', 'tags', 'special_features', 'quantity_available', 'escrow_enabled', 'rejection_reason', 'accepted_crypto', 'is_giveaway'
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
-            'rating', 'review_count', 'is_highlighted', 'highlighted_until', 'created_at', 'vendor_username'
+            'rating', 'review_count', 'is_highlighted', 'highlighted_until', 'is_currently_highlighted', 'created_at', 'vendor_username'
         ]
 
     def to_representation(self, instance):
@@ -187,6 +194,13 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     final_price = serializers.SerializerMethodField()
     main_image = serializers.SerializerMethodField()
     vendor = serializers.SerializerMethodField()
+    is_currently_highlighted = serializers.SerializerMethodField()
+
+    def get_is_currently_highlighted(self, obj):
+        if hasattr(obj, 'is_currently_highlighted'):
+            return obj.is_currently_highlighted
+        from django.utils import timezone
+        return bool(obj.is_highlighted and obj.highlighted_until and obj.highlighted_until > timezone.now())
 
     def get_vendor(self, obj):
         if obj.vendor:
@@ -294,7 +308,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'delivery_time', 'credentials_display', 'main_image',
             'gallery_images', 'status', 'is_featured', 'views_count',
             'favorites_count', 'rating', 'review_count', 'is_highlighted', 'highlighted_until', 
-            'highlight_fee_rate', 'created_at',
+            'highlight_fee_rate', 'is_currently_highlighted', 'created_at',
             'vendor_username', 'access_method', 'account_age', 'quantity_available',
             'delivery_method', 'special_features', 'region_restrictions',
             'tags', 'documents', 'main_images', 'auto_delivery_script',
@@ -303,7 +317,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'status', 'is_featured', 'views_count', 'favorites_count',
-            'rating', 'review_count', 'is_highlighted', 'highlighted_until', 'created_at', 'vendor_username'
+            'rating', 'review_count', 'is_highlighted', 'highlighted_until', 'is_currently_highlighted', 'created_at', 'vendor_username'
         ]
         
     def to_representation(self, instance):

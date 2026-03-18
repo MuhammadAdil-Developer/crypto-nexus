@@ -3113,14 +3113,15 @@ class PayoutService:
                 cs = CommissionSettings.get_settings()
                 v_rate = VendorFee.get_vendor_fee(payout.vendor)
                 
-                # Check for promotional highlight fee
-                if getattr(payout.order, 'was_highlighted_at_order', False):
-                    p_rate = getattr(payout.order.product, 'highlight_fee_rate', Decimal('10.00')) / Decimal('100')
-                    logger.info(f"Applying PROMOTIONAL highlight fee for order {payout.order.order_id}: {p_rate*100}%")
-                else:
-                    p_rate = (v_rate if v_rate is not None else cs.platform_fee_rate) / Decimal('100')
-                
+                # Base platform and escrow rates
+                p_rate = (v_rate if v_rate is not None else cs.platform_fee_rate) / Decimal('100')
                 e_rate = cs.escrow_fee_rate / Decimal('100') if payout.payout_type == 'escrow' else Decimal('0')
+
+                # Add promotional highlight fee
+                if getattr(payout.order, 'was_highlighted_at_order', False):
+                    h_rate = getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00')) / Decimal('100')
+                    p_rate += h_rate
+                    logger.info(f"Applying PROMOTIONAL highlight fee (+{h_rate*100}%) for order {payout.order.order_id}. Total Platform Rate: {p_rate*100}%")
                 
                 payout.platform_fee = payout.gross_amount * p_rate
                 payout.escrow_fee = payout.gross_amount * e_rate
@@ -3309,17 +3310,18 @@ class PayoutService:
             net_amount = amount_to_use
             
             if commission_settings:
-                # Check for promotional highlight fee
-                if getattr(order, 'was_highlighted_at_order', False):
-                    platform_fee_rate = getattr(order.product, 'highlight_fee_rate', Decimal('10.00')) / Decimal('100')
-                    logger.info(f"Applying PROMOTIONAL highlight fee for direct payment order {order_id}: {platform_fee_rate*100}%")
+                # Base platform rate
+                vendor_custom_rate = VendorFee.get_vendor_fee(order.product.vendor)
+                if vendor_custom_rate is not None:
+                    platform_fee_rate = vendor_custom_rate / Decimal('100')
                 else:
-                    # Check for vendor-specific commission rate
-                    vendor_custom_rate = VendorFee.get_vendor_fee(order.product.vendor)
-                    if vendor_custom_rate is not None:
-                        platform_fee_rate = vendor_custom_rate / Decimal('100')
-                    else:
-                        platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                    platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+                    
+                # Add promotional highlight fee
+                if getattr(order, 'was_highlighted_at_order', False):
+                    h_rate = getattr(order.product, 'highlight_fee_rate', Decimal('1.00')) / Decimal('100')
+                    platform_fee_rate += h_rate
+                    logger.info(f"Applying PROMOTIONAL highlight fee (+{h_rate*100}%) for direct payment order {order_id}. Total Rate: {platform_fee_rate*100}%")
                 
                 platform_fee = amount_to_use * platform_fee_rate
                 net_amount = amount_to_use - platform_fee

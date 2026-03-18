@@ -348,9 +348,11 @@ class VendorService {
     }
   }
 
-  async promoteHighlight(productId: number) {
+  async promoteHighlight(productId: number, isGiveaway: boolean = false) {
     try {
-      const response = await api.post(`/products/${productId}/promote/highlight/`);
+      const response = await api.post(`/products/${productId}/promote/highlight/`, {
+        is_giveaway: isGiveaway
+      });
       return response.data;
     } catch (error: any) {
       console.error('Error promoting highlight:', error);

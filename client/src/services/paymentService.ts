@@ -51,6 +51,8 @@ export interface PaymentStatus {
   expires_at: string;
   confirmations: number;
   required_confirmations: number;
+  order_status?: string;
+  payment_status?: string;
   escrow?: {
     status: string;
     auto_release_at?: string;

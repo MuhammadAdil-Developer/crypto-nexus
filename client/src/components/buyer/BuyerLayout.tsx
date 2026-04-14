@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BuyerSidebar } from "./BuyerSidebar";
 import { BuyerHeader } from "./BuyerHeader";
 import { MessagingProvider } from "@/contexts/MessagingContext";
 import { PendingOrderProvider, usePendingOrder } from "@/contexts/PendingOrderContext";
 import { Button } from "@/components/ui/button";
-import { Clock, Copy, AlertTriangle } from "lucide-react";
+import { Clock, Copy, AlertTriangle, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface BuyerLayoutProps {
   children: React.ReactNode;
@@ -150,11 +151,106 @@ function PendingOrderBanner() {
 function BuyerLayoutContent({ children, hasBanner }: BuyerLayoutProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [paymentPulse, setPaymentPulse] = useState<{
+    order_id: string;
+    amount: string;
+    crypto: string;
+    confirmations: number;
+    required_confirmations: number;
+  } | null>(null);
+  const [pulseClosing, setPulseClosing] = useState(false);
+  const lastPulseRef = useRef<{ order_id: string; shownAt: number } | null>(null);
   const { activeOrder, timeRemaining } = usePendingOrder();
-  const showBanner = hasBanner || (activeOrder && timeRemaining > 0);
+  const showBanner = Boolean(hasBanner || (activeOrder && timeRemaining > 0));
+
+  useEffect(() => {
+    const playSoftSound = () => {
+      try {
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.03;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch {
+        // optional UX sound only
+      }
+    };
+
+    const onPaymentPulse = (event: Event) => {
+      const e = event as CustomEvent<any>;
+      const d = e.detail || {};
+      if (!d.order_id) return;
+      const nowTs = Date.now();
+      // Ignore noisy repeats for same order in short window to avoid UI jitter.
+      if (
+        lastPulseRef.current &&
+        lastPulseRef.current.order_id === d.order_id &&
+        nowTs - lastPulseRef.current.shownAt < 10000
+      ) {
+        return;
+      }
+      lastPulseRef.current = { order_id: d.order_id, shownAt: nowTs };
+      setPulseClosing(false);
+      setPaymentPulse({
+        order_id: d.order_id,
+        amount: String(d.amount || "0"),
+        crypto: String(d.crypto || ""),
+        confirmations: Number(d.confirmations || 0),
+        required_confirmations: Number(d.required_confirmations || 0),
+      });
+      playSoftSound();
+    };
+
+    window.addEventListener("buyer_payment_received", onPaymentPulse as EventListener);
+    return () => {
+      window.removeEventListener("buyer_payment_received", onPaymentPulse as EventListener);
+    };
+  }, []);
+
+  const closePaymentPulse = () => {
+    setPulseClosing(true);
+    window.setTimeout(() => setPaymentPulse(null), 260);
+  };
 
   return (
     <div className="h-screen buyer-main-background overflow-hidden flex flex-col">
+      {paymentPulse && (
+        <div className="fixed top-4 right-4 z-[80] pointer-events-none">
+          <div
+            className={cn(
+              "pointer-events-auto w-[360px] max-w-[92vw] rounded-xl border border-emerald-500/30 bg-[#0b1520]/95 backdrop-blur-xl shadow-2xl px-4 py-3 transition-all duration-300",
+              pulseClosing ? "opacity-0 translate-y-2 scale-[0.98]" : "opacity-100 translate-y-0 scale-100"
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[11px] uppercase tracking-wider text-emerald-300 font-semibold mb-1">Payment Received</p>
+              <button
+                type="button"
+                onClick={closePaymentPulse}
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Close payment notice"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-white text-sm font-semibold">Order {paymentPulse.order_id}</p>
+            <p className="text-cyan-300 text-sm font-mono mt-1">
+              {paymentPulse.amount} {paymentPulse.crypto}
+            </p>
+            <p className="text-gray-300 text-xs mt-2">
+              Payment received. Waiting for sufficient confirmations ({paymentPulse.confirmations}/{paymentPulse.required_confirmations}).
+              As soon as confirmations complete, your credentials will be available.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Sidebar Section */}
       <div className="flex flex-1 overflow-hidden relative">
         <div className="hidden lg:block h-full">

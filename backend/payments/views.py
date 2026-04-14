@@ -973,6 +973,21 @@ class AdminPayoutView(APIView):
                 payouts = [i for i in paginated_list if isinstance(i, Payout)]
                 direct_payments = [i for i in paginated_list if isinstance(i, DirectPayment)]
 
+            order_ids_for_proof = []
+            for payout in payouts:
+                if getattr(payout, 'order', None):
+                    order_ids_for_proof.append(payout.order.order_id)
+            for direct in direct_payments:
+                if getattr(direct, 'order', None):
+                    order_ids_for_proof.append(direct.order.order_id)
+            order_ids_for_proof = list(set(order_ids_for_proof))
+            proof_hash_by_order = {}
+            if order_ids_for_proof:
+                proof_hash_by_order = {
+                    row['order_id']: row['transaction_hash']
+                    for row in PaymentAddress.objects.filter(order_id__in=order_ids_for_proof).values('order_id', 'transaction_hash')
+                }
+
             btc_live_fee = get_btc_estimated_miner_fee_btc() or Decimal('0.00002')
 
             for payout in payouts:
@@ -1045,6 +1060,7 @@ class AdminPayoutView(APIView):
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                     'vendor_address': payout.vendor_address,
                     'transaction_hash': payout.transaction_hash,
+                    'payment_proof_hash': proof_hash_by_order.get(payout.order.order_id) if payout.order else None,
                     'status': payout.status,
                     'payment_status': payout.order.payment_status if payout.order else 'paid',
                     'order_status': payout.order.order_status if payout.order else 'completed',
@@ -1105,6 +1121,7 @@ class AdminPayoutView(APIView):
                     'promotion_fee_rate': float(promotion_fee_rate),
                     'vendor_address': direct.vendor_address,
                     'transaction_hash': direct.transaction_hash,
+                    'payment_proof_hash': proof_hash_by_order.get(direct.order.order_id),
                     'status': direct.status,
                     'payment_status': direct.order.payment_status,
                     'order_status': direct.order.order_status,
@@ -1381,6 +1398,16 @@ class VendorPayoutsView(APIView):
             direct_payments = direct_records
             
             payout_data = []
+            order_ids_for_proof = list(set(
+                [payout.order.order_id for payout in payout_records if getattr(payout, 'order', None)] +
+                [payment.order.order_id for payment in direct_records if getattr(payment, 'order', None)]
+            ))
+            proof_hash_by_order = {}
+            if order_ids_for_proof:
+                proof_hash_by_order = {
+                    row['order_id']: row['transaction_hash']
+                    for row in PaymentAddress.objects.filter(order_id__in=order_ids_for_proof).values('order_id', 'transaction_hash')
+                }
             
 
             for payout in payouts:
@@ -1433,6 +1460,7 @@ class VendorPayoutsView(APIView):
                     'status': 'Confirmed' if payout.status == 'confirmed' else payout.status.title(),
                     'date': payout.created_at.strftime('%Y-%m-%d %H:%M'),
                     'txHash': payout.transaction_hash,
+                    'payment_proof_hash': proof_hash_by_order.get(payout.order.order_id),
                     'order_id': payout.order.order_id,
                     'type': payout.payout_type,
                     'gross_amount': format(payout.gross_amount, 'f').rstrip('0').rstrip('.'),
@@ -1499,6 +1527,7 @@ class VendorPayoutsView(APIView):
                     'status': 'Confirmed' if payment.status == 'confirmed' else payment.status.title(),
                     'date': payment.created_at.strftime('%Y-%m-%d %H:%M'),
                     'txHash': payment.transaction_hash,
+                    'payment_proof_hash': proof_hash_by_order.get(payment.order.order_id),
                     'order_id': payment.order.order_id,
                     'type': 'direct',
                     'gross_amount': format(payment.amount, 'f').rstrip('0').rstrip('.'),

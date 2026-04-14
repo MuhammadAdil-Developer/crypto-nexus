@@ -649,6 +649,9 @@ def notify_payout_status_changed(payout, old_status, new_status):
     
     is_refund = getattr(payout, 'payout_type', None) == 'refund'
     noun = "Refund" if is_refund else "Payout"
+    # Avoid noisy intermediate notifications for auto-refunds.
+    if is_refund and new_status == 'processing':
+        return
     
     message = status_messages.get(new_status, f'status changed to {new_status}')
     

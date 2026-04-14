@@ -390,7 +390,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
           // Validate status before restoring blindly
           // If the order is already paid, we should NOT show pending timer
           paymentService.getPaymentStatus(storedOrderId).then((status) => {
-            if (status && (status.status === 'paid' || status.status === 'confirmed' || status.status === 'completed' || status.status === 'delivered')) {
+            const terminalOrderStatuses = ['cancelled', 'refunded', 'expired', 'completed', 'confirmed', 'delivered'];
+            const terminalPaymentStatuses = ['cancelled', 'expired', 'refunded'];
+            if (
+              status &&
+              (
+                ['paid', 'confirmed', 'completed', 'delivered', 'expired', 'cancelled', 'refunded', 'partial'].includes(status.status) ||
+                terminalOrderStatuses.includes((status.order_status || '').toLowerCase()) ||
+                terminalPaymentStatuses.includes((status.payment_status || '').toLowerCase())
+              )
+            ) {
               console.log('Stored order is already paid. Clearing storage.', status);
               localStorage.removeItem(storageKey);
               // Do not restore step 3
@@ -430,6 +439,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               const interval = paymentService.startPaymentPolling(storedOrderId, (status: PaymentStatus) => {
                 console.log(`[Polling-Restored] Order ${storedOrderId} Status:`, status);
                 setRealPaymentStatus(status);
+                const orderStatus = (status.order_status || '').toLowerCase();
+                const paymentStatus = (status.payment_status || '').toLowerCase();
                 if (status.status === "paid" || status.status === "confirmed") {
                   console.log(`[Polling-Restored] Payment Confirmed triggered for ${storedOrderId}`);
                   // Only show success toast ONCE per order session
@@ -439,9 +450,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   }
                   localStorage.removeItem(storageKey); // Clear on success
                   setStep(4);
-                } else if (status.status === "expired") {
+                } else if (
+                  status.status === "expired" ||
+                  status.status === "cancelled" ||
+                  status.status === "refunded" ||
+                  ['cancelled', 'refunded', 'expired', 'completed', 'confirmed', 'delivered'].includes(orderStatus) ||
+                  ['cancelled', 'expired', 'refunded'].includes(paymentStatus)
+                ) {
                   console.log(`[Polling-Restored] Payment Expired triggered for ${storedOrderId}`);
-                  toast({ title: "Payment Expired", description: "Payment window has expired.", variant: "destructive" });
+                  toast({ title: "Order Session Closed", description: "This order is no longer payable. Please create a new order.", variant: "destructive" });
                   localStorage.removeItem(storageKey);
                   setStep(1);
                 }

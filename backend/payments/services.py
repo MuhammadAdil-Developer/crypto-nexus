@@ -1515,30 +1515,46 @@ class PaymentService:
                     try:
                         from orders.models import Order
                         from shared.models import Notification
-                        from asgiref.sync import async_to_sync
-                        from channels.layers import get_channel_layer
                         
                         try:
                             order = Order.objects.get(order_id=payment_address.order_id)
-                            
-                            # Send notification via central helper (respects preferences)
-                            from shared.admin_notifications import send_user_notification
-                            send_user_notification(
-                                user=order.buyer,
-                                notification_type='payment_failed',
-                                title='Payment Failed' if mapped_status == 'cancelled' else 'Payment Expired',
-                                message=f'Payment for order {order.order_id} - "{order.product.headline}" has been {mapped_status}. Please create a new order.',
-                                data={
-                                    'order_id': order.order_id,
-                                    'product_id': str(order.product.id),
-                                    'product_headline': order.product.headline,
-                                    'action_url': f'/buyer/orders'
-                                }
-                            )
-                            
-                            logger.info(f"Payment failed notification sent for order {order.order_id}")
-                            
-                            logger.info(f"Payment failed notification created for order {order.order_id}")
+                            terminal_statuses = {'cancelled', 'refunded', 'completed', 'confirmed', 'delivered', 'paid'}
+                            has_money = Decimal(str(payment_address.received_amount or 0)) > Decimal('0')
+                            if (
+                                order.order_status in terminal_statuses
+                                or order.payment_status in {'paid', 'partial', 'refunded'}
+                                or (mapped_status == 'expired' and has_money)
+                            ):
+                                logger.info(
+                                    f"Skipping stale {mapped_status} notification for order {order.order_id} "
+                                    f"(order_status={order.order_status}, payment_status={order.payment_status}, has_money={has_money})"
+                                )
+                            else:
+                                # Send notification via central helper (respects preferences)
+                                from shared.admin_notifications import send_user_notification
+                                title = 'Payment Failed' if mapped_status == 'cancelled' else 'Payment Expired'
+                                existing = Notification.objects.filter(
+                                    user=order.buyer,
+                                    type='payment_failed',
+                                    title=title,
+                                    data__order_id=order.order_id
+                                ).exists()
+                                if not existing:
+                                    send_user_notification(
+                                        user=order.buyer,
+                                        notification_type='payment_failed',
+                                        title=title,
+                                        message=f'Payment for order {order.order_id} - "{order.product.headline}" has been {mapped_status}. Please create a new order.',
+                                        data={
+                                            'order_id': order.order_id,
+                                            'product_id': str(order.product.id),
+                                            'product_headline': order.product.headline,
+                                            'action_url': f'/buyer/orders'
+                                        }
+                                    )
+                                    logger.info(f"Payment failed notification sent for order {order.order_id}")
+                                else:
+                                    logger.info(f"Skipping duplicate {title} notification for order {order.order_id}")
                         except Order.DoesNotExist:
                             logger.error(f"Order not found for payment address {payment_address.order_id}")
                     except Exception as e:
@@ -1870,6 +1886,45 @@ class PaymentService:
                 if btcpay_status in ['Processing', 'Confirmed', 'Paid', 'Settled'] and order.payment_status == 'paid':
                     # Allow 0-conf delivery for instant_auto if amount is correct
                     is_auto = order.product.delivery_time == 'instant_auto'
+
+                    # Buyer UX signal: payment detected but confirmations still pending.
+                    # Deduplicated by order_id so we don't spam repeated monitor ticks.
+                    if btcpay_status == 'Processing':
+                        try:
+                            from django.conf import settings as django_settings
+                            from shared.models import Notification
+                            from shared.admin_notifications import send_user_notification
+                            required_confs = django_settings.REQUIRED_CONFIRMATIONS.get(
+                                payment_address.crypto_currency.symbol,
+                                3
+                            )
+                            current_confs = payment_address.confirmations or 0
+                            already_sent = Notification.objects.filter(
+                                user=order.buyer,
+                                type='payment_received',
+                                title='Payment Received',
+                                data__order_id=order.order_id
+                            ).exists()
+                            if not already_sent:
+                                send_user_notification(
+                                    user=order.buyer,
+                                    notification_type='payment_received',
+                                    title='Payment Received',
+                                    message=(
+                                        f'Payment received for order {order.order_id}. '
+                                        f'Waiting for network confirmations ({current_confs}/{required_confs}).'
+                                    ),
+                                    data={
+                                        'order_id': order.order_id,
+                                        'amount': str(payment_address.received_amount or 0),
+                                        'crypto': payment_address.crypto_currency.symbol,
+                                        'confirmations': current_confs,
+                                        'required_confirmations': required_confs,
+                                        'action_url': '/buyer/orders'
+                                    }
+                                )
+                        except Exception as ux_e:
+                            logger.error(f"Failed sending payment_received UX notification for {order.order_id}: {ux_e}")
                     
                     if not order.payment_confirmed_at:
                         # Only set confirmation timestamp on 1-conf or if we are auto-delivering now
@@ -1903,28 +1958,43 @@ class PaymentService:
         """Helper to send notifications and websocket updates"""
         try:
             from shared.admin_notifications import send_user_notification
+            from shared.models import Notification
             from asgiref.sync import async_to_sync
             from channels.layers import get_channel_layer
+
+            def _already_sent(user, notification_type, title):
+                return Notification.objects.filter(
+                    user=user,
+                    type=notification_type if notification_type in [t[0] for t in Notification.NOTIFICATION_TYPES] else 'system',
+                    title=title,
+                    data__order_id=order.order_id
+                ).exists()
             
             # 1. Notify Buyer
             creds_msg = "Your credentials have been delivered!" if order.order_status == 'delivered' else "Wait for vendor delivery."
-            send_user_notification(
-                user=order.buyer,
-                notification_type='payment_confirmed',
-                title='Payment Confirmed',
-                message=f'Payment for order {order.order_id} was successfully verified. {creds_msg}',
-                data={'order_id': order.order_id, 'action_url': '/buyer/orders'}
-            )
+            if not _already_sent(order.buyer, 'payment_confirmed', 'Payment Confirmed'):
+                send_user_notification(
+                    user=order.buyer,
+                    notification_type='payment_confirmed',
+                    title='Payment Confirmed',
+                    message=f'Payment for order {order.order_id} was successfully verified. {creds_msg}',
+                    data={'order_id': order.order_id, 'action_url': '/buyer/orders'}
+                )
+            else:
+                logger.info(f"Skipping duplicate buyer payment confirmation notification for {order.order_id}")
             
             # 2. Notify Vendor
             escrow_msg = " (Funds held in Escrow)" if order.use_escrow else ""
-            send_user_notification(
-                user=order.vendor,
-                notification_type='order_paid',
-                title='New Paid Order',
-                message=f'Order {order.order_id} has been paid{escrow_msg}.',
-                data={'order_id': order.order_id, 'action_url': '/vendor/orders'}
-            )
+            if not _already_sent(order.vendor, 'order_paid', 'New Paid Order'):
+                send_user_notification(
+                    user=order.vendor,
+                    notification_type='order_paid',
+                    title='New Paid Order',
+                    message=f'Order {order.order_id} has been paid{escrow_msg}.',
+                    data={'order_id': order.order_id, 'action_url': '/vendor/orders'}
+                )
+            else:
+                logger.info(f"Skipping duplicate vendor paid-order notification for {order.order_id}")
             
             # 3. Real-time Refresh
             channel_layer = get_channel_layer()
@@ -2548,7 +2618,9 @@ class PaymentService:
                 'expires_at': payment_address.expires_at.isoformat(),
                 'confirmations': payment_address.confirmations,
                 'required_confirmations': payment_address.required_confirmations,
-                'crypto_currency': payment_address.crypto_currency.symbol
+                'crypto_currency': payment_address.crypto_currency.symbol,
+                'order_status': getattr(order, 'order_status', None),
+                'payment_status': getattr(order, 'payment_status', None),
             }
             
             logger.info(f"check_payment_status for {order_id} returning: {result['status']} (Expected: {payment_address.expected_amount}, Received: {payment_address.received_amount})")
@@ -3152,7 +3224,6 @@ class PayoutService:
                 is_promo = bool(getattr(payout.order, 'was_highlighted_at_order', False))
                 if not is_promo:
                     try:
-                        from django.utils import timezone
                         now = timezone.now()
                         product = payout.order.product
                         is_promo = bool(getattr(product, 'is_highlighted', False)) and (

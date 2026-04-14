@@ -238,6 +238,20 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Payment detected (pre-confirmation) UX event for buyer pages.
+      if ((data.type || data.data?.type) === 'payment_received') {
+        const payloadData = data.data || data;
+        window.dispatchEvent(new CustomEvent('buyer_payment_received', {
+          detail: {
+            order_id: payloadData.order_id || payloadData.data?.order_id,
+            amount: payloadData.amount || payloadData.data?.amount,
+            crypto: payloadData.crypto || payloadData.data?.crypto,
+            confirmations: payloadData.confirmations || payloadData.data?.confirmations || 0,
+            required_confirmations: payloadData.required_confirmations || payloadData.data?.required_confirmations || 0
+          }
+        }));
+      }
+
       // Use notification ID from backend if available
       const notificationId = data.id || data.data?.id || `noti_${Date.now()}_${Math.random()}`;
       const notificationType = data.type || data.data?.type || 'order_update';

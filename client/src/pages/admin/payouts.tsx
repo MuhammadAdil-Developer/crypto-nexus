@@ -48,7 +48,19 @@ interface PayoutData {
   created_at?: string;
   confirmed_at?: string;
   expires_at?: string;
+  network_fee?: string;
+  order_total_amount?: string;
+  payment_proof_hash?: string;
 }
+
+const isBlockchainTxHash = (hash?: string) => !!hash && /^[a-fA-F0-9]{64}$/.test(hash);
+const getExplorerLink = (symbol?: string, hash?: string) => {
+  if (!hash || !isBlockchainTxHash(hash)) return null;
+  const s = (symbol || "").toLowerCase();
+  if (s === "btc" || s === "bitcoin") return `https://blockchair.com/bitcoin/transaction/${hash}`;
+  if (s === "xmr" || s === "monero") return `https://xmrchain.net/tx/${hash}`;
+  return null;
+};
 
 export default function AdminPayouts() {
   const [payouts, setPayouts] = useState<PayoutData[]>([]);
@@ -763,7 +775,7 @@ export default function AdminPayouts() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={fetchPayouts}
+                  onClick={() => void fetchPayouts()}
                   disabled={loading}
                   className="text-gray-300 hover:text-white hover:bg-surface-2/50 transition-all duration-200"
                 >
@@ -1259,39 +1271,39 @@ export default function AdminPayouts() {
                     </div>
                   </div>
 
-                  {selectedPayout.type === 'escrow' && (
-                    <>
-                      {selectedPayout.gross_amount && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Gross Amount:</span>
-                          <span className="font-mono text-white">{selectedPayout.gross_amount} {selectedPayout.crypto_currency}</span>
-                        </div>
-                      )}
-                      {selectedPayout.platform_fee && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Platform Fee ({selectedPayout.platform_fee_rate || 0}%):</span>
-                          <span className="font-mono text-accent">{selectedPayout.platform_fee} {selectedPayout.crypto_currency}</span>
-                        </div>
-                      )}
-                      {!!selectedPayout.promotion_fee && selectedPayout.promotion_fee !== '0.00' && selectedPayout.promotion_fee !== '0' && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Promotion Fee (Highlighted) (+{selectedPayout.promotion_fee_rate || 0}%):</span>
-                          <span className="font-mono text-accent">{selectedPayout.promotion_fee} {selectedPayout.crypto_currency}</span>
-                        </div>
-                      )}
-                      {selectedPayout.escrow_fee && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Escrow Fee ({selectedPayout.escrow_fee_rate || 0}%):</span>
-                          <span className="font-mono text-accent">{selectedPayout.escrow_fee} {selectedPayout.crypto_currency}</span>
-                        </div>
-                      )}
-                      <Separator className="bg-border" />
-                      <div className="flex justify-between font-semibold">
-                        <span className="text-white">Net Amount to Vendor:</span>
-                        <span className="font-mono text-green-400">{selectedPayout.amount} {selectedPayout.crypto_currency}</span>
-                      </div>
-                    </>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Buyer Paid Amount:</span>
+                    <span className="font-mono text-white">{selectedPayout.gross_amount || selectedPayout.amount} {selectedPayout.crypto_currency}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Order Amount:</span>
+                    <span className="font-mono text-white">{selectedPayout.order_total_amount || selectedPayout.gross_amount || selectedPayout.amount} {selectedPayout.crypto_currency}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Platform Commission ({selectedPayout.platform_fee_rate || 0}%):</span>
+                    <span className="font-mono text-accent">{selectedPayout.platform_fee || '0.00'} {selectedPayout.crypto_currency}</span>
+                  </div>
+                  {!!selectedPayout.promotion_fee && selectedPayout.promotion_fee !== '0.00' && selectedPayout.promotion_fee !== '0' && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Promotion Fee (Highlighted) (+{selectedPayout.promotion_fee_rate || 0}%):</span>
+                      <span className="font-mono text-accent">{selectedPayout.promotion_fee} {selectedPayout.crypto_currency}</span>
+                    </div>
                   )}
+                  {selectedPayout.type === 'escrow' && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Escrow Fee ({selectedPayout.escrow_fee_rate || 0}%):</span>
+                      <span className="font-mono text-accent">{selectedPayout.escrow_fee || '0.00'} {selectedPayout.crypto_currency}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Network Fee (est.):</span>
+                    <span className="font-mono text-accent">{selectedPayout.network_fee || 'N/A'}</span>
+                  </div>
+                  <Separator className="bg-border" />
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-white">Net Amount to Vendor:</span>
+                    <span className="font-mono text-green-400">{selectedPayout.amount} {selectedPayout.crypto_currency}</span>
+                  </div>
 
                   <Separator className="bg-border" />
 
@@ -1308,7 +1320,39 @@ export default function AdminPayouts() {
                       <span className="text-gray-400">Transaction Hash:</span>
                       <div className="text-right">
                         <p className="font-mono text-white break-all">{selectedPayout.transaction_hash}</p>
-                        <Badge variant="outline" className="mt-1">Blockchain Transaction</Badge>
+                        {getExplorerLink(selectedPayout.crypto_currency, selectedPayout.transaction_hash) ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => window.open(getExplorerLink(selectedPayout.crypto_currency, selectedPayout.transaction_hash)!, '_blank')}
+                          >
+                            View On Explorer
+                          </Button>
+                        ) : (
+                          <Badge variant="outline" className="mt-1">Internal Reference</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPayout.payment_proof_hash && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Payment Proof:</span>
+                      <div className="text-right">
+                        <p className="font-mono text-white break-all">{selectedPayout.payment_proof_hash}</p>
+                        {getExplorerLink(selectedPayout.crypto_currency, selectedPayout.payment_proof_hash) ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => window.open(getExplorerLink(selectedPayout.crypto_currency, selectedPayout.payment_proof_hash)!, '_blank')}
+                          >
+                            View Payment Proof
+                          </Button>
+                        ) : (
+                          <Badge variant="outline" className="mt-1">Internal Reference</Badge>
+                        )}
                       </div>
                     </div>
                   )}

@@ -62,6 +62,7 @@ interface PayoutData {
   status: string;
   date: string;
   txHash?: string;
+  payment_proof_hash?: string;
   order_id?: string;
   type?: 'escrow' | 'direct' | 'refund';
   gross_amount?: string;
@@ -74,6 +75,16 @@ interface PayoutData {
   escrow_fee_rate?: number;
   network_fee?: string;
 }
+
+const isBlockchainTxHash = (hash?: string) => !!hash && /^[a-fA-F0-9]{64}$/.test(hash);
+const getExplorerLink = (method?: string, hash?: string) => {
+  if (!hash || !isBlockchainTxHash(hash)) return null;
+  const symbol = (method || "").toLowerCase();
+  if (symbol === "btc" || symbol === "bitcoin") return `https://blockchair.com/bitcoin/transaction/${hash}`;
+  if (symbol === "xmr" || symbol === "monero") return `https://xmrchain.net/tx/${hash}`;
+  return null;
+};
+const getProofLink = (method?: string, proofHash?: string) => getExplorerLink(method, proofHash);
 
 // Styled Crypto Icon Component
 const CryptoIcon = ({ symbol, size = "md" }: { symbol?: string, size?: "sm" | "md" | "lg" | "xl" }) => {
@@ -528,6 +539,7 @@ export default function VendorPayouts() {
                             {payout.type === 'escrow' ? 'Escrow' : payout.type === 'refund' ? 'Refund' : 'Direct'}
                           </Badge>
                         </div>
+                        <p className="text-xs text-gray-400 font-mono mb-1">Order: {payout.order_id || "N/A"}</p>
                         <div className="flex items-center text-sm text-gray-400 font-mono mb-1">
                           <span className="truncate max-w-[200px] sm:max-w-md">{payout.address}</span>
                           <button onClick={() => copyToClipboard(payout.address)} className="ml-2 hover:text-white transition-colors">
@@ -546,12 +558,12 @@ export default function VendorPayouts() {
                         <div className="text-sm text-gray-400 font-medium">{payout.usdAmount}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {payout.txHash && (
+                        {payout.payment_proof_hash && getProofLink(payout.method, payout.payment_proof_hash) && (
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                            onClick={() => window.open(`https://blockchair.com/${payout.method.toLowerCase()}/transaction/${payout.txHash}`, '_blank')}
+                            onClick={() => window.open(getProofLink(payout.method, payout.payment_proof_hash)!, '_blank')}
                           >
                             <ExternalLink className="w-4 h-4" />
                           </Button>
@@ -842,9 +854,39 @@ export default function VendorPayouts() {
                     <Button variant="outline" size="icon" onClick={() => copyToClipboard(selectedPayout.txHash!)} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
                       <Copy className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={() => window.open(`https://blockchair.com/${selectedPayout.method.toLowerCase()}/transaction/${selectedPayout.txHash}`, '_blank')} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
-                      <ExternalLink className="w-4 h-4" />
+                    {getExplorerLink(selectedPayout.method, selectedPayout.txHash) ? (
+                      <Button variant="outline" size="icon" onClick={() => window.open(getExplorerLink(selectedPayout.method, selectedPayout.txHash)!, '_blank')} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-gray-400 border-gray-600">
+                        Internal Reference
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Proof Hash (incoming buyer transaction) */}
+              {selectedPayout.payment_proof_hash && (
+                <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/30">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Payment Proof</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-gray-900/50 rounded-lg p-3 font-mono text-sm text-gray-300 break-all border border-gray-700/50">
+                      {selectedPayout.payment_proof_hash}
+                    </div>
+                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(selectedPayout.payment_proof_hash!)} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
+                      <Copy className="w-4 h-4" />
                     </Button>
+                    {getProofLink(selectedPayout.method, selectedPayout.payment_proof_hash) ? (
+                      <Button variant="outline" size="icon" onClick={() => window.open(getProofLink(selectedPayout.method, selectedPayout.payment_proof_hash)!, '_blank')} className="h-11 w-11 shrink-0 bg-gray-800 border-gray-700 hover:bg-gray-700">
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-gray-400 border-gray-600">
+                        Internal Reference
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}

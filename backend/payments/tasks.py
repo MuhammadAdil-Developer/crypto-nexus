@@ -469,7 +469,6 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         is_promo = bool(getattr(order, 'was_highlighted_at_order', False))
         if not is_promo:
             try:
-                from django.utils import timezone
                 now = timezone.now()
                 product = order.product
                 is_promo = bool(getattr(product, 'is_highlighted', False)) and (

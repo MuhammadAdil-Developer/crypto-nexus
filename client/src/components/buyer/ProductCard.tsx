@@ -22,6 +22,10 @@ interface Product {
     id: number;
     username: string;
     email: string;
+    is_on_vacation?: boolean;
+    is_on_vacation_active?: boolean;
+    vacation_mode_until?: string | null;
+    vacation_mode_note?: string;
   };
   category: {
     id: number;
@@ -71,6 +75,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   const { toast } = useToast();
   const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const { addToCart, isInCart, removeFromCart } = useCart();
+  const sellerOnVacation = Boolean(product.vendor?.is_on_vacation_active);
 
   useEffect(() => {
     checkWishlistStatus();
@@ -202,6 +207,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   };
 
   const handleBuyNow = () => {
+    if (sellerOnVacation) {
+      toast({
+        title: "Seller On Vacation",
+        description: product.vendor?.vacation_mode_note || "This seller is temporarily unavailable.",
+        variant: "destructive"
+      });
+      return;
+    }
     if (product.quantity_available <= 0) {
       toast({
         title: "Out of Stock",
@@ -319,6 +332,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   };
 
   const handleAddToCart = () => {
+    if (sellerOnVacation) {
+      toast({
+        title: "Seller On Vacation",
+        description: product.vendor?.vacation_mode_note || "This seller is temporarily unavailable.",
+        variant: "destructive"
+      });
+      return;
+    }
     if (product.quantity_available <= 0) {
       toast({
         title: "Out of Stock",
@@ -420,6 +441,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                         ESCROW
                       </Badge>
                     )}
+                    {sellerOnVacation && (
+                      <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30 text-[9px] px-1.5 py-0 font-black">
+                        SELLER AWAY
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -498,8 +524,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button
               onClick={handleBuyNow}
               size="sm"
-              // disabled={product.quantity_available <= 0} // Allow click
-              className={product.quantity_available > 0 ? 'bg-theme-red hover:bg-theme-red-dark text-white' : 'bg-gray-700 text-gray-400'}
+              disabled={sellerOnVacation}
+              className={(product.quantity_available > 0 && !sellerOnVacation) ? 'bg-theme-red hover:bg-theme-red-dark text-white' : 'bg-gray-700 text-gray-400'}
             >
               Buy
             </Button>
@@ -515,9 +541,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <Button
                 onClick={handleAddToCart}
                 size="sm"
-                disabled={product.quantity_available <= 0}
+                disabled={product.quantity_available <= 0 || sellerOnVacation}
                 className={
-                  product.quantity_available > 0
+                  (product.quantity_available > 0 && !sellerOnVacation)
                     ? 'bg-gradient-to-r from-cyan-400 to-teal-500 text-white hover:from-cyan-500 hover:to-teal-600 border border-cyan-400'
                     : 'bg-gray-700 text-gray-400 cursor-not-allowed'
                 }
@@ -613,6 +639,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             {product.quantity_available <= 0 && (
               <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs px-1 py-0.5">
                 Out of Stock
+              </Badge>
+            )}
+            {sellerOnVacation && (
+              <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30 text-xs px-1 py-0.5">
+                Seller Away
               </Badge>
             )}
 
@@ -757,9 +788,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button
               onClick={handleBuyNow}
               size="sm"
-              // disabled={product.quantity_available <= 0} // Allow click to show modal + error
+              disabled={sellerOnVacation}
               className={`flex-1 text-[10px] font-bold uppercase tracking-widest py-2 h-9 min-w-0 px-2 transition-all active:scale-95 ${product.quantity_available > 0
-                ? 'bg-theme-red hover:bg-[#850231] text-white shadow-lg shadow-theme-red/20'
+                ? (sellerOnVacation ? 'bg-gray-800 text-gray-400' : 'bg-theme-red hover:bg-[#850231] text-white shadow-lg shadow-theme-red/20')
                 : 'bg-gray-800 text-gray-400' // Still gray if out of stock, but clickable
                 }`}
             >
@@ -780,9 +811,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <Button
                 onClick={handleAddToCart}
                 size="sm"
-                disabled={product.quantity_available <= 0}
+                disabled={product.quantity_available <= 0 || sellerOnVacation}
                 className={`flex-1 text-xs py-2 h-9 min-w-0 px-2 ${product.quantity_available > 0
-                  ? 'bg-gradient-to-r from-[#00D9FF] to-[#00BCD4] text-white hover:from-[#00C4E6] hover:to-[#00ACC1] border border-[#00D9FF]'
+                  ? (sellerOnVacation ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-[#00D9FF] to-[#00BCD4] text-white hover:from-[#00C4E6] hover:to-[#00ACC1] border border-[#00D9FF]')
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   }`}
               >

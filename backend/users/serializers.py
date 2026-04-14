@@ -70,6 +70,7 @@ class UserSerializer(serializers.ModelSerializer):
     """User serializer for basic user information - no PII"""
     total_orders = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
+    is_on_vacation_active = serializers.SerializerMethodField()
 
     def get_profile_picture(self, obj):
         if not obj.profile_picture:
@@ -88,6 +89,9 @@ class UserSerializer(serializers.ModelSerializer):
         if obj.user_type == 'vendor':
             return getattr(obj, 'vendor_orders_new', obj.vendor_orders_new.get_queryset() if hasattr(obj, 'vendor_orders_new') else None).exclude(order_status='cancelled').count() if hasattr(obj, 'vendor_orders_new') else 0
         return getattr(obj, 'buyer_orders', obj.buyer_orders.get_queryset() if hasattr(obj, 'buyer_orders') else None).exclude(order_status='cancelled').count() if hasattr(obj, 'buyer_orders') else 0
+
+    def get_is_on_vacation_active(self, obj):
+        return bool(obj.is_vacation_mode_active())
     
     class Meta:
         model = User
@@ -95,6 +99,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'user_type', 'is_verified', 
             'two_factor_enabled', 'is_active', 'date_joined',
             'btc_payout_address', 'xmr_payout_address', 'non_escrow_blocked', 'escrow_enabled',
+            'is_on_vacation', 'vacation_mode_until', 'vacation_mode_note', 'is_on_vacation_active',
             'total_orders', 'notify_new_orders', 'notify_messages', 'notify_disputes',
             'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts',
             'recovery_phrase', 'profile_picture', 'legal_accepted'
@@ -114,9 +119,23 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'two_factor_enabled', 'btc_payout_address', 'xmr_payout_address',
             'notify_new_orders', 'notify_messages', 'notify_disputes',
             'notify_reviews', 'notify_support_tickets', 'notify_payouts', 'notify_marketing', 'notify_login_alerts',
-            'profile_picture'
+            'profile_picture', 'is_on_vacation', 'vacation_mode_until', 'vacation_mode_note'
         ]
         read_only_fields = ['id', 'username', 'date_joined', 'user_type', 'is_verified']
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        user = self.instance
+        is_on_vacation = attrs.get('is_on_vacation', getattr(user, 'is_on_vacation', False))
+        vacation_until = attrs.get('vacation_mode_until', getattr(user, 'vacation_mode_until', None))
+
+        if is_on_vacation and vacation_until is not None:
+            from django.utils import timezone
+            if vacation_until <= timezone.now():
+                raise serializers.ValidationError({
+                    'vacation_mode_until': 'Vacation end must be in the future.'
+                })
+        return attrs
 
     def validate_btc_payout_address(self, value):
         if value:
@@ -160,5 +179,8 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['username', 'user_type', 'is_verified', 'two_factor_enabled', 'is_active', 'non_escrow_blocked', 'escrow_enabled']
+        fields = [
+            'username', 'user_type', 'is_verified', 'two_factor_enabled', 'is_active',
+            'non_escrow_blocked', 'escrow_enabled', 'is_on_vacation', 'vacation_mode_until', 'vacation_mode_note'
+        ]
         read_only_fields = ['id', 'date_joined'] 

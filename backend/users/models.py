@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from shared.models import BaseModel
+from django.utils import timezone
 
 
 class User(AbstractUser, BaseModel):
@@ -26,6 +27,9 @@ class User(AbstractUser, BaseModel):
     # Vendor-specific fields
     escrow_enabled = models.BooleanField(default=False)  # Enable escrow for all vendor products
     non_escrow_blocked = models.BooleanField(default=False)  # Admin can block vendor from creating non-escrow listings
+    is_on_vacation = models.BooleanField(default=False)
+    vacation_mode_until = models.DateTimeField(blank=True, null=True)
+    vacation_mode_note = models.CharField(max_length=255, blank=True, default='')
     
     # Buyer payout addresses
     btc_payout_address = models.CharField(max_length=120, blank=True, null=True)
@@ -50,6 +54,13 @@ class User(AbstractUser, BaseModel):
 
     def __str__(self):
         return self.username
+
+    def is_vacation_mode_active(self):
+        if not self.is_on_vacation:
+            return False
+        if self.vacation_mode_until and timezone.now() > self.vacation_mode_until:
+            return False
+        return True
 
     class Meta:
         db_table = 'users' 

@@ -48,7 +48,11 @@ class ProductSerializer(serializers.ModelSerializer):
                 'id': obj.vendor.id,
                 'username': obj.vendor.username,
                 'email': obj.vendor.email,
-                'profile_picture': obj.vendor.profile_picture.url if obj.vendor.profile_picture else None
+                'profile_picture': obj.vendor.profile_picture.url if obj.vendor.profile_picture else None,
+                'is_on_vacation': obj.vendor.is_on_vacation,
+                'is_on_vacation_active': obj.vendor.is_vacation_mode_active(),
+                'vacation_mode_until': obj.vendor.vacation_mode_until,
+                'vacation_mode_note': obj.vendor.vacation_mode_note,
             }
         return None
     
@@ -208,7 +212,11 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 'id': obj.vendor.id,
                 'username': obj.vendor.username,
                 'email': obj.vendor.email,
-                'profile_picture': obj.vendor.profile_picture.url if obj.vendor.profile_picture else None
+                'profile_picture': obj.vendor.profile_picture.url if obj.vendor.profile_picture else None,
+                'is_on_vacation': obj.vendor.is_on_vacation,
+                'is_on_vacation_active': obj.vendor.is_vacation_mode_active(),
+                'vacation_mode_until': obj.vendor.vacation_mode_until,
+                'vacation_mode_note': obj.vendor.vacation_mode_note,
             }
         return None
 

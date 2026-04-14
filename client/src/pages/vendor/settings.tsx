@@ -24,6 +24,9 @@ interface VendorProfile {
   website?: string;
   location?: string;
   profile_picture?: string;
+  is_on_vacation?: boolean;
+  vacation_mode_until?: string | null;
+  vacation_mode_note?: string;
 }
 
 interface PaymentSettings {
@@ -97,6 +100,11 @@ export default function VendorSettings() {
   const [editXMR, setEditXMR] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [vacation, setVacation] = useState({
+    enabled: false,
+    until: "",
+    note: "",
+  });
 
   useEffect(() => {
     fetchVendorData();
@@ -117,7 +125,19 @@ export default function VendorSettings() {
           website: "",
           location: "",
           business_name: "",
-          profile_picture: userData.profile_picture || ""
+          profile_picture: userData.profile_picture || "",
+          is_on_vacation: userData.is_on_vacation || false,
+          vacation_mode_until: userData.vacation_mode_until || null,
+          vacation_mode_note: userData.vacation_mode_note || "",
+        });
+        const vacationUntilRaw = userData.vacation_mode_until || "";
+        const vacationUntilLocal = vacationUntilRaw
+          ? new Date(vacationUntilRaw).toISOString().slice(0, 16)
+          : "";
+        setVacation({
+          enabled: Boolean(userData.is_on_vacation_active || userData.is_on_vacation),
+          until: vacationUntilLocal,
+          note: userData.vacation_mode_note || "",
         });
         if (userData.profile_picture) {
           setProfilePreview(getImageUrl(userData.profile_picture));
@@ -244,7 +264,10 @@ export default function VendorSettings() {
         notify_support_tickets: notifications.support_tickets,
         notify_payouts: notifications.payouts,
         notify_marketing: notifications.marketing,
-        notify_login_alerts: security.login_notifications
+        notify_login_alerts: security.login_notifications,
+        is_on_vacation: vacation.enabled,
+        vacation_mode_until: vacation.until ? new Date(vacation.until).toISOString() : null,
+        vacation_mode_note: vacation.note || "",
       });
 
       // Update vendor application with profile fields
@@ -566,6 +589,52 @@ export default function VendorSettings() {
                   <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select> */}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notifications */}
+        <Card className="border border-gray-700/50 bg-gray-900/40 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Store className="w-5 h-5 text-theme-cyan" />
+              Vacation Mode
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300">Temporarily Unavailable</Label>
+                <p className="text-sm text-gray-400">Pause new purchases without deleting listings.</p>
+              </div>
+              <Switch
+                checked={vacation.enabled}
+                onCheckedChange={(checked) => setVacation(prev => ({ ...prev, enabled: checked }))}
+                className="data-[state=checked]:bg-theme-cyan"
+              />
+            </div>
+
+            <div>
+              <Label className="text-gray-300">Vacation Until (optional)</Label>
+              <Input
+                type="datetime-local"
+                value={vacation.until}
+                onChange={(e) => setVacation(prev => ({ ...prev, until: e.target.value }))}
+                className="bg-gray-800 border-gray-600 text-white"
+                disabled={!vacation.enabled}
+              />
+            </div>
+
+            <div>
+              <Label className="text-gray-300">Buyer Message (optional)</Label>
+              <Textarea
+                value={vacation.note}
+                onChange={(e) => setVacation(prev => ({ ...prev, note: e.target.value }))}
+                className="bg-gray-800 border-gray-600 text-white"
+                placeholder="We are away for a short break and will resume soon."
+                rows={3}
+                disabled={!vacation.enabled}
+              />
             </div>
           </CardContent>
         </Card>

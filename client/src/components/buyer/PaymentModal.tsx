@@ -33,6 +33,7 @@ interface Product {
     username: string;
   };
   accepted_crypto?: string[];
+  accepted_cryptocurrencies?: string[];
   escrow_available?: boolean;
   escrow_enabled?: boolean;
   quantity_available?: number;
@@ -55,8 +56,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const { btc: btcPrice, xmr: xmrPrice, refresh: refreshPrices } = useCryptoPrices();
   const { toast } = useToast();
   const shownToastsRef = React.useRef<Set<string>>(new Set());
+  const terminalHandledRef = React.useRef<Set<string>>(new Set());
+  const restoreGuardRef = React.useRef<string | null>(null);
+  const stepRef = React.useRef<number>(1);
+  const orderIdRef = React.useRef<string>('');
   const pollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [step, setStep] = useState(1); // 1: Payment Method, 2: Payment Type, 3: Payment Details, 4: Confirmation
+  const [orderId, setOrderId] = useState('');
 
   // Fetch fresh rates when modal opens so amounts use live API rates
   useEffect(() => {
@@ -65,7 +71,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
   useEffect(() => {
     console.log('📍 Step changed to:', step);
+    stepRef.current = step;
   }, [step]);
+
+  useEffect(() => {
+    orderIdRef.current = orderId;
+  }, [orderId]);
 
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [paymentType, setPaymentType] = useState<string>('wallet'); // only wallet is supported
@@ -77,7 +88,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [quantity, setQuantity] = useState(1);
   const [paymentAddress, setPaymentAddress] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [orderId, setOrderId] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(7200); // 120 minutes (2 hours)
   const [addressVisible, setAddressVisible] = useState(false);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
@@ -125,7 +135,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
   const [apiError, setApiError] = useState<string | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
 
-  // Support bulk purchases: derive a display product from items when product is not provided
+  const stopCurrentPolling = () => {
+    if (pollingRef.current) {
+      paymentService.stopPaymentPolling(pollingRef.current);
+      pollingRef.current = null;
+    }
+    if (pollingInterval) {
+      paymentService.stopPaymentPolling(pollingInterval);
+      setPollingInterval(null);
+    }
+  };
+
+  // 1. Dervied State & Constants
   const effectiveProduct: Product | null = product ?? (items && items.length > 0 ? {
     id: 0,
     listing_title: `Bulk Purchase (${items.length} items)`,
@@ -136,6 +157,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     escrow_enabled: false,
     quantity_available: 1
   } as Product : null);
+
+  const calculateTotal = () => {
+    const basePrice = parseFloat(effectiveProduct?.price || '0');
+    const total = basePrice * quantity;
+    // Only charge escrow fee if user opts in for non-escrow products
+    const escrowFee = (useEscrow && !product?.escrow_enabled) ? total * 0.02 : 0; // 2% escrow fee only for optional escrow
+    return {
+      subtotal: total,
+      escrowFee,
+      total: total + escrowFee
+    };
+  };
+
+  const pricing = calculateTotal();
+  const totalPrice = pricing.total;
 
   // Cleanup polling on unmount or close
   useEffect(() => {
@@ -251,18 +287,40 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         setOrderId(anchorOrderId);
 
         // Start polling the anchor order
-        if (pollingInterval) {
-          paymentService.stopPaymentPolling(pollingInterval);
-        }
+        stopCurrentPolling();
         const interval = paymentService.startPaymentPolling(anchorOrderId, (status: PaymentStatus) => {
           setRealPaymentStatus(status);
-          if (status.status === 'paid') {
+          const orderStatus = (status.order_status || '').toLowerCase();
+          const paymentStatus = (status.payment_status || '').toLowerCase();
+          const partialSignal = status.status === 'partial' || paymentStatus === 'partial';
+          const isSuccessTerminal = ['confirmed', 'completed', 'delivered', 'paid'].includes(orderStatus) || paymentStatus === 'paid';
+          const isTerminal = ['cancelled', 'refunded', 'expired'].includes(status.status) ||
+            ['cancelled', 'refunded', 'expired', 'completed', 'confirmed', 'delivered'].includes(orderStatus) ||
+            ['cancelled', 'expired', 'refunded'].includes(paymentStatus);
+          if (status.status === 'paid' || isSuccessTerminal) {
             toast({ title: 'Payment Confirmed!', description: 'Bulk payment received and processed.' });
+            terminalHandledRef.current.add(anchorOrderId);
+            stopCurrentPolling();
             setStep(4);
-          } else if (status.status === 'expired') {
-            toast({ title: 'Payment Expired', description: 'Payment window has expired.', variant: 'destructive' });
+          } else if (partialSignal && !terminalHandledRef.current.has(`${anchorOrderId}_partial`)) {
+            terminalHandledRef.current.add(`${anchorOrderId}_partial`);
+            toast({
+              title: 'Partial Payment Detected',
+              description: 'You sent less amount. Kindly send full amount for successful completion.',
+              variant: 'destructive'
+            });
+          } else if (isTerminal && !terminalHandledRef.current.has(anchorOrderId)) {
+            terminalHandledRef.current.add(anchorOrderId);
+            stopCurrentPolling();
+            if (stepRef.current === 3 && orderIdRef.current === anchorOrderId) {
+              toast({ title: 'Order Session Closed', description: 'This order is no longer payable. Please create a new order.', variant: 'destructive' });
+            }
+            setStep(1);
+            setOrderId('');
+            setOrderCreatedAt(null);
           }
         });
+        pollingRef.current = interval;
         setPollingInterval(interval);
 
         toast({ title: 'Consolidated Payment Generated', description: 'One payment address covers all items in your cart.' });
@@ -334,25 +392,49 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       setPaymentAddress(paymentData.payment_address);
       setPaymentAmount(paymentData.expected_amount);
 
-      if (pollingInterval) {
-        paymentService.stopPaymentPolling(pollingInterval);
-      }
+      stopCurrentPolling();
       const interval = paymentService.startPaymentPolling(orderIdGenerated, (status: PaymentStatus) => {
         console.log(`[Polling] Order ${orderIdGenerated} Status Update:`, status);
         setRealPaymentStatus(status);
-        if (status.status === "paid") {
+        const orderStatus = (status.order_status || '').toLowerCase();
+        const paymentStatus = (status.payment_status || '').toLowerCase();
+        const isSuccessTerminal = ['confirmed', 'completed', 'delivered', 'paid'].includes(orderStatus) || paymentStatus === 'paid';
+        const partialSignal = status.status === 'partial' || paymentStatus === 'partial';
+        const isTerminal = ['cancelled', 'refunded', 'expired'].includes(status.status) ||
+          ['cancelled', 'refunded', 'expired', 'completed', 'confirmed', 'delivered'].includes(orderStatus) ||
+          ['cancelled', 'expired', 'refunded'].includes(paymentStatus);
+        if (status.status === "paid" || isSuccessTerminal) {
           console.log(`[Polling] Payment Confirmed triggered for ${orderIdGenerated}`);
           // Only show success toast ONCE per order session
           if (!shownToastsRef.current.has(orderIdGenerated)) {
             toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
             shownToastsRef.current.add(orderIdGenerated);
           }
+          terminalHandledRef.current.add(orderIdGenerated);
+          stopCurrentPolling();
           setStep(4);
-        } else if (status.status === "expired") {
-          console.log(`[Polling] Payment Expired triggered for ${orderIdGenerated}`);
-          toast({ title: "Payment Expired", description: "Payment window has expired. Please try again.", variant: "destructive" });
+        } else if (partialSignal && !terminalHandledRef.current.has(`${orderIdGenerated}_partial`)) {
+          terminalHandledRef.current.add(`${orderIdGenerated}_partial`);
+          toast({
+            title: "Partial Payment Detected",
+            description: "You sent less amount. Kindly send full amount for successful completion.",
+            variant: "destructive"
+          });
+        } else if (isTerminal && !terminalHandledRef.current.has(orderIdGenerated)) {
+          terminalHandledRef.current.add(orderIdGenerated);
+          stopCurrentPolling();
+          console.log(`[Polling] Terminal status triggered for ${orderIdGenerated}`);
+          if (stepRef.current === 3 && orderIdRef.current === orderIdGenerated) {
+            toast({ title: "Order Session Closed", description: "This order is no longer payable. Please create a new order.", variant: "destructive" });
+          }
+          const productId = effectiveProduct?.id;
+          if (productId) localStorage.removeItem(`payment_order_${productId}`);
+          setOrderId('');
+          setOrderCreatedAt(null);
+          setStep(1);
         }
       });
+      pollingRef.current = interval;
       setPollingInterval(interval);
       toast({ title: "Order Created & Payment Address Generated!", description: `Order #${orderIdGenerated} created. Send ${paymentData.expected_amount} ${selectedCrypto} to the address below.` });
 
@@ -368,15 +450,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
       setIsCreatingPayment(false);
       console.log('🏁 createRealPayment COMPLETE');
     }
-  };;
-
-  const totalPrice = (items && items.length > 0)
-    ? items.reduce((sum, it) => sum + ((parseFloat(it.price) || 0) * (Number(it.quantity || 1))), 0)
-    : (effectiveProduct ? (parseFloat(effectiveProduct.price) * quantity) : 0);
+  };
 
   // Check for existing order when modal opens
   useEffect(() => {
     if (isOpen && effectiveProduct) {
+      const restoreKey = `${effectiveProduct.id}:${isOpen ? 'open' : 'closed'}`;
+      if (restoreGuardRef.current === restoreKey) return;
+      restoreGuardRef.current = restoreKey;
       // Check localStorage for existing order for this product
       const productId = effectiveProduct.id;
       const storageKey = `payment_order_${productId}`;
@@ -403,7 +484,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               console.log('Stored order is already paid. Clearing storage.', status);
               localStorage.removeItem(storageKey);
               // Do not restore step 3
-              setStep(1);
+              if (step !== 1) setStep(1);
               return;
             }
 
@@ -434,22 +515,33 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
               }
 
               // Restart polling since we restored a pending order
-              if (pollingInterval) clearInterval(pollingInterval);
+              stopCurrentPolling();
               console.log(`[LocalStorage] Restoring polling for order ${storedOrderId}`);
               const interval = paymentService.startPaymentPolling(storedOrderId, (status: PaymentStatus) => {
                 console.log(`[Polling-Restored] Order ${storedOrderId} Status:`, status);
                 setRealPaymentStatus(status);
                 const orderStatus = (status.order_status || '').toLowerCase();
                 const paymentStatus = (status.payment_status || '').toLowerCase();
-                if (status.status === "paid" || status.status === "confirmed") {
+                const isSuccessTerminal = ['confirmed', 'completed', 'delivered', 'paid'].includes(orderStatus) || paymentStatus === 'paid';
+                const partialSignal = status.status === 'partial' || paymentStatus === 'partial';
+                if (status.status === "paid" || status.status === "confirmed" || isSuccessTerminal) {
                   console.log(`[Polling-Restored] Payment Confirmed triggered for ${storedOrderId}`);
                   // Only show success toast ONCE per order session
                   if (!shownToastsRef.current.has(storedOrderId)) {
                     toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
                     shownToastsRef.current.add(storedOrderId);
                   }
+                  terminalHandledRef.current.add(storedOrderId);
+                  stopCurrentPolling();
                   localStorage.removeItem(storageKey); // Clear on success
                   setStep(4);
+                } else if (partialSignal && !terminalHandledRef.current.has(`${storedOrderId}_partial`)) {
+                  terminalHandledRef.current.add(`${storedOrderId}_partial`);
+                  toast({
+                    title: "Partial Payment Detected",
+                    description: "You sent less amount. Kindly send full amount for successful completion.",
+                    variant: "destructive"
+                  });
                 } else if (
                   status.status === "expired" ||
                   status.status === "cancelled" ||
@@ -457,12 +549,20 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                   ['cancelled', 'refunded', 'expired', 'completed', 'confirmed', 'delivered'].includes(orderStatus) ||
                   ['cancelled', 'expired', 'refunded'].includes(paymentStatus)
                 ) {
-                  console.log(`[Polling-Restored] Payment Expired triggered for ${storedOrderId}`);
-                  toast({ title: "Order Session Closed", description: "This order is no longer payable. Please create a new order.", variant: "destructive" });
+                  if (terminalHandledRef.current.has(storedOrderId)) return;
+                  terminalHandledRef.current.add(storedOrderId);
+                  stopCurrentPolling();
+                  console.log(`[Polling-Restored] Terminal status triggered for ${storedOrderId}`);
+                  if (stepRef.current === 3 && orderIdRef.current === storedOrderId) {
+                    toast({ title: "Order Session Closed", description: "This order is no longer payable. Please create a new order.", variant: "destructive" });
+                  }
                   localStorage.removeItem(storageKey);
+                  setOrderId('');
+                  setOrderCreatedAt(null);
                   setStep(1);
                 }
               });
+              pollingRef.current = interval;
               setPollingInterval(interval);
 
             } else {
@@ -481,7 +581,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         }
       }
     }
-  }, [isOpen, effectiveProduct]);
+  }, [isOpen, effectiveProduct?.id, step]);
 
   // Save order state to localStorage when order is created
   useEffect(() => {
@@ -534,17 +634,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const calculateTotal = () => {
-    const basePrice = parseFloat(effectiveProduct?.price || '0');
-    const total = basePrice * quantity;
-    // Only charge escrow fee if user opts in for non-escrow products
-    const escrowFee = (useEscrow && !product?.escrow_enabled) ? total * 0.02 : 0; // 2% escrow fee only for optional escrow
-    return {
-      subtotal: total,
-      escrowFee,
-      total: total + escrowFee
-    };
-  };
 
   const generatePaymentAddress = (crypto: string) => {
     // Mock payment address generation
@@ -719,14 +808,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     }, 2000);
   };
 
-  console.log('PaymentModal Render Check:', { isOpen, effectiveProduct, itemsLength: items?.length, step });
-
   if (!isOpen || (!effectiveProduct && (!items || items.length === 0))) {
-    console.log('❌ Modal closing/not rendering:', { isOpen, hasProduct: !!effectiveProduct, itemsLength: items?.length });
     return null;
   }
 
-  const pricing = calculateTotal();
   const availableCryptos = effectiveProduct?.accepted_crypto || effectiveProduct?.accepted_cryptocurrencies || ['BTC', 'XMR'];
 
   return (
@@ -915,7 +1000,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 </CardHeader>
                 <CardContent>
                   <RadioGroup value={selectedCrypto} onValueChange={setSelectedCrypto}>
-                    {availableCryptos.map((crypto) => (
+                    {availableCryptos.map((crypto: string) => (
                       <div key={crypto} className="flex items-center space-x-3 p-3 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors">
                         <RadioGroupItem value={crypto} id={crypto} />
                         <div className="flex items-center gap-3 flex-1">

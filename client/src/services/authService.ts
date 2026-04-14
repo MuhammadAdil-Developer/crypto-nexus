@@ -148,6 +148,10 @@ export interface User {
   profile_picture?: string;
   recovery_phrase?: string;
   legal_accepted?: boolean;
+  is_on_vacation?: boolean;
+  is_on_vacation_active?: boolean;
+  vacation_mode_until?: string | null;
+  vacation_mode_note?: string;
 }
 
 export interface AuthResponse {

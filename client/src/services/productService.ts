@@ -54,6 +54,10 @@ export interface Product {
     email: string;
     first_name?: string;
     last_name?: string;
+    is_on_vacation?: boolean;
+    is_on_vacation_active?: boolean;
+    vacation_mode_until?: string | null;
+    vacation_mode_note?: string;
   };
   created_at: string;
   updated_at: string;

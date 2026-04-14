@@ -164,6 +164,11 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         # Check if enough quantity is available - Specific Out of Stock Message
         if product.quantity_available < quantity or product.status == 'reserved':
              raise serializers.ValidationError("This account is out of stock kindly talk with vender")
+
+        if product.vendor and product.vendor.is_vacation_mode_active():
+            raise serializers.ValidationError(
+                "Seller is currently on vacation. Please try again later."
+            )
         
         # Convert USD price to Crypto amount
         # We store the crypto amount in unit_price as per model intention

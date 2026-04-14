@@ -784,6 +784,15 @@ class PaymentService:
             logger.error(f"Error checking tolerance: {e}")
             return False
 
+    def _to_decimal(self, value, default='0'):
+        """Safely normalize numeric payload values to Decimal."""
+        try:
+            if value is None:
+                return Decimal(default)
+            return Decimal(str(value))
+        except Exception:
+            return Decimal(default)
+
     def get_network_fees(self):
         """Get current estimated network fees for BTC and XMR"""
         # BTC Fee from mempool.space (dynamic)
@@ -1456,36 +1465,19 @@ class PaymentService:
                     else:
                         btcpay_status = 'Invalid'
                 
-                # Check for underpayment in ReceivedPayment webhook
-                is_partial = False
-                received_amount = Decimal('0')
-                if webhook_type == 'InvoiceReceivedPayment' and payment_data:
-                    avg_amount = payment_data.get('amount')
-                    if avg_amount:
-                        received_amount = Decimal(str(avg_amount))
-                        is_partial = not self._is_within_tolerance(payment_address, received_amount)
-                        
-                if is_partial:
-                    logger.warning(f"BTCPay Underpayment detected for {payment_address.order_id}: Received {received_amount}. Triggering refund flow.")
-                    payment_address.status = 'partial'
-                    
-                    # Update received_amount to current total from API for accuracy
-                    total_from_api = self.btcpay.get_total_paid_amount(invoice_id)
-                    actual_amount = total_from_api if total_from_api > 0 else received_amount
-                    
-                    payment_address.received_amount = actual_amount
-                    payment_address.save()
-                    
-                    # Update order status to show user it was seen
-                    from orders.models import Order
-                    Order.objects.filter(order_id=payment_address.order_id).update(payment_status='partial')
-                    
-                    # Trigger the actual refund and payout logic instantly
-                    self._handle_partial_payment_detected(payment_address, actual_amount)
-                    return True
-                # NOTE: Do NOT add elif/else here that overwrites btcpay_status.
-                # btcpay_status was already correctly set above in the webhook_type if-elif chain.
-                # InvoiceProcessing is handled in its own elif branch above.
+                # Authoritative amount source:
+                # For payment-related webhooks, prefer BTCPay invoice aggregate paid amount.
+                # This avoids payload field ambiguity (`amount` vs `value`) that can mis-mark tiny payments as full.
+                total_from_api = Decimal('0')
+                if invoice_id and webhook_type in [
+                    'InvoiceReceivedPayment', 'InvoiceProcessing',
+                    'InvoicePaymentSettled', 'InvoiceSettled', 'InvoicePaidAfterExpiration'
+                ]:
+                    try:
+                        total_from_api = self.btcpay.get_total_paid_amount(invoice_id)
+                    except Exception as e:
+                        logger.warning(f"Unable to fetch total paid amount for {invoice_id}: {e}")
+                        total_from_api = Decimal('0')
                 
                 logger.info(f"Determined BTCPay status: {btcpay_status} from webhook_type: {webhook_type}, payment_status: {payment_status}")
                 
@@ -1569,9 +1561,15 @@ class PaymentService:
                     payment_address.transaction_hash = payment_id
                     logger.info(f"Captured transaction hash: {payment_id}")
                 
-                if payment_amount is not None:
-                    payment_address.received_amount = float(payment_amount)
-                    logger.info(f"Captured received amount from webhook: {payment_address.received_amount}")
+                if total_from_api > 0:
+                    payment_address.received_amount = total_from_api
+                    logger.info(
+                        f"Using authoritative BTCPay total paid for {payment_address.order_id}: "
+                        f"{payment_address.received_amount} (expected: {payment_address.expected_amount})"
+                    )
+                elif payment_amount is not None:
+                    payment_address.received_amount = self._to_decimal(payment_amount)
+                    logger.info(f"Captured received amount from webhook payload: {payment_address.received_amount}")
                 elif (btcpay_status == 'Settled' or mapped_status == 'paid') and (not payment_address.received_amount or payment_address.received_amount == 0):
                     # FALLBACK: Webhook for InvoiceSettled often has no payment_data.
                     # Fetch actual paid amount from BTCPay API to handle underpayments correctly.
@@ -1580,15 +1578,35 @@ class PaymentService:
                     try:
                         actual_paid = self.btcpay.get_total_paid_amount(invoice_id)
                         if actual_paid and actual_paid > 0:
-                            payment_address.received_amount = float(actual_paid)
+                            payment_address.received_amount = actual_paid
                             logger.info(f"✅ Fetched actual paid from BTCPay API: {payment_address.received_amount} (expected: {payment_address.expected_amount})")
                         else:
                             # Last resort fallback - use expected_amount but log a warning
-                            payment_address.received_amount = float(payment_address.expected_amount)
+                            payment_address.received_amount = Decimal(str(payment_address.expected_amount))
                             logger.warning(f"⚠️ BTCPay API returned 0 paid. Using expected_amount as last resort: {payment_address.received_amount}")
                     except Exception as fetch_err:
                         logger.error(f"Failed to fetch paid amount from BTCPay API: {fetch_err}. Using expected_amount fallback.")
-                        payment_address.received_amount = float(payment_address.expected_amount)
+                        payment_address.received_amount = Decimal(str(payment_address.expected_amount))
+
+                # CRITICAL: For any paid-ish status, force underpayment gate using authoritative received amount.
+                # This blocks tiny transfers (e.g. $0.90/$0.99 for a $10 order) from being marked complete.
+                if mapped_status == 'paid' and payment_address.received_amount and payment_address.received_amount > 0:
+                    is_partial = not self._is_within_tolerance(payment_address, payment_address.received_amount)
+                    if is_partial:
+                        logger.warning(
+                            f"BTCPay Underpayment detected for {payment_address.order_id}: "
+                            f"received={payment_address.received_amount}, expected={payment_address.expected_amount}. "
+                            f"Switching to partial + refund flow."
+                        )
+                        payment_address.status = 'partial'
+                        payment_address.save()
+                        from orders.models import Order
+                        Order.objects.filter(order_id=payment_address.order_id).update(payment_status='partial')
+                        self._handle_partial_payment_detected(payment_address, payment_address.received_amount)
+                        webhook.processed = True
+                        webhook.processed_at = timezone.now()
+                        webhook.save()
+                        return True
                 
                 if mapped_status == 'paid':
                     payment_address.confirmed_at = timezone.now()

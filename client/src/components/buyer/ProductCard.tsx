@@ -2,8 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Heart, ShoppingCart, Eye, User, Shield, Clock, Plus, Check, Lock, Zap } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Eye, User, Shield, Clock, Plus, Check, Lock, Zap, Palmtree } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import ProductDetailModal from './ProductDetailModal';
 import PaymentModal from './PaymentModal';
 import { useToast } from '@/hooks/use-toast';
@@ -15,8 +25,10 @@ import { useCryptoPrices } from '@/contexts/PriceContext';
 
 interface Product {
   id: number;
+  headline?: string;
   listing_title: string;
   description: string;
+  website?: string;
   account_balance?: string | null;
   vendor: {
     id: number;
@@ -72,6 +84,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [showVacationDialog, setShowVacationDialog] = useState(false);
   const { toast } = useToast();
   const { btc: btcPrice, xmr: xmrPrice } = useCryptoPrices();
   const { addToCart, isInCart, removeFromCart } = useCart();
@@ -208,11 +221,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const handleBuyNow = () => {
     if (sellerOnVacation) {
-      toast({
-        title: "Seller On Vacation",
-        description: product.vendor?.vacation_mode_note || "This seller is temporarily unavailable.",
-        variant: "destructive"
-      });
+      setShowVacationDialog(true);
       return;
     }
     if (product.quantity_available <= 0) {
@@ -236,6 +245,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   useEffect(() => {
     const handleOpenProductOrder = (event: CustomEvent) => {
       if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
+        if (sellerOnVacation) {
+          setShowVacationDialog(true);
+          return;
+        }
         setIsPaymentModalOpen(true);
       }
     };
@@ -248,6 +261,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
     const handleAddProductToCart = (event: CustomEvent) => {
       if (event.detail?.productId === product.id.toString() || event.detail?.product?.id === product.id) {
+        if (sellerOnVacation) {
+          setShowVacationDialog(true);
+          return;
+        }
         if (product.quantity_available > 0) {
           addToCart(product);
           toast({
@@ -267,7 +284,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
       window.removeEventListener('openProductView', handleOpenProductView as EventListener);
       window.removeEventListener('addProductToCart', handleAddProductToCart as EventListener);
     };
-  }, [product.id, product.quantity_available, product.listing_title]);
+  }, [product.id, product.quantity_available, product.listing_title, sellerOnVacation]);
 
   const checkWishlistStatus = async () => {
     if (wishlistLoading) return; // Prevent multiple simultaneous calls
@@ -333,11 +350,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const handleAddToCart = () => {
     if (sellerOnVacation) {
-      toast({
-        title: "Seller On Vacation",
-        description: product.vendor?.vacation_mode_note || "This seller is temporarily unavailable.",
-        variant: "destructive"
-      });
+      setShowVacationDialog(true);
       return;
     }
     if (product.quantity_available <= 0) {
@@ -375,6 +388,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
 
   const handleClosePaymentModal = () => {
     setIsPaymentModalOpen(false);
+  };
+
+  const handleCheckRelatedAccounts = () => {
+    const accountType = encodeURIComponent(product.account_type || "");
+    const website = encodeURIComponent(product.website || "");
+    const vendorId = encodeURIComponent(String(product.vendor?.id || ""));
+    const delivery = encodeURIComponent((product.delivery_method || "").toLowerCase().includes("manual") ? "manual" : "auto");
+    const centerPrice = parseFloat(product.price || "0");
+    const min = Number.isFinite(centerPrice) ? Math.max(0, centerPrice * 0.7).toFixed(2) : "";
+    const max = Number.isFinite(centerPrice) ? (centerPrice * 1.3).toFixed(2) : "";
+    const searchSeed = encodeURIComponent([product.website, product.account_type, product.listing_title].filter(Boolean).join(" "));
+    window.location.href = `/buyer/listings?related=1&search=${searchSeed}&relatedVendorId=${vendorId}&relatedAccountType=${accountType}&relatedWebsite=${website}&delivery=${delivery}&min_price=${min}&max_price=${max}`;
   };
 
   const listViewCard = (
@@ -452,7 +477,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             </div>
           </div>
           <div>
-            <p className="font-medium">{product.vendor.username}</p>
+            <p className="font-medium flex items-center gap-1.5">
+              {product.vendor.username}
+              {sellerOnVacation && <Palmtree className="w-3.5 h-3.5 text-orange-300" />}
+            </p>
             <p className="text-xs text-gray-500">{product.sub_category?.name || '—'}</p>
           </div>
           <div>
@@ -524,7 +552,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button
               onClick={handleBuyNow}
               size="sm"
-              disabled={sellerOnVacation}
               className={(product.quantity_available > 0 && !sellerOnVacation) ? 'bg-theme-red hover:bg-theme-red-dark text-white' : 'bg-gray-700 text-gray-400'}
             >
               Buy
@@ -578,7 +605,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 {product.listing_title}
                 {product.is_giveaway && <span className="ml-2 text-[10px] bg-cyan-500 text-black px-1.5 py-0.5 rounded font-black">GIVEAWAY</span>}
               </p>
-              <p className="text-xs text-gray-400">{product.vendor.username}</p>
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                {product.vendor.username}
+                {sellerOnVacation && <Palmtree className="w-3 h-3 text-orange-300" />}
+              </p>
             </div>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -788,7 +818,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <Button
               onClick={handleBuyNow}
               size="sm"
-              disabled={sellerOnVacation}
               className={`flex-1 text-[10px] font-bold uppercase tracking-widest py-2 h-9 min-w-0 px-2 transition-all active:scale-95 ${product.quantity_available > 0
                 ? (sellerOnVacation ? 'bg-gray-800 text-gray-400' : 'bg-theme-red hover:bg-[#850231] text-white shadow-lg shadow-theme-red/20')
                 : 'bg-gray-800 text-gray-400' // Still gray if out of stock, but clickable
@@ -849,6 +878,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
           onBack={handleClosePaymentModal}
         />
       )}
+
+      <AlertDialog open={showVacationDialog} onOpenChange={setShowVacationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Seller Is On Vacation</AlertDialogTitle>
+            <AlertDialogDescription>
+              {product.vendor?.vacation_mode_note || "Seller is currently on vacation. Please try again later."}
+              {" "}You can check closely related available accounts instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCheckRelatedAccounts}>
+              Check Related Accounts
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

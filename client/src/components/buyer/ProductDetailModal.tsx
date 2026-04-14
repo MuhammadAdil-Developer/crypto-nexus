@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { 
   Star, Heart, ShoppingCart, Eye, Clock, Shield, CheckCircle, Star as StarIcon, 
   X, ArrowLeft, ExternalLink, Flag, Copy, ChevronUp, ChevronDown, HelpCircle, 
-  MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, 
+  MapPin, DollarSign, Users, TrendingUp, Calendar, Lock, Info, MessageSquare, Palmtree, 
   Loader2, FileText, Download, Tag, Key, Truck, ThumbsUp 
 } from 'lucide-react';
 import { DotLoader } from '@/components/ui/dot-loader';
@@ -38,6 +39,7 @@ interface Product {
   main_image?: string | null;
   gallery_images: string[];
   main_images: string[];
+  documents?: string[];
   status: string;
   is_featured: boolean;
   views_count: number;
@@ -50,6 +52,10 @@ interface Product {
     id: string;
     username: string;
     email: string;
+    is_on_vacation?: boolean;
+    is_on_vacation_active?: boolean;
+    vacation_mode_until?: string | null;
+    vacation_mode_note?: string;
   };
   category: {
     id: number;
@@ -92,8 +98,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
   const [loadingVendorStats, setLoadingVendorStats] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+  const [showVacationChatDialog, setShowVacationChatDialog] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const sellerOnVacation = Boolean(product?.vendor?.is_on_vacation_active);
 
   useEffect(() => {
     if (isOpen && product?.id) {
@@ -315,8 +323,49 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
     return colors[time] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   };
 
+  const goToRelatedAccounts = () => {
+    const accountType = encodeURIComponent(product.account_type || "");
+    const website = encodeURIComponent(product.website || "");
+    const vendorId = encodeURIComponent(String(product.vendor?.id || ""));
+    const delivery = encodeURIComponent((product.delivery_method || "").toLowerCase().includes("manual") ? "manual" : "auto");
+    const centerPrice = parseFloat(product.price || "0");
+    const min = Number.isFinite(centerPrice) ? Math.max(0, centerPrice * 0.7).toFixed(2) : "";
+    const max = Number.isFinite(centerPrice) ? (centerPrice * 1.3).toFixed(2) : "";
+    const searchSeed = encodeURIComponent([product.website, product.account_type, (product.headline || product.listing_title || "")].filter(Boolean).join(" "));
+    navigate(`/buyer/listings?related=1&search=${searchSeed}&relatedVendorId=${vendorId}&relatedAccountType=${accountType}&relatedWebsite=${website}&delivery=${delivery}&min_price=${min}&max_price=${max}`);
+    onClose();
+  };
+
   const handleBuyNow = () => {
+    if (sellerOnVacation) {
+      const note = product.vendor?.vacation_mode_note || "Seller is currently on vacation. Please try again later.";
+      const proceed = window.confirm(`${note}\n\nClick OK to check related available accounts.`);
+      if (proceed) {
+        goToRelatedAccounts();
+      }
+      return;
+    }
     setIsPaymentModalOpen(true);
+  };
+
+  const continueToChat = () => {
+    const productData = {
+      id: product.id,
+      title: product.headline || product.listing_title,
+      image: product.main_image,
+      vendor: product.vendor_username,
+      vendorId: product.vendor?.id
+    };
+    localStorage.setItem('productContext', JSON.stringify(productData));
+    window.location.href = '/buyer/messages';
+  };
+
+  const handleChatWithVendor = () => {
+    if (sellerOnVacation) {
+      setShowVacationChatDialog(true);
+      return;
+    }
+    continueToChat();
   };
 
   const handleAddToFavorites = () => {
@@ -545,18 +594,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   Buy Now
                 </Button>
                 <Button
-                  onClick={() => {
-                    // Navigate to messages page with product context
-                    const productData = {
-                      id: product.id,
-                      title: product.headline || product.listing_title,
-                      image: product.main_image,
-                      vendor: product.vendor_username,
-                      vendorId: product.vendor?.id
-                    };
-                    localStorage.setItem('productContext', JSON.stringify(productData));
-                    window.location.href = '/buyer/messages';
-                  }}
+                  onClick={handleChatWithVendor}
                   className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-bold uppercase tracking-wider sm:tracking-widest text-[10px] sm:text-xs border-none shadow-lg shadow-cyan-500/20 px-3 sm:px-6 py-2.5 sm:py-3"
                 >
                   <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
@@ -651,7 +689,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Username:</span>
-                        <span className="text-white font-medium">{product.vendor_username || product.vendor?.username || 'N/A'}</span>
+                        <span className="text-white font-medium flex items-center gap-1.5">
+                          {product.vendor_username || product.vendor?.username || 'N/A'}
+                          {sellerOnVacation && <Palmtree className="w-3.5 h-3.5 text-orange-300" />}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Member Since:</span>
@@ -1001,6 +1042,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
           onBack={() => setIsPaymentModalOpen(false)}
         />
       )}
+
+      <AlertDialog open={showVacationChatDialog} onOpenChange={setShowVacationChatDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Palmtree className="w-4 h-4 text-orange-300" />
+              Seller On Vacation
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This seller is currently on vacation and may reply late.
+              {product.vendor?.vacation_mode_note ? ` ${product.vendor.vacation_mode_note}` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction onClick={continueToChat}>
+              Still Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

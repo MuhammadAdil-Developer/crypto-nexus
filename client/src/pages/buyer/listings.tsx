@@ -36,10 +36,12 @@ interface Product {
   id: number;
   listing_title: string;
   description: string;
+  website?: string;
   vendor: {
     id: number;
     username: string;
     email: string;
+    is_on_vacation_active?: boolean;
   };
   category: {
     id: number;
@@ -82,6 +84,10 @@ function BuyerListingsContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedCrypto, setSelectedCrypto] = useState<"all" | "BTC" | "XMR">("all");
   const [selectedDeliveryMethod, setSelectedDeliveryMethod] = useState<"all" | "manual" | "auto">("all");
+  const [relatedMode, setRelatedMode] = useState(false);
+  const [relatedVendorId, setRelatedVendorId] = useState<string>("");
+  const [relatedAccountType, setRelatedAccountType] = useState<string>("");
+  const [relatedWebsite, setRelatedWebsite] = useState<string>("");
   // Default to server-provided ordering (personalized) so different buyers see different orders
   const [sortBy, setSortBy] = useState("server");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("list");
@@ -127,6 +133,13 @@ function BuyerListingsContent() {
   useEffect(() => {
     const urlSearchQuery = searchParams.get('search');
     const urlCategory = searchParams.get('category');
+    const urlMinPrice = searchParams.get('min_price');
+    const urlMaxPrice = searchParams.get('max_price');
+    const urlDelivery = searchParams.get('delivery');
+    const isRelated = searchParams.get('related') === '1';
+    const rVendor = searchParams.get('relatedVendorId') || "";
+    const rType = searchParams.get('relatedAccountType') || "";
+    const rWebsite = searchParams.get('relatedWebsite') || "";
 
     if (urlSearchQuery) {
       setSearchQuery(urlSearchQuery);
@@ -135,6 +148,15 @@ function BuyerListingsContent() {
     if (urlCategory) {
       setSelectedCategory(urlCategory);
     }
+    if (urlMinPrice) setMinPrice(urlMinPrice);
+    if (urlMaxPrice) setMaxPrice(urlMaxPrice);
+    if (urlDelivery === "manual" || urlDelivery === "auto") {
+      setSelectedDeliveryMethod(urlDelivery);
+    }
+    setRelatedMode(isRelated);
+    setRelatedVendorId(rVendor);
+    setRelatedAccountType(rType);
+    setRelatedWebsite(rWebsite);
   }, [searchParams]);
 
   // Handle redirect actions - open modals or add to cart (after products are loaded)
@@ -170,7 +192,7 @@ function BuyerListingsContent() {
           try {
             const detail = await productService.getProductDetail(Number(openViewId));
             if (detail?.success && detail?.data) {
-              productToOpen = detail.data as Product;
+              productToOpen = detail.data as unknown as Product;
             }
           } catch {
             // ignore fetch error and fall through
@@ -416,8 +438,26 @@ function BuyerListingsContent() {
       });
     }
 
+    if (relatedMode) {
+      filtered = filtered.filter((product) => {
+        const sameVendor = relatedVendorId && String(product.vendor?.id || "") === String(relatedVendorId);
+        if (sameVendor) return false;
+
+        const typeMatch = relatedAccountType
+          ? (product.account_type || "").toLowerCase() === relatedAccountType.toLowerCase()
+          : true;
+        const sourceWebsite = (relatedWebsite || "").toLowerCase().trim();
+        const productWebsite = (product.website || "").toLowerCase().trim();
+        const websiteMatch = sourceWebsite
+          ? productWebsite.includes(sourceWebsite) || sourceWebsite.includes(productWebsite)
+          : true;
+
+        return typeMatch && websiteMatch;
+      });
+    }
+
     setFilteredProducts(filtered);
-  }, [products, selectedDeliveryMethod]);
+  }, [products, selectedDeliveryMethod, relatedMode, relatedVendorId, relatedAccountType, relatedWebsite]);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,7 +474,7 @@ function BuyerListingsContent() {
         const res = await productService.getBuyerActiveHighlights();
         if (cancelled) return;
         if (res.success && Array.isArray(res.data)) {
-          setSpotlightProducts(res.data as Product[]);
+          setSpotlightProducts(res.data as unknown as Product[]);
           setSpotlightMeta((res.meta as SpotlightMeta) ?? null);
         } else {
           setSpotlightProducts([]);
@@ -746,6 +786,11 @@ function BuyerListingsContent() {
           type="buyer"
           className="mb-4 sm:mb-8"
         />
+        {relatedMode && (
+          <div className="mb-4 rounded-xl border border-theme-cyan/30 bg-theme-cyan/10 px-4 py-3 text-sm text-theme-cyan">
+            Related mode active: showing closely matching accounts from other sellers.
+          </div>
+        )}
 
         <FeaturedOfferSpotlight
           products={mergedSpotlightProducts}

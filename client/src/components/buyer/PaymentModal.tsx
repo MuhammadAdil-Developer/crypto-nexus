@@ -355,7 +355,20 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         });
 
         if (!orderResponse.ok) {
-          throw new Error("Failed to create order");
+          let apiMessage = "Failed to create order";
+          try {
+            const errJson = await orderResponse.json();
+            if (Array.isArray(errJson?.non_field_errors) && errJson.non_field_errors.length > 0) {
+              apiMessage = String(errJson.non_field_errors[0]);
+            } else if (typeof errJson?.message === "string" && errJson.message.trim()) {
+              apiMessage = errJson.message;
+            } else if (typeof errJson?.detail === "string" && errJson.detail.trim()) {
+              apiMessage = errJson.detail;
+            }
+          } catch {
+            // keep default message
+          }
+          throw new Error(apiMessage);
         }
 
         const order = await orderResponse.json();

@@ -54,6 +54,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
 
   const { btc: btcPrice, xmr: xmrPrice, refresh: refreshPrices } = useCryptoPrices();
   const { toast } = useToast();
+  const shownToastsRef = React.useRef<Set<string>>(new Set());
+  const pollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const [step, setStep] = useState(1); // 1: Payment Method, 2: Payment Type, 3: Payment Details, 4: Confirmation
 
   // Fetch fresh rates when modal opens so amounts use live API rates
@@ -135,6 +137,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
     quantity_available: 1
   } as Product : null);
 
+  // Cleanup polling on unmount or close
+  useEffect(() => {
+    if (!isOpen && pollingInterval) {
+      paymentService.stopPaymentPolling(pollingInterval);
+      setPollingInterval(null);
+    }
+    return () => {
+      if (pollingInterval) {
+        paymentService.stopPaymentPolling(pollingInterval);
+      }
+    };
+  }, [isOpen, pollingInterval]);
 
   // Sync escrow status with product settings - Buyer cannot override
   useEffect(() => {
@@ -328,7 +342,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
         setRealPaymentStatus(status);
         if (status.status === "paid") {
           console.log(`[Polling] Payment Confirmed triggered for ${orderIdGenerated}`);
-          toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
+          // Only show success toast ONCE per order session
+          if (!shownToastsRef.current.has(orderIdGenerated)) {
+            toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
+            shownToastsRef.current.add(orderIdGenerated);
+          }
           setStep(4);
         } else if (status.status === "expired") {
           console.log(`[Polling] Payment Expired triggered for ${orderIdGenerated}`);
@@ -414,7 +432,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ product, items = [], isOpen
                 setRealPaymentStatus(status);
                 if (status.status === "paid" || status.status === "confirmed") {
                   console.log(`[Polling-Restored] Payment Confirmed triggered for ${storedOrderId}`);
-                  toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
+                  // Only show success toast ONCE per order session
+                  if (!shownToastsRef.current.has(storedOrderId)) {
+                    toast({ title: "Payment Confirmed!", description: "Your payment has been successfully confirmed." });
+                    shownToastsRef.current.add(storedOrderId);
+                  }
                   localStorage.removeItem(storageKey); // Clear on success
                   setStep(4);
                 } else if (status.status === "expired") {

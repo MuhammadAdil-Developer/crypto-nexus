@@ -14,7 +14,7 @@ import Tickets from "./tickets";
 import Crypto from "./crypto";
 import Payouts from "./payouts";
 import Commissions from "./commissions";
-import Ads from "./ads";
+import Promotions from "./promotions";
 import Categories from "./categories";
 import GiftCards from "./gift-cards";
 import Alerts from "./alerts";
@@ -41,7 +41,8 @@ const ADMIN_COMPONENTS: Record<string, () => JSX.Element> = {
   "crypto": Crypto,
   "payouts": Payouts,
   "commissions": Commissions,
-  "ads": Ads,
+  "ads": Promotions,
+  "promotions": Promotions,
   "categories": Categories,
   "gift-cards": GiftCards,
   "alerts": Alerts,
@@ -69,7 +70,8 @@ const SECTION_NAMES: Record<string, string> = {
   "crypto": "Crypto",
   "payouts": "Payouts & Refunds",
   "commissions": "Commissions",
-  "ads": "Ads",
+  "ads": "Promotions",
+  "promotions": "Promotions",
   "categories": "Categories",
   "gift-cards": "Gift Cards",
   "alerts": "Alerts",

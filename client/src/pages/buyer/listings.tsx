@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Filter, Grid, List as ListIcon, Table, ChevronDown, Star, Eye, Heart, ShoppingCart, TrendingUp, Coins, Zap } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Search, Filter, Grid, List as ListIcon, Table, ChevronDown, Star, Eye, Heart, ShoppingCart, TrendingUp, Coins, Zap, Sparkles, Trophy, Crown, Flame, Clock, FolderOpen, ArrowDownWideNarrow, ArrowUpWideNarrow, Bolt, Package, History, Award } from "lucide-react";
 import { BuyerLayout } from "@/components/buyer/BuyerLayout";
 import { ProductCard } from "@/components/buyer/ProductCard";
+import { FeaturedOfferSpotlight, type SpotlightMeta } from "@/components/buyer/FeaturedOfferSpotlight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,8 @@ import CartSidebar from "@/components/buyer/CartSidebar";
 import BulkPurchaseModal from "@/components/buyer/BulkPurchaseModal";
 import { useCryptoPrices } from "@/contexts/PriceContext";
 import { useSearchParams } from "react-router-dom";
+import ProductDetailModal from "@/components/buyer/ProductDetailModal";
+import PaymentModal from "@/components/buyer/PaymentModal";
 
 // Banner Assets
 import { PageBanner } from "@/components/PageBanner";
@@ -65,6 +68,9 @@ interface Product {
   review_count?: number;
   accepted_crypto?: string[];
   is_giveaway?: boolean;
+  is_highlighted?: boolean;
+  is_currently_highlighted?: boolean;
+  highlighted_until?: string | null;
 }
 
 function BuyerListingsContent() {
@@ -102,6 +108,17 @@ function BuyerListingsContent() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const searchRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const [spotlightProducts, setSpotlightProducts] = useState<Product[]>([]);
+  const [spotlightMeta, setSpotlightMeta] = useState<SpotlightMeta | null>(null);
+  const [spotlightLoading, setSpotlightLoading] = useState(true);
+  const [selectedAdProduct, setSelectedAdProduct] = useState<Product | null>(null);
+  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
+  const [isAdPaymentOpen, setIsAdPaymentOpen] = useState(false);
+
+  const [featuredOnly, setFeaturedOnly] = useState(false);
+  const [premiumOnly, setPremiumOnly] = useState(false);
+  const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>("recommended");
 
   const { toast } = useToast();
   const { getTotalItems } = useCart();
@@ -147,21 +164,27 @@ function BuyerListingsContent() {
     }
 
     if (openViewId && filteredProducts.length > 0) {
-      const productToOpen = filteredProducts.find(p => p.id.toString() === openViewId);
-      if (productToOpen) {
-        // Trigger view modal opening via custom event
-        setTimeout(() => {
-          const event = new CustomEvent('openProductView', {
-            detail: { productId: openViewId, product: productToOpen }
-          });
-          window.dispatchEvent(event);
-        }, 800);
-
-        // Clean URL
+      const openProductNow = async () => {
+        let productToOpen = filteredProducts.find(p => p.id.toString() === openViewId);
+        if (!productToOpen) {
+          try {
+            const detail = await productService.getProductDetail(Number(openViewId));
+            if (detail?.success && detail?.data) {
+              productToOpen = detail.data as Product;
+            }
+          } catch {
+            // ignore fetch error and fall through
+          }
+        }
+        if (productToOpen) {
+          setSelectedAdProduct(productToOpen);
+          setIsAdModalOpen(true);
+        }
         const newSearchParams = new URLSearchParams(searchParams);
         newSearchParams.delete('openView');
         setSearchParams(newSearchParams, { replace: true });
-      }
+      };
+      void openProductNow();
     }
 
     if (addToCartId && filteredProducts.length > 0) {
@@ -196,7 +219,7 @@ function BuyerListingsContent() {
     setCurrentPage(1);
     setHasMore(true);
     fetchProducts(1, true);
-  }, [debouncedSearchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod]);
+  }, [debouncedSearchQuery, selectedCrypto, minPrice, maxPrice, selectedCategory, sortBy, selectedDeliveryMethod, featuredOnly, premiumOnly]);
 
   // Fetch popular searches for auto-suggestion
   useEffect(() => {
@@ -241,6 +264,14 @@ function BuyerListingsContent() {
     const timer = setTimeout(fetchDynamicSuggestions, 300);
     return () => clearTimeout(timer);
   }, [searchQuery, popularSearches]);
+  
+  const handleAdClick = (productId: number) => {
+    const found = spotlightProducts.find(p => p.id === productId);
+    if (found) {
+      setSelectedAdProduct(found);
+      setIsAdModalOpen(true);
+    }
+  };
 
   // Handle clicking outside suggestions
   useEffect(() => {
@@ -388,6 +419,224 @@ function BuyerListingsContent() {
     setFilteredProducts(filtered);
   }, [products, selectedDeliveryMethod]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadHighlights = async () => {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        setSpotlightProducts([]);
+        setSpotlightMeta(null);
+        setSpotlightLoading(false);
+        return;
+      }
+      setSpotlightLoading(true);
+      try {
+        const res = await productService.getBuyerActiveHighlights();
+        if (cancelled) return;
+        if (res.success && Array.isArray(res.data)) {
+          setSpotlightProducts(res.data as Product[]);
+          setSpotlightMeta((res.meta as SpotlightMeta) ?? null);
+        } else {
+          setSpotlightProducts([]);
+          setSpotlightMeta(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setSpotlightProducts([]);
+          setSpotlightMeta(null);
+        }
+      } finally {
+        if (!cancelled) setSpotlightLoading(false);
+      }
+    };
+    loadHighlights();
+    const interval = window.setInterval(loadHighlights, 4 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  /** API highlights first; if endpoint fails or is behind, still show rows from this page's listings. */
+  const mergedSpotlightProducts = useMemo(() => {
+    const fromApi = spotlightProducts;
+    const seen = new Set(fromApi.map((p) => p.id));
+    const listLooksHighlighted = (p: Product) => {
+      if (p.is_currently_highlighted === true) return true;
+      if (p.is_currently_highlighted === false) return false;
+      return !!p.is_highlighted;
+    };
+    const fromList = filteredProducts.filter((p) => listLooksHighlighted(p) && !seen.has(p.id));
+    return [...fromApi, ...fromList];
+  }, [spotlightProducts, filteredProducts]);
+
+  const spotlightDisplayMeta = useMemo((): SpotlightMeta | null => {
+    if (!mergedSpotlightProducts.length) return null;
+    if (spotlightMeta && spotlightProducts.length > 0) return spotlightMeta;
+    const vendorIds = new Set(
+      mergedSpotlightProducts.map((p) => p.vendor?.id).filter((id): id is number => id != null)
+    );
+    return {
+      count: mergedSpotlightProducts.length,
+      unique_vendors: vendorIds.size || mergedSpotlightProducts.length,
+    };
+  }, [mergedSpotlightProducts, spotlightMeta, spotlightProducts.length]);
+
+  const topCategoryChip = useMemo(() => {
+    const cats = categories.filter((c) => c.id !== "all" && (c.count ?? 0) > 0);
+    if (cats.length === 0) return null;
+    return cats.reduce((best, c) => (c.count > best.count ? c : best));
+  }, [categories]);
+
+  type QuickChipKind = "primary" | "crypto" | "delivery" | "sort";
+  type QuickRowItem =
+    | { type: "chip"; id: string; label: string; icon: typeof Sparkles; kind: QuickChipKind }
+    | { type: "divider" };
+
+  const quickFilterRow = useMemo((): QuickRowItem[] => {
+    const primary: QuickRowItem[] = [
+      { type: "chip", id: "recommended", label: "Recommended", icon: Sparkles, kind: "primary" },
+      { type: "chip", id: "best_sellers", label: "Best sellers", icon: Trophy, kind: "primary" },
+      { type: "chip", id: "premium", label: "Premium accounts", icon: Crown, kind: "primary" },
+      { type: "chip", id: "hot", label: "Most active listings", icon: Flame, kind: "primary" },
+      { type: "chip", id: "newest", label: "Latest uploads", icon: Clock, kind: "primary" },
+      { type: "chip", id: "featured", label: "Featured listings", icon: Zap, kind: "primary" },
+    ];
+    if (topCategoryChip) {
+      primary.push({
+        type: "chip",
+        id: `category:${topCategoryChip.id}`,
+        label: topCategoryChip.name,
+        icon: FolderOpen,
+        kind: "primary",
+      });
+    }
+
+    const crypto: QuickRowItem[] = [
+      { type: "divider" },
+      { type: "chip", id: "crypto:all", label: "All crypto", icon: Coins, kind: "crypto" },
+      { type: "chip", id: "crypto:BTC", label: "Bitcoin", icon: Coins, kind: "crypto" },
+      { type: "chip", id: "crypto:XMR", label: "Monero", icon: Coins, kind: "crypto" },
+    ];
+
+    const delivery: QuickRowItem[] = [
+      { type: "divider" },
+      { type: "chip", id: "delivery:all", label: "All delivery", icon: Package, kind: "delivery" },
+      { type: "chip", id: "delivery:auto", label: "Instant", icon: Bolt, kind: "delivery" },
+      { type: "chip", id: "delivery:manual", label: "Manual", icon: Clock, kind: "delivery" },
+    ];
+
+    const sortMore: QuickRowItem[] = [
+      { type: "divider" },
+      { type: "chip", id: "sort:price-low", label: "Price · Low first", icon: ArrowDownWideNarrow, kind: "sort" },
+      { type: "chip", id: "sort:price-high", label: "Price · High first", icon: ArrowUpWideNarrow, kind: "sort" },
+      { type: "chip", id: "sort:popular", label: "Most reviewed", icon: Star, kind: "sort" },
+      { type: "chip", id: "sort:rating", label: "Top rated", icon: Award, kind: "sort" },
+      { type: "chip", id: "sort:oldest", label: "Oldest first", icon: History, kind: "sort" },
+    ];
+
+    return [...primary, ...crypto, ...delivery, ...sortMore];
+  }, [topCategoryChip]);
+
+  const isQuickChipActive = (item: Extract<QuickRowItem, { type: "chip" }>): boolean => {
+    if (item.kind === "crypto") {
+      const c = item.id.replace("crypto:", "");
+      return c === "all" ? selectedCrypto === "all" : selectedCrypto === c;
+    }
+    if (item.kind === "delivery") {
+      const d = item.id.replace("delivery:", "");
+      if (d === "all") return selectedDeliveryMethod === "all";
+      return selectedDeliveryMethod === d;
+    }
+    if (item.kind === "sort") {
+      const s = item.id.replace("sort:", "");
+      if (s === "rating") return sortBy === "rating" && !premiumOnly;
+      return sortBy === s;
+    }
+    if (item.id === "featured") return activeQuickFilter === "featured" && featuredOnly;
+    if (item.id === "premium") return activeQuickFilter === "premium" && premiumOnly;
+    return activeQuickFilter === item.id;
+  };
+
+  const applyQuickChip = (item: Extract<QuickRowItem, { type: "chip" }>) => {
+    if (item.kind === "crypto") {
+      const c = item.id.replace("crypto:", "");
+      setSelectedCrypto(c === "all" ? "all" : (c as "BTC" | "XMR"));
+      setActiveQuickFilter(null);
+      return;
+    }
+    if (item.kind === "delivery") {
+      const d = item.id.replace("delivery:", "");
+      setSelectedDeliveryMethod(d === "all" ? "all" : (d as "manual" | "auto"));
+      setActiveQuickFilter(null);
+      return;
+    }
+    if (item.kind === "sort") {
+      const s = item.id.replace("sort:", "");
+      setFeaturedOnly(false);
+      setPremiumOnly(false);
+      setActiveQuickFilter(null);
+      setSortBy(s);
+      return;
+    }
+
+    setActiveQuickFilter(item.id);
+    setFeaturedOnly(false);
+    setPremiumOnly(false);
+    if (item.id === "recommended") {
+      setSortBy("server");
+      setSelectedCategory("all");
+      setSelectedCrypto("all");
+      setSelectedDeliveryMethod("all");
+      return;
+    }
+    if (item.id === "best_sellers") {
+      setSortBy("best_sellers");
+      return;
+    }
+    if (item.id === "premium") {
+      setPremiumOnly(true);
+      setSortBy("rating");
+      return;
+    }
+    if (item.id === "hot") {
+      setSortBy("hot");
+      return;
+    }
+    if (item.id === "newest") {
+      setSortBy("newest");
+      return;
+    }
+    if (item.id === "featured") {
+      setSortBy("server");
+      setFeaturedOnly(true);
+      return;
+    }
+    if (item.id.startsWith("category:")) {
+      const catId = item.id.slice("category:".length);
+      setSelectedCategory(catId);
+      setSortBy("server");
+    }
+  };
+
+  const selectSortFromMenu = (optionId: string) => {
+    setFeaturedOnly(false);
+    setPremiumOnly(false);
+    const sortToQuick: Record<string, string | null> = {
+      server: "recommended",
+      best_sellers: "best_sellers",
+      hot: "hot",
+      newest: "newest",
+      "price-low": null,
+      "price-high": null,
+      popular: null,
+      rating: null,
+      oldest: null,
+    };
+    setActiveQuickFilter(sortToQuick[optionId] ?? null);
+    setSortBy(optionId);
+  };
+
   const fetchProducts = async (page = currentPage, isInitial = false) => {
     if (isFetchingMore && !isInitial) return;
 
@@ -400,11 +649,13 @@ function BuyerListingsContent() {
 
       const cryptoParam = selectedCrypto !== "all" ? `&crypto=${selectedCrypto}` : '';
       const priceParam = `${minPrice ? `&min_price=${minPrice}` : ''}${maxPrice ? `&max_price=${maxPrice}` : ''}`;
-      const categoryParam = selectedCategory !== "all" ? `&category=${selectedCategory}` : '';
-      const sortParam = sortBy !== "server" ? `&sort_mode=${sortBy}` : '';
+      const categoryParam = selectedCategory !== "all" ? `&category=${encodeURIComponent(selectedCategory)}` : '';
+      const sortParam = sortBy !== "server" ? `&sort_mode=${encodeURIComponent(sortBy)}` : '';
+      const featuredParam = featuredOnly ? "&featured_only=1" : "";
+      const premiumParam = premiumOnly ? "&premium_listings=1" : "";
       // Removed deliveryParam to rely on client-side filtering as backend support is uncertain
 
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${debouncedSearchQuery ? `&search=${encodeURIComponent(debouncedSearchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}${sortParam}`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${debouncedSearchQuery ? `&search=${encodeURIComponent(debouncedSearchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}${sortParam}${featuredParam}${premiumParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -496,6 +747,13 @@ function BuyerListingsContent() {
           className="mb-4 sm:mb-8"
         />
 
+        <FeaturedOfferSpotlight
+          products={mergedSpotlightProducts}
+          meta={spotlightDisplayMeta}
+          loading={spotlightLoading && mergedSpotlightProducts.length === 0}
+          onProductClick={handleAdClick}
+        />
+
         {/* Search, Sort, and View Toggle - Sticky Crystal Bar */}
         <div className="lg:sticky top-4 z-40 bg-gray-900/60 backdrop-blur-xl py-4 sm:py-6 rounded-[2rem] border border-gray-700/50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-8 px-4 sm:px-8 transition-all duration-300 hover:border-gray-600/50">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 sm:gap-6">
@@ -584,7 +842,23 @@ function BuyerListingsContent() {
                     {categories.map((category) => (
                       <DropdownMenuItem
                         key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
+                        onClick={() => {
+                          const next = category.id;
+                          setSelectedCategory(next);
+                          if (next === "all") {
+                            setActiveQuickFilter("recommended");
+                            setFeaturedOnly(false);
+                            setPremiumOnly(false);
+                            setSortBy("server");
+                          } else if (topCategoryChip && next === topCategoryChip.id) {
+                            setActiveQuickFilter(`category:${topCategoryChip.id}`);
+                            setFeaturedOnly(false);
+                            setPremiumOnly(false);
+                            setSortBy("server");
+                          } else {
+                            setActiveQuickFilter(null);
+                          }
+                        }}
                         className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer group mb-1"
                       >
                         <span className="text-xs uppercase tracking-widest font-bold">{category.name}</span>
@@ -609,7 +883,9 @@ function BuyerListingsContent() {
                             sortBy === "price-low" ? "Price: Low" :
                               sortBy === "price-high" ? "Price: High" :
                                 sortBy === "rating" ? "Rating" :
-                                  sortBy === "popular" ? "Popular" : "Recommended"}
+                                  sortBy === "popular" ? "Popular" :
+                                    sortBy === "best_sellers" ? "Best sellers" :
+                                      sortBy === "hot" ? "Trending" : "Recommended"}
                       </span>
                     </div>
                     <ChevronDown className="w-4 h-4 opacity-50" />
@@ -618,6 +894,8 @@ function BuyerListingsContent() {
                 <DropdownMenuContent className="bg-gray-950 border-gray-800 text-gray-300 min-w-[200px] rounded-2xl shadow-2xl p-2 backdrop-blur-xl">
                   {[
                     { id: "server", label: "Recommended" },
+                    { id: "best_sellers", label: "Best sellers" },
+                    { id: "hot", label: "Trending activity" },
                     { id: "newest", label: "Newest First" },
                     { id: "oldest", label: "Oldest First" },
                     { id: "price-low", label: "Price: Low to High" },
@@ -627,7 +905,7 @@ function BuyerListingsContent() {
                   ].map((option) => (
                     <DropdownMenuItem
                       key={option.id}
-                      onClick={() => setSortBy(option.id)}
+                      onClick={() => selectSortFromMenu(option.id)}
                       className="px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
                     >
                       {option.label}
@@ -653,7 +931,10 @@ function BuyerListingsContent() {
                   {["all", "BTC", "XMR"].map((coin) => (
                     <DropdownMenuItem
                       key={coin}
-                      onClick={() => setSelectedCrypto(coin as any)}
+                      onClick={() => {
+                        setActiveQuickFilter(null);
+                        setSelectedCrypto(coin as "all" | "BTC" | "XMR");
+                      }}
                       className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
                     >
                       <span>{coin === "all" ? "All Currencies" : coin === "BTC" ? "Bitcoin (BTC)" : "Monero (XMR)"}</span>
@@ -684,7 +965,10 @@ function BuyerListingsContent() {
                   ].map((method) => (
                     <DropdownMenuItem
                       key={method.id}
-                      onClick={() => setSelectedDeliveryMethod(method.id as "all" | "manual" | "auto")}
+                      onClick={() => {
+                        setActiveQuickFilter(null);
+                        setSelectedDeliveryMethod(method.id as "all" | "manual" | "auto");
+                      }}
                       className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-theme-cyan transition-colors cursor-pointer text-xs uppercase tracking-widest font-bold mb-1"
                     >
                       <span>{method.label}</span>
@@ -716,6 +1000,63 @@ function BuyerListingsContent() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Quick filters — slim row; only primary chips use solid white when active */}
+        <div className="-mt-2 mb-4 px-0 sm:px-0.5">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 pt-0.5 snap-x [-webkit-overflow-scrolling:touch] items-center">
+            {quickFilterRow.map((item, idx) => {
+              if (item.type === "divider") {
+                return (
+                  <div
+                    key={`div-${idx}`}
+                    className="h-4 w-px shrink-0 bg-gray-600/60 self-center mx-0.5"
+                    aria-hidden
+                  />
+                );
+              }
+              const Icon = item.icon;
+              const active = isQuickChipActive(item);
+              const isPrimary = item.kind === "primary";
+              const solidActive = active && isPrimary;
+              const softActive = active && !isPrimary;
+
+              const defaultAllCrypto = item.id === "crypto:all" && selectedCrypto === "all";
+              const defaultAllDelivery = item.id === "delivery:all" && selectedDeliveryMethod === "all";
+              const quietDefault = active && (defaultAllCrypto || defaultAllDelivery);
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => applyQuickChip(item)}
+                  className={`snap-start shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-medium leading-none tracking-tight transition-colors ${
+                    solidActive
+                      ? "bg-white text-gray-900 border-gray-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                      : softActive
+                        ? quietDefault
+                          ? "bg-transparent text-gray-500 border-gray-700/90 border-dashed hover:bg-white/[0.06] hover:text-gray-300"
+                          : "bg-cyan-500/[0.12] text-cyan-100/95 border-cyan-400/35 hover:bg-cyan-500/[0.18]"
+                        : "bg-white/[0.04] text-gray-500 border-gray-700/70 hover:bg-white/[0.08] hover:text-gray-300 hover:border-gray-600/70"
+                  }`}
+                >
+                  <Icon
+                    className={`h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 ${
+                      solidActive
+                        ? "text-gray-700"
+                        : softActive && !quietDefault
+                          ? "text-cyan-300/95"
+                          : quietDefault
+                            ? "text-gray-600"
+                            : "text-gray-500"
+                    }`}
+                    aria-hidden
+                  />
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -974,6 +1315,21 @@ function BuyerListingsContent() {
           }}
         />
       </div>
+      {isAdModalOpen && selectedAdProduct && (
+        <ProductDetailModal
+          product={selectedAdProduct as any}
+          isOpen={isAdModalOpen}
+          onClose={() => setIsAdModalOpen(false)}
+        />
+      )}
+      {isAdPaymentOpen && selectedAdProduct && (
+        <PaymentModal
+          product={selectedAdProduct as any}
+          isOpen={isAdPaymentOpen}
+          onClose={() => setIsAdPaymentOpen(false)}
+          onBack={() => setIsAdPaymentOpen(false)}
+        />
+      )}
     </BuyerLayout>
   );
 }

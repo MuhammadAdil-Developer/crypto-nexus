@@ -186,10 +186,9 @@ try:
 except ImportError:
     HAS_CLOUDINARY_LIBS = False
 
-# Enable Cloudinary if both settings and libs are present
+# Enable Cloudinary if both settings and libs are present.
+# Django 4.2+: do not set DEFAULT_FILE_STORAGE together with STORAGES (mutually exclusive).
 if CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['API_KEY'] and HAS_CLOUDINARY_LIBS:
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    # Django 4.2+ STORAGES support
     STORAGES = {
         "default": {
             "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
@@ -428,9 +427,6 @@ REQUIRED_CONFIRMATIONS = {
 
 XMR_PAID_THRESHOLD = int(os.environ.get('XMR_PAID_THRESHOLD', 1))
 
-# Channels Configuration
-ASGI_APPLICATION = 'cryptonexus.asgi.application'
-
 # Channel Layers Configuration
 CHANNEL_LAYERS = {
     'default': {
@@ -439,10 +435,14 @@ CHANNEL_LAYERS = {
             "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')],
         },
     },
-}  
+}
 
 
 try:
     from .local_settings import *
 except ImportError:
     pass
+
+# Daphne replaces runserver when listed first in INSTALLED_APPS; it requires ASGI_APPLICATION
+# on django.conf.settings. Set last so local_settings cannot drop or shadow it.
+ASGI_APPLICATION = "cryptonexus.asgi.application"

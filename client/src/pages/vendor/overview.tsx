@@ -190,7 +190,20 @@ export default function VendorOverview() {
       const response = await api.get('/system/announcements/');
       if (response.data) {
         const data = response.data.results || response.data;
-        setAnnouncements(Array.isArray(data) ? data : []);
+        const rows = Array.isArray(data) ? data : [];
+        const now = Date.now();
+        const isBlastLike = (a: any) => {
+          const t = String(a?.title || '').toLowerCase();
+          return t.includes("special deals") || t.includes("premium promotion") || t.includes("exclusive access");
+        };
+        // Vendor dashboard should not show buyer blast promos.
+        const filtered = rows.filter((a: any) => {
+          if (a?.is_active === false) return false;
+          if (a?.end_date && new Date(a.end_date).getTime() < now) return false;
+          if (isBlastLike(a)) return false;
+          return true;
+        });
+        setAnnouncements(filtered);
       }
     } catch (error) {
       console.error('Error fetching announcements:', error);
@@ -319,6 +332,7 @@ export default function VendorOverview() {
 
     fetchAggregatedData();
     fetchAnnouncements();
+    const annInterval = window.setInterval(fetchAnnouncements, 30000);
 
     // Subscribe to real-time updates
     const handleRecentMessagesUpdate = (data: any) => {
@@ -341,6 +355,7 @@ export default function VendorOverview() {
     return () => {
       realtimeService.unsubscribe('recent_messages_update', handleRecentMessagesUpdate);
       realtimeService.unsubscribe('new_review', handleNewReview);
+      window.clearInterval(annInterval);
     };
   }, []);
 

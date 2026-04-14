@@ -458,12 +458,12 @@ class UserWallet(BaseModel):
         currency = currency.upper()
         if currency == 'BTC':
             if self.balance_btc < amount:
-                raise ValueError(f"Insufficient BTC balance. Available: {self.balance_btc}, Required: {amount}")
+                raise ValueError(f"Insufficient BTC balance. Available: {self.balance_btc:.8f}, Required: {amount:.8f}")
             self.balance_btc -= amount
             self.total_withdrawn_btc += amount
         elif currency == 'XMR':
             if self.balance_xmr < amount:
-                raise ValueError(f"Insufficient XMR balance. Available: {self.balance_xmr}, Required: {amount}")
+                raise ValueError(f"Insufficient XMR balance. Available: {self.balance_xmr:.8f}, Required: {amount:.8f}")
             self.balance_xmr -= amount
             self.total_withdrawn_xmr += amount
         self.save()

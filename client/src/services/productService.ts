@@ -174,6 +174,19 @@ class ProductService {
     return this.makeRequest<ProductListResponse>('/buyer/listings/');
   }
 
+  /** All active seller highlights (ignores search/filters); order rotated fairly per user & time bucket. */
+  async getBuyerActiveHighlights(): Promise<
+    ProductListResponse & {
+      meta?: { count: number; unique_vendors: number; rotation_bucket?: string; ordering?: string };
+    }
+  > {
+    return this.makeRequest<
+      ProductListResponse & {
+        meta?: { count: number; unique_vendors: number; rotation_bucket?: string; ordering?: string };
+      }
+    >('/buyer/active-highlights/');
+  }
+
   // Get product details
   async getProductDetail(productId: number): Promise<ProductDetailResponse> {
     return this.makeRequest<ProductDetailResponse>(`/${productId}/`);

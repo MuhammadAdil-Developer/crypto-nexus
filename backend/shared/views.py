@@ -119,14 +119,34 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
         user = self.request.user
         now = timezone.now()
 
-        # If admin, return all
-        if hasattr(user, 'user_type') and user.user_type == 'admin':
-            return Announcement.objects.all()
-        if user.is_superuser:
+        # Hard-expire records so stale banners disappear from all clients.
+        Announcement.objects.filter(is_active=True, end_date__lt=now).update(is_active=False)
+
+        is_staff_admin = (
+            (hasattr(user, 'user_type') and user.user_type == 'admin')
+            or getattr(user, 'is_superuser', False)
+        )
+
+        if is_staff_admin:
+            scope = self.request.query_params.get('scope')
+            if scope == 'vendor_promotions':
+                return (
+                    Announcement.objects.filter(
+                        audience='all',
+                        created_by__isnull=False,
+                        created_by__user_type='vendor',
+                    )
+                    .select_related('created_by')
+                    .order_by('-created_at')
+                )
             return Announcement.objects.all()
 
         # Build query for regular users
-        query = Q(is_active=True) & (Q(end_date__isnull=True) | Q(end_date__gte=now))
+        query = (
+            Q(is_active=True)
+            & Q(start_date__lte=now)
+            & (Q(end_date__isnull=True) | Q(end_date__gte=now))
+        )
         
         # Audience filter
         audience_query = Q(audience='all')
@@ -148,6 +168,20 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+
+    @action(detail=True, methods=['post'])
+    def seen(self, request, pk=None):
+        """Mark a global blast/announcement as seen for this user."""
+        try:
+            # Mark related notifications as read (these are created for blasts)
+            updated = Notification.objects.filter(
+                user=request.user,
+                data__announcement_id=str(pk),
+            ).update(is_read=True)
+            return Response({'success': True, 'data': {'updated': updated}})
+        except Exception as e:
+            logger.error(f"Announcement seen failed: {e}")
+            return Response({'success': False, 'message': 'Failed to mark seen'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminCommunicationView(viewsets.ViewSet):

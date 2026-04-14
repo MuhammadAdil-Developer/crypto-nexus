@@ -211,7 +211,9 @@ class DirectPaymentMonitor:
                 # CRITICAL: Payment Validation & Tolerance
                 # ============================================================
                 from orders.models import OrderStatus
-                order_already_paid = order.payment_status == 'paid' or order.order_status in [
+                # Rely on order_status to understand if fulfillment occurred.
+                # Do NOT trust payment_status = 'paid' here as it might be a temporary unconfirmed state.
+                order_already_paid = order.order_status in [
                     OrderStatus.PAID.value, 
                     OrderStatus.CONFIRMED.value, 
                     OrderStatus.DELIVERED.value, 
@@ -315,7 +317,20 @@ class DirectPaymentMonitor:
                         logger.info(f"Created RefundRequest object for order {order.order_id}")
                     
                     # Create automatic refund if refund_address exists
-                    if order.refund_address:
+                    refund_addr = order.refund_address
+                    if not refund_addr:
+                        # Fallback to user profile payout address if still empty
+                        if payment.crypto_currency.symbol == 'BTC':
+                            refund_addr = order.buyer.btc_payout_address
+                        elif payment.crypto_currency.symbol == 'XMR':
+                            refund_addr = order.buyer.xmr_payout_address
+                        
+                        if refund_addr:
+                            order.refund_address = refund_addr
+                            order.save()
+                            logger.info(f"Recovered refund address from profile for order {order.order_id}: {refund_addr}")
+
+                    if refund_addr:
                         from payments.models import Payout
                         # Check if a refund payout already exists for this order to avoid duplicates
                         if not Payout.objects.filter(order=order, payout_type='refund').exists():
@@ -395,13 +410,19 @@ class DirectPaymentMonitor:
                 if amount: 
                     pa.received_amount = Decimal(str(amount))
                     
-                    # Mark as 'paid' to hide cancel button as soon as ANY payment is detected
-                    # We don't mark as 'partial' here anymore to avoid poisoning the status
-                    # _confirm_payment will calculate the final tolerance once confirmed.
+                    # Check tolerance before marking it as paid to hide the cancel button.
+                    # This prevents underpayments from poisoning the state.
                     if order.payment_status == 'pending':
-                        logger.info(f"🔍 DETECTED: Order {order.order_id} payment detected. Updating payment_status to hide cancel button.")
-                        order.payment_status = 'paid'
-                        needs_save_order = True
+                        expected = Decimal(str(payment.amount))
+                        received = Decimal(str(amount))
+                        symbol = payment.crypto_currency.symbol
+                        
+                        if self._is_within_tolerance(expected, received, symbol):
+                            logger.info(f"🔍 DETECTED: Order {order.order_id} valid payment detected. Updating payment_status to hide cancel button.")
+                            order.payment_status = 'paid'
+                            needs_save_order = True
+                        else:
+                            logger.info(f"🔍 DETECTED: Order {order.order_id} PARTIAL payment detected ({received} / {expected}). Waiting for confirmation to refund.")
                 
                 pa.save()
             

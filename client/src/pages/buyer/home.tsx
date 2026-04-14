@@ -183,9 +183,55 @@ function BuyerHomeContent() {
   const [reviewComment, setReviewComment] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewProductId, setReviewProductId] = useState<number | null>(null);
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+  const [blastIndex, setBlastIndex] = useState(0);
+  const [mutedBlastVendors, setMutedBlastVendors] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("muted_blast_vendors") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const saveMutedVendors = (next: string[]) => {
+    setMutedBlastVendors(next);
+    try {
+      localStorage.setItem("muted_blast_vendors", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const parseBlastProducts = (html: string) => {
+    const items: Array<{ id: string; title: string }> = [];
+    const re = /href="\/buyer\/product\/(\d+)"[^>]*>([^<]+)<\/a>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(html)) !== null) {
+      items.push({ id: match[1], title: match[2] });
+    }
+    return items;
+  };
+
+  const blastVendorFrom = (a: any) => {
+    // Prefer created_by_username if API provides it, else parse from content.
+    const direct = (a?.created_by_username || a?.created_by?.username || "").toString();
+    if (direct) return direct;
+    const txt = String(a?.content || "");
+    const m = txt.match(/Featured Offers from\s*(?:<strong>)?([^<:]+)(?:<\/strong>)?/i);
+    return (m?.[1] || "").trim();
+  };
+
+  const markAnnouncementSeen = async (id: string) => {
+    try {
+      await api.post(`/system/announcements/${id}/seen/`);
+    } catch {
+      // ignore
+    }
+  };
 
   // Get messaging data from context
   const { unreadCount, isLoading: isLoadingMessages } = useMessaging();
+  const statsLoading = isLoadingOrdersData || !wishlistFetched || isLoadingMessages;
 
   // Cache keys for localStorage
   const CACHE_KEYS = {
@@ -494,19 +540,68 @@ function BuyerHomeContent() {
 
   // Fetch announcements
   useEffect(() => {
+    const isVisibleNow = (a: any) => {
+      if (a?.is_active === false) return false;
+      if (!a?.end_date) return true;
+      return new Date(a.end_date).getTime() >= Date.now();
+    };
     const fetchAnnouncements = async () => {
       try {
         const response = await api.get('/system/announcements/');
         if (response.data) {
           const data = response.data.results || response.data;
-          setAnnouncements(Array.isArray(data) ? data : []);
+          const rows = Array.isArray(data) ? data : [];
+          setAnnouncements(rows.filter(isVisibleNow));
         }
       } catch (error) {
         console.error('Error fetching announcements:', error);
       }
     };
     fetchAnnouncements();
+    const id = window.setInterval(fetchAnnouncements, 30000);
+    return () => window.clearInterval(id);
   }, []);
+
+  // Auto-rotate blast announcements (one at a time)
+  useEffect(() => {
+    if (!announcements || announcements.length <= 1) return;
+    const isBlast = (a: any) => {
+      const t = String(a?.title || "").toLowerCase();
+      return t.includes("special deals") || t.includes("exclusive access") || t.includes("premium promotion");
+    };
+    const blastsAll = announcements.filter(isBlast);
+    const blasts = blastsAll.filter((b: any) => {
+      const vendor = blastVendorFrom(b).toLowerCase();
+      return vendor ? !mutedBlastVendors.map((v) => v.toLowerCase()).includes(vendor) : true;
+    });
+    if (blasts.length <= 1) return;
+
+    const id = window.setInterval(() => {
+      // Weighted selection: premium first + time decay (older appears less)
+      const now = Date.now();
+      const weights = blasts.map((b: any) => {
+        const priority = String(b?.priority || "").toLowerCase();
+        const isPremium = priority === "high" || String(b?.title || "").toLowerCase().includes("premium") || String(b?.title || "").toLowerCase().includes("exclusive");
+        const createdAt = new Date(b?.created_at || b?.start_date || now).getTime();
+        const ageHours = Math.max(0, (now - createdAt) / 36e5);
+        const decay = Math.exp(-ageHours / 28); // ~1.5 day half-life feel
+        const base = isPremium ? 2.2 : 1.0;
+        return Math.max(0.05, base * decay);
+      });
+      const total = weights.reduce((s: number, w: number) => s + w, 0);
+      let r = Math.random() * total;
+      let picked = 0;
+      for (let i = 0; i < weights.length; i++) {
+        r -= weights[i];
+        if (r <= 0) {
+          picked = i;
+          break;
+        }
+      }
+      setBlastIndex(picked);
+    }, 6500);
+    return () => window.clearInterval(id);
+  }, [announcements, mutedBlastVendors]);
 
   // Fetch categories from API for Featured Categories section
   useEffect(() => {
@@ -936,41 +1031,252 @@ function BuyerHomeContent() {
         {/* Announcements Banner - Moved outside main content div for full width/no spacing */}
         {announcements.length > 0 && (
           <div className="z-40 backdrop-blur-md w-full px-4">
-            <div className="space-y-3">
-              {announcements.map((announcement) => (
-                <div
-                  key={announcement.id}
-                  className={`
-                    rounded-lg p-4 border flex items-start space-x-4 shadow-lg
-                    ${announcement.priority === 'high'
-                      ? 'bg-red-950/40 border-red-500/30 text-red-100'
-                      : announcement.priority === 'low'
-                        ? 'bg-gray-900/60 border-gray-700 text-gray-200'
-                        : 'bg-blue-950/40 border-blue-500/30 text-blue-100'
-                    }
-                  `}
-                >
-                  <div className={`p-2 rounded-full ${announcement.priority === 'high' ? 'bg-red-500/20' :
-                    announcement.priority === 'low' ? 'bg-gray-700/50' :
-                      'bg-blue-500/20'
-                    }`}>
-                    <Megaphone className={`w-5 h-5 ${announcement.priority === 'high' ? 'text-red-400' :
-                      announcement.priority === 'low' ? 'text-gray-400' :
-                        'text-blue-400'
-                      }`} />
+            {(() => {
+              const isBlast = (a: any) => {
+                const t = String(a?.title || "").toLowerCase();
+                return t.includes("special deals") || t.includes("exclusive access") || t.includes("premium promotion");
+              };
+              const blasts = announcements
+                .filter(isBlast)
+                .filter((b: any) => {
+                  const vendor = blastVendorFrom(b).toLowerCase();
+                  return vendor ? !mutedBlastVendors.map((v) => v.toLowerCase()).includes(vendor) : true;
+                });
+              const system = announcements.filter((a: any) => !isBlast(a));
+              const activeBlasts = showAllAnnouncements ? blasts : blasts.slice(0, 1);
+              const shownBlast = blasts.length > 0 ? blasts[blastIndex % blasts.length] : null;
+
+              const renderBanner = (announcement: any, variant: "blast" | "system") => {
+                const isPremium =
+                  variant === "blast" ||
+                  String(announcement?.priority || "").toLowerCase() === "high" ||
+                  String(announcement?.title || "").toLowerCase().includes("premium");
+                const vendor = blastVendorFrom(announcement);
+                const blastProducts = variant === "blast" ? parseBlastProducts(String(announcement?.content || "")) : [];
+                const vendorInitials = vendor
+                  ? vendor
+                      .split(/[\s_]+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((p) => p[0]?.toUpperCase())
+                      .join("")
+                  : "AC";
+                const vendorPicRaw = String(announcement?.created_by_profile_picture || "").trim();
+                const vendorPic = vendorPicRaw && vendorPicRaw !== "None" && vendorPicRaw !== "null" ? vendorPicRaw : "";
+
+                return (
+                  <div
+                    key={announcement.id}
+                    className={`
+                      ${variant === "blast"
+                        ? "relative overflow-hidden rounded-2xl p-[1px] shadow-[0_20px_70px_rgba(0,0,0,0.55)]"
+                        : "rounded-xl p-4 border flex items-start space-x-4 shadow-lg"
+                      }
+                    `}
+                  >
+                    {variant === "blast" ? (
+                      <>
+                        {/* Gradient border */}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-theme-cyan/40 via-red-500/40 to-theme-cyan/30 opacity-70" />
+
+                        {/* Card body */}
+                        <div className="relative w-full rounded-2xl border border-white/10 bg-gradient-to-br from-[#12060b]/90 via-black/55 to-[#061216]/85 px-4 py-4 sm:px-5 sm:py-5">
+                          {/* Shine */}
+                          <div className="pointer-events-none absolute -left-1/3 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent rotate-12 animate-[blastShine_7s_ease-in-out_infinite]" />
+                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(34,211,238,0.18),transparent_45%),radial-gradient(circle_at_80%_30%,rgba(239,68,68,0.16),transparent_45%)]" />
+
+                          <div className="relative flex items-start gap-4">
+                            {/* Vendor avatar */}
+                            <div className="shrink-0">
+                              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-theme-cyan/25 to-red-500/20 border border-white/10 flex items-center justify-center shadow-[0_0_25px_rgba(34,211,238,0.12)] overflow-hidden">
+                                <span className="text-sm font-black text-white">{vendorInitials}</span>
+                                {vendorPic ? (
+                                  <img
+                                    src={getImageUrl(vendorPic)}
+                                    alt={vendor || "Vendor"}
+                                    className="absolute h-12 w-12 rounded-2xl object-cover"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold text-white truncate">
+                                  {announcement.title}
+                                </h3>
+                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-200">
+                                  Premium Blast
+                                </span>
+                                {vendor ? (
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-white/10 bg-white/[0.04] text-gray-200">
+                                    by {vendor}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <p className="text-xs text-gray-300/90 mt-1">
+                                Limited-time featured offers. Tap any item to preview instantly.
+                              </p>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {blastProducts.slice(0, 6).map((p) => (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => {
+                                      void markAnnouncementSeen(String(announcement.id));
+                                      navigate(`/buyer/listings?openView=${encodeURIComponent(p.id)}`);
+                                    }}
+                                    className="text-[11px] px-3 py-1.5 rounded-xl border border-theme-cyan/25 bg-theme-cyan/10 text-theme-cyan hover:bg-theme-cyan/15 hover:border-theme-cyan/40 transition-colors"
+                                  >
+                                    {p.title}
+                                  </button>
+                                ))}
+                                {blastProducts.length > 6 ? (
+                                  <span className="text-[11px] px-3 py-1.5 rounded-xl border border-white/10 bg-white/[0.03] text-gray-300">
+                                    +{blastProducts.length - 6} more
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      void markAnnouncementSeen(String(announcement.id));
+                                      if (vendor) navigate(`/vendor/public/${encodeURIComponent(vendor)}`);
+                                      else navigate(`/buyer/listings`);
+                                    }}
+                                    className="text-[11px] font-black uppercase tracking-wider px-3 py-2 rounded-xl bg-theme-red text-white hover:bg-theme-red/90 transition-colors shadow-[0_10px_30px_rgba(239,68,68,0.15)]"
+                                  >
+                                    Browse offers
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      void markAnnouncementSeen(String(announcement.id));
+                                      if (blastProducts[0]) {
+                                        navigate(`/buyer/listings?openView=${encodeURIComponent(blastProducts[0].id)}`);
+                                      } else {
+                                        navigate(`/buyer/listings`);
+                                      }
+                                    }}
+                                    className="text-[11px] font-black uppercase tracking-wider px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04] text-gray-200 hover:bg-white/[0.08] transition-colors"
+                                  >
+                                    Quick preview
+                                  </button>
+                                </div>
+
+                                {vendor ? (
+                                  <button
+                                    onClick={() => saveMutedVendors([...new Set([...mutedBlastVendors, vendor])])}
+                                    className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.03] text-gray-300 hover:bg-white/[0.08] transition-colors"
+                                    title="Hide blasts from this vendor"
+                                  >
+                                    Mute vendor
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Local keyframes */}
+                        <style>{`
+                          @keyframes blastShine {
+                            0% { transform: translateX(-60%) rotate(12deg); opacity: 0; }
+                            20% { opacity: 0.6; }
+                            50% { opacity: 0.35; }
+                            80% { opacity: 0.6; }
+                            100% { transform: translateX(260%) rotate(12deg); opacity: 0; }
+                          }
+                        `}</style>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className={`p-2.5 rounded-full ${isPremium ? 'bg-red-500/20' :
+                            announcement.priority === 'low' ? 'bg-gray-700/50' :
+                              'bg-blue-500/20'
+                            }`}
+                        >
+                          <Megaphone className={`w-5 h-5 ${isPremium ? 'text-red-400' :
+                            announcement.priority === 'low' ? 'text-gray-400' :
+                              'text-blue-400'
+                            }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className={`font-semibold truncate ${isPremium ? 'text-red-200' :
+                              announcement.priority === 'low' ? 'text-gray-100' :
+                                'text-blue-200'
+                              }`}>
+                              {announcement.title}
+                            </h3>
+                          </div>
+                          <div
+                            className="text-sm mt-1 opacity-90 prose prose-invert prose-a:text-theme-cyan prose-a:font-semibold prose-a:no-underline hover:prose-a:underline max-w-none"
+                            dangerouslySetInnerHTML={{ __html: announcement.content }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <h3 className={`font-semibold ${announcement.priority === 'high' ? 'text-red-400' :
-                      announcement.priority === 'low' ? 'text-gray-200' :
-                        'text-blue-400'
-                      }`}>
-                      {announcement.title}
-                    </h3>
-                    <p className="text-sm mt-1 opacity-90">{announcement.content}</p>
-                  </div>
+                );
+              };
+
+              return (
+                <div className="space-y-3">
+                  {/* Blasts (auto-rotating, one-at-a-time) */}
+                  {shownBlast ? (
+                    <div className="relative">
+                      {/* Mark seen when displayed */}
+                      {(() => {
+                        // fire-and-forget
+                        markAnnouncementSeen(String(shownBlast.id));
+                        return null;
+                      })()}
+                      {renderBanner(shownBlast, "blast")}
+                      {blasts.length > 1 ? (
+                        <div className="mt-2 flex items-center justify-between px-1">
+                          <div className="flex items-center gap-1.5">
+                            {blasts.slice(0, 6).map((b: any, i: number) => (
+                              <button
+                                key={b.id}
+                                onClick={() => setBlastIndex(i)}
+                                className={`h-1.5 rounded-full transition-all ${
+                                  (blastIndex % blasts.length) === i ? "w-6 bg-theme-cyan" : "w-2 bg-white/20 hover:bg-white/40"
+                                }`}
+                                aria-label={`Blast ${i + 1}`}
+                              />
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => setShowAllAnnouncements((v) => !v)}
+                            className="text-[11px] font-bold text-theme-cyan hover:text-white transition-colors"
+                          >
+                            {showAllAnnouncements ? "Collapse" : `View all blasts (${blasts.length})`}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {/* Expanded list of blasts (optional) */}
+                      {showAllAnnouncements && activeBlasts.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          {blasts.slice(0, 5).map((b: any) => renderBanner(b, "blast"))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {/* System announcements (stacked, max 2 by default) */}
+                  {(showAllAnnouncements ? system : system.slice(0, 2)).map((a: any) => renderBanner(a, "system"))}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1081,7 +1387,7 @@ function BuyerHomeContent() {
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Orders</p>
                     <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
-                      {isLoadingOrdersData ? <span className="inline-block animate-pulse">... </span> : totalOrders}
+                      {statsLoading ? <span className="inline-block animate-pulse">... </span> : totalOrders}
                     </p>
                   </div>
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
@@ -1096,7 +1402,9 @@ function BuyerHomeContent() {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-gray-400 mb-1">Wishlist Items</p>
-                    <p className="text-xl sm:text-2xl font-bold text-white">{wishlistCount}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
+                      {statsLoading ? <span className="inline-block animate-pulse">... </span> : wishlistCount}
+                    </p>
                   </div>
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0 ml-2">
                     <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-red-400" />
@@ -1111,7 +1419,7 @@ function BuyerHomeContent() {
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-gray-400 mb-1">New Messages</p>
                     <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
-                      {isLoadingMessages ? <span className="inline-block animate-pulse">...</span> : unreadCount}
+                      {statsLoading ? <span className="inline-block animate-pulse">...</span> : unreadCount}
                     </p>
                   </div>
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-pink-500/20 flex items-center justify-center flex-shrink-0 ml-2">
@@ -1127,7 +1435,7 @@ function BuyerHomeContent() {
                   <div className="flex-1">
                     <p className="text-xs sm:text-sm text-gray-400 mb-1">Active Orders</p>
                     <p className="text-xl sm:text-2xl font-bold text-white min-h-[32px]">
-                      {isLoadingOrdersData ? <span className="inline-block animate-pulse">... </span> : activeOrders}
+                      {statsLoading ? <span className="inline-block animate-pulse">... </span> : activeOrders}
                     </p>
                   </div>
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0 ml-2">

@@ -24,7 +24,9 @@ from django.conf import settings
 from django.utils.text import slugify
 import uuid
 from decimal import Decimal
+import requests
 import logging
+import random
 
 logger = logging.getLogger(__name__)
  
@@ -442,7 +444,6 @@ def get_vendor_products(request):
         products = Product.objects.filter(
             vendor=request.user,
             is_deleted=False,
-            quantity_available__gt=0
         ).select_related('category', 'sub_category').order_by('-created_at')
         
         # Pagination
@@ -1218,6 +1219,16 @@ def buyer_listings(request):
                 Q(category__slug__icontains=category)
             )
 
+        featured_only = str(request.GET.get('featured_only', '')).lower() in ('1', 'true', 'yes')
+        if featured_only:
+            products_qs = products_qs.filter(is_highlighted=True, highlighted_until__gt=now)
+
+        premium_listings = str(request.GET.get('premium_listings', '')).lower() in ('1', 'true', 'yes')
+        if premium_listings:
+            products_qs = products_qs.filter(
+                Q(verification_level__in=['premium', 'verified']) | Q(rating__gte=Decimal('4'))
+            )
+
         # Get unique vendor IDs efficiently
         vendor_ids = products_qs.values_list('vendor_id', flat=True).distinct()
         
@@ -1423,6 +1434,30 @@ def buyer_listings(request):
         elif sort_mode == 'popular':
             products_list.sort(key=lambda p: (-int(getattr(p, 'is_currently_highlighted', False)), -(p.review_count or 0)))
 
+        elif sort_mode == 'best_sellers':
+            def _sort_key_bs(p):
+                stats = vendor_stats.get(p.vendor_id, {})
+                is_hlt = getattr(p, 'is_currently_highlighted', False)
+                return (
+                    -int(is_hlt),
+                    -stats.get('completed_orders', 0),
+                    -float(stats.get('avg_rating', 0) or 0),
+                    -(p.review_count or 0),
+                )
+            products_list.sort(key=_sort_key_bs)
+
+        elif sort_mode == 'hot':
+            def _sort_key_hot(p):
+                stats = vendor_stats.get(p.vendor_id, {})
+                is_hlt = getattr(p, 'is_currently_highlighted', False)
+                hot_score = (
+                    (p.review_count or 0) * 2
+                    + (p.views_count or 0) / 40.0
+                    + float(stats.get('completed_orders', 0) or 0) * 1.5
+                )
+                return (-int(is_hlt), -hot_score)
+            products_list.sort(key=_sort_key_hot)
+
         # Pagination
         total_count = len(products_list)
         start = (page - 1) * page_size
@@ -1446,6 +1481,109 @@ def buyer_listings(request):
     except Exception as e:
         from shared.utils.security import clean_error_response
         return Response(clean_error_response(e, 'Failed to retrieve buyer products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def buyer_active_highlights(request):
+    """
+    All marketplace listings that are in an active highlight window (any seller).
+    One row per vendor if duplicates exist. Order: vendor merit (sales, rating,
+    views) with an inclusion boost so smaller sellers still appear toward the top.
+    """
+    try:
+        import math
+
+        now = timezone.now()
+        qs = (
+            Product.objects.filter(
+                is_highlighted=True,
+                highlighted_until__gt=now,
+                status='approved',
+                is_active=True,
+                is_deleted=False,
+                quantity_available__gt=0,
+                vendor__is_active=True,
+                vendor__is_deleted=False,
+            )
+            .select_related('vendor', 'category', 'sub_category')
+            .order_by('vendor_id', '-highlighted_until', '-id')
+        )
+
+        rows = list(qs)
+        unique_list = rows # Allow all highlighted products
+        vendor_ids = list({p.vendor_id for p in unique_list})
+
+        orders_by_vendor = Order.objects.filter(
+            vendor_id__in=vendor_ids,
+            order_status__in=['delivered', 'confirmed', 'paid'],
+        ).values('vendor_id').annotate(
+            completed_orders=Count('id'),
+            total_sales=Sum('total_amount'),
+        )
+        orders_dict = {item['vendor_id']: item for item in orders_by_vendor}
+
+        products_by_vendor = Product.objects.filter(
+            vendor_id__in=vendor_ids,
+            status='approved',
+        ).values('vendor_id').annotate(
+            avg_rating=Avg('rating'),
+            total_views=Sum('views_count'),
+        )
+        products_dict = {item['vendor_id']: item for item in products_by_vendor}
+
+        vendor_stats = {}
+        for vid in vendor_ids:
+            o_row = orders_dict.get(vid, {})
+            p_row = products_dict.get(vid, {})
+            vendor_stats[vid] = {
+                'completed_orders': o_row.get('completed_orders', 0) or 0,
+                'total_sales': float(o_row.get('total_sales') or 0),
+                'avg_rating': float(p_row.get('avg_rating') or 0),
+                'total_views': p_row.get('total_views') or 0,
+            }
+
+        def highlight_merit_score(vid):
+            s = vendor_stats.get(vid, {})
+            o = int(s.get('completed_orders', 0) or 0)
+            r = float(s.get('avg_rating', 0) or 0)
+            v = int(s.get('total_views', 0) or 0)
+            sales = float(s.get('total_sales', 0) or 0)
+            merit = (
+                4.0 * math.log1p(o)
+                + 3.0 * r
+                + 1.5 * math.log1p(max(v, 0) / 25.0)
+                + 1.2 * math.log1p(max(sales, 0) / 150.0)
+            )
+            inclusion = 7.0 / (1.0 + math.log1p(o))
+            return merit + inclusion
+
+        unique_list.sort(
+            key=lambda p: (
+                -highlight_merit_score(p.vendor_id),
+                -float(p.rating or 0),
+                -(p.review_count or 0),
+                -p.id,
+            )
+        )
+
+        serializer = ProductSerializer(unique_list, many=True, context={'request': request})
+
+        return Response({
+            'success': True,
+            'message': 'Active highlighted listings',
+            'data': serializer.data,
+            'meta': {
+                'count': len(unique_list),
+                'unique_vendors': len(vendor_ids),
+                'ordering': 'vendor_merit_with_inclusion',
+            },
+        })
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+        logger.error('buyer_active_highlights failed: %s', str(e))
+        return Response(clean_error_response(e, 'Failed to load highlights'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1484,6 +1622,40 @@ def vendor_products(request):
     except Exception as e:
         from shared.utils.security import clean_error_response
         return Response(clean_error_response(e, 'Failed to retrieve vendor products'), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def vendor_active_highlights(request):
+    """Get only currently-active highlighted products for authenticated vendor."""
+    try:
+        now = timezone.now()
+        products = (
+            Product.objects.filter(
+                vendor=request.user,
+                is_deleted=False,
+                is_highlighted=True,
+                highlighted_until__gt=now,
+            )
+            .select_related('category', 'sub_category')
+            .order_by('-highlighted_until', '-id')
+        )
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        return Response(
+            {
+                'success': True,
+                'message': 'Vendor active highlights retrieved successfully',
+                'data': serializer.data,
+                'meta': {'count': products.count()},
+            }
+        )
+    except Exception as e:
+        from shared.utils.security import clean_error_response
+
+        return Response(
+            clean_error_response(e, 'Failed to retrieve active highlights'),
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
@@ -1589,7 +1761,7 @@ def bulk_delete_products(request):
         is_admin = hasattr(request.user, 'user_type') and request.user.user_type == 'admin'
         
         if is_admin:
-            products = Product.objects.filter(id__in=product_ids)
+            products = Product.objects.filter(id__in=product_ids, vendor=request.user)
         else:
             products = Product.objects.filter(id__in=product_ids, vendor=request.user)
         
@@ -2146,6 +2318,83 @@ def admin_list_all_products(request):
             'message': 'Failed to retrieve products',
             'errors': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_promotion_highlights_list(request):
+    """List products with seller highlight flag (live window or stuck) for admin moderation."""
+    try:
+        now = timezone.now()
+        qs = (
+            Product.objects.filter(is_highlighted=True, is_deleted=False)
+            .select_related('vendor', 'category')
+            .order_by('-highlighted_until', '-id')
+        )
+        serializer = ProductSerializer(qs, many=True, context={'request': request})
+        return Response({
+            'success': True,
+            'data': serializer.data,
+            'meta': {'server_time': now.isoformat()},
+        })
+    except Exception as e:
+        logger.error('admin_promotion_highlights_list: %s', str(e))
+        return Response({
+            'success': False,
+            'message': 'Failed to load promotion highlights',
+            'errors': str(e),
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_end_product_highlight(request, product_id):
+    """Force-remove featured highlight from any listing (misuse / policy)."""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        product.is_highlighted = False
+        product.highlighted_until = None
+        product.save(update_fields=['is_highlighted', 'highlighted_until', 'updated_at'])
+        return Response({
+            'success': True,
+            'message': 'Featured highlight ended by admin.',
+            'data': ProductSerializer(product, context={'request': request}).data,
+        })
+    except Exception as e:
+        logger.error('admin_end_product_highlight: %s', str(e))
+        return Response({
+            'success': False,
+            'message': str(e),
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_extend_product_highlight(request, product_id):
+    """Extend featured highlight duration by specific hours (12, 24, 48, etc)."""
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        hours = int(request.data.get('hours', 12))
+        
+        # If not already highlighted, start from now
+        base_time = product.highlighted_until if (product.is_highlighted and product.highlighted_until and product.highlighted_until > timezone.now()) else timezone.now()
+        
+        product.is_highlighted = True
+        product.highlighted_until = base_time + timezone.timedelta(hours=hours)
+        product.save(update_fields=['is_highlighted', 'highlighted_until', 'updated_at'])
+        
+        return Response({
+            'success': True,
+            'message': f'Highlight extended by {hours} hours.',
+            'data': ProductSerializer(product, context={'request': request}).data,
+        })
+    except Exception as e:
+        logger.error('admin_extend_product_highlight: %s', str(e))
+        return Response({
+            'success': False,
+            'message': str(e),
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['PUT'])
 @permission_classes([IsAdminUser])
@@ -3110,37 +3359,56 @@ def mark_review_helpful(request, review_id):
 def promote_highlight(request, product_id):
     """Highlight a product for 12 hours with +1% commission on top of existing platform fee"""
     try:
+        logger.info(f"--- HIGHLIGHT START --- Product: {product_id}, Vendor: {request.user.username} ---")
+        
+        # 1. Fetch current product
         product = get_object_or_404(Product, id=product_id, vendor=request.user)
         
-        # Check if already highlighted
-        if product.is_highlighted and product.highlighted_until and product.highlighted_until > timezone.now():
+        # 2. Check existing status (allow re-highlighting if expired)
+        now = timezone.now()
+        if product.is_highlighted and product.highlighted_until and product.highlighted_until > now:
+             logger.warning(f"Product {product_id} already active until {product.highlighted_until}")
              return Response({'success': False, 'message': 'Product is already highlighted'}, status=400)
              
         is_giveaway = request.data.get('is_giveaway', False)
-             
-        # Reset other highlighted products for this vendor (keep only one)
-        Product.objects.filter(vendor=request.user, is_highlighted=True).update(is_highlighted=False, highlighted_until=None)
         
+        # 3. Explicitly only modify THIS product instance
         product.is_highlighted = True
-        product.highlighted_until = timezone.now() + timezone.timedelta(hours=12)
-        product.highlight_fee_rate = 1.00  # 1% extra on top of the standard platform fee
+        product.highlighted_until = now + timezone.timedelta(hours=12)
+        product.highlight_fee_rate = 1.00
         
         if is_giveaway:
             from decimal import Decimal
             product.is_giveaway = True
             product.price = Decimal('0.00')
             
-        product.save()
+        # 4. Save using only relevant fields to avoid any weirdness with other fields/queryset-wide triggers
+        product.save(update_fields=['is_highlighted', 'highlighted_until', 'highlight_fee_rate', 'is_giveaway', 'price', 'updated_at'])
         
-        msg = 'Product highlighted successfully for 12 hours as a FREE Giveaway!' if is_giveaway else 'Product highlighted! It will appear at the top of search results. An extra 1% promotional fee will apply on top of your standard platform commission.'
+        logger.info(f"Successfully saved Product {product_id}. Checking other ads for this vendor...")
         
+        # 5. Verify database state for this vendor
+        all_active = Product.objects.filter(
+            vendor=request.user, 
+            is_highlighted=True, 
+            highlighted_until__gt=now
+        ).values_list('id', flat=True)
+        
+        logger.info(f"Active Ad IDs for @{request.user.username}: {list(all_active)}")
+        
+        msg = 'Product highlighted successfully! Multi-ad mode is active.'
+        if is_giveaway:
+            msg = 'Product highlighted successfully as a FREE Giveaway!'
+            
         return Response({
             'success': True,
             'message': msg,
-            'highlighted_until': product.highlighted_until
+            'highlighted_until': product.highlighted_until,
+            'active_ad_count': len(all_active)
         })
     except Exception as e:
-        return Response({'success': False, 'message': str(e)}, status=500)
+        logger.exception(f"Unexpected error in promote_highlight for {product_id}")
+        return Response({'success': False, 'message': f"Critical error: {str(e)}"}, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -3165,7 +3433,7 @@ def cancel_highlight(request, product_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def promote_notification(request):
-    """Pay $10 (standard) or $100 (premium) to notify all users about up to 10 products"""
+    """Create a paid global blast for 1-10 products with volume discount."""
     try:
         product_ids = request.data.get('product_ids', [])
         currency = request.data.get('currency', 'BTC').upper()
@@ -3185,7 +3453,19 @@ def promote_notification(request):
             priority = 'critical'
             expiry_hours = 48
         else:
-            cost_usd = Decimal('10.00')
+            count = len(product_ids)
+            base_cost_usd = Decimal(str(count))  # $1 per selected product
+            # Professional volume tiers: encourages multi-select while preserving revenue.
+            if count >= 8:
+                discount_rate = Decimal('0.20')
+            elif count >= 5:
+                discount_rate = Decimal('0.12')
+            elif count >= 3:
+                discount_rate = Decimal('0.05')
+            else:
+                discount_rate = Decimal('0.00')
+            discount_usd = (base_cost_usd * discount_rate).quantize(Decimal('0.01'))
+            cost_usd = (base_cost_usd - discount_usd).quantize(Decimal('0.01'))
             title_prefix = "Premium Promotion:"
             priority = 'high'
             expiry_hours = 24
@@ -3215,27 +3495,360 @@ def promote_notification(request):
                 )
                 
                 # 5. Create announcement for all users
-                product_links = [f'<a href="/product/{p.id}">{p.headline}</a>' for p in products]
+                # Buyer UI routes use /buyer/product/:id
+                product_links = [f'<a href="/buyer/product/{p.id}">{p.headline}</a>' for p in products]
                 content = f"AccountzClub Featured Offers from <strong>{request.user.username}</strong>:<br><br>" + "<br>".join(product_links)
                 if promotion_type == 'premium':
                     content = "<strong>URGENT: A new premium account selection is available!</strong><br><br>" + content
-                
-                Announcement.objects.create(
+
+                announcement = Announcement.objects.create(
                     title=f"{title_prefix} {request.user.username}'s Special Deals",
                     content=content,
-                    audience='all',
+                    audience='buyer',
                     priority=priority,
                     created_by=request.user,
                     start_date=timezone.now(),
                     end_date=timezone.now() + timezone.timedelta(hours=expiry_hours)
                 )
+
+                # Create in-app notifications for all active users so blast is visible in dashboards.
+                target_user_ids = User.objects.filter(is_active=True, user_type='buyer').exclude(id=request.user.id).values_list('id', flat=True)
+                notifications = [
+                    Notification(
+                        user_id=uid,
+                        type='system',
+                        title=announcement.title,
+                        message=content,
+                        data={
+                            'type': 'global_blast',
+                            'vendor': request.user.username,
+                            'announcement_id': str(announcement.id),
+                        },
+                    )
+                    for uid in target_user_ids
+                ]
+                if notifications:
+                    Notification.objects.bulk_create(notifications, batch_size=1000)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=400)
             
         return Response({
             'success': True,
-            'message': f'{promotion_type.capitalize()} notification sent! {cost_crypto:.8f} {currency} (~${cost_usd}) deducted from wallet.'
+            'message': f'{promotion_type.capitalize()} notification sent! {cost_crypto:.8f} {currency} (~${cost_usd}) deducted from wallet.',
+            'pricing': {
+                'product_count': len(product_ids),
+                'cost_usd': f'{cost_usd:.2f}',
+                'cost_crypto': f'{cost_crypto:.8f}',
+                'currency': currency,
+            }
         })
     except Exception as e:
         logger.error(f"Error in promote_notification: {str(e)}")
+        return Response({'success': False, 'message': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_blast_payment(request):
+    """Create a direct crypto payment invoice for Global Blast when wallet is empty."""
+    try:
+        product_ids = request.data.get('product_ids', [])
+        currency = request.data.get('currency', 'BTC').upper()
+        promotion_type = request.data.get('promotion_type', 'standard')
+        
+        if not product_ids or len(product_ids) > 10:
+            return Response({'success': False, 'message': 'Please provide 1-10 products'}, status=400)
+            
+        products = Product.objects.filter(id__in=product_ids, vendor=request.user)
+        if products.count() != len(product_ids):
+            return Response({'success': False, 'message': 'Invalid products'}, status=400)
+            
+        # Pricing logic (synced with promote_notification)
+        if promotion_type == 'premium':
+            cost_usd = Decimal('100.00')
+        else:
+            count = len(product_ids)
+            base_cost_usd = Decimal(str(count))
+            discount_rate = Decimal('0.20') if count >= 8 else Decimal('0.12') if count >= 5 else Decimal('0.05') if count >= 3 else Decimal('0.00')
+            cost_usd = (base_cost_usd * (1 - discount_rate)).quantize(Decimal('0.01'))
+
+        # Create BTCPay Invoice
+        from payments.services import BTCPayServerService
+        btcpay = BTCPayServerService()
+        
+        # Unique ID for this blast attempt to track on callback
+        blast_order_id = f"blast_{uuid.uuid4().hex[:8]}"
+        
+        invoice = btcpay.create_invoice(
+            order_id=blast_order_id,
+            amount=cost_usd,
+            currency='USD'
+        )
+        
+        if not invoice:
+            return Response({'success': False, 'message': 'Failed to generate crypto invoice. Please try again later.'}, status=500)
+            
+        invoice_id = invoice.get('invoice_id')
+        
+        # Calculate the actual crypto amount using the Platform's Live Rate Service
+        from payments.services import get_current_price_usd
+        live_price = get_current_price_usd(currency)
+        
+        if live_price > 0:
+            crypto_amount = (cost_usd / live_price).quantize(Decimal('0.00000001'))
+            crypto_amount = str(crypto_amount)
+        else:
+            # Fallback to BTCPay's internal conversion if live service fails
+            crypto_amount = invoice.get('amount', '0')
+            try:
+                status_data = btcpay.get_invoice_status(invoice_id)
+                if status_data and 'paymentMethods' in status_data:
+                    for pm in status_data['paymentMethods']:
+                        if pm.get('paymentMethodId') == f'{currency}-CHAIN':
+                            crypto_amount = pm.get('amount', crypto_amount)
+                            break
+            except:
+                pass
+
+        return Response({
+            'success': True,
+            'invoice_id': invoice_id,
+            'address': invoice['address'],
+            'amount_crypto': crypto_amount,
+            'amount_usd': str(cost_usd),
+            'currency': currency,
+            'checkout_link': invoice['checkoutLink']
+        })
+    except Exception as e:
+        logger.error(f"Error in create_blast_payment: {str(e)}")
+        return Response({'success': False, 'message': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_blast_payment(request):
+    """Check if crypto invoice for blast is paid, and if so, trigger the magic."""
+    try:
+        invoice_id = request.data.get('invoice_id')
+        product_ids = request.data.get('product_ids', [])
+        promotion_type = request.data.get('promotion_type', 'standard')
+
+        if not invoice_id:
+            return Response({'success': False, 'message': 'Missing invoice ID'}, status=400)
+
+        from payments.services import BTCPayServerService
+        btcpay = BTCPayServerService()
+        status_data = btcpay.get_invoice_status(invoice_id)
+        
+        if not status_data:
+            return Response({'success': False, 'message': 'Invoice not found'}, status=404)
+            
+        # Normalize status
+        inv_status = (status_data.get('status') or '').strip().lower()
+
+        # Read paid/due from payment-methods endpoint (source of truth for on-chain totals)
+        total_paid_detected = Decimal('0')
+        total_due_detected = Decimal('0')
+        payment_currency = None
+        try:
+            pm_res = requests.get(
+                f"{btcpay.base_url}/api/v1/stores/{btcpay.store_id}/invoices/{invoice_id}/payment-methods",
+                headers=btcpay.headers,
+                timeout=30,
+            )
+            if pm_res.status_code == 200:
+                methods = pm_res.json() or []
+                for m in methods:
+                    # Prefer the chain method if present; otherwise sum everything.
+                    method_id = m.get('paymentMethodId')
+                    paid = Decimal(str(m.get('totalPaid', '0') or '0'))
+                    due = Decimal(str(m.get('due', m.get('totalDue', '0')) or '0'))
+                    if method_id and ('-CHAIN' in method_id) and payment_currency is None:
+                        payment_currency = method_id.split('-')[0]
+                    total_paid_detected += paid
+                    total_due_detected += due
+            else:
+                logger.warning(f"BTCPay payment-methods fetch failed: {pm_res.status_code} {pm_res.text}")
+        except Exception as e:
+            logger.warning(f"Failed payment-methods scan: {e}")
+
+        # Underpayment tolerance (accept 95%+ for dev UX; can tighten later)
+        tolerance = Decimal('0.95')
+        is_paid_by_amount = (total_due_detected > 0) and (total_paid_detected >= (total_due_detected * tolerance))
+
+        # Consider invoice paid if status says so, OR paid >= (due * tolerance)
+        is_paid_val = (inv_status in ['settled', 'processing', 'confirmed']) or is_paid_by_amount
+        
+        logger.info(
+            f"🔄 Blast Check: ID={invoice_id}, Status='{inv_status}', Paid={total_paid_detected}, Due={total_due_detected}, "
+            f"Tolerance={tolerance}, TRIGGER={is_paid_val}"
+        )
+
+        if is_paid_val:
+            # TRIGGER THE MAGIC
+            logger.info(f"✨ TRIGGERING MAGIC BLAST for user {request.user.username}")
+            products = Product.objects.filter(id__in=product_ids)
+            
+            title_prefix = "🔥 EXCLUSIVE ACCESS:" if promotion_type == 'premium' else "Premium Promotion:"
+            priority = 'critical' if promotion_type == 'premium' else 'high'
+            expiry_hours = 48 if promotion_type == 'premium' else 24
+            
+            # Buyer UI routes use /buyer/product/:id
+            product_links = [f'<a href="/buyer/product/{p.id}">{p.headline}</a>' for p in products]
+            content = f"AccountzClub Featured Offers from <strong>{request.user.username}</strong>:<br><br>" + "<br>".join(product_links)
+            if promotion_type == 'premium':
+                content = "<strong>URGENT: A new premium account selection is available!</strong><br><br>" + content
+            
+            announcement = Announcement.objects.create(
+                title=f"{title_prefix} {request.user.username}'s Special Deals",
+                content=content,
+                audience='buyer',
+                priority=priority,
+                created_by=request.user,
+                start_date=timezone.now(),
+                end_date=timezone.now() + timezone.timedelta(hours=expiry_hours)
+            )
+
+            # Broadcast in-app notifications to all active users (except sender).
+            target_user_ids = User.objects.filter(is_active=True, user_type='buyer').exclude(id=request.user.id).values_list('id', flat=True)
+            notifications = [
+                Notification(
+                    user_id=uid,
+                    type='system',
+                    title=announcement.title,
+                    message=content,
+                    data={
+                        'type': 'global_blast',
+                        'vendor': request.user.username,
+                        'announcement_id': str(announcement.id),
+                    },
+                )
+                for uid in target_user_ids
+            ]
+            if notifications:
+                Notification.objects.bulk_create(notifications, batch_size=1000)
+
+            return Response({
+                'success': True,
+                'is_paid': True,
+                'message': 'Payment confirmed! Your Global Blast is now live.'
+            })
+            
+        elif inv_status == 'expired' or inv_status == 'invalid':
+            return Response({'success': True, 'is_paid': False, 'is_expired': True, 'message': 'Invoice expired or invalid'})
+            
+        remaining = (total_due_detected - total_paid_detected) if total_due_detected > 0 else Decimal('0')
+        remaining = remaining if remaining > 0 else Decimal('0')
+        if total_paid_detected > 0 and remaining > 0:
+            return Response(
+                {
+                    'success': True,
+                    'is_paid': False,
+                    'is_underpaid': True,
+                    'paid_detected': str(total_paid_detected),
+                    'total_due': str(total_due_detected),
+                    'remaining_due': str(remaining),
+                    'currency': payment_currency,
+                    'message': f'Underpaid: received {total_paid_detected} {payment_currency or ""}. Please send remaining {remaining} to complete.',
+                }
+            )
+
+        return Response(
+            {
+                'success': True,
+                'is_paid': False,
+                'paid_detected': str(total_paid_detected),
+                'total_due': str(total_due_detected),
+                'remaining_due': str(remaining),
+                'currency': payment_currency,
+                'message': 'Waiting for network confirmation...',
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in check_blast_payment: {str(e)}")
+        return Response({'success': False, 'message': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def vendor_blast_history(request):
+    """Basic global blast history and performance stats for current vendor."""
+    try:
+        announcements = (
+            Announcement.objects.filter(
+                created_by=request.user,
+                audience__in=['buyer', 'all'],
+            )
+            .order_by('-created_at')[:25]
+        )
+
+        rows = []
+        for ann in announcements:
+            notif_qs = Notification.objects.filter(data__announcement_id=str(ann.id))
+            sent_count = notif_qs.count()
+            seen_count = notif_qs.filter(is_read=True).count()
+            ctr = round((seen_count / sent_count) * 100, 2) if sent_count > 0 else 0
+            rows.append(
+                {
+                    'id': str(ann.id),
+                    'title': ann.title,
+                    'created_at': ann.created_at,
+                    'start_date': ann.start_date,
+                    'end_date': ann.end_date,
+                    'is_active': ann.is_active and (ann.end_date is None or ann.end_date >= timezone.now()),
+                    'sent_count': sent_count,
+                    'seen_count': seen_count,
+                    'seen_rate': ctr,
+                }
+            )
+
+        return Response(
+            {
+                'success': True,
+                'message': 'Blast history loaded',
+                'data': rows,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error in vendor_blast_history: {str(e)}")
+        return Response({'success': False, 'message': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def vendor_remove_blast(request, announcement_id):
+    """Vendor can remove their own global blast from all user surfaces."""
+    try:
+        announcement = get_object_or_404(
+            Announcement,
+            id=announcement_id,
+            created_by=request.user,
+            audience__in=['buyer', 'all'],
+        )
+        now = timezone.now()
+
+        # Some legacy flows could create duplicate blast rows; deactivate all matching active rows.
+        matched = Announcement.objects.filter(
+            created_by=request.user,
+            audience__in=['buyer', 'all'],
+            title=announcement.title,
+            is_active=True,
+        )
+        matched_ids = [str(i) for i in matched.values_list('id', flat=True)]
+        matched.update(is_active=False, end_date=now)
+
+        # Remove blast notifications from user feeds for all matched announcements.
+        if matched_ids:
+            Notification.objects.filter(data__announcement_id__in=matched_ids).delete()
+        else:
+            Notification.objects.filter(data__announcement_id=str(announcement.id)).delete()
+
+        return Response(
+            {
+                'success': True,
+                'message': 'Blast removed from users successfully.',
+                'data': {'id': str(announcement.id), 'removed_count': len(matched_ids) or 1},
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error in vendor_remove_blast: {str(e)}")
         return Response({'success': False, 'message': str(e)}, status=500)

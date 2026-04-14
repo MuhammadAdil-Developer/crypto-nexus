@@ -51,6 +51,7 @@ interface Product {
   accepted_crypto?: string[];
   is_giveaway?: boolean;
   is_highlighted?: boolean;
+  is_currently_highlighted?: boolean;
 }
 
 interface ProductCardProps {
@@ -60,6 +61,9 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'grid', redirectOnAction = false }) => {
+  const showFeaturedBadge =
+    product.is_currently_highlighted === true ||
+    (product.is_currently_highlighted === undefined && !!product.is_highlighted);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -404,8 +408,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                         </Tooltip>
                       </TooltipProvider>
                     )}
-                    {product.is_highlighted && (
-                      <Badge className="bg-theme-cyan text-black border-none text-[9px] px-1.5 py-0 font-black shadow-lg animate-pulse">
+                    {showFeaturedBadge && (
+                      <Badge className="bg-theme-cyan text-black border-none text-[9px] px-1.5 py-0 font-black shadow-lg">
                         <Zap className="w-2.5 h-2.5 mr-0.5 fill-black" />
                         FEATURED
                       </Badge>
@@ -452,19 +456,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             <p className="text-xs text-gray-500">≈ ${formatUSD(product.price)}</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm transition-all hover:scale-105 ${product.delivery_method === 'manual'
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-amber-500/5'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-emerald-500/5'
-              }`}>
-              {product.delivery_method === 'manual' ? (
-                <Clock className="w-3.5 h-3.5" />
-              ) : (
-                <Zap className="w-3.5 h-3.5" />
-              )}
-              <span className="text-[10px] font-black uppercase tracking-widest">
-                {product.delivery_method === 'manual' ? 'Manual Delivery' : 'Instant Auto'}
-              </span>
-            </div>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm transition-all hover:scale-105 cursor-help ${product.delivery_method === 'manual'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-amber-500/5'
+                      : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-emerald-500/5'
+                    }`}>
+                    {product.delivery_method === 'manual' ? (
+                      <Clock className="w-3.5 h-3.5" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                      {product.delivery_method === 'manual' ? 'Manual' : 'Auto'}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black/95 backdrop-blur-md border-white/10 p-3 rounded-xl shadow-2xl">
+                   <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-theme-cyan">{product.delivery_method === 'manual' ? 'Standard Delivery' : 'Instant Delivery'}</p>
+                      <p className="text-xs text-gray-300">
+                         {product.delivery_method === 'manual' 
+                            ? 'The seller will deliver credentials manually within 24 hours.' 
+                            : 'Credentials will be shown on screen immediately after payment confirmation.'}
+                      </p>
+                   </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -606,8 +626,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                 {product.verification_level.toUpperCase()}
               </Badge>
             )}
-            {product.is_highlighted && (
-              <Badge className="bg-theme-cyan text-black border-none text-xs px-1 py-0.5 shadow-lg font-black animate-pulse">
+            {showFeaturedBadge && (
+              <Badge className="bg-theme-cyan text-black border-none text-xs px-1 py-0.5 shadow-lg font-black">
                 <Zap className="w-2 h-2 mr-0.5 fill-black" />
                 FEATURED
               </Badge>
@@ -622,7 +642,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge className="bg-cyan-500 text-black border-none text-xs px-1 py-0.5 shadow-lg font-black animate-pulse cursor-help">
+                    <Badge className="bg-cyan-500 text-black border-none text-xs px-1 py-0.5 shadow-lg font-black cursor-help">
                       GIVEAWAY
                     </Badge>
                   </TooltipTrigger>
@@ -684,22 +704,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
                   <span>{formatCryptoPrice(product.price, 'XMR')} XMR</span>
                 )}
               </p>
-              <p className="text-gray-500 text-[10px] font-bold uppercase tracking-tighter">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-tighter">
                 ≈ ${formatUSD(product.price)}
               </p>
             </div>
             <div className="text-right">
-              <div className={`flex items-center space-x-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border transition-all duration-300 ${product.delivery_method === 'manual'
-                  ? 'bg-amber-500/5 border-amber-500/20 text-amber-500/90 hover:bg-amber-500/10'
-                  : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500/90 hover:bg-emerald-500/10'
-                }`}>
-                {product.delivery_method === 'manual' ? (
-                  <Clock className="w-3 h-3" />
-                ) : (
-                  <Zap className="w-3 h-3" />
-                )}
-                <span>{product.delivery_method === 'manual' ? 'Manual' : 'Auto'}</span>
-              </div>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={`flex items-center space-x-1 text-[10px] font-black uppercase tracking-widest px-2 py-1.5 rounded-lg border transition-all duration-300 cursor-help ${product.delivery_method === 'manual'
+                        ? 'bg-amber-500/5 border-amber-500/20 text-amber-500/90 hover:bg-amber-500/10'
+                        : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500/90 hover:bg-emerald-500/10'
+                      }`}>
+                      {product.delivery_method === 'manual' ? (
+                        <Clock className="w-3 h-3" />
+                      ) : (
+                        <Zap className="w-3 h-3" />
+                      )}
+                      <span>{product.delivery_method === 'manual' ? 'Man' : 'Auto'}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-black/95 backdrop-blur-md border-white/10 p-3 rounded-xl shadow-2xl">
+                     <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-theme-cyan">Fulfillment Type</p>
+                        <p className="text-[11px] text-gray-300">
+                           {product.delivery_method === 'manual' 
+                              ? 'Delivered by seller' 
+                              : 'Instant automated delivery'}
+                        </p>
+                     </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <p className="text-gray-600 text-[9px] font-bold mt-1.5 uppercase tracking-tighter">
                 {product.quantity_available || 0} in stock
               </p>

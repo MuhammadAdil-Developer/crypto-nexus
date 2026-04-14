@@ -97,10 +97,10 @@ export const ADMIN_NAV_ITEMS = [
     badge: null
   },
   {
-    title: "Ads",
+    title: "Promotions",
     icon: Megaphone,
-    href: "/admin/ads",
-    badge: { text: "8", type: "success" }
+    href: "/admin/promotions",
+    badge: null
   },
   {
     title: "Categories",
@@ -192,6 +192,12 @@ export const ADMIN_GROUPED_NAV = [
         icon: Gavel,
         href: "/admin/disputes",
         badge: { text: "3", type: "danger" }
+      },
+      {
+        title: "Promotions",
+        icon: Megaphone,
+        href: "/admin/promotions",
+        badge: null
       }
     ]
   },

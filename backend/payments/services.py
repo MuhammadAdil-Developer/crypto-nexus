@@ -760,6 +760,30 @@ class PaymentService:
         self.btcpay = BTCPayServerService()
         self.monero = MoneroRPCService()
 
+    def _is_within_tolerance(self, payment_address, amount_received):
+        """Helper to check if a payment amount is within allowed tolerance
+        Rule: $5.00 USD flat OR 10% of total (whichever is greater)
+        """
+        try:
+            expected = Decimal(str(payment_address.expected_amount))
+            received = Decimal(str(amount_received))
+            
+            if received >= expected:
+                return True
+                
+            # Rule: $5.00 USD flat OR 10% of total (whichever is greater)
+            price = self.get_fiat_to_crypto_rate(payment_address.crypto_currency.symbol)
+            if not price or price <= 0:
+                # Fallback to hardcoded reasonable defaults if API fails
+                price = Decimal('98000') if payment_address.crypto_currency.symbol == 'BTC' else Decimal('165')
+            
+            tolerance = max(Decimal('5.00') / price, expected * Decimal('0.10'))
+            
+            return received >= (expected - tolerance)
+        except Exception as e:
+            logger.error(f"Error checking tolerance: {e}")
+            return False
+
     def get_network_fees(self):
         """Get current estimated network fees for BTC and XMR"""
         # BTC Fee from mempool.space (dynamic)
@@ -892,7 +916,8 @@ class PaymentService:
     
     def create_payment_address(self, order_id: str, crypto_currency: str, 
                              amount: Decimal, payment_type: str = 'wallet',
-                             use_escrow: bool = False, linked_order_ids: list = None) -> PaymentAddress:
+                             use_escrow: bool = False, linked_order_ids: list = None,
+                             refund_address: str = None) -> PaymentAddress:
         
         try:
             crypto = CryptoCurrency.objects.get(symbol=crypto_currency)
@@ -915,6 +940,22 @@ class PaymentService:
                     )
                 }
             )
+            
+            # Save refund address to order if provided
+            from orders.models import Order
+            order = Order.objects.filter(order_id=order_id).first()
+            if order and refund_address:
+                order.refund_address = refund_address
+                order.save()
+                logger.info(f"Updated refund_address for order {order_id}: {refund_address}")
+            elif order and not order.refund_address:
+                # Try to get from user profile as last resort
+                profile_address = getattr(order.buyer, 'btc_payout_address' if crypto_currency == 'BTC' else 'xmr_payout_address', None)
+                if profile_address:
+                    order.refund_address = profile_address
+                    order.save()
+                    logger.info(f"Auto-filled refund_address from profile for order {order_id}: {profile_address}")
+
             
             # If payment address already exists, update it
             if not created:
@@ -1224,6 +1265,15 @@ class PaymentService:
                 else:
                     platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
                     logger.info(f"Using platform commission rate for escrow: {commission_settings.platform_fee_rate}%")
+
+                if getattr(order, 'was_highlighted_at_order', False):
+                    highlight_pct = Decimal(str(getattr(order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                    highlight_rate = highlight_pct / Decimal('100')
+                    platform_fee_rate += highlight_rate
+                    logger.info(
+                        f"Applying PROMOTIONAL highlight fee (+{highlight_pct}%) for escrow order "
+                        f"{order.order_id}. Total platform rate: {platform_fee_rate * 100}%"
+                    )
                 
                 gross_amount = amount
                 platform_fee = gross_amount * platform_fee_rate
@@ -1386,14 +1436,8 @@ class PaymentService:
                 # Map webhook types and payment statuses to our status
                 if webhook_type == 'InvoiceReceivedPayment':
                     # Payment received but might still be processing
-                    if payment_status == 'Processing':
-                        # CRITICAL CHANGE: Keep as 'Processing' (Pending) - DO NOT mark as 'Paid' yet
-                        # User wants toast/confirmation ONLY on Settlement
-                        btcpay_status = 'Processing'  
-                    elif payment_status == 'Settled':
-                        btcpay_status = 'Settled'  # Payment fully confirmed
-                    else:
-                        btcpay_status = 'Processing'
+                    # We treat any detected payment as 'Processing' until confirmed
+                    btcpay_status = 'Processing'  
                 elif webhook_type in ['InvoicePaymentSettled', 'InvoiceSettled', 'InvoicePaidAfterExpiration']:
                     btcpay_status = 'Settled'  # Payment fully settled, invoice completed, or paid late
                 elif webhook_type == 'InvoiceProcessing':
@@ -1419,34 +1463,26 @@ class PaymentService:
                     avg_amount = payment_data.get('amount')
                     if avg_amount:
                         received_amount = Decimal(str(avg_amount))
-                        # Tolerance Rule: $5.00 USD flat OR 10% of total (whichever is greater)
-                        expected = Decimal(str(payment_address.expected_amount))
-                        current_price = get_current_price_usd(payment_address.crypto_currency.symbol)
-                        if current_price > 0:
-                            tolerance = max(Decimal('5.00') / current_price, expected * Decimal('0.10'))
-                        else:
-                            tolerance = expected * Decimal('0.10')
-
-                        if received_amount < (expected - tolerance):
-                            is_partial = True
-                            logger.warning(f"BTCPay Underpayment Detected: Received {received_amount}, Expected {expected}. (Tolerance: {tolerance})")
-                        else:
-                            # If it's within tolerance but slightly under, mark it as 'paid' status in BTCPay context
-                            # to ensure we don't accidentally mark it as partial later
-                            if btcpay_status == 'Processing':
-                                btcpay_status = 'Settled' # Treat as settled for our logic if within tolerance
-                
+                        is_partial = not self._is_within_tolerance(payment_address, received_amount)
+                        
                 if is_partial:
-                    logger.warning(f"BTCPay Underpayment detected for {payment_address.order_id}: Received {received_amount}. Marking as partial.")
+                    logger.warning(f"BTCPay Underpayment detected for {payment_address.order_id}: Received {received_amount}. Triggering refund flow.")
                     payment_address.status = 'partial'
-                    payment_address.received_amount = received_amount
+                    
+                    # Update received_amount to current total from API for accuracy
+                    total_from_api = self.btcpay.get_total_paid_amount(invoice_id)
+                    actual_amount = total_from_api if total_from_api > 0 else received_amount
+                    
+                    payment_address.received_amount = actual_amount
                     payment_address.save()
                     
                     # Update order status to show user it was seen
                     from orders.models import Order
                     Order.objects.filter(order_id=payment_address.order_id).update(payment_status='partial')
                     
-                    return True # Mark as processed
+                    # Trigger the actual refund and payout logic instantly
+                    self._handle_partial_payment_detected(payment_address, actual_amount)
+                    return True
                 # NOTE: Do NOT add elif/else here that overwrites btcpay_status.
                 # btcpay_status was already correctly set above in the webhook_type if-elif chain.
                 # InvoiceProcessing is handled in its own elif branch above.
@@ -1474,7 +1510,8 @@ class PaymentService:
                     logger.info(f"BTCPay status is Settled - forcing confirmations to {payment_address.confirmations} to trigger payout")
                 
                 # Create notification for payment failed/expired
-                if mapped_status in ['cancelled', 'expired']:
+                # But NOT if it was a partial payment (refund notification handled separately)
+                if mapped_status in ['cancelled', 'expired'] and payment_address.status != 'partial':
                     try:
                         from orders.models import Order
                         from shared.models import Notification
@@ -1663,6 +1700,15 @@ class PaymentService:
                     if platform_fee_rate == 0 and commission_settings.platform_fee_rate > 0:
                         platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
 
+                    if getattr(order, 'was_highlighted_at_order', False):
+                        highlight_pct = Decimal(str(getattr(order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                        highlight_rate = highlight_pct / Decimal('100')
+                        platform_fee_rate += highlight_rate
+                        logger.info(
+                            f"Applying PROMOTIONAL highlight fee (+{highlight_pct}%) for bulk member {oid}. "
+                            f"Total platform rate: {platform_fee_rate * 100}%"
+                        )
+
                     # 3. Determine the amount for THIS order
                     global_received = Decimal(str(payment_address.received_amount or 0))
                     global_expected = Decimal(str(payment_address.expected_amount or 0))
@@ -1700,7 +1746,7 @@ class PaymentService:
 
                     # PROTECT COMPLETED / PROCESSING STATUS
                     if direct_payment.status == 'completed' or _is_payout_hash_legit(direct_payment.transaction_hash):
-                        logger.info(f"✅ Bulk Member {oid}: Payout already COMPLETED. Protecting status.")
+                        logger.info(f"Bulk Member {oid}: Payout already COMPLETED. Protecting status.")
                         direct_payment.status = 'completed'
                     elif direct_payment.status == 'processing':
                         logger.info(f"⏳ Bulk Member {oid}: Payout currently PROCESSING. Protecting status.")
@@ -1711,15 +1757,11 @@ class PaymentService:
                     
                     direct_payment.save()
 
-                    # 5. Update Order status
-                    if order.payment_status != 'paid':
-                        order.payment_status = 'paid'
-                        if order.order_status in ['pending', 'pending_payment', 'cancelled']:
-                            if order.product.delivery_time == 'instant_auto':
-                                order.order_status = 'confirmed'
-                            else:
-                                order.order_status = 'paid'
-                        order.save()
+                    # 5. Update Order status via dynamic handler to ensure consistency
+                    # This handles auto-delivery, notifications, and status transitions
+                    target_status = 'Settled' if is_settled else 'Confirmed'
+                    self._update_order_status_dynamically(order.order_id, target_status)
+
 
                     # 6. Trigger payout if confirmed
                     crypto_symbol = payment_address.crypto_currency.symbol
@@ -1727,11 +1769,11 @@ class PaymentService:
                     required_confs = payment_address.required_confirmations or django_settings.REQUIRED_CONFIRMATIONS.get(crypto_symbol, 1)
                     current_confs = payment_address.confirmations or 0
                     
-                    if is_settled or current_confs >= required_confs:
+                    if (is_settled or current_confs >= required_confs) and order.payment_status == 'paid':
                         try:
                             from .tasks import process_non_escrow_payout
                             process_non_escrow_payout.delay(oid, is_settled=is_settled)
-                            logger.info(f"✅ Triggered payout task for bulk member {oid}")
+                            logger.info(f"Triggered payout task for bulk member {oid}")
                         except Exception as e:
                             logger.error(f"Failed to trigger payout for {oid}: {e}")
                     else:
@@ -1750,258 +1792,151 @@ class PaymentService:
     
     
     def _update_order_status_dynamically(self, order_id: str, btcpay_status: str):
-        """Update order status dynamically based on BTCPay status"""
+        """Update order status dynamically based on BTCPay status with atomic protection"""
         try:
             from orders.models import Order, OrderStatus
+            from django.utils import timezone
+            from .models import PaymentAddress
             
-            logger.info(f"Looking for order with order_id: {order_id}")
-            # Use select_for_update to avoid race conditions with multiple workers/webhooks
+            logger.info(f"[STATUS] Updating order {order_id} via dynamic status: {btcpay_status}")
+            
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(order_id=order_id)
-                logger.info(f"Found order: {order.id}, current status: {order.order_status}, payment_status: {order.payment_status}")
-            
-            # Map BTCPay status to our order status
-            btcpay_to_order_status = {
-                'New': OrderStatus.PENDING_PAYMENT.value,
-                'Processing': OrderStatus.PENDING_PAYMENT.value,
-                'Confirmed': OrderStatus.PAID.value,
-                'Paid': OrderStatus.PAID.value,
-                'Settled': OrderStatus.PAID.value,
-                'Invalid': OrderStatus.CANCELLED.value,
-                'Expired': OrderStatus.CANCELLED.value
-            }
-            
-            # Map BTCPay status to payment status
-            btcpay_to_payment_status = {
-                'New': 'pending',
-                'Processing': 'paid',  # 'paid' here means system detected the coins, hides 'Cancel'
-                'Confirmed': 'paid',
-                'Paid': 'paid',
-                'Settled': 'paid', 
-                'Invalid': 'cancelled',
-                'Expired': 'expired'
-            }
-            
-            new_order_status = btcpay_to_order_status.get(btcpay_status, OrderStatus.PENDING_PAYMENT.value)
-            new_payment_status = btcpay_to_payment_status.get(btcpay_status)
-            
-            # CRITICAL: If new status is 'New' or 'Processing', and we already marked as 'paid' 
-            # (either via unconfirmed detection or previous confirmation), do NOT revert to 'pending'.
-            if new_payment_status == 'pending' and order.payment_status in ['paid', 'partial']:
-                logger.info(f"Order {order_id} already has payment detected. Skipping reset to 'pending'.")
-                new_payment_status = order.payment_status
-            
-            # Handle unknown statuses from BTCPay to avoid resetting to defaults
-            if not new_payment_status:
-                new_payment_status = order.payment_status
+                payment_address = PaymentAddress.objects.filter(order_id=order_id).select_for_update().first()
+                
+                logger.info(f"Order current: status={order.order_status}, pay_status={order.payment_status}")
+                
+                status_map = {
+                    'New': ('pending_payment', 'pending'),
+                    'Processing': ('pending_payment', 'paid'),
+                    'Confirmed': ('paid', 'paid'),
+                    'Paid': ('paid', 'paid'),
+                    'Settled': ('paid', 'paid'),
+                    'Invalid': ('cancelled', 'cancelled'),
+                    'Expired': ('cancelled', 'expired')
+                }
+                
+                mapped = status_map.get(btcpay_status, ('pending_payment', 'pending'))
+                new_order_status, new_payment_status = mapped
+                
+                # Validation Logic
+                if payment_address:
+                    if btcpay_status in ['Processing', 'Confirmed', 'Paid', 'Settled']:
+                        if not self._is_within_tolerance(payment_address, payment_address.received_amount):
+                            logger.warning(f"Underpayment for {order_id}: {payment_address.received_amount}. Marking partial.")
+                            new_payment_status = 'partial'
+                            new_order_status = 'pending_payment'
+                            if order.order_status != 'refunded':
+                                self._handle_partial_payment_detected(payment_address, payment_address.received_amount)
+                        else:
+                            # Full payment verified! Allow upgrade to 'paid' status immediately for UX
+                            new_order_status = 'paid'
 
-            # CRITICAL: Protect 'paid' status from being downgraded to 'expired' or 'cancelled'
-            if order.payment_status == 'paid' and new_payment_status in ['expired', 'cancelled']:
-                logger.info(f"Order {order_id} is already PAID. Protecting from downgrade to {new_payment_status}.")
-                # Don't return True here, just skip the assignment below
-            else:
-                # Update order status in memory
-                order.order_status = new_order_status
-                order.payment_status = new_payment_status
-            
-            # Set payment confirmed timestamp if status is paid/settled
-            if btcpay_status in ['Paid', 'Settled']:
-                # CRITICAL: Use the DB value, not the one in memory from before select_for_update
-                if order.payment_confirmed_at:
-                    logger.info(f"Notification already sent for order {order_id}. Skipping duplicate broadcast.")
-                    has_notified = True
-                else:
-                    order.payment_confirmed_at = timezone.now()
-                    has_notified = False
+                # Smart Override: Expired/Invalid with money = refund, not cancel
+                from decimal import Decimal
+                if btcpay_status in ['Expired', 'Invalid'] and payment_address and (payment_address.received_amount or Decimal('0')) > Decimal('0'):
+                    if order.order_status not in ['refunded', 'delivered', 'completed', 'confirmed', 'processing']:
+                        logger.warning(f"[REFUND] Expired invoice has money for {order_id}. Forcing refund instead of cancel.")
+                        new_order_status = 'refunded'
+                        new_payment_status = 'refunded'
+                        # Trigger payout pipeline (it has an internal guard to avoid duplicates)
+                        self._handle_partial_payment_detected(payment_address, payment_address.received_amount)
+
+                # Forward-Only Protection: refunded is absolute terminal (rank 10)
+                # cancelled/expired are LOW rank so they never overwrite paid/delivered/refunded
+                status_rank = {
+                    'pending': 1,
+                    'pending_payment': 1,
+                    'partial': 1,
+                    'cancelled': 2,
+                    'expired': 2,
+                    'paid': 3,
+                    'confirmed': 4,
+                    'processing': 4,
+                    'delivered': 5,
+                    'completed': 6,
+                    'refunded': 10,
+                }
+                current_rank = status_rank.get(order.order_status, 0)
+                new_rank = status_rank.get(new_order_status, 0)
                 
-                if not has_notified:
-                    # Set product credentials for paid orders (like in confirm_payment_success)
-                    # Only if delivery type is 'instant_auto' OR specifically configured for auto-delivery
-                    is_auto_delivery = order.product.delivery_time == 'instant_auto'
+                if new_rank > current_rank:
+                    order.order_status = new_order_status
+                
+                if new_payment_status == 'paid' or order.payment_status != 'paid':
+                    order.payment_status = new_payment_status
+
+                # Handle Delivery Trigger (Includes 0-conf 'Processing' if correct amount)
+                if btcpay_status in ['Processing', 'Confirmed', 'Paid', 'Settled'] and order.payment_status == 'paid':
+                    # Allow 0-conf delivery for instant_auto if amount is correct
+                    is_auto = order.product.delivery_time == 'instant_auto'
                     
-                    if order.product.credentials and not order.product_credentials and is_auto_delivery:
-                        order.product_credentials = {
-                            'credentials': order.product.credentials,
-                            'delivered_at': timezone.now().isoformat(),
-                            'delivery_method': order.product.delivery_time,
-                            'additional_info': order.product.additional_info or '',
-                            'notes': order.product.notes_for_buyer or ''
-                        }
-                        order.product.credentials_visible = True
-                        order.product.save()
-                        
-                        # Mark as DELIVERED in the database so vendor doesn't feel manual action is needed
-                        order.order_status = OrderStatus.DELIVERED.value
+                    if not order.payment_confirmed_at:
+                        # Only set confirmation timestamp on 1-conf or if we are auto-delivering now
+                        if btcpay_status != 'Processing' or is_auto:
+                            order.payment_confirmed_at = timezone.now()
+                    
+                    if is_auto and order.product.credentials and not order.product_credentials:
+                        order.product_credentials = {'credentials': order.product.credentials, 'delivered_at': timezone.now().isoformat()}
                         order.delivered_at = timezone.now()
-                        
-                        logger.info(f"Product credentials set and order {order_id} marked as DELIVERED (Auto-Delivery)")
-                    elif not is_auto_delivery:
-                        logger.info(f"Order {order_id} is Manual Delivery (type: {order.product.delivery_time}). Credentials NOT auto-released.")
+                        order.order_status = 'delivered'
+                        logger.info(f"Auto-delivered credentials for order {order_id}")
                     
-                    # Create notifications for buyer and vendor when payment is confirmed
-                    try:
-                        from shared.models import Notification
-                        from asgiref.sync import async_to_sync
-                        from channels.layers import get_channel_layer
-                        
-                        channel_layer = get_channel_layer()
-                        
-                        # Get credentials location/details for notification
-                        credentials_info = ""
-                        if order.product_credentials:
-                            creds = order.product_credentials.get('credentials', '')
-                            if creds:
-                                # Show first part of credentials or indicate location
-                                if isinstance(creds, str):
-                                    credentials_info = f"Credentials are available in your order details."
-                                else:
-                                    credentials_info = f"Your order credentials are ready."
-                        
-                        from shared.admin_notifications import send_user_notification
-                        
-                        # Notification for buyer
-                        send_user_notification(
-                            user=order.buyer,
-                            notification_type='payment_confirmed',
-                            title='Payment Received',
-                            message=f'Your payment for order {order.order_id} has been successfully received. {credentials_info}',
-                            data={
-                                'order_id': order.order_id,
-                                'product_id': str(order.product.id),
-                                'product_headline': order.product.headline,
-                                'action_url': f'/buyer/orders',
-                                'has_credentials': bool(order.product_credentials)
-                            }
-                        )
-                        
-                        # Notification for vendor
-                        escrow_note = " (Escrow)" if order.use_escrow else ""
-                        send_user_notification(
-                            user=order.vendor,
-                            notification_type='payment_received',
-                            title='Payment Received',
-                            message=f'Payment received for order {order.order_id} from {order.buyer.username} - "{order.product.headline}"{escrow_note}.',
-                            data={
-                                'order_id': order.order_id,
-                                'buyer_username': order.buyer.username,
-                                'product_id': str(order.product.id),
-                                'product_headline': order.product.headline,
-                                'action_url': f'/vendor/orders',
-                                'use_escrow': order.use_escrow
-                            }
-                        )
-                        
-                        # Trigger count refresh for all users (admin/vendor/buyer) when payment is confirmed
-                        try:
-                            # Send to buyer
-                            async_to_sync(channel_layer.group_send)(
-                                f'realtime_{order.buyer.id}',
-                                {
-                                    'type': 'order_notification',
-                                    'data': {
-                                        'id': f'count_refresh_payment_{order.id}',
-                                        'type': 'system',
-                                        'title': 'Count Refresh',
-                                        'message': 'Order count updated',
-                                        'is_read': False,
-                                        'data': {
-                                            'action': 'refresh_counts',
-                                            'type': 'order'
-                                        },
-                                        'action_url': '',
-                                        'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                        'priority': 'low'
-                                    }
-                                }
-                            )
-                            
-                            # Send to vendor
-                            async_to_sync(channel_layer.group_send)(
-                                f'realtime_{order.vendor.id}',
-                                {
-                                    'type': 'order_notification',
-                                    'data': {
-                                        'id': f'count_refresh_payment_{order.id}',
-                                        'type': 'system',
-                                        'title': 'Count Refresh',
-                                        'message': 'Order count updated',
-                                        'is_read': False,
-                                        'data': {
-                                            'action': 'refresh_counts',
-                                            'type': 'order'
-                                        },
-                                        'action_url': '',
-                                        'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                        'priority': 'low'
-                                    }
-                                }
-                            )
-                            
-                            # Send to all admins
-                            from django.contrib.auth import get_user_model
-                            User = get_user_model()
-                            admin_users = User.objects.filter(user_type='admin', is_active=True)
-                            for admin_user in admin_users:
-                                async_to_sync(channel_layer.group_send)(
-                                    f'realtime_{admin_user.id}',
-                                    {
-                                        'type': 'order_notification',
-                                        'data': {
-                                            'id': f'count_refresh_payment_{order.id}',
-                                            'type': 'system',
-                                            'title': 'Count Refresh',
-                                            'message': 'Order count updated',
-                                            'is_read': False,
-                                            'data': {
-                                                'action': 'refresh_counts',
-                                                'type': 'order'
-                                            },
-                                            'action_url': '',
-                                            'created_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') else timezone.now().isoformat(),
-                                            'priority': 'low'
-                                        }
-                                    }
-                                )
-                        except Exception as e:
-                            logger.error(f"Error sending count refresh notification: {e}")
-                        logger.info(f"Payment confirmation notifications created for order {order_id}")
-                    except Exception as e:
-                        logger.error(f"Failed to send real-time payment notifications: {str(e)}")
-            
-            order.save()
-            # Schedule review prompt for buyer if payment is NEWLY confirmed
-            if btcpay_status in ['Paid', 'Settled'] and not has_notified:
-                try:
-                    from orders.tasks import send_review_prompt_task
-                    send_review_prompt_task.apply_async(
-                        args=[order.buyer.id, order.product.id, order.order_id],
-                        countdown=180  # Delay to give time for delivery/viewing
-                    )
-                    logger.info(f"Scheduled review prompt for order {order.order_id}")
-                except Exception as e:
-                    logger.error(f"Failed to schedule review prompt for order {order.order_id}: {str(e)}")
-                
-                # Create escrow payout immediately when order is paid (not just when confirmed)
-                if order.use_escrow:
-                    try:
+                    if order.payment_confirmed_at and order.use_escrow:
                         from payments.tasks import create_escrow_payout
-                        
-                        # Create escrow payout asynchronously
                         create_escrow_payout.apply_async(args=[order.order_id])
-                        
-                        logger.info(f"Escrow payout creation queued for paid order {order.order_id}")
-                    except Exception as e:
-                        logger.error(f"Failed to queue escrow payout for order {order.order_id}: {str(e)}")
-                else:
-                    # For non-escrow orders, we do NOT trigger payout here anymore.
-                    # Payout is now handled exclusively by _process_direct_payment_webhook
-                    # which includes critical blockchain confirmation checks.
-                    logger.info(f"Direct payment for order {order_id} will be processed by webhook handler after confirmations")
-            
+                    
+                    # Only broadcast confirmation once
+                    if order.payment_confirmed_at:
+                        self._broadcast_payment_confirmation(order)
+                
+                order.save()
+                logger.info(f"Successfully updated order {order_id} to {order.order_status}/{order.payment_status}")
         except Order.DoesNotExist:
-            logger.error(f"Order not found with order_id: {order_id}")
+            logger.error(f"Order not found: {order_id}")
         except Exception as e:
-            logger.error(f"Error updating order status for {order_id}: {str(e)}")
+            logger.error(f"Error updating order {order_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+    def _broadcast_payment_confirmation(self, order):
+        """Helper to send notifications and websocket updates"""
+        try:
+            from shared.admin_notifications import send_user_notification
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            
+            # 1. Notify Buyer
+            creds_msg = "Your credentials have been delivered!" if order.order_status == 'delivered' else "Wait for vendor delivery."
+            send_user_notification(
+                user=order.buyer,
+                notification_type='payment_confirmed',
+                title='Payment Confirmed',
+                message=f'Payment for order {order.order_id} was successfully verified. {creds_msg}',
+                data={'order_id': order.order_id, 'action_url': '/buyer/orders'}
+            )
+            
+            # 2. Notify Vendor
+            escrow_msg = " (Funds held in Escrow)" if order.use_escrow else ""
+            send_user_notification(
+                user=order.vendor,
+                notification_type='order_paid',
+                title='New Paid Order',
+                message=f'Order {order.order_id} has been paid{escrow_msg}.',
+                data={'order_id': order.order_id, 'action_url': '/vendor/orders'}
+            )
+            
+            # 3. Real-time Refresh
+            channel_layer = get_channel_layer()
+            for user_id in [order.buyer.id, order.vendor.id]:
+                async_to_sync(channel_layer.group_send)(
+                    f'realtime_{user_id}',
+                    {'type': 'order_notification', 'data': {'data': {'action': 'refresh_counts', 'type': 'order'}}}
+                )
+        except Exception as e:
+            logger.error(f"Error broadcasting confirmation for {order.order_id}: {e}")
+
+
 
     def _update_escrow_payout_status(self, order_id: str):
         """Update payout record for an escrowed order when it becomes funded"""
@@ -2147,111 +2082,217 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Error getting payment address for {order_id}: {e}")
             return None
-    
+
     def _handle_partial_payment_detected(self, payment_address, amount_received):
         """Helper to handle partial payment detection - marks order as refunded and queues auto-refund payout"""
+        payout_to_queue_id = None  # Queued in finally block OUTSIDE the transaction
         try:
             from orders.models import Order
-            order = Order.objects.filter(order_id=payment_address.order_id).first()
-            if not order:
-                return
-            
-            # SAFETY GUARD: If order is already PAID or credentials delivered, NEVER mark as partial/refunded
-            # This protects against timing issues where background tasks find "underpayment" due to price shifts
-            # after a successful detection.
-            order_already_processed = (
-                order.payment_status == 'paid' or 
-                order.order_status in ['paid', 'confirmed', 'delivered', 'completed', 'processing']
-            )
-            credentials_delivered = order.product_credentials is not None and order.product_credentials != {}
-            
-            if order_already_processed or credentials_delivered:
-                logger.warning(f"⚠️ SAFETY LOCK: Order {order.order_id} already successfully processed ({order.order_status}). Aborting accidental partial refund flow.")
-                return
+            from .models import DirectPayment, RefundRequest, Payout, EscrowPayment
+            from shared.admin_notifications import send_user_notification
+            import traceback
 
-            if order.order_status == 'refunded':
-                return # Already handled
-            
-            logger.warning(f"Executing _handle_partial_payment_detected for order {order.order_id}")
-            
-            # Update order and payment status
-            order.payment_status = 'refunded'
-            order.order_status = 'refunded'
-            order.dispute_reason = "partial"
-            order.save()
-            
-            payment_address.status = 'refunded'
-            payment_address.received_amount = amount_received
-            payment_address.confirmed_at = timezone.now()
-            payment_address.save()
-            
-            # Sync/Create DirectPayment status to ensure vendor sees it as refunded
-            from .models import DirectPayment, RefundRequest
-            dp, created = DirectPayment.objects.update_or_create(
-                order=order,
-                defaults={
-                    'vendor': order.vendor,
-                    'buyer': order.buyer,
-                    'crypto_currency': payment_address.crypto_currency,
-                    'amount': payment_address.expected_amount,
-                    'amount_received': amount_received,
-                    'status': 'refunded',
-                    'vendor_address': "REFUNDED",
-                    'net_amount': 0
-                }
-            )
-            
-            # Create a RefundRequest object so it shows in the buyer dashboard /refund-requests
-            if not RefundRequest.objects.filter(order=order).exists():
-                RefundRequest.objects.create(
+            logger.info(f"Executing _handle_partial_payment_detected for order {payment_address.order_id} (Received: {amount_received})")
+
+            with transaction.atomic():
+                # Try direct order_id first, then EscrowPayment fallback for bulk orders
+                order = Order.objects.filter(order_id=payment_address.order_id).select_for_update().first()
+                if not order:
+                    ep = EscrowPayment.objects.filter(payment_address=payment_address).select_related('order').first()
+                    if ep and ep.order:
+                        order = Order.objects.select_for_update().get(pk=ep.order.pk)
+
+                if not order:
+                    logger.error(f"Order {payment_address.order_id} not found during refund trigger. PaymentAddress ID: {payment_address.id}")
+                    return
+
+                # ── DUPLICATE GUARD: check existing refund payout first ──────
+                existing_refund = Payout.objects.filter(order=order, payout_type='refund').order_by('-created_at').first()
+                if existing_refund:
+                    if existing_refund.status == 'completed':
+                        logger.info(f"Refund payout {existing_refund.id} already COMPLETED for {order.order_id}. Skipping.")
+                        return
+                    elif existing_refund.status == 'processing':
+                        logger.info(f"Refund payout {existing_refund.id} already PROCESSING for {order.order_id}. Skipping.")
+                        return
+                    elif existing_refund.status in ['pending', 'failed']:
+                        logger.warning(f"Re-queuing {existing_refund.status} refund payout {existing_refund.id} for {order.order_id}")
+                        payout_to_queue_id = str(existing_refund.id)
+                        return  # exits 'with'; payout queued in finally
+
+                # If order already refunded but no usable payout found → create one
+                if order.order_status == 'refunded':
+                    logger.warning(f"Order {order.order_id} is 'refunded' but has no pending/completed payout. Creating one now.")
+
+                # SAFETY CHECK: If order was already delivered or processing auto-delivery, 
+                # do NOT trigger an auto-refund for a late underpayment.
+                order_already_processed = order.order_status in ['confirmed', 'delivered', 'completed', 'processing']
+                credentials_delivered = hasattr(order, 'credentials') and order.credentials.exists()
+
+                if order_already_processed or credentials_delivered:
+                    logger.warning(f"BLOCKING AUTO-REFUND: Order {order.order_id} is already processed or delivered. Shortfall of {order.total_amount - amount_received} ignored.")
+                    # Mark payment_address as paid instead so it doesn't keep triggering this
+                    payment_address.status = 'paid'
+                    payment_address.save()
+                    return
+
+                # Update statuses
+                order.payment_status = 'refunded'
+                order.order_status = 'refunded'
+                order.dispute_reason = "partial_payment_auto_refund"
+                order.save()
+
+                payment_address.status = 'refunded'
+                payment_address.save()
+
+                # CRITICAL: Sync EscrowPayment status if it exists
+                EscrowPayment.objects.filter(payment_address=payment_address).update(status='refunded')
+
+                # Create DirectPayment link for visibility (even for escrow)
+                DirectPayment.objects.update_or_create(
                     order=order,
-                    buyer=order.buyer,
-                    vendor=order.vendor,
-                    amount=amount_received,
-                    refund_type='partial',
-                    reason="partial",
-                    notes=f"Auto-refund of underpaid payment. Received: {amount_received}",
-                    status='completed',
-                    vendor_decision='approved',
-                    vendor_decision_at=timezone.now(),
-                    vendor_decision_notes="Auto-approved by system due to partial payment.",
-                    completed_at=timezone.now()
+                    defaults={
+                        'vendor': order.vendor,
+                        'buyer': order.buyer,
+                        'crypto_currency': payment_address.crypto_currency,
+                        'amount': order.total_amount,
+                        'amount_received': amount_received,
+                        'status': 'refunded',
+                        'expires_at': timezone.now() + timedelta(hours=24),  # NOT NULL required
+                    }
                 )
-                logger.info(f"Created RefundRequest object for order {order.order_id}")
 
-            # Create automatic refund if refund_address exists
-            if order.refund_address:
-                from .models import Payout
-                from .tasks import process_payout_task
-                
-                # Check if refund already exists
-                if not Payout.objects.filter(order=order, payout_type='refund').exists():
-                    # Calculate refund amount (gross minus 3% fee for network costs/handling)
-                    gross = amount_received
-                    fee_rate = Decimal('0.03') 
-                    platform_fee = gross * fee_rate
-                    net = gross - platform_fee
-                    
-                    payout = Payout.objects.create(
+                # Log to RefundRequest so it shows in user dashboard
+                RefundRequest.objects.get_or_create(
+                    order=order,
+                    defaults={
+                        'buyer': order.buyer,
+                        'vendor': order.vendor,
+                        'amount': amount_received,
+                        'reason': f"System: Auto-refund triggered due to underpayment ({amount_received} received vs {order.total_amount} expected)",
+                        'status': 'completed'
+                    }
+                )
+
+                # CRITICAL: Define symbol FIRST (avoids NameError)
+                symbol = payment_address.crypto_currency.symbol
+
+                # ── DETERMINE REFUND DESTINATION ────────────────────────────────
+                # Priority: 1) order.refund_address  2) buyer profile  3) BTCPay tx sender
+                refund_addr = getattr(order, 'refund_address', None) or None
+
+                if not refund_addr:
+                    if symbol == 'BTC':
+                        refund_addr = getattr(order.buyer, 'btc_payout_address', None)
+                    elif symbol == 'XMR':
+                        refund_addr = getattr(order.buyer, 'xmr_payout_address', None)
+
+                # 3) Fallback: extract SENDER address from blockchain using incoming txid
+                # payment_address.transaction_hash is set before calling this function
+                if not refund_addr and symbol == 'BTC':
+                    incoming_txid = payment_address.transaction_hash or getattr(payment_address, 'transaction_hash', None)
+                    if incoming_txid:
+                        try:
+                            import requests as _req
+                            # mempool.space gives us vin[].prevout.scriptpubkey_address = sender's address
+                            for _api in [
+                                f"https://mempool.space/api/tx/{incoming_txid}",
+                                f"https://blockstream.info/api/tx/{incoming_txid}"
+                            ]:
+                                try:
+                                    _r = _req.get(_api, timeout=10)
+                                    if _r.status_code == 200:
+                                        _tx = _r.json()
+                                        # vin[0].prevout.scriptpubkey_address is the sender
+                                        for _vin in _tx.get('vin', []):
+                                            _sender = _vin.get('prevout', {}).get('scriptpubkey_address')
+                                            if _sender:
+                                                refund_addr = _sender
+                                                order.refund_address = _sender
+                                                order.save(update_fields=['refund_address'])
+                                                logger.info(f"Extracted sender BTC address from blockchain tx {incoming_txid}: {_sender}")
+                                                break
+                                    if refund_addr:
+                                        break
+                                except Exception:
+                                    continue
+                        except Exception as _tx_err:
+                            logger.warning(f"Could not extract sender from blockchain tx for {order.order_id}: {_tx_err}")
+
+                logger.info(f"Refund address for {order.order_id}: {refund_addr} (symbol={symbol})")
+
+
+                if refund_addr:
+                    # 1. Deduct standard 3% safety/processing fee for partial refunds
+                    platform_fee = amount_received * Decimal('0.03')
+                    net_amount = amount_received - platform_fee
+
+                    # 2. Realistic dust-limit: BTC ~1000 sat, XMR 0.0001
+                    min_refund = Decimal('0.000001') if symbol == 'BTC' else Decimal('0.0001')
+                    if net_amount < min_refund:
+                        logger.error(f"REFUND ABORTED: Amount {net_amount} {symbol} is below dust limit for {order.order_id}")
+                        # Mark as cancelled (not refunded) since no money was actually returned
+                        order.order_status = 'cancelled'
+                        order.dispute_reason = 'partial_payment_too_small_to_refund'
+                        order.save()
+                        send_user_notification(
+                            user=order.buyer,
+                            notification_type='refund_failed',
+                            title='Payment Too Small to Refund',
+                            message=f'Your partial payment for order {order.order_id} ({amount_received} {symbol}) was below the minimum refundable amount. Please contact support.'
+                        )
+                        return
+
+                    # 3. get_or_create PREVENTS DUPLICATE PAYOUT RECORDS
+                    payout, created = Payout.objects.get_or_create(
                         order=order,
-                        vendor=order.vendor,
-                        buyer=order.buyer,
                         payout_type='refund',
-                        crypto_currency=payment_address.crypto_currency,
-                        gross_amount=gross,
-                        net_amount=net,
-                        platform_fee=platform_fee,
-                        vendor_address=order.refund_address,
-                        status='pending'
+                        defaults={
+                            'vendor': order.vendor,
+                            'buyer': order.buyer,
+                            'crypto_currency': payment_address.crypto_currency,
+                            'gross_amount': amount_received,
+                            'platform_fee': platform_fee,
+                            'net_amount': net_amount,
+                            'vendor_address': refund_addr,
+                            'status': 'pending'
+                        }
                     )
-                    
-                    process_payout_task.delay(str(payout.id))
-                    logger.info(f"✅ AUTO-REFUND TRIGGERED for partial payment on order {order.order_id}")
-            else:
-                logger.error(f"❌ CANNOT AUTO-REFUND: No refund address for order {order.order_id}")
-                
+                    if not created and payout.status == 'completed':
+                        logger.info(f"Refund payout {payout.id} already completed for {order.order_id}. Skipping.")
+                        return
+                    if created:
+                        logger.info(f"AUTO-REFUND: New payout {payout.id} for {order.order_id} ({net_amount} {symbol}) → {refund_addr}")
+                    else:
+                        logger.warning(f"AUTO-REFUND: Re-queuing existing payout {payout.id} (status={payout.status}) for {order.order_id}")
+                    payout_to_queue_id = str(payout.id)
+                else:
+                    logger.error(f"CANNOT AUTO-REFUND: No {symbol} address found for {order.order_id}. Marking as pending_refund_address.")
+                    # Mark with a clear state so admin/retry can track it
+                    order.order_status = 'pending_refund_address'
+                    order.dispute_reason = f'partial_payment_no_refund_address_{symbol.lower()}'
+                    order.save()
+                    send_user_notification(
+                        user=order.buyer,
+                        notification_type='action_required',
+                        title='Action Required: Refund Address Needed',
+                        message=(
+                            f'Your partial payment of {amount_received} {symbol} for order {order.order_id} '
+                            f'has been received. To get your refund, please go to your Profile Settings and '
+                            f'add your {symbol} payout address. Once set, your refund will be processed automatically.'
+                        )
+                    )
+
         except Exception as e:
-            logger.error(f"Error in _handle_partial_payment_detected: {e}")
+            logger.error(f"Error in _handle_partial_payment_detected: {str(e)}")
+            logger.error(traceback.format_exc())
+
+        finally:
+            # Queue payout task OUTSIDE the transaction to prevent race conditions
+            if payout_to_queue_id:
+                from .tasks import process_payout_task
+                process_payout_task.delay(payout_to_queue_id)
+                logger.info(f"process_payout_task queued for payout {payout_to_queue_id}")
 
     def check_payment_status(self, order_id: str) -> dict:
         """Check current payment status"""
@@ -2457,34 +2498,25 @@ class PaymentService:
                             payment_address.confirmations = found_tx['confs']
                             
                             # Check for partial
-                            # Tolerance Rule: $5.00 USD flat OR 10% of total (whichever is greater)
-                            current_price = self.get_fiat_to_crypto_rate('BTC')
-                            if current_price is None or current_price <= 0:
-                                # Fallback to global helper
-                                current_price = get_current_price_usd('BTC')
-                                
-                            if current_price and current_price > 0:
-                                tolerance = max(Decimal('5.00') / current_price, payment_address.expected_amount * Decimal('0.10'))
-                            else:
-                                tolerance = payment_address.expected_amount * Decimal('0.10')
-                                
-                            is_partial = found_tx['amount'] < (payment_address.expected_amount - tolerance)
+                            is_partial = not self._is_within_tolerance(payment_address, found_tx['amount'])
                             
                             if is_partial:
                                 # SAFETY CHECK before triggering partial refund
                                 from orders.models import Order
                                 order = Order.objects.filter(order_id=order_id).first()
-                                already_paid = order and (order.payment_status == 'paid' or order.order_status in ['paid', 'confirmed', 'delivered', 'completed'])
+                                # Only block if ALREADY delivered or completed. 
+                                # Do NOT block because of payment_status='paid' (which can be 0-conf)
+                                already_fulfilled = order and order.order_status in ['delivered', 'completed', 'processing']
                                 
-                                if already_paid:
-                                    logger.warning(f"Order {order_id} is already PAID. Ignoring BTC shortfall of {payment_address.expected_amount - found_tx['amount']} BTC.")
+                                if already_fulfilled:
+                                    logger.warning(f"Order {order_id} is already FULFILLED. Ignoring BTC shortfall of {payment_address.expected_amount - found_tx['amount']} BTC.")
                                     payment_address.status = 'paid'
                                 else:
                                     payment_address.status = 'partial'
-                                    # If confirmed, we can trigger handle_partial
-                                    if found_tx['confs'] >= 1:
-                                        logger.warning(f"BTC Partial Payment detected in background: {found_tx['amount']} vs {payment_address.expected_amount}")
-                                        self._handle_partial_payment_detected(payment_address, found_tx['amount'])
+                                    # Trigger refund on ANY partial payment - no need to wait for confs
+                                    # since we're refunding to buyer, not delivering product
+                                    logger.warning(f"BTC Partial Payment detected in background: {found_tx['amount']} vs {payment_address.expected_amount} (confs: {found_tx['confs']})")
+                                    self._handle_partial_payment_detected(payment_address, found_tx['amount'])
                             else:
                                 # Not partial, mark as paid if we have confirmations
                                 req_confs = getattr(settings, 'REQUIRED_CONFIRMATIONS', {}).get('BTC', 1)
@@ -2968,17 +3000,12 @@ class PayoutService:
             # CRITICAL: Verify we're not sending MORE than we received
             if received_amount is not None:
                 if amount > received_amount:
-                    logger.error(f"❌❌❌ CRITICAL ERROR: Trying to send {amount} BTC but only received {received_amount} BTC!")
-                    logger.error(f"   We're sending {amount - received_amount} BTC MORE than we received!")
-                    logger.error(f"   ABORTING - This would cause platform to lose money!")
+                    logger.error(f"CRITICAL ERROR: Trying to send {amount} BTC but only received {received_amount} BTC!")
+                    logger.error(f"ABORTING - This would cause platform to lose money!")
                     raise ValueError(f"Cannot send {amount} BTC when only {received_amount} BTC was received!")
-                elif amount == received_amount:
-                    logger.error(f"❌ CRITICAL ERROR: Trying to send {amount} BTC (same as received) - platform fee was NOT deducted!")
-                    logger.error(f"   ABORTING - Platform fee must be deducted before sending!")
-                    raise ValueError(f"Cannot send full amount {amount} BTC - platform fee must be deducted!")
                 else:
                     platform_fee_retained = received_amount - amount
-                    logger.info(f"✅ VERIFIED: Sending {amount} BTC (received: {received_amount} BTC, platform fee retained: {platform_fee_retained} BTC)")
+                    logger.info(f"VERIFIED: Sending {amount} BTC (received: {received_amount} BTC, fee retained: {platform_fee_retained} BTC)")
             
             # CRITICAL: Verify amount is reasonable (should be less than what we received)
             # If amount > received_amount, we're sending MORE than we received - THIS IS WRONG!
@@ -3108,6 +3135,8 @@ class PayoutService:
                 p_rate = Decimal('0')
                 e_rate = Decimal('0')
                 expected_net = payout.net_amount
+                promotion_fee_rate_pct = Decimal('0')
+                promotion_fee_amount = Decimal('0')
             else:
                 from .commission_models import CommissionSettings, VendorFee
                 cs = CommissionSettings.get_settings()
@@ -3116,15 +3145,20 @@ class PayoutService:
                 # Base platform and escrow rates
                 p_rate = (v_rate if v_rate is not None else cs.platform_fee_rate) / Decimal('100')
                 e_rate = cs.escrow_fee_rate / Decimal('100') if payout.payout_type == 'escrow' else Decimal('0')
+                promotion_fee_rate_pct = Decimal('0')
+                promotion_fee_amount = Decimal('0')
 
                 # Add promotional highlight fee
                 if getattr(payout.order, 'was_highlighted_at_order', False):
-                    h_rate = getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00')) / Decimal('100')
+                    highlight_pct = Decimal(str(getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                    h_rate = highlight_pct / Decimal('100')
+                    promotion_fee_rate_pct = highlight_pct
                     p_rate += h_rate
                     logger.info(f"Applying PROMOTIONAL highlight fee (+{h_rate*100}%) for order {payout.order.order_id}. Total Platform Rate: {p_rate*100}%")
                 
                 payout.platform_fee = payout.gross_amount * p_rate
                 payout.escrow_fee = payout.gross_amount * e_rate
+                promotion_fee_amount = (payout.gross_amount * promotion_fee_rate_pct) / Decimal('100') if promotion_fee_rate_pct > 0 else Decimal('0')
                 expected_net = payout.gross_amount - payout.platform_fee - payout.escrow_fee
             
             if abs(payout.net_amount - expected_net) > Decimal('0.00000001'):
@@ -3133,6 +3167,12 @@ class PayoutService:
                 payout.save()
             
             logger.info(f"✅ Dynamic fee verification passed: Gross={payout.gross_amount}, Platform={payout.platform_fee} ({p_rate*100}%), Escrow={payout.escrow_fee} ({e_rate*100}%), Net={payout.net_amount}")
+            if promotion_fee_amount > 0:
+                logger.info(
+                    f"💸 PROMOTION FEE DEDUCTED: order {payout.order.order_id} is_highlighted=True, "
+                    f"extra_fee_rate={promotion_fee_rate_pct}%, deducted={promotion_fee_amount} {payout.crypto_currency.symbol} "
+                    f"from order amount {payout.gross_amount} {payout.crypto_currency.symbol}"
+                )
             
             # Final idempotency guard before send
             with transaction.atomic():

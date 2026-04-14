@@ -133,13 +133,16 @@ class CreatePaymentAddressView(APIView):
             # Create payment address
             payment_service = PaymentService()
             linked_order_ids = data.get('linked_order_ids', [])
+            refund_address = data.get('refund_address')
+            
             payment_address = payment_service.create_payment_address(
                 order_id=order_id,
                 crypto_currency=crypto_currency,
                 amount=amount,
                 payment_type=payment_type,
                 use_escrow=use_escrow,
-                linked_order_ids=linked_order_ids
+                linked_order_ids=linked_order_ids,
+                refund_address=refund_address
             )
             
             # Prepare response
@@ -979,6 +982,20 @@ class AdminPayoutView(APIView):
                 if payout.gross_amount > 0:
                     platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
                     escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
+                promotion_fee_rate = Decimal('0')
+                promotion_fee = Decimal('0')
+                if (
+                    payout.order
+                    and getattr(payout.order, 'was_highlighted_at_order', False)
+                    and payout.gross_amount > 0
+                ):
+                    promotion_fee_rate = Decimal(str(getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                    promotion_fee = (payout.gross_amount * promotion_fee_rate) / Decimal('100')
+                    if promotion_fee > payout.platform_fee:
+                        promotion_fee = payout.platform_fee
+                base_platform_fee = payout.platform_fee - promotion_fee
+                if base_platform_fee < 0:
+                    base_platform_fee = Decimal('0')
                 
                 currency_symbol = payout.crypto_currency.symbol.upper().strip()
                 
@@ -1009,9 +1026,12 @@ class AdminPayoutView(APIView):
                     'completed_at': payout.completed_at.strftime('%Y-%m-%d %H:%M:%S') if payout.completed_at else None,
                     'gross_amount': format(payout.gross_amount, 'f').rstrip('0').rstrip('.') if payout.gross_amount > 0 else '0.00',
                     'platform_fee': format(payout.platform_fee, 'f').rstrip('0').rstrip('.') if payout.platform_fee > 0 else '0.00',
+                    'base_platform_fee': format(base_platform_fee, 'f').rstrip('0').rstrip('.') if base_platform_fee > 0 else '0.00',
+                    'promotion_fee': format(promotion_fee, 'f').rstrip('0').rstrip('.') if promotion_fee > 0 else '0.00',
                     'escrow_fee': format(payout.escrow_fee, 'f').rstrip('0').rstrip('.') if payout.escrow_fee > 0 else '0.00',
                     'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
+                    'promotion_fee_rate': float(promotion_fee_rate),
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                     'vendor_address': payout.vendor_address,
                     'transaction_hash': payout.transaction_hash,
@@ -1030,6 +1050,20 @@ class AdminPayoutView(APIView):
                 platform_fee_rate = 0
                 if direct.amount > 0:
                     platform_fee_rate = (direct.platform_fee / direct.amount) * 100
+                promotion_fee_rate = Decimal('0')
+                promotion_fee = Decimal('0')
+                if (
+                    direct.order
+                    and getattr(direct.order, 'was_highlighted_at_order', False)
+                    and direct.amount > 0
+                ):
+                    promotion_fee_rate = Decimal(str(getattr(direct.order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                    promotion_fee = (direct.amount * promotion_fee_rate) / Decimal('100')
+                    if promotion_fee > direct.platform_fee:
+                        promotion_fee = direct.platform_fee
+                base_platform_fee = direct.platform_fee - promotion_fee
+                if base_platform_fee < 0:
+                    base_platform_fee = Decimal('0')
                 
                 # Force net calculation for display
                 network_fee = btc_live_fee if currency_symbol == 'BTC' else Decimal('0.0001')
@@ -1053,9 +1087,12 @@ class AdminPayoutView(APIView):
                     'amount': format(display_net, 'f').rstrip('0').rstrip('.') if display_net > 0 else '0.00',
                     'gross_amount': format(direct.amount, 'f').rstrip('0').rstrip('.') if direct.amount > 0 else '0.00',
                     'platform_fee': format(direct.platform_fee, 'f').rstrip('0').rstrip('.') if direct.platform_fee > 0 else '0.00',
+                    'base_platform_fee': format(base_platform_fee, 'f').rstrip('0').rstrip('.') if base_platform_fee > 0 else '0.00',
+                    'promotion_fee': format(promotion_fee, 'f').rstrip('0').rstrip('.') if promotion_fee > 0 else '0.00',
                     'escrow_fee': '0.00',
                     'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
+                    'promotion_fee_rate': float(promotion_fee_rate),
                     'vendor_address': direct.vendor_address,
                     'transaction_hash': direct.transaction_hash,
                     'status': direct.status,
@@ -1312,7 +1349,7 @@ class VendorPayoutsView(APIView):
             excluded_payout_status = ['failed', 'cancelled', 'refunded', 'expired']
             
             # Fetch Payouts (Escrow) - Optimized with select_related
-            payout_records = Payout.objects.select_related('order', 'crypto_currency').filter(
+            payout_records = Payout.objects.select_related('order', 'order__product', 'crypto_currency').filter(
                 vendor=vendor
             ).exclude(
                 status__in=excluded_payout_status
@@ -1321,7 +1358,7 @@ class VendorPayoutsView(APIView):
             ).order_by('-created_at')
             
             # Fetch Direct Payments - Optimized with select_related
-            direct_records = DirectPayment.objects.select_related('order', 'crypto_currency').filter(
+            direct_records = DirectPayment.objects.select_related('order', 'order__product', 'crypto_currency').filter(
                 vendor=vendor
             ).exclude(
                 status__in=excluded_payout_status
@@ -1342,6 +1379,20 @@ class VendorPayoutsView(APIView):
                 if payout.gross_amount > 0:
                     platform_fee_rate = (payout.platform_fee / payout.gross_amount) * 100
                     escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
+                promotion_fee_rate = Decimal('0')
+                promotion_fee = Decimal('0')
+                if (
+                    payout.order
+                    and getattr(payout.order, 'was_highlighted_at_order', False)
+                    and payout.gross_amount > 0
+                ):
+                    promotion_fee_rate = Decimal(str(getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                    promotion_fee = (payout.gross_amount * promotion_fee_rate) / Decimal('100')
+                    if promotion_fee > payout.platform_fee:
+                        promotion_fee = payout.platform_fee
+                base_platform_fee = payout.platform_fee - promotion_fee
+                if base_platform_fee < 0:
+                    base_platform_fee = Decimal('0')
                 
                 currency_symbol = payout.crypto_currency.symbol.upper().strip()
                 usd_rate = btc_rate if currency_symbol in ['BTC', 'BITCOIN'] else xmr_rate
@@ -1376,9 +1427,12 @@ class VendorPayoutsView(APIView):
                     'type': payout.payout_type,
                     'gross_amount': format(payout.gross_amount, 'f').rstrip('0').rstrip('.'),
                     'platform_fee': format(payout.platform_fee, 'f').rstrip('0').rstrip('.'),
+                    'base_platform_fee': format(base_platform_fee, 'f').rstrip('0').rstrip('.'),
+                    'promotion_fee': format(promotion_fee, 'f').rstrip('0').rstrip('.'),
                     'escrow_fee': format(payout.escrow_fee, 'f').rstrip('0').rstrip('.'),
                     'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
+                    'promotion_fee_rate': float(promotion_fee_rate),
                     'escrow_fee_rate': round(escrow_fee_rate, 2),
                 })
             
@@ -1391,6 +1445,20 @@ class VendorPayoutsView(APIView):
                 platform_fee_rate = 0
                 if payment.amount > 0:
                     platform_fee_rate = (payment.platform_fee / payment.amount) * 100
+                promotion_fee_rate = Decimal('0')
+                promotion_fee = Decimal('0')
+                if (
+                    payment.order
+                    and getattr(payment.order, 'was_highlighted_at_order', False)
+                    and payment.amount > 0
+                ):
+                    promotion_fee_rate = Decimal(str(getattr(payment.order.product, 'highlight_fee_rate', Decimal('1.00'))))
+                    promotion_fee = (payment.amount * promotion_fee_rate) / Decimal('100')
+                    if promotion_fee > payment.platform_fee:
+                        promotion_fee = payment.platform_fee
+                base_platform_fee = payment.platform_fee - promotion_fee
+                if base_platform_fee < 0:
+                    base_platform_fee = Decimal('0')
                 
                 # FORCE NET CALCULATION
                 # If platform fee is 0 (pending), estimate it (e.g. 5% total approx)
@@ -1415,9 +1483,12 @@ class VendorPayoutsView(APIView):
                     'type': 'direct',
                     'gross_amount': format(payment.amount, 'f').rstrip('0').rstrip('.'),
                     'platform_fee': format(payment.platform_fee, 'f').rstrip('0').rstrip('.'),
+                    'base_platform_fee': format(base_platform_fee, 'f').rstrip('0').rstrip('.'),
+                    'promotion_fee': format(promotion_fee, 'f').rstrip('0').rstrip('.'),
                     'escrow_fee': '0.00',
                     'network_fee': f"{network_fee:.8f} {currency_symbol}",
                     'platform_fee_rate': round(platform_fee_rate, 2),
+                    'promotion_fee_rate': float(promotion_fee_rate),
                     'escrow_fee_rate': 0
                 })
             

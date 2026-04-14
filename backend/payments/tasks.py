@@ -80,6 +80,42 @@ def auto_release_escrow_payouts():
 
 
 @shared_task
+def retry_pending_refund_payouts():
+    """
+    Safety-net task: finds any refund Payouts stuck in 'pending' or 'failed'
+    state and re-queues process_payout_task for them.
+    
+    Runs every 5 minutes. Handles the case where:
+    - The initial process_payout_task.delay() was missed (e.g. old code bug)
+    - The task failed silently and wasn't retried
+    - Escrow orders whose PaymentAddress is 'refunded' and no longer polled
+    """
+    try:
+        from .models import Payout
+        
+        # Find refund payouts stuck in pending/failed for more than 2 minutes
+        cutoff = timezone.now() - timedelta(minutes=2)
+        stuck_refunds = Payout.objects.filter(
+            payout_type='refund',
+            status__in=['pending', 'failed'],
+            created_at__lt=cutoff
+        )
+        
+        count = 0
+        for payout in stuck_refunds:
+            try:
+                process_payout_task.delay(str(payout.id))
+                logger.info(f"REFUND RETRY: Re-queued payout {payout.id} for order {payout.order.order_id} (status={payout.status})")
+                count += 1
+            except Exception as e:
+                logger.error(f"REFUND RETRY: Failed to re-queue payout {payout.id}: {e}")
+        return f"Retried {count} stuck refund payouts"
+    except Exception as e:
+        logger.error(f"Error in retry_pending_refund_payouts: {str(e)}")
+        return str(e)
+
+
+@shared_task
 def check_direct_payment_status():
     """Trigger background monitoring tasks for all pending orders"""
     try:
@@ -426,6 +462,18 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             platform_fee_rate = vendor_custom_rate / Decimal('100')
         else:
             platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
+
+        promotion_fee_rate_pct = Decimal('0')
+        # Apply promotional uplift for highlighted listings at order time (+1% by default)
+        if getattr(order, 'was_highlighted_at_order', False):
+            highlight_pct = Decimal(str(getattr(order.product, 'highlight_fee_rate', Decimal('1.00'))))
+            promotion_fee_rate_pct = highlight_pct
+            highlight_rate = highlight_pct / Decimal('100')
+            platform_fee_rate += highlight_rate
+            logger.info(
+                f"Applying PROMOTIONAL highlight fee (+{highlight_pct}%) for order {order_id}. "
+                f"Total platform rate now: {platform_fee_rate * 100}%"
+            )
             
         logger.info(f"📊 FEE RATE DEBUG: Order {order_id}, Vendor {vendor.username}")
         logger.info(f"   Vendor Custom Rate Found? {vendor_custom_rate is not None}")
@@ -494,6 +542,13 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
         # CRITICAL: Calculate platform fee with detailed logging
         platform_fee = amount * platform_fee_rate
         escrow_fee = amount * escrow_fee_rate
+        promotion_fee_amount = (amount * promotion_fee_rate_pct) / Decimal('100') if promotion_fee_rate_pct > 0 else Decimal('0')
+        if promotion_fee_amount > 0:
+            logger.info(
+                f"💸 PROMOTION FEE DEDUCTED: order {order_id} is_highlighted=True, "
+                f"extra_fee_rate={promotion_fee_rate_pct}%, deducted={promotion_fee_amount} {crypto_symbol} "
+                f"from order amount {amount} {crypto_symbol}"
+            )
         
         # logger.info(f"💰 PLATFORM FEE CALCULATION:")
         # logger.info(f"   Vendor: {vendor.username}")

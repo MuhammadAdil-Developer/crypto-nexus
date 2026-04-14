@@ -10,12 +10,14 @@ urlpatterns = [
     
     # Buyer listings
     path('buyer/listings/', views.buyer_listings, name='buyer_listings'),
+    path('buyer/active-highlights/', views.buyer_active_highlights, name='buyer_active_highlights'),
     
     # Public vendor listings (must come before vendor/products to avoid conflicts)
     path('vendor-public/<str:vendor_username>/', views.get_vendor_public_products, name='get_vendor_public_products'),
     
     # Vendor product management
     path('vendor/products/', views.vendor_products, name='vendor_products'),
+    path('vendor/highlights/active/', views.vendor_active_highlights, name='vendor_active_highlights'),
     path('create/', views.create_product, name='create_product'),
     path('update/<int:product_id>/', views.update_product, name='update_product'),
     path('delete/<int:product_id>/', views.delete_product, name='delete_product'),
@@ -57,6 +59,9 @@ urlpatterns = [
     
     # Admin endpoints
     path('admin/all/', views.admin_list_all_products, name='admin_list_all_products'),
+    path('admin/promotions/highlights/', views.admin_promotion_highlights_list, name='admin_promotion_highlights_list'),
+    path('admin/promotions/highlights/<int:product_id>/end/', views.admin_end_product_highlight, name='admin_end_product_highlight'),
+    path('admin/promotions/highlights/<int:product_id>/extend/', views.admin_extend_product_highlight, name='admin_extend_product_highlight'),
     path('admin/<int:product_id>/approve/', views.admin_approve_product, name='admin_approve_product'),
     path('admin/<int:product_id>/reject/', views.admin_reject_product, name='admin_reject_product'),
     
@@ -72,6 +77,10 @@ urlpatterns = [
     path('<int:product_id>/promote/highlight/', views.promote_highlight, name='promote_highlight'),
     path('<int:product_id>/promote/unhighlight/', views.cancel_highlight, name='cancel_highlight'),
     path('promote/notification/', views.promote_notification, name='promote_notification'),
+    path('promote/notification/create-payment/', views.create_blast_payment, name='create_blast_payment'),
+    path('promote/notification/check-payment/', views.check_blast_payment, name='check_blast_payment'),
+    path('promote/notification/history/', views.vendor_blast_history, name='vendor_blast_history'),
+    path('promote/notification/<uuid:announcement_id>/remove/', views.vendor_remove_blast, name='vendor_remove_blast'),
     
     # Product detail (must be last to avoid conflicts)
     path('<int:product_id>/', views.product_detail, name='product_detail'),

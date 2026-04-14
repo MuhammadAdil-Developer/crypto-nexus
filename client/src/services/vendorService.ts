@@ -56,6 +56,16 @@ class VendorService {
     return productService.getVendorProducts();
   }
 
+  async getMyActiveHighlights() {
+    try {
+      const response = await api.get('/products/vendor/highlights/active/');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching active highlights:', error);
+      return { success: false, data: [] };
+    }
+  }
+
   async getProductDetail(productId: string | number) {
     return productService.getProductDetail(Number(productId));
   }
@@ -380,6 +390,54 @@ class VendorService {
       return response.data;
     } catch (error: any) {
       console.error('Error promoting notification:', error);
+      throw error.response?.data || error;
+    }
+  }
+
+  async createBlastPayment(productIds: number[], currency: string = 'BTC', promotionType: string = 'standard') {
+    try {
+      const response = await api.post('/products/promote/notification/create-payment/', {
+        product_ids: productIds,
+        currency,
+        promotion_type: promotionType
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error creating blast payment:', error);
+      throw error.response?.data || error;
+    }
+  }
+
+  async checkBlastPayment(invoiceId: string, productIds: number[], promotionType: string = 'standard') {
+    try {
+      const response = await api.post('/products/promote/notification/check-payment/', {
+        invoice_id: invoiceId,
+        product_ids: productIds,
+        promotion_type: promotionType
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error checking blast payment:', error);
+      throw error.response?.data || error;
+    }
+  }
+
+  async getBlastHistory() {
+    try {
+      const response = await api.get('/products/promote/notification/history/');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching blast history:', error);
+      return { success: false, data: [] };
+    }
+  }
+
+  async removeBlast(announcementId: string) {
+    try {
+      const response = await api.post(`/products/promote/notification/${announcementId}/remove/`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error removing blast:', error);
       throw error.response?.data || error;
     }
   }

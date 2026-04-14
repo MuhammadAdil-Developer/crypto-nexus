@@ -57,6 +57,10 @@ app.conf.beat_schedule = {
         'task': 'orders.tasks.auto_cancel_expired_orders_task',
         'schedule': crontab(minute='*/5'),  # Every 5 minutes
     },
+    'retry-refund-payouts': {
+        'task': 'payments.tasks.retry_pending_refund_payouts',
+        'schedule': crontab(minute='*/5'),  # Every 5 minutes
+    },
     'daily-profit-sweep': {
         'task': 'payments.tasks.daily_profit_sweep_task',
         'schedule': crontab(hour=12, minute=0),  # 12:00 UTC = 17:00 (5 PM) PKT

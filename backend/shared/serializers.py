@@ -3,6 +3,7 @@ from .models import Announcement, Notification, UserActivity, IPRestriction, Sys
 
 class AnnouncementSerializer(serializers.ModelSerializer):
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    created_by_profile_picture = serializers.CharField(source='created_by.profile_picture', read_only=True)
 
     class Meta:
         model = Announcement

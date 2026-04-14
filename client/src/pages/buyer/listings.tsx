@@ -419,6 +419,34 @@ function BuyerListingsContent() {
     // Use server-provided products as the source of truth
     let filtered = [...products];
 
+    // Multi-token smart search across key fields.
+    // Supports queries like: "netflix social", "gmail manual", "facebook category-name".
+    if (debouncedSearchQuery.trim()) {
+      const tokens = debouncedSearchQuery
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      filtered = filtered.filter((product) => {
+        const haystack = [
+          product.listing_title || "",
+          product.description || "",
+          product.website || "",
+          product.account_type || "",
+          product.delivery_method || "",
+          product.delivery_time || "",
+          product.category?.name || "",
+          product.sub_category?.name || "",
+          ...(product.tags || []),
+          ...(product.special_features || []),
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return tokens.every((t) => haystack.includes(t));
+      });
+    }
+
     // Apply client-side filters that might not be fully handled by backend yet (like delivery method)
 
     // Apply delivery method filter
@@ -457,7 +485,7 @@ function BuyerListingsContent() {
     }
 
     setFilteredProducts(filtered);
-  }, [products, selectedDeliveryMethod, relatedMode, relatedVendorId, relatedAccountType, relatedWebsite]);
+  }, [products, debouncedSearchQuery, selectedDeliveryMethod, relatedMode, relatedVendorId, relatedAccountType, relatedWebsite]);
 
   useEffect(() => {
     let cancelled = false;
@@ -695,7 +723,7 @@ function BuyerListingsContent() {
       const premiumParam = premiumOnly ? "&premium_listings=1" : "";
       // Removed deliveryParam to rely on client-side filtering as backend support is uncertain
 
-      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${debouncedSearchQuery ? `&search=${encodeURIComponent(debouncedSearchQuery)}` : ''}${cryptoParam}${priceParam}${categoryParam}${sortParam}${featuredParam}${premiumParam}`, {
+      const response = await fetch(`${API_BASE_URL}/products/buyer/listings/?page=${page}&page_size=${pageSize}${cryptoParam}${priceParam}${categoryParam}${sortParam}${featuredParam}${premiumParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

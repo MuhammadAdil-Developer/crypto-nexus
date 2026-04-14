@@ -13,7 +13,10 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'profile_picture', 'user_type', 'is_online']
+        fields = [
+            'id', 'username', 'email', 'profile_picture', 'user_type', 'is_online',
+            'is_on_vacation', 'vacation_mode_until', 'vacation_mode_note'
+        ]
     
     def get_is_online(self, obj):
         from django.core.cache import cache
@@ -134,7 +137,11 @@ class MessageSerializer(serializers.ModelSerializer):
                     'username': other_user.username,
                     'user_type': getattr(other_user, 'user_type', 'buyer'),
                     'profile_picture': other_user.profile_picture.url if other_user.profile_picture else None,
-                    'is_online': cache.get(f"user_online_{other_user.id}", False)
+                    'is_online': cache.get(f"user_online_{other_user.id}", False),
+                    'is_on_vacation': getattr(other_user, 'is_on_vacation', False),
+                    'is_on_vacation_active': bool(other_user.is_vacation_mode_active()) if hasattr(other_user, 'is_vacation_mode_active') else False,
+                    'vacation_mode_until': getattr(other_user, 'vacation_mode_until', None),
+                    'vacation_mode_note': getattr(other_user, 'vacation_mode_note', ''),
                 }
         return None
 
@@ -191,7 +198,11 @@ class ConversationSerializer(serializers.ModelSerializer):
                     'username': other_user.username,
                     'user_type': getattr(other_user, 'user_type', 'buyer'),
                     'profile_picture': profile_picture_url,
-                    'is_online': cache.get(f"user_online_{other_user.id}", False)
+                    'is_online': cache.get(f"user_online_{other_user.id}", False),
+                    'is_on_vacation': getattr(other_user, 'is_on_vacation', False),
+                    'is_on_vacation_active': bool(other_user.is_vacation_mode_active()) if hasattr(other_user, 'is_vacation_mode_active') else False,
+                    'vacation_mode_until': getattr(other_user, 'vacation_mode_until', None),
+                    'vacation_mode_note': getattr(other_user, 'vacation_mode_note', ''),
                 }
         return None
 

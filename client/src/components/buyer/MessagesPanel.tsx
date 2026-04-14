@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, MoreVertical, Send, Search, Archive, Star, Package, X, ArrowDown, Copy, Loader2, Image as ImageIcon, File, Video, Paperclip, User, Shield, Flag, Lock, Camera, Mic, Trash2, Info, Plus, ChevronLeft } from "lucide-react";
+import { MessageSquare, MoreVertical, Send, Search, Archive, Star, Package, X, ArrowDown, Copy, Loader2, Image as ImageIcon, File, Video, Paperclip, User, Shield, Flag, Lock, Camera, Mic, Trash2, Info, Plus, ChevronLeft, Palmtree } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -968,6 +968,11 @@ export function MessagesPanel({
     return conversation.participants.find((p: any) => String(p.id) !== String(currentId));
   };
 
+  const isVendorOnVacation = (conversation: any) => {
+    const v = getVendorFromConversation(conversation);
+    return Boolean(v?.is_on_vacation_active || v?.is_on_vacation);
+  };
+
   if (compact) {
     return (
       <Card className="border border-gray-700 bg-gray-900">
@@ -1078,8 +1083,17 @@ export function MessagesPanel({
                             {getVendorFromConversation(conv)?.username?.charAt(0) || (conv.product?.title?.charAt(0) || 'P')}
                           </AvatarFallback>
                         </Avatar>
-                        <div className={`absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 border-2 border-gray-950 rounded-full transition-colors duration-300 ${getVendorFromConversation(conv)?.is_online ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-gray-500'
-                          }`} />
+                        {isVendorOnVacation(conv) ? (
+                          <div
+                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-gray-950 rounded-full bg-orange-500/90 flex items-center justify-center"
+                            title="On Vacation"
+                          >
+                            <Palmtree className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white" />
+                          </div>
+                        ) : (
+                          <div className={`absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 border-2 border-gray-950 rounded-full transition-colors duration-300 ${getVendorFromConversation(conv)?.is_online ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-gray-500'
+                            }`} />
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -1158,8 +1172,17 @@ export function MessagesPanel({
                         {getVendorFromConversation(selectedConversation)?.username?.charAt(0) || 'V'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 border-2 border-gray-950 rounded-full transition-colors duration-300 ${getVendorFromConversation(selectedConversation)?.is_online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-500'
-                      }`} title={getVendorFromConversation(selectedConversation)?.is_online ? "Online" : "Offline"} />
+                    {isVendorOnVacation(selectedConversation) ? (
+                      <div
+                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-gray-950 rounded-full bg-orange-500/90 flex items-center justify-center"
+                        title="On Vacation"
+                      >
+                        <Palmtree className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white" />
+                      </div>
+                    ) : (
+                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 border-2 border-gray-950 rounded-full transition-colors duration-300 ${getVendorFromConversation(selectedConversation)?.is_online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-500'
+                        }`} title={getVendorFromConversation(selectedConversation)?.is_online ? "Online" : "Offline"} />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3

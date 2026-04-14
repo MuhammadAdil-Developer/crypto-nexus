@@ -66,6 +66,9 @@ interface PayoutData {
   type?: 'escrow' | 'direct' | 'refund';
   gross_amount?: string;
   platform_fee?: string;
+  base_platform_fee?: string;
+  promotion_fee?: string;
+  promotion_fee_rate?: number;
   escrow_fee?: string;
   platform_fee_rate?: number;
   escrow_fee_rate?: number;
@@ -785,6 +788,15 @@ export default function VendorPayouts() {
                       </div>
                       <span className="text-red-400">-{selectedPayout.platform_fee || '0.00000000'}</span>
                     </div>
+                    {!!selectedPayout.promotion_fee && selectedPayout.promotion_fee !== '0.00' && selectedPayout.promotion_fee !== '0' && (
+                      <div className="flex justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-gray-400">Promotion Fee (Highlighted)</span>
+                          <span className="text-[10px] text-gray-500">Extra: {selectedPayout.promotion_fee_rate || 0}%</span>
+                        </div>
+                        <span className="text-red-400">-{selectedPayout.promotion_fee}</span>
+                      </div>
+                    )}
                     {selectedPayout.type === 'escrow' && (
                       <div className="flex justify-between">
                         <div className="flex flex-col">

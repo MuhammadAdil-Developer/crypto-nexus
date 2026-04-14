@@ -217,9 +217,15 @@ class CreateOrderSerializer(serializers.ModelSerializer):
         # Capture highlight status at the time of order creation
         # We also check if the highlight has expired
         is_currently_highlighted = False
-        if product.is_highlighted and product.highlighted_until:
-             from django.utils import timezone
-             is_currently_highlighted = timezone.now() < product.highlighted_until
+        if product.is_highlighted:
+            from django.utils import timezone
+            now = timezone.now()
+            # Treat highlighted_until=None as "highlight active" to avoid losing promo tracking
+            # (some legacy rows may have is_highlighted=True but no timestamp).
+            if not product.highlighted_until:
+                is_currently_highlighted = True
+            else:
+                is_currently_highlighted = now < product.highlighted_until
         
         # Update validated_data with escrow decision, giveaway status, and highlight tracking
         validated_data['use_escrow'] = use_escrow

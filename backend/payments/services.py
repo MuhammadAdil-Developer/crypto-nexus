@@ -3148,13 +3148,28 @@ class PayoutService:
                 promotion_fee_rate_pct = Decimal('0')
                 promotion_fee_amount = Decimal('0')
 
-                # Add promotional highlight fee
-                if getattr(payout.order, 'was_highlighted_at_order', False):
+                # Add promotional highlight fee (prefer order-time tracking; fallback to product.is_highlighted)
+                is_promo = bool(getattr(payout.order, 'was_highlighted_at_order', False))
+                if not is_promo:
+                    try:
+                        from django.utils import timezone
+                        now = timezone.now()
+                        product = payout.order.product
+                        is_promo = bool(getattr(product, 'is_highlighted', False)) and (
+                            not getattr(product, 'highlighted_until', None) or now < product.highlighted_until
+                        )
+                    except Exception:
+                        is_promo = False
+
+                if is_promo:
                     highlight_pct = Decimal(str(getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00'))))
                     h_rate = highlight_pct / Decimal('100')
                     promotion_fee_rate_pct = highlight_pct
                     p_rate += h_rate
-                    logger.info(f"Applying PROMOTIONAL highlight fee (+{h_rate*100}%) for order {payout.order.order_id}. Total Platform Rate: {p_rate*100}%")
+                    logger.info(
+                        f"Applying PROMOTIONAL highlight fee (+{h_rate*100}%) for order {payout.order.order_id}. "
+                        f"Total Platform Rate: {p_rate*100}%"
+                    )
                 
                 payout.platform_fee = payout.gross_amount * p_rate
                 payout.escrow_fee = payout.gross_amount * e_rate

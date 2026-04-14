@@ -30,6 +30,9 @@ interface PayoutData {
   amount: string;
   gross_amount?: string;
   platform_fee?: string;
+  base_platform_fee?: string;
+  promotion_fee?: string;
+  promotion_fee_rate?: number;
   escrow_fee?: string;
   platform_fee_rate?: number;  // Add commission rates
   escrow_fee_rate?: number;     // Add commission rates
@@ -1268,6 +1271,12 @@ export default function AdminPayouts() {
                         <div className="flex justify-between">
                           <span className="text-gray-400">Platform Fee ({selectedPayout.platform_fee_rate || 0}%):</span>
                           <span className="font-mono text-accent">{selectedPayout.platform_fee} {selectedPayout.crypto_currency}</span>
+                        </div>
+                      )}
+                      {!!selectedPayout.promotion_fee && selectedPayout.promotion_fee !== '0.00' && selectedPayout.promotion_fee !== '0' && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Promotion Fee (Highlighted) (+{selectedPayout.promotion_fee_rate || 0}%):</span>
+                          <span className="font-mono text-accent">{selectedPayout.promotion_fee} {selectedPayout.crypto_currency}</span>
                         </div>
                       )}
                       {selectedPayout.escrow_fee && (

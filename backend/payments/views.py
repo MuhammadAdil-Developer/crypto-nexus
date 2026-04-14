@@ -984,11 +984,21 @@ class AdminPayoutView(APIView):
                     escrow_fee_rate = (payout.escrow_fee / payout.gross_amount) * 100
                 promotion_fee_rate = Decimal('0')
                 promotion_fee = Decimal('0')
-                if (
-                    payout.order
-                    and getattr(payout.order, 'was_highlighted_at_order', False)
-                    and payout.gross_amount > 0
-                ):
+                is_promo = False
+                if payout.order and payout.gross_amount > 0:
+                    is_promo = bool(getattr(payout.order, 'was_highlighted_at_order', False))
+                    if not is_promo:
+                        try:
+                            from django.utils import timezone
+                            now = timezone.now()
+                            product = payout.order.product
+                            is_promo = bool(getattr(product, 'is_highlighted', False)) and (
+                                not getattr(product, 'highlighted_until', None) or now < product.highlighted_until
+                            )
+                        except Exception:
+                            is_promo = False
+
+                if is_promo:
                     promotion_fee_rate = Decimal(str(getattr(payout.order.product, 'highlight_fee_rate', Decimal('1.00'))))
                     promotion_fee = (payout.gross_amount * promotion_fee_rate) / Decimal('100')
                     if promotion_fee > payout.platform_fee:
@@ -1447,11 +1457,21 @@ class VendorPayoutsView(APIView):
                     platform_fee_rate = (payment.platform_fee / payment.amount) * 100
                 promotion_fee_rate = Decimal('0')
                 promotion_fee = Decimal('0')
-                if (
-                    payment.order
-                    and getattr(payment.order, 'was_highlighted_at_order', False)
-                    and payment.amount > 0
-                ):
+                is_promo = False
+                if payment.order and payment.amount > 0:
+                    is_promo = bool(getattr(payment.order, 'was_highlighted_at_order', False))
+                    if not is_promo:
+                        try:
+                            from django.utils import timezone
+                            now = timezone.now()
+                            product = payment.order.product
+                            is_promo = bool(getattr(product, 'is_highlighted', False)) and (
+                                not getattr(product, 'highlighted_until', None) or now < product.highlighted_until
+                            )
+                        except Exception:
+                            is_promo = False
+
+                if is_promo:
                     promotion_fee_rate = Decimal(str(getattr(payment.order.product, 'highlight_fee_rate', Decimal('1.00'))))
                     promotion_fee = (payment.amount * promotion_fee_rate) / Decimal('100')
                     if promotion_fee > payment.platform_fee:

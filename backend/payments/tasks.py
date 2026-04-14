@@ -464,8 +464,21 @@ def process_non_escrow_payout(self, order_id: str, is_settled: bool = False):
             platform_fee_rate = commission_settings.platform_fee_rate / Decimal('100')
 
         promotion_fee_rate_pct = Decimal('0')
-        # Apply promotional uplift for highlighted listings at order time (+1% by default)
-        if getattr(order, 'was_highlighted_at_order', False):
+        # Apply promotional uplift for highlighted listings (+1% by default).
+        # Prefer immutable tracking at order time; fallback to product.is_highlighted for legacy rows.
+        is_promo = bool(getattr(order, 'was_highlighted_at_order', False))
+        if not is_promo:
+            try:
+                from django.utils import timezone
+                now = timezone.now()
+                product = order.product
+                is_promo = bool(getattr(product, 'is_highlighted', False)) and (
+                    not getattr(product, 'highlighted_until', None) or now < product.highlighted_until
+                )
+            except Exception:
+                is_promo = False
+
+        if is_promo:
             highlight_pct = Decimal(str(getattr(order.product, 'highlight_fee_rate', Decimal('1.00'))))
             promotion_fee_rate_pct = highlight_pct
             highlight_rate = highlight_pct / Decimal('100')

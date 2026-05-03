@@ -245,10 +245,9 @@ export default function VendorNotifications() {
                             <Badge className="bg-theme-cyan text-black font-bold text-xs uppercase">New</Badge>
                           )}
                         </div>
-                        <p
-                          className="text-gray-400 text-sm mb-2 line-clamp-2"
-                          dangerouslySetInnerHTML={{ __html: notification.message }}
-                        />
+                        <p className="text-gray-400 text-sm mb-2 line-clamp-2">
+                          {notification.message}
+                        </p>
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-gray-500">{notification.time}</p>
                           {notification.productTitle && (

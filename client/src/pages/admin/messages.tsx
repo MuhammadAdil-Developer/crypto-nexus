@@ -11,10 +11,16 @@ import { Search, Filter, MessageSquare, Ban, Lock, Flag, Plus, Trash2, Loader2, 
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { messagingService } from "@/services/messagingService";
+import { getImageUrl } from "@/config/api";
 import { format } from "date-fns";
 
 export default function AdminMessages() {
   const { toast } = useToast();
+  const resolveProductImageUrl = (raw?: string | null) => {
+    if (!raw) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
+    return getImageUrl(raw);
+  };
 
   const handleExportMessages = async () => {
     try {
@@ -415,13 +421,31 @@ export default function AdminMessages() {
       const messages = await messagingService.getConversationMessages(conversationId, page, 20);
 
       if (reset) {
-        setChatMessages(messages);
+        const seen = new Set<string>();
+        const uniqueMessages = (messages || []).filter((msg: any) => {
+          const key = String(msg?.id || '');
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setChatMessages(uniqueMessages);
+        setHasMoreMessages(uniqueMessages.length >= 20);
       } else {
-        setChatMessages(prev => [...prev, ...messages]);
+        let appendedCount = 0;
+        setChatMessages(prev => {
+          const seen = new Set(prev.map((msg: any) => String(msg?.id || '')));
+          const uniqueNew = (messages || []).filter((msg: any) => {
+            const key = String(msg?.id || '');
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          appendedCount = uniqueNew.length;
+          return uniqueNew.length ? [...prev, ...uniqueNew] : prev;
+        });
+        // Stop pagination when API returns only already-seen rows (prevents infinite cycling).
+        setHasMoreMessages(appendedCount > 0 && messages.length >= 20);
       }
-
-      // If we get fewer messages than requested, we've reached the end
-      setHasMoreMessages(messages.length >= 20);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -1194,11 +1218,28 @@ export default function AdminMessages() {
                       const fileUrl = message.attachment_url || message.metadata?.file_url || (message.attachment && typeof message.attachment === 'string' ? message.attachment : null);
 
                       if (message.message_type === 'product_reference') {
+                        const fallbackConversationImage =
+                          resolveProductImageUrl(selectedConversation?.product?.main_image) ||
+                          resolveProductImageUrl(selectedConversation?.product?.image) ||
+                          resolveProductImageUrl(Array.isArray(selectedConversation?.product?.main_images) ? selectedConversation.product.main_images[0] : null) ||
+                          resolveProductImageUrl(Array.isArray(selectedConversation?.product?.gallery_images) ? selectedConversation.product.gallery_images[0] : null);
+                        const productImageSrc = resolveProductImageUrl(message.metadata?.product_image) || fallbackConversationImage;
                         return (
                           <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3 mb-2">
                              <div className="flex items-center space-x-3">
-                                {message.metadata?.product_image ? (
-                                  <img src={message.metadata.product_image} alt="" className="w-10 h-10 rounded object-cover" />
+                                {productImageSrc ? (
+                                  <img
+                                    src={productImageSrc || undefined}
+                                    alt=""
+                                    className="w-10 h-10 rounded object-cover"
+                                    onError={(e) => {
+                                      if (fallbackConversationImage && e.currentTarget.src !== fallbackConversationImage) {
+                                        e.currentTarget.src = fallbackConversationImage;
+                                      } else {
+                                        e.currentTarget.style.display = 'none';
+                                      }
+                                    }}
+                                  />
                                 ) : (
                                   <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center">
                                     <Package className="w-5 h-5 text-gray-400" />

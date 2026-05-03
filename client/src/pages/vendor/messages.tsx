@@ -906,6 +906,11 @@ export default function VendorMessages() {
 
       // Check if this is a product conversation with no messages yet
       if (conversation.product && messagesData.length === 0) {
+        const rawImage =
+          conversation.product.main_image ||
+          conversation.product.image ||
+          (Array.isArray(conversation.product.main_images) ? conversation.product.main_images[0] : null) ||
+          (Array.isArray(conversation.product.gallery_images) ? conversation.product.gallery_images[0] : null);
         setShowProductReference(true);
 
         // Detect context
@@ -930,7 +935,7 @@ export default function VendorMessages() {
           product_id: conversation.product.id,
           product_title: conversation.product.headline || conversation.product.title,
           product_price: conversation.product.price,
-          product_image: conversation.product.main_image || conversation.product.image,
+          product_image: resolveProductImageUrl(rawImage),
           vendor_username: conversation.product.vendor_username,
           isDispute,
           isRefund
@@ -1186,6 +1191,12 @@ export default function VendorMessages() {
   const formatPrice = (price: any) => {
     const parsed = parseFloat(price || 0);
     return isNaN(parsed) ? '0.00' : parsed.toFixed(2);
+  };
+
+  const resolveProductImageUrl = (raw?: string | null) => {
+    if (!raw) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
+    return getImageUrl(raw);
   };
 
   const getBuyerFromConversation = (conversation: any) => {
@@ -1619,15 +1630,29 @@ export default function VendorMessages() {
                           borderColor = 'border-red-500/20';
                         }
 
+                        const fallbackConversationImage =
+                          resolveProductImageUrl(selectedConversation?.product?.main_image) ||
+                          resolveProductImageUrl(selectedConversation?.product?.image) ||
+                          resolveProductImageUrl(Array.isArray(selectedConversation?.product?.main_images) ? selectedConversation.product.main_images[0] : null) ||
+                          resolveProductImageUrl(Array.isArray(selectedConversation?.product?.gallery_images) ? selectedConversation.product.gallery_images[0] : null);
+                        const productImageSrc = resolveProductImageUrl(message.metadata?.product_image) || fallbackConversationImage;
+
                         return (
                           <div key={message.id} className="flex justify-center my-6">
                             <div className={`${bgColor} backdrop-blur-md px-4 py-3 rounded-2xl border ${borderColor} shadow-lg max-w-sm w-full mx-4`}>
                               <div className="flex items-center space-x-3">
-                                {message.metadata?.product_image ? (
+                                {productImageSrc ? (
                                   <img
-                                    src={message.metadata.product_image}
+                                    src={productImageSrc || undefined}
                                     alt={message.metadata.product_title}
                                     className="w-12 h-12 rounded-xl object-cover shadow-sm"
+                                    onError={(e) => {
+                                      if (fallbackConversationImage && e.currentTarget.src !== fallbackConversationImage) {
+                                        e.currentTarget.src = fallbackConversationImage;
+                                      } else {
+                                        e.currentTarget.style.display = 'none';
+                                      }
+                                    }}
                                   />
                                 ) : (
                                   <div className={`w-12 h-12 rounded-xl ${isRefund || isDispute ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'} flex items-center justify-center`}>
@@ -1859,11 +1884,14 @@ export default function VendorMessages() {
                     {showProductReference && productReferenceData && (
                       <div className={`${productReferenceData.isDispute || productReferenceData.isRefund ? 'bg-red-500/10 border-red-500/20' : 'bg-blue-500/10 border-blue-500/20'} border rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-bottom-2`}>
                         <div className="flex items-center space-x-3 overflow-hidden">
-                          {productReferenceData.product_image ? (
+                          {resolveProductImageUrl(productReferenceData.product_image) ? (
                             <img
-                              src={productReferenceData.product_image}
+                              src={resolveProductImageUrl(productReferenceData.product_image) || undefined}
                               alt={productReferenceData.product_title}
                               className="w-10 h-10 rounded-lg object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <div className={`w-10 h-10 rounded-lg ${productReferenceData.isDispute || productReferenceData.isRefund ? 'bg-red-500/20' : 'bg-blue-500/20'} flex items-center justify-center`}>

@@ -410,7 +410,7 @@ export function MessagesPanel({
       }));
 
       // Update selected conversation
-      setSelectedConversation(prev => {
+      setSelectedConversation((prev: any) => {
         if (!prev) return prev;
 
         const updatedParticipants = prev.participants?.map((p: any) =>
@@ -499,7 +499,7 @@ export function MessagesPanel({
         });
 
         // If this is the selected conversation, update it
-        setSelectedConversation(current => {
+        setSelectedConversation((current: any) => {
           if (current?.id === data.conversation.id) {
             return { ...current, ...data.conversation };
           }
@@ -593,12 +593,17 @@ export function MessagesPanel({
 
       // Check if this is a product conversation with no messages yet
       if (conversation.product && messagesData.length === 0) {
+        const rawImage =
+          conversation.product.main_image ||
+          conversation.product.image ||
+          (Array.isArray(conversation.product.main_images) ? conversation.product.main_images[0] : null) ||
+          (Array.isArray(conversation.product.gallery_images) ? conversation.product.gallery_images[0] : null);
         setShowProductReference(true);
         setProductReferenceData({
           product_id: conversation.product.id,
-          product_title: conversation.product.title,
+          product_title: conversation.product.headline || conversation.product.title,
           product_price: conversation.product.price,
-          product_image: conversation.product.image,
+          product_image: resolveProductImageUrl(rawImage),
           vendor_username: conversation.product.vendor_username
         });
       } else {
@@ -960,6 +965,12 @@ export function MessagesPanel({
     return isNaN(parsed) ? '0.00' : parsed.toFixed(2);
   };
 
+  const resolveProductImageUrl = (raw?: string | null) => {
+    if (!raw) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw;
+    return getImageUrl(raw);
+  };
+
   const getVendorFromConversation = (conversation: any) => {
     if (conversation.other_participant) return conversation.other_participant;
     if (!conversation.participants) return null;
@@ -1086,7 +1097,7 @@ export function MessagesPanel({
                         {isVendorOnVacation(conv) ? (
                           <div
                             className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-gray-950 rounded-full bg-orange-500/90 flex items-center justify-center"
-                            title="On Vacation"
+                            title="This vendor is currently on vacation..."
                           >
                             <Palmtree className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white" />
                           </div>
@@ -1175,7 +1186,7 @@ export function MessagesPanel({
                     {isVendorOnVacation(selectedConversation) ? (
                       <div
                         className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-gray-950 rounded-full bg-orange-500/90 flex items-center justify-center"
-                        title="On Vacation"
+                        title="This vendor is currently on vacation..."
                       >
                         <Palmtree className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white" />
                       </div>
@@ -1373,6 +1384,13 @@ export function MessagesPanel({
                         borderColor = 'border-red-400/50';
                       }
 
+                      const fallbackConversationImage =
+                        resolveProductImageUrl(selectedConversation?.product?.main_image) ||
+                        resolveProductImageUrl(selectedConversation?.product?.image) ||
+                        resolveProductImageUrl(Array.isArray(selectedConversation?.product?.main_images) ? selectedConversation.product.main_images[0] : null) ||
+                        resolveProductImageUrl(Array.isArray(selectedConversation?.product?.gallery_images) ? selectedConversation.product.gallery_images[0] : null);
+                      const productImageSrc = resolveProductImageUrl(message.metadata?.product_image) || fallbackConversationImage;
+
                       return (
                         <div key={message.id} className={`flex ${isFirstMessageFromCurrentUser ? 'justify-end' : 'justify-start'} my-4`}>
                           <div className="relative max-w-md">
@@ -1384,11 +1402,18 @@ export function MessagesPanel({
                             {/* Product reference box with color based on chat type */}
                             <div className={`${bgColor} backdrop-blur-sm ${textColor} px-4 py-3 rounded-lg border ${borderColor} shadow-lg`}>
                               <div className="flex items-center space-x-3">
-                                {message.metadata?.product_image ? (
+                                {productImageSrc ? (
                                   <img
-                                    src={message.metadata.product_image}
+                                    src={productImageSrc || undefined}
                                     alt={message.metadata.product_title}
                                     className="w-10 h-10 rounded object-cover"
+                                    onError={(e) => {
+                                      if (fallbackConversationImage && e.currentTarget.src !== fallbackConversationImage) {
+                                        e.currentTarget.src = fallbackConversationImage;
+                                      } else {
+                                        e.currentTarget.style.display = 'none';
+                                      }
+                                    }}
                                   />
                                 ) : (
                                   <div className={`w-10 h-10 rounded ${isRefund ? 'bg-orange-400' : isDispute ? 'bg-red-400' : 'bg-blue-400'} flex items-center justify-center`}>
@@ -1646,9 +1671,9 @@ export function MessagesPanel({
                 <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg mb-4 border border-green-500">
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
-                      {productReferenceData.product_image ? (
+                      {resolveProductImageUrl(productReferenceData.product_image) ? (
                         <img
-                          src={productReferenceData.product_image}
+                          src={resolveProductImageUrl(productReferenceData.product_image) || undefined}
                           alt={productReferenceData.product_title}
                           className="w-12 h-12 rounded-lg object-cover"
                         />

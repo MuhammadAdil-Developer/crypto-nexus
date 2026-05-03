@@ -1,5 +1,6 @@
 import re
 import logging
+import html
 from django.http import HttpResponseForbidden, HttpResponsePermanentRedirect, HttpResponse
 from django.conf import settings
 
@@ -161,6 +162,24 @@ class SecurityMiddleware:
             re.compile(r'docker-compose', re.IGNORECASE),
             re.compile(r'Procfile', re.IGNORECASE),
         ]
+        # Block obvious script-in-URI probes commonly used for reflected XSS tests.
+        self.malicious_uri_patterns = [
+            re.compile(r'</\s*script\s*>', re.IGNORECASE),
+            re.compile(r'<\s*script\b', re.IGNORECASE),
+            re.compile(r'javascript\s*:', re.IGNORECASE),
+            re.compile(r'%3c\s*script', re.IGNORECASE),
+            re.compile(r'%3c/%20*script%3e', re.IGNORECASE),
+            re.compile(r'(?:onerror|onload)\s*=', re.IGNORECASE),
+            # Double-encoded script payloads (e.g. %253Cscript%253E)
+            re.compile(r'%25(?:3c|3e|22|27|2f)', re.IGNORECASE),
+            re.compile(r'%253c\s*script', re.IGNORECASE),
+            re.compile(r'%253c/%2520*script%253e', re.IGNORECASE),
+            # Broad event-handler attributes (onclick=, onmouseover=, etc.)
+            re.compile(r'\bon[a-z]{3,30}\s*=', re.IGNORECASE),
+            # Extra common XSS protocol/vector probes
+            re.compile(r'data\s*:\s*text/html', re.IGNORECASE),
+            re.compile(r'vbscript\s*:', re.IGNORECASE),
+        ]
 
     def __call__(self, request):
         # 1. Block access to sensitive files
@@ -168,6 +187,13 @@ class SecurityMiddleware:
         for pattern in self.sensitive_patterns:
             if pattern.search(path):
                 return HttpResponseForbidden("Access Denied")
+
+        # 1b. Block malicious URI/query payloads before view/rendering.
+        full_path = request.get_full_path() or ""
+        if any(pattern.search(full_path) for pattern in self.malicious_uri_patterns):
+            client_ip = self._get_client_ip(request)
+            logger.warning("Blocked suspicious URI payload from %s -> %s", client_ip or "unknown", full_path[:500])
+            return HttpResponseForbidden("Suspicious request blocked.")
 
         # 2. Force HTTPS in production (if configured)
         if not settings.DEBUG and not request.is_secure() and not request.headers.get('X-Forwarded-Proto') == 'https':
@@ -196,8 +222,9 @@ class SecurityMiddleware:
                     logger.warning(f"Blocked IP attempted access: {client_ip} -> {path}")
                     accept_header = request.META.get('HTTP_ACCEPT', '')
                     if 'text/html' in accept_header:
-                        html = BLOCKED_IP_HTML.format(client_ip=client_ip)
-                        return HttpResponse(html, status=403, content_type='text/html')
+                        safe_client_ip = html.escape(client_ip)
+                        blocked_html = BLOCKED_IP_HTML.format(client_ip=safe_client_ip)
+                        return HttpResponse(blocked_html, status=403, content_type='text/html')
                     # JSON response for API clients
                     from django.http import JsonResponse
                     return JsonResponse({
@@ -232,6 +259,17 @@ class SecurityMiddleware:
         response['X-XSS-Protection'] = '1; mode=block'
         response['X-Frame-Options'] = 'SAMEORIGIN'
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        # Defense in depth against injected/inline script execution.
+        response['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' https://challenges.cloudflare.com https://*.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "img-src 'self' data: blob: https:; "
+            "font-src 'self' data: https://fonts.gstatic.com; "
+            "connect-src 'self' https: wss:; "
+            "frame-src 'self' https://challenges.cloudflare.com https://*.cloudflare.com; "
+            "object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+        )
         if not settings.DEBUG:
             response['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
         response.headers.pop('Server', None)

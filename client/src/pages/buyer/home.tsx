@@ -55,6 +55,88 @@ import { useMessaging } from "@/contexts/MessagingContext";
 import { usePendingOrder, PendingOrderProvider } from "@/contexts/PendingOrderContext";
 import brandLogo from "@/assets/banner/logo.png";
 
+const ALLOWED_ANNOUNCEMENT_TAGS = new Set([
+  "p", "br", "strong", "em", "u", "b", "i",
+  "ul", "ol", "li", "span", "a"
+]);
+
+const ALLOWED_ANNOUNCEMENT_ATTRS: Record<string, Set<string>> = {
+  a: new Set(["href", "target", "rel"]),
+  span: new Set([]),
+  p: new Set([]),
+  li: new Set([]),
+  ul: new Set([]),
+  ol: new Set([]),
+  br: new Set([]),
+  strong: new Set([]),
+  em: new Set([]),
+  u: new Set([]),
+  b: new Set([]),
+  i: new Set([]),
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const sanitizeAnnouncementHtml = (raw: string) => {
+  if (!raw) return "";
+  if (typeof window === "undefined") return escapeHtml(raw);
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${raw}</div>`, "text/html");
+    const root = doc.body.firstElementChild as HTMLElement | null;
+    if (!root) return "";
+
+    const allNodes = Array.from(root.querySelectorAll("*"));
+    allNodes.forEach((el) => {
+      const tag = el.tagName.toLowerCase();
+      if (!ALLOWED_ANNOUNCEMENT_TAGS.has(tag)) {
+        const text = doc.createTextNode(el.textContent || "");
+        el.replaceWith(text);
+        return;
+      }
+
+      Array.from(el.attributes).forEach((attr) => {
+        const name = attr.name.toLowerCase();
+        const value = attr.value || "";
+        const allowedAttrs = ALLOWED_ANNOUNCEMENT_ATTRS[tag] || new Set<string>();
+
+        if (name.startsWith("on") || name === "style" || !allowedAttrs.has(name)) {
+          el.removeAttribute(attr.name);
+          return;
+        }
+
+        if (tag === "a" && name === "href") {
+          const href = value.trim();
+          const isSafeHref =
+            href.startsWith("/") ||
+            href.startsWith("#") ||
+            href.startsWith("mailto:") ||
+            /^https?:\/\//i.test(href);
+          if (!isSafeHref) {
+            el.removeAttribute("href");
+          }
+        }
+      });
+
+      if (tag === "a") {
+        if (!el.getAttribute("target")) el.setAttribute("target", "_blank");
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+
+    return root.innerHTML;
+  } catch {
+    return escapeHtml(raw);
+  }
+};
+
 // Add these interfaces at the top of the file (after imports)
 
 interface Order {
@@ -1219,7 +1301,7 @@ function BuyerHomeContent() {
                           </div>
                           <div
                             className="text-sm mt-1 opacity-90 prose prose-invert prose-a:text-theme-cyan prose-a:font-semibold prose-a:no-underline hover:prose-a:underline max-w-none"
-                            dangerouslySetInnerHTML={{ __html: announcement.content }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeAnnouncementHtml(String(announcement.content || "")) }}
                           />
                         </div>
                       </>

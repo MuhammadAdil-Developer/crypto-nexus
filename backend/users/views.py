@@ -7,6 +7,8 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 import logging
 
+from shared.auth_cookies import set_auth_cookies, clear_auth_cookies
+
 from .models import User
 from .serializers import (
     UserRegistrationSerializer,
@@ -447,12 +449,18 @@ def user_login(request):
                     'refresh': refresh_token
                 }
             }
-            
-            return Response({
+
+            # Create response with data
+            response = Response({
                 'success': True,
                 'message': 'Login successful',
                 'data': response_data
             })
+
+            # Set httpOnly cookies for enhanced security
+            response = set_auth_cookies(response, access_token, refresh_token, remember_me)
+
+            return response
         else:
             return Response({
                 'success': False,
@@ -493,10 +501,13 @@ def logout(request):
             pass  # Don't fail logout if logging fails
         
         # In a real implementation, you might want to blacklist the token
-        return Response({
+        response = Response({
             'success': True,
             'message': 'Logout successful'
         })
+        # Clear httpOnly cookies
+        response = clear_auth_cookies(response)
+        return response
     except Exception as e:
         return Response({
             'success': False,

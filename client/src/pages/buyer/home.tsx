@@ -1775,6 +1775,11 @@ function BuyerHomeContent() {
                                       const modal = document.createElement('div');
                                       modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
 
+                                      // Sanitize user-provided credential data to prevent XSS
+                                      const safeEmail = escapeHtml(emailPart);
+                                      const safePassword = escapeHtml(passwordPart);
+                                      const safeHeadline = escapeHtml(order.product?.headline || 'product');
+
                                       modal.innerHTML = `
                                       <div class="bg-gray-900 border border-gray-600/30 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
                                         <div class="flex items-center justify-between p-6 border-b border-gray-600/20">
@@ -1792,14 +1797,14 @@ function BuyerHomeContent() {
                                                 <p class="text-sm text-gray-400">Email:</p>
                                                 <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.innerHTML = this.nextElementSibling.classList.contains('hidden') ? '👁️' : '🙈'" class="text-green-400 hover:text-green-300">👁️</button>
                                               </div>
-                                              <p class="text-white font-mono break-all hidden">${emailPart}</p>
+                                              <p class="text-white font-mono break-all hidden">${safeEmail}</p>
                                             </div>
                                             <div class="bg-gray-800/50 rounded-lg p-4">
                                               <div class="flex items-center justify-between mb-2">
                                                 <p class="text-sm text-gray-400">Password:</p>
                                                 <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.innerHTML = this.nextElementSibling.classList.contains('hidden') ? '👁️' : '🙈'" class="text-green-400 hover:text-green-300">👁️</button>
                                               </div>
-                                              <p class="text-white font-mono break-all hidden">${passwordPart}</p>
+                                              <p class="text-white font-mono break-all hidden">${safePassword}</p>
                                             </div>
                                             <div class="flex justify-center mt-6">
                                               <button id="downloadBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
@@ -1821,7 +1826,7 @@ function BuyerHomeContent() {
                                         const url = window.URL.createObjectURL(blob);
                                         const a = document.createElement('a');
                                         a.href = url;
-                                        a.download = `${order.product?.headline || 'product'}_credentials.txt`;
+                                        a.download = `${safeHeadline}_credentials.txt`;
                                         document.body.appendChild(a);
                                         a.click();
                                         document.body.removeChild(a);

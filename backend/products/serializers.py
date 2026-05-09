@@ -1,6 +1,20 @@
 import uuid
+import re
 from rest_framework import serializers
 from .models import Product, ProductCategory, ProductSubCategory
+
+
+def sanitize_input(value):
+    """Sanitize user input to prevent XSS attacks"""
+    if not value:
+        return value
+    if not isinstance(value, str):
+        return value
+    # Remove script tags and event handlers
+    sanitized = re.sub(r'<script[^>]*>.*?</script>', '', value, flags=re.IGNORECASE | re.DOTALL)
+    sanitized = re.sub(r'javascript:', '', sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r'on\w+\s*=', '', sanitized, flags=re.IGNORECASE)
+    return sanitized
 
 class ProductCategorySerializer(serializers.ModelSerializer):
     """Serializer for product categories"""
@@ -370,10 +384,18 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         ]
     
     def validate(self, data):
-        """Validate product data"""
+        """Validate and sanitize product data"""
+        # Sanitize text fields that could contain XSS
+        text_fields = ['headline', 'description', 'additional_info', 'special_features',
+                       'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
+                       'account_age', 'access_method']
+        for field in text_fields:
+            if field in data and data[field]:
+                data[field] = sanitize_input(data[field])
+
         request = self.context.get('request')
         requester = request.user if request else None
-        
+
         # Identify the vendor - if admin is creating for someone else, use that vendor
         vendor = None
         vendor_id = data.get('vendor')
@@ -687,6 +709,14 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """Custom validation for product updates"""
+        # Sanitize text fields that could contain XSS
+        text_fields = ['headline', 'description', 'additional_info', 'special_features',
+                       'region_restrictions', 'auto_delivery_script', 'notes_for_buyer',
+                       'account_age', 'access_method']
+        for field in text_fields:
+            if field in data and data[field]:
+                data[field] = sanitize_input(data[field])
+
         # Tag Validation - Maximum 3 tags
         tags = data.get('tags', [])
         if tags:

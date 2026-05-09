@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, Clock, Wrench } from "lucide-react";
+import { API_BASE_URL } from '@/config/api';
 
 interface MaintenancePageProps {
     message?: string;
@@ -48,4 +49,56 @@ export default function MaintenancePage({ message }: MaintenancePageProps) {
             </div>
         </div>
     );
+}
+
+// Wrapper component that fetches custom message from API
+export function MaintenancePageWrapper() {
+    const [message, setMessage] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMessage = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/system/maintenance/status/`);
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    setMessage(data.data.message || null);
+                }
+            } catch (error) {
+                console.error('Failed to fetch maintenance message:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMessage();
+    }, []);
+
+    if (loading) {
+        // Show loading state
+        return (
+            <div className="min-h-screen bg-bg flex items-center justify-center p-4">
+                <div className="max-w-md w-full text-center space-y-8">
+                    <div className="relative mx-auto w-32 h-32 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-accent/20 rounded-full animate-pulse" />
+                        <div className="relative bg-surface-2 p-6 rounded-full border border-accent/30 shadow-[0_0_30px_rgba(255,102,0,0.2)]">
+                            <Wrench className="w-12 h-12 text-accent" />
+                        </div>
+                    </div>
+                    <div className="space-y-4">
+                        <h1 className="text-3xl font-bold text-white tracking-tight">
+                            System Maintenance
+                        </h1>
+                        <div className="bg-surface-2/50 border border-border rounded-lg p-6 backdrop-blur-sm">
+                            <p className="text-gray-400 animate-pulse">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Pass custom message to MaintenancePage component
+    return <MaintenancePage message={message || undefined} />;
 }

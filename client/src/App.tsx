@@ -33,7 +33,7 @@ import BuyerMyReviews from "./pages/buyer/my-reviews";
 import BuyerNotifications from "./pages/buyer/notifications";
 import { PriceProvider } from './contexts/PriceContext';
 import { MaintenanceProvider } from './contexts/MaintenanceContext';
-import MaintenancePage from './pages/maintenance';
+import MaintenancePage, { MaintenancePageWrapper } from './pages/maintenance';
 import './index.css';
 
 // Lazy load admin dashboard to hide admin routes from initial bundle
@@ -73,7 +73,7 @@ function App() {
                   <Routes>
                     {/* ... rest of the routes ... */}
                     {/* Public Routes */}
-                    <Route path="/maintenance" element={<MaintenancePage />} />
+                    <Route path="/maintenance" element={<MaintenancePageWrapper />} />
                     <Route path="/" element={<MarketplaceHome />} />
                     <Route path="/sign-in" element={<SignIn />} />
                     <Route path="/sign-up" element={<SignUp />} />

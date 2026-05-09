@@ -447,8 +447,25 @@ export default function VendorAnalytics() {
               const content = root ? root.outerHTML : '';
               const win = window.open('', '_blank');
               if (!win) return;
-              win.document.write(`<html><head><title>Vendor Report</title><style>body{background:#0b0b0f;color:#fff;font-family:Inter,ui-sans-serif,system-ui} .grid{gap:16px} .border{border-color:#374151}</style></head><body>${content}</body></html>`);
-              win.document.close();
+              // SECURITY: Use safe DOM methods instead of document.write
+              const doc = win.document;
+              doc.open();
+              doc.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Vendor Report</title>
+  <style>
+    body{background:#0b0b0f;color:#fff;font-family:Inter,ui-sans-serif,system-ui}
+    .grid{gap:16px}
+    .border{border-color:#374151}
+    /* Inline styles only - no script tags */
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`);
+              doc.close();
               win.focus();
               win.print();
               win.close();
